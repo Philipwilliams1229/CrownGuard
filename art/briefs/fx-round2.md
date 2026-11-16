@@ -61,3 +61,23 @@ and tell the lead if anything in it is old style (don't add people to it). Look 
 - Your own browser tab (tabs_create), closed when done; never resize the window.
 - At most two look-fix passes. Measure the cost of anything that runs per foe or per frame.
 - Report: what you did, the files, shot paths, the measured cost, and what still looks weak.
+
+# Round 2, the owner's picks (2026-11-16)
+"Bell toll: B, Plague burst: B, Level up: A, Path / final: A", and:
+- Plague burst B, but "make the bubbles a bit more varied in size, and make them slowly pop".
+- Level up A, "but the circle should disappear behind the tower where you wouldn't be able to see
+  it. Helps us keep that 3d feel. Same for any other effects like this honestly." THE RULE: a ring
+  or wave on the ground round a hall or a figure draws its BACK half (the part above the centre
+  line, y < centre) in the ground layer (`"g"`, drawn before the halls and figures, draw.js line
+  ~193) and its FRONT half in the air layer (`"a"`, after them, ~591), so the hall / figure hides
+  the back half. Applies to the level-up and path rings, the toll's waves, the heal wave, and any
+  other ring that circles something standing.
+- Fire on a foe: "between A and B ... closer to B but make the flames a bit smaller, and obstruct
+  less of the view. But I do like the effect."
+- Fire pools: "Not loving any of those, can we try again?"
+- Option C: "pretty far off from anything I'd want. Maybe take a second look at what direction for
+  that bold look." From now on C is NOT chunky icon shapes / thick ink / starbursts. C = **lit**:
+  the effect is mostly LIGHT, it throws coloured light onto the ground, the hall or the figures
+  near it (dithered glows, rim light on what stands in it, heat shimmer, a soft bloom), with fewer
+  drawn shapes than B. Still hard pixels, one sun, the tinted one-pixel line where something is
+  drawn.

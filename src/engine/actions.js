@@ -318,7 +318,6 @@ export const placeMasterTower = (g, kind, x, y, pick = null) => {
   sfx.play("ascend");
   g.effects.push({ type: "dust", x, y: y + 10, ttl: 380, r: 26 });
   g.effects.push({ type: "evolve", x, y, ttl: 900 });
-  g.effects.push({ type: "burst", x, y: y - 12, ttl: 1300, life: 1300, gold: true });
   g.effects.push({ type: "flash", x, y: y - 10, ttl: 550 });
   g.shake = Math.max(g.shake, 4);
 };
@@ -347,7 +346,6 @@ export const completeTower = (g, t) => {
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
-  g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 550 });
 };
 
@@ -362,8 +360,7 @@ export const upgradeTower = (g, t) => {
   sfx.play("upgrade");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
-  g.effects.push({ type: "levelup", x: t.x, y: t.y, ttl: 600 });
-  g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 700, life: 700, gold: false });
+  g.effects.push({ type: "levelup", x: t.x, y: t.y, ttl: 600, life: 600 });
 };
 
 export const branchTower = (g, t, key) => {
@@ -377,7 +374,6 @@ export const branchTower = (g, t, key) => {
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
-  g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1100, life: 1100, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 450 });
 };
 
@@ -394,7 +390,6 @@ export const ascendTower = (g, t, key) => {
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
-  g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 550 });
 };
 
@@ -624,7 +619,7 @@ export const callMilitia = (g, x, y) => {
   if (stands) band.slots = stands.map((_, i) => slotAt(i));
   g.bands.push(band);
   g.militiaCd = st.cooldown;
-  g.effects.push({ type: "levelup", x, y, ttl: 500 });
+  g.effects.push({ type: "levelup", x, y, ttl: 500, life: 500 });
   g.effects.push({ type: "dust", x, y: y + 6, ttl: 400 });
   return true;
 };
@@ -720,7 +715,7 @@ export const fireHeroAbility = (g, id, x, y) => {
     u.targetId = null;
     u.dash = { tx, ty, hit: [] };
     b.rally = { x: tx, y: ty };
-    g.effects.push({ type: "levelup", x: tx, y: ty, ttl: 500 });
+    g.effects.push({ type: "levelup", x: tx, y: ty, ttl: 500, life: 500 });
     sfx.play("horn");
   } else if (id === "volley") {
     // she turns to the spot and looses her flights up into the sky; they

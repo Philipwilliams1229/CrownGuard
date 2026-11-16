@@ -650,7 +650,7 @@ const levelHero = (g, b) => {
     b.st = heroStats(b.hero, b.level, b.talents);
     u.maxHp = b.st.hp;
     if (u.state !== "dead") u.hp = b.st.hp;
-    g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
+    g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700, life: 700 });
     const woke = heroAbilities(b.hero).find((a) => a.unlock === b.level && a.unlock > 1);
     const ret = HERO_RETINUE[b.hero];
     const joins = ret && ret.at.includes(b.level);
@@ -899,7 +899,7 @@ const syncRetinue = (g) => {
     const hu = hero.units[0];
     const x = hu.state !== "dead" ? hu.x : hero.rally.x, y = hu.state !== "dead" ? hu.y : hero.rally.y;
     b.units.push({ id: nextId(), hp: def.st.hp, maxHp: def.st.hp, x, y, face: hu.face || -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
-    g.effects.push({ type: "levelup", x, y, ttl: 700 });
+    g.effects.push({ type: "levelup", x, y, ttl: 700, life: 700 });
     g.effects.push({ type: "dust", x, y: y + 6, ttl: 400 });
   }
 };
@@ -2291,7 +2291,7 @@ export function updateGame(g, dt) {
       }
       if (e.deathBurst) {
         const b = e.deathBurst;
-        g.effects.push({ type: "plagueburst", x: e.x, y: e.y, ttl: 500, r: b.r });
+        g.effects.push({ type: "plagueburst", x: e.x, y: e.y, ttl: 1400, life: 1400, r: b.r }); // owner: the bubbles pop slowly
         sfx.play("plague");
         g.grounds.push({ x: e.x, y: e.y, r: b.r * 0.8, dps: b.dps, until: tms + b.dur, kind: "plague" });
         for (const t of unitHosts(g)) {

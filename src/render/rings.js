@@ -182,6 +182,36 @@ const dash = (ctx, x, y, rx, ry, sz, gap, style) => {
   }
   ctx.fill();
 };
+// ---- the occlusion rule -----------------------------------------------------
+// A ring on the ground round something standing: its BACK half (y above the
+// centre, angles pi..2pi) belongs to the ground layer, drawn before the halls
+// and figures, so they hide it; its FRONT half to the air layer, drawn after.
+const sideOf = (GR, AIR, an) => (GR && AIR) || (Math.sin(an) < 0 ? GR : AIR);
+const halfRange = (GR, AIR) => (GR && AIR ? [0, TAU] : GR ? [Math.PI, TAU] : [0, Math.PI]);
+const arcPx = (ctx, x, y, rx, ry, th, color, GR, AIR) => {
+  if (rx < 1) return;
+  const [a0, a1] = halfRange(GR, AIR);
+  const n = Math.max(16, Math.ceil((TAU * Math.max(rx, ry)) / (th * 0.6)));
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = Math.ceil((a0 / TAU) * n); i < (a1 / TAU) * n; i++) {
+    const an = (i / n) * TAU;
+    ctx.rect(sn(x + Math.cos(an) * rx - th / 2), sn(y + Math.sin(an) * ry - th / 2), th, th);
+  }
+  ctx.fill();
+};
+const dashArc = (ctx, x, y, rx, ry, sz, gap, style, GR, AIR) => {
+  if (rx < 1) return;
+  const [a0, a1] = halfRange(GR, AIR);
+  const n = Math.max(8, Math.round((TAU * Math.max(rx, ry)) / gap));
+  ctx.fillStyle = style;
+  ctx.beginPath();
+  for (let i = Math.ceil((a0 / TAU) * n); i < (a1 / TAU) * n; i++) {
+    const an = (i / n) * TAU;
+    ctx.rect(sn(x + Math.cos(an) * rx - sz / 2), sn(y + Math.sin(an) * ry - sz / 2), sz, sz);
+  }
+  ctx.fill();
+};
 // debris flung out along the ground, up and back down under gravity
 const fling = (seed, i, p, R, up, grav) => {
   const a = hash(seed, i) * TAU, v = 0.4 + 0.6 * hash(seed, i + 40);
@@ -653,12 +683,14 @@ const drawAegis = (ctx, fx, a, g, GR, AIR) => {
     // as the wall closes, the mail runs in over everyone inside for a beat
     if (lock) { ctx.globalAlpha = A * 0.5; disc(ctx, fx.x, fx.y, r - 16, 0, scalesP(ctx, AEGIS[2])); ctx.globalAlpha = A; }
   }
+  if (r > 6) {
+    // the rim: a deep-blue dotted shadow outside, the pips' blue, a white edge
+    dashArc(ctx, fx.x, fx.y, r + 1.5, r + 1.5, 1, 3.2, AEGIS[4], GR, AIR);
+    arcPx(ctx, fx.x, fx.y, r, r, 2.5, lock ? AEGIS[1] : AEGIS[2], GR, AIR);
+    dashArc(ctx, fx.x, fx.y, r - 0.5, r - 0.5, 0.5, 2.6, AEGIS[0], GR, AIR);
+  }
   if (AIR) {
     if (r > 6) {
-      // the rim: a deep-blue dotted shadow outside, the pips' blue, a white edge
-      dash(ctx, fx.x, fx.y, r + 1.5, r + 1.5, 1, 3.2, AEGIS[4]);
-      ringPx(ctx, fx.x, fx.y, r, r, 2.5, lock ? AEGIS[1] : AEGIS[2]);
-      dash(ctx, fx.x, fx.y, r - 0.5, r - 0.5, 0.5, 2.6, AEGIS[0]);
       // the shields riding it, turning as they fly, face-on once it closes
       const n = Math.max(6, Math.min(26, Math.round((TAU * r) / 34)));
       const rot = sd + age * 0.0003, turn = Math.floor(age / 50);
@@ -696,6 +728,62 @@ const drawAegis = (ctx, fx, a, g, GR, AIR) => {
   return true;
 };
 
+// ---- round 2 pieces (2026-11-16) ------------------------------------------
+const TOXC = ["#e8f8b0", "#b8e050", "#6cb040", "#3c7a38", "#1e4a30"];
+// the bell, concept B: yoke and headstock, a flared body lit from the upper
+// left with a dark lip, a clapper swinging the other way; sw -2..2 is the swing
+const bellB = (sw) => memo(`bellB|${sw}`, () => {
+  const G = grid(36, 28), ox = 18, oy = 6, k = sw / 2;
+  const rect = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) G.set(ox + x + i, oy + y + j, c); };
+  rect(-9, -4, 18, 3, "#6a4a2a"); rect(-9, -4, 18, 1, "#8a6238"); rect(-1, -1, 2, 3, BRONZE[4]);
+  const shiftOf = (j) => Math.round(k * j * 0.5);
+  for (let j = 0; j < 14; j++) {
+    const hw = j < 12 ? 2.5 + 5.5 * (1 - Math.pow(1 - j / 11, 2.1)) : 8.6 + (j - 12) * 0.2, sh = shiftOf(j);
+    for (let dx = -Math.ceil(hw); dx <= Math.ceil(hw); dx++) {
+      if (Math.abs(dx) > hw) continue;
+      const u = dx / hw;
+      const col = j >= 12 ? BRONZE[3] : u < -0.55 ? BRONZE[0] : u < -0.1 ? BRONZE[1] : u < 0.45 ? BRONZE[2] : BRONZE[3];
+      G.set(ox + dx + sh, oy + j + 1, j === 11 && u < 0.2 ? BRONZE[0] : col);
+    }
+  }
+  const cx = Math.round(-k * 4 + shiftOf(13));
+  rect(cx - 1, 16, 3, 3, BRONZE[3]); G.set(ox + cx - 1, oy + 16, BRONZE[1]);
+  return { cv: G.done("#4a2e22"), ax: ox, ay: oy };
+});
+// the level-up arrow (concept A): a little up-pointing arrow, green or gold
+const UPA = ["....1....", "...121...", "..12221..", ".1222221.", "111222111", "..12221..", "..12221..", "..12221..", "..11111.."];
+const arrowS = (kind) => memo(`arrow|${kind}`, () => {
+  const T = kind === "gold" ? GOLD : HEAL, G = grid(11, 11);
+  bm(G, UPA, { 1: T[2], 2: T[0] }, 1, 1);
+  return { cv: G.done(kind === "gold" ? "#4a3018" : "#1a3d2a"), ax: 5, ay: 5 };
+});
+// a plague bubble of art-pixel radius r: a rim, a veil of sickly fill, a glint
+const bubbleS = (r, f) => memo(`bub|${r}|${f}`, () => {
+  const G = grid(2 * r + 5, 2 * r + 5), c = G.W / 2;
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.hypot(dx, dy);
+    if (d > r) continue;
+    if (d > r - 1.3) G.set(x, y, dy > 0 && dx > 0 ? TOXC[2] : TOXC[3]);
+    else if (r > 2) { if (bay(x, y) < 0.7) G.set(x, y, TOXC[(dx + dy) / r < -0.2 ? 1 : 2], 235); else G.set(x, y, TOXC[3], 235); }
+    else G.set(x, y, TOXC[2]);
+  }
+  if (r >= 3) { G.set(c - r * 0.45, c - r * 0.5, TOXC[0]); if (r >= 5) { G.set(c - r * 0.45 + 1, c - r * 0.5, TOXC[0]); G.set(c - r * 0.45, c - r * 0.5 + 1, TOXC[0]); } }
+  if (f && r >= 4) G.set(c + r * 0.35, c - r * 0.35, TOXC[1]);
+  return { cv: G.done(TOXC[4]), ax: c, ay: c };
+});
+// a bubble bursting: a ring of fragments thrown out, then a few flecks, then nothing
+const popS = (r, f) => memo(`pop|${r}|${f}`, () => {
+  const R = Math.min(15, r) + 5, G = grid(2 * R + 4, 2 * R + 4), c = G.W / 2;
+  const rad = Math.min(15, r) * (1 + f * 0.45) + 1, n = f === 0 ? 10 : f === 1 ? 8 : 5;
+  for (let i = 0; i < n; i++) {
+    const an = (i / n) * TAU + f * 0.4, x = c + Math.cos(an) * rad, y = c + Math.sin(an) * rad;
+    G.set(x, y, f === 2 ? TOXC[2] : TOXC[1]);
+    if (f < 2 && i % 2 === 0) G.set(x + Math.cos(an), y + Math.sin(an), TOXC[0]);
+  }
+  if (f === 0) for (let i = 0; i < 6; i++) { const an = (i / 6) * TAU + 0.3; G.set(c + Math.cos(an) * rad * 0.5, c + Math.sin(an) * rad * 0.5, TOXC[2], 200); }
+  return { cv: G.done(), ax: c, ay: c };
+});
+
 export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
   const GR = layer !== "a", AIR = layer !== "g";
   switch (fx.type) {
@@ -721,9 +809,10 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           put(ctx, rimeS(i % 4), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d);
         }
       }
+      // the rim: back half under the caster, front half over
+      arcPx(ctx, fx.x, fx.y, r, r, 2, rgba(ICE[3], 0.9), GR, AIR);
+      dashArc(ctx, fx.x, fx.y, r - 0.5, r - 0.5, 1, 2.2, ICE[0], GR, AIR);
       if (AIR) {
-        ringPx(ctx, fx.x, fx.y, r, r, 2, rgba(ICE[3], 0.9));
-        dash(ctx, fx.x, fx.y, r - 0.5, r - 0.5, 1, 2.2, ICE[0]);
         const n = Math.max(5, Math.min(34, Math.round((TAU * r) / 15)));
         const big = p > 0.18 && a > 0.45, a0 = hash(sd, 99) * TAU;
         for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
@@ -765,10 +854,10 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           put(ctx, charS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d);
         }
       }
+      // a line of coals under the flames: dark embers with hot hearts
+      dashArc(ctx, fx.x, fx.y, r, r, 1.5, 1.9, FIRE[4], GR, AIR);
+      dashArc(ctx, fx.x, fx.y, r + 0.5, r + 0.5, 1, 3.1, FIRE[1], GR, AIR);
       if (AIR) {
-        // a line of coals under the flames: dark embers with hot hearts
-        dash(ctx, fx.x, fx.y, r, r, 1.5, 1.9, FIRE[4]);
-        dash(ctx, fx.x, fx.y, r + 0.5, r + 0.5, 1, 3.1, FIRE[1]);
         const n = Math.max(5, Math.min(32, Math.round((TAU * r) / 16)));
         const s = a > 0.6 && p > 0.1 ? 1 : 0, fr = Math.floor(age / 65), a0 = hash(sd, 99) * TAU;
         for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
@@ -818,11 +907,13 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
         ctx.globalAlpha = a0 * CA;
         put(ctx, cracksS(Math.max(12, Math.round(R / 4) * 4)), fx.x, fx.y);
       }
-      if (AIR && A > 0) {
+      if (A > 0) {
         ctx.globalAlpha = a0 * A;
-        ringPx(ctx, fx.x, fx.y, r, r, 3, rgba(EARTH[4], 0.85));
-        dash(ctx, fx.x, fx.y, r - 1.5, r - 1.5, 1, 1.6, EARTH[0]);
-        dash(ctx, fx.x, fx.y, r + 3, r + 3, 1, 3, rgba(EARTH[0], 0.5));
+        arcPx(ctx, fx.x, fx.y, r, r, 3, rgba(EARTH[4], 0.85), GR, AIR);
+        dashArc(ctx, fx.x, fx.y, r - 1.5, r - 1.5, 1, 1.6, EARTH[0], GR, AIR);
+        dashArc(ctx, fx.x, fx.y, r + 3, r + 3, 1, 3, rgba(EARTH[0], 0.5), GR, AIR);
+      }
+      if (AIR && A > 0) {
         // turf clods heaved up along the wavefront
         const n = Math.max(6, Math.min(24, Math.round((TAU * r) / 11)));
         for (let i = 0; i < n; i++) {
@@ -883,8 +974,10 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
         disc(ctx, fx.x, fx.y, r * 0.6, 0, dither(ctx, HEAL[1], 0.22));
         disc(ctx, fx.x, fx.y, r, Math.max(0, r - 3), dither(ctx, HEAL[1], 0.5));
       }
+      // the rings round the caster: back half under, front half over
+      arcPx(ctx, fx.x, fx.y, r, r, 1.5, HEAL[1], GR, AIR);
+      if (r > 12) dashArc(ctx, fx.x, fx.y, r * 0.62, r * 0.62, 0.5, 2, HEAL[2], GR, AIR);
       if (AIR) {
-        ringPx(ctx, fx.x, fx.y, r, r, 1.5, HEAL[1]);
         // shafts of green light lifting where the swell has passed
         const sh = [];
         for (let i = 0; i < 22; i++) {
@@ -901,7 +994,6 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
         ctx.beginPath();
         for (let i = 0; i < sh.length; i += 2) ctx.rect(sh[i], sh[i + 1], 1, 1.5);
         ctx.fill();
-        if (r > 12) dash(ctx, fx.x, fx.y, r * 0.62, r * 0.62, 0.5, 2, HEAL[2]);
         for (let i = 0; i < 24; i++) {
           const an = hash(sd, i) * TAU, d = R * (0.1 + 0.9 * hash(sd, i + 30));
           const born = (d / R) * 0.6;
@@ -997,62 +1089,161 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       return true;
     }
     case "toll": {
-      // The bell-ringer's toll: a bronze bell swinging overhead, rings of
-      // sound rolling out from it in bronze, one after another.
-      const life = 550, p = lifeP(fx, life), age = p * life, R = fx.r || 46;
-      const A = stepA(a);
+      // The bell-ringer's toll (look B): a bell swinging overhead and the toll
+      // running out ACROSS the ground in violet-bronze bands, dust kicked up,
+      // the graves' own light flickering where it has passed. The rings'
+      // lines are split by the occlusion rule: back half under, front over.
+      const life = fx.life || 550, p = lifeP(fx, life), age = p * life, R = fx.r || 46, sd = seedOf(fx);
+      const A = stepA(a), SQ = 0.55;
       ctx.save();
       ctx.globalAlpha *= A;
-      if (AIR) {
-        for (let k = 0; k < 3; k++) {
-          const q = p * 1.35 - k * 0.2;
-          if (q <= 0 || q >= 1) continue;
-          const rr = R * easeOut(q);
-          ctx.globalAlpha = A * stepA(1 - q * 0.7);
-          ringPx(ctx, fx.x, fx.y, rr, rr, 2, rgba(BRONZE[3], 0.85));
-          dash(ctx, fx.x, fx.y, rr - 0.5, rr - 0.5, 1, 1.4, k === 0 ? BRONZE[0] : BRONZE[1]);
+      for (let k = 0; k < 3; k++) {
+        const q = p * 1.35 - k * 0.2;
+        if (q <= 0 || q >= 1) continue;
+        const rr = R * easeOut(q), fade = 1 - q;
+        if (GR) {
+          ctx.globalAlpha = A * stepA(0.7 * fade);
+          disc(ctx, fx.x, fx.y, rr, Math.max(0, rr - 5), dither(ctx, VIOLET[1], 0.7), SQ);
         }
+        ctx.globalAlpha = A * stepA(fade);
+        arcPx(ctx, fx.x, fx.y, rr - 1.5, (rr - 1.5) * SQ, 1.4, BRONZE[1], GR, AIR);
+        dashArc(ctx, fx.x, fx.y, rr - 2, (rr - 2) * SQ, 0.5, 2, BRONZE[0], GR, AIR);
+        // dust kicked up along the front, each puff on its own side of the ring
+        const du = [], dl = [];
+        for (let d = 0; d < 9; d++) {
+          const an = d * 0.7 + k * 2.1 + hash(sd, k * 9 + d) * 0.4;
+          if (!sideOf(GR, AIR, an)) continue;
+          const s = (1 + q * 1.4) * (0.7 + 0.6 * hash(sd, d + 70));
+          du.push(fx.x + Math.cos(an) * rr - s / 2, fx.y + Math.sin(an) * rr * SQ - 1.5 - q * 3, s);
+          dl.push(fx.x + Math.cos(an) * rr, fx.y + Math.sin(an) * rr * SQ - 3.5 - q * 4, 0.5);
+        }
+        dots(ctx, du, EARTH[1]); dots(ctx, dl, EARTH[0]);
+      }
+      ctx.globalAlpha = A;
+      if (GR) {
+        // the graves' light: dark stumps; where the toll has passed, witch-fire
+        const st = [], fl = [], hi = [];
+        for (let i = 0; i < 7; i++) {
+          const an = i * 2.4 + 0.3, d = 10 + hash(sd, i + 4) * 28, x = fx.x + Math.cos(an) * d, y = fx.y + Math.sin(an) * d * SQ;
+          st.push(x, y - 0.5, 0.5);
+          st.push(x, y - 1, 0.5);
+          if (d < p * 1.35 * R + 4 && (Math.floor(age / 70) + i) % 3 !== 0) {
+            fl.push(x, y - 1.5, 0.5); hi.push(x, y - 2, 0.5);
+            fl.push(x - 0.5, y - 1.5, 0.5); fl.push(x + 0.5, y - 1.5, 0.5);
+          }
+        }
+        dots(ctx, st, VIOLET[4]); dots(ctx, fl, "#4a9040"); dots(ctx, hi, "#eaffd0");
+      }
+      if (AIR) {
+        ctx.globalAlpha = A * stepA(0.3 * (1 - p));
+        disc(ctx, fx.x, fx.y - 23, 8, 0, dither(ctx, BRONZE[0], 0.4), 0.7);
         ctx.globalAlpha = A;
-        const sw = Math.sin(age * 0.022) * (1 - p);
-        put(ctx, bellS(sw > 0.3 ? 1 : sw < -0.3 ? -1 : 0), fx.x, fx.y - 26);
-        // sound-marks either side of the bell as it strikes
-        if (Math.abs(sw) > 0.3) {
-          const sx = sw > 0 ? 1 : -1, m = [];
-          for (let j = 0; j < 3; j++) m.push(fx.x + sx * (10 + j * 1.5), fx.y - 22 + j * 2.5 - 2.5, 1);
-          dots(ctx, m, BRONZE[1]);
+        const sw = Math.sin(age * 0.02) * (1 - p * 0.6);
+        put(ctx, bellB(Math.max(-2, Math.min(2, Math.round(sw * 2)))), fx.x, fx.y - 25);
+        if (Math.abs(sw) > 0.4) {
+          const m = [];
+          for (const sx of [-1, 1]) for (let j = 0; j < 3; j++) m.push(fx.x + sx * (7 + j), fx.y - 22 + j - 0.5, 0.5);
+          dots(ctx, m, VIOLET[1]);
         }
       }
       ctx.restore();
       return true;
     }
     case "plagueburst": {
-      // A ghast bursting: a ring of sickly spore-clouds rolling out, a rot
-      // stain left on the ground, spores and gobbets flung wide.
-      const life = 500, p = lifeP(fx, life), R = fx.r || 40, sd = seedOf(fx);
-      const r = R * easeOut(p * 1.2), A = stepA(a);
+      // A ghast bursting (look B): a sickly glow in a rot stain, and a cloud of
+      // bubbles of every size that swell, hold, and slowly pop, one by one.
+      const life = fx.life || 500, p = lifeP(fx, life), R = fx.r || 40, sd = seedOf(fx);
+      const r = R * easeOut(p * 1.2), A = stepA(a), SQ = 0.55;
       ctx.save();
       ctx.globalAlpha *= A;
-      if (GR) {
-        if (p > 0.08) put(ctx, rotS(Math.max(12, Math.round(R / 8) * 8)), fx.x, fx.y);
+      if (GR && p > 0.04) {
+        const g0 = easeOut(Math.min(1, p * 1.5));
+        disc(ctx, fx.x, fx.y, (r + 4), 0, dither(ctx, "#c8e040", 0.16), SQ);
+        disc(ctx, fx.x, fx.y, R * 0.9 * g0, 0, dither(ctx, ROT[3], 0.55), SQ);
+        disc(ctx, fx.x, fx.y, R * 0.9 * g0 * 0.65, 0, dither(ctx, ROT[2], 0.5), SQ);
+        disc(ctx, fx.x, fx.y, r * 0.5, 0, dither(ctx, "#f0f4a0", 0.16), SQ);
+        const sp = [];
+        for (let k = 0; k < 6; k++) { const an = k * 1.9, d = R * 0.9 * g0 * (0.2 + 0.5 * hash(sd, k + 7)); sp.push(fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ - 0.5, 1); }
+        dots(ctx, sp, ROT[0]);
       }
       if (AIR) {
-        ringPx(ctx, fx.x, fx.y, r, r, 1.5, rgba(ROT[2], 0.8));
-        const n = Math.max(5, Math.min(14, Math.round((TAU * r) / 16)));
-        const pf = Math.min(4, Math.floor(p * 5));
-        for (let i = 0; i < n; i++) {
-          const an = (i / n) * TAU + sd;
-          put(ctx, sporeS((i + sd) % 4, pf), fx.x + Math.cos(an) * r * 0.92, fx.y + Math.sin(an) * r * 0.92 - 3 - p * 6);
+        ctx.globalAlpha = stepA(Math.min(1, fx.ttl / 120));
+        const list = [];
+        for (let k = 0; k < 15; k++) {
+          const born = hash(sd, k + 100) * 0.3;
+          const size = 1.2 + 4.4 * hash(sd, k + 110) * hash(sd, k + 111) + 0.8 * hash(sd, k + 112);  // world units, mostly small, a few big
+          const hold = 0.3 + 0.45 * hash(sd, k + 120);
+          const pop = Math.min(0.78, born + hold + size * 0.01), grow = 0.18 + size * 0.02;
+          if (p < born) continue;
+          const an = k * 2.4 + 0.5, rr = r * (0.15 + 0.85 * Math.sqrt(hash(sd, k + 130)));
+          const bx = fx.x + Math.cos(an) * rr, by = fx.y + Math.sin(an) * rr * SQ - 2 - hash(sd, k + 140) * 5 - Math.min(1, p) * 4;
+          list.push({ bx, by: by - (p - born) * 5, size, born, grow, pop, k });
         }
+        list.sort((u, v) => u.by - v.by);
+        const gl = [], dr = [];
+        for (const b of list) {
+          if (p >= b.pop) {
+            const f = Math.floor((p - b.pop) / 0.07);
+            if (f < 3) put(ctx, popS(Math.max(2, Math.round(b.size * 2)), f), b.bx, b.by);
+            continue;
+          }
+          const grown = easeOut((p - b.born) / b.grow);
+          let rA = Math.max(1, Math.round(b.size * 2 * grown));
+          // about to pop: it trembles and swells a pixel
+          if (b.pop - p < 0.05) rA += 1;
+          put(ctx, bubbleS(Math.min(14, rA), (b.k + Math.floor(p * 14)) % 2), b.bx, b.by);
+        }
+        // spores and gobbets flung wide
         const s1 = [], s2 = [], gb = [];
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 12; i++) {
           const [gx, gy, z] = fling(sd, i, p, R, 1.4, 1.8);
-          (i % 2 ? s1 : s2).push(fx.x + gx, fx.y + gy - z - 2, i % 3 ? 0.5 : 1);
+          (i % 2 ? s1 : s2).push(fx.x + gx, fx.y + gy * SQ - z - 2, i % 3 ? 0.5 : 1);
         }
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 4; i++) {
           const [gx, gy, z] = fling(sd, i + 30, p, R * 0.8, 2, 2.4);
-          gb.push(fx.x + gx, fx.y + gy - z - 2, 1.5);
+          gb.push(fx.x + gx, fx.y + gy * SQ - z - 2, 1.5);
         }
-        dots(ctx, s1, ROT[0]); dots(ctx, s2, "#a8c048"); dots(ctx, gb, ROT[4]);
+        dots(ctx, s1, TOXC[0]); dots(ctx, s2, TOXC[1]); dots(ctx, gb, ROT[3]);
+      }
+      ctx.restore();
+      return true;
+    }
+    case "levelup":
+    case "evolve": {
+      // Look A. A hall (or a figure) levels: a green ring spreads over the
+      // ground round its feet, three arrows rise; a path / final is the gold
+      // one, with a second ring and a turning ring of sparks. The ground
+      // rings obey the occlusion rule: back half under the hall, front over.
+      const gold = fx.type === "evolve", life = fx.life || (gold ? 900 : 600);
+      const p = lifeP(fx, life), A = stepA(a), TN = gold ? GOLD : HEAL, SQ = 0.55;
+      const r = gold ? 12 + 32 * easeOut(p) : 10 + 34 * easeOut(p);
+      ctx.save();
+      ctx.globalAlpha *= A;
+      ctx.globalAlpha *= stepA(gold ? 1 - p * 0.6 : 1 - p * 0.7, 5);
+      const ink = gold ? "#4a3018" : "#1a3d2a";
+      arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, ink, GR, AIR);
+      arcPx(ctx, fx.x, fx.y, r, r * SQ, 1, TN[2], GR, AIR);
+      ctx.globalAlpha = A * stepA(1 - p);
+      dashArc(ctx, fx.x, fx.y, r - 1.5, (r - 1.5) * SQ, 0.5, 1.4, TN[0], GR, AIR);
+      if (gold) {
+        const r2 = r * 0.62;
+        arcPx(ctx, fx.x, fx.y, r2, r2 * SQ, 1, TN[1], GR, AIR);
+        const sa = [], sb = [];
+        for (let k = 0; k < 10; k += 2) {
+          const an = (k / 10) * TAU + p * 3;
+          if (sideOf(GR, AIR, an)) sa.push(fx.x + Math.cos(an) * r * 0.9, fx.y + Math.sin(an) * r * 0.9 * SQ, 0.5);
+          if (sideOf(GR, AIR, an + 0.2)) sb.push(fx.x + Math.cos(an + 0.2) * r * 0.9, fx.y + Math.sin(an + 0.2) * r * 0.9 * SQ, 0.5);
+        }
+        dots(ctx, sa, TN[0]); dots(ctx, sb, TN[1]);
+      }
+      if (AIR) {
+        const n = gold ? 4 : 3;
+        for (let k = 0; k < n; k++) {
+          const q = clamp01(p * (gold ? 1.1 : 1.2) - k * (gold ? 0.1 : 0.12));
+          if (q <= 0 || q >= 1) continue;
+          ctx.globalAlpha = A * stepA(1 - q * q, 4);
+          put(ctx, arrowS(gold ? "gold" : "green"), fx.x + (k - (n - 1) / 2) * (gold ? 12 : 13), fx.y - 11 - q * (gold ? 25 : 22));
+        }
       }
       ctx.restore();
       return true;
@@ -1066,9 +1257,11 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       ctx.save();
       ctx.globalAlpha *= A;
       if (GR) disc(ctx, fx.x, fx.y, r, Math.max(0, r - 8), dither(ctx, WARD[2], 0.19));
+      if (r > 6) {
+        arcPx(ctx, fx.x, fx.y, r, r, 1.5, WARD[1], GR, AIR);
+        dashArc(ctx, fx.x, fx.y, r - 8, r - 8, 0.5, 1.5, WARD[2], GR, AIR);
+      }
       if (AIR && r > 6) {
-        ringPx(ctx, fx.x, fx.y, r, r, 1.5, WARD[1]);
-        dash(ctx, fx.x, fx.y, r - 8, r - 8, 0.5, 1.5, WARD[2]);
         const n = Math.max(4, Math.min(18, Math.round((TAU * r) / 16)));
         const rot = age * 0.0007, sh = Math.floor(age / 70);
         for (let i = 0; i < n; i++) {

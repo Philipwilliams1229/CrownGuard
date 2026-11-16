@@ -700,12 +700,6 @@ export function draw(g, canvas, bufRef) {
       }
     } else if (fx.type === "flash") {
       drawFlash(ctx, fx);
-    } else if (fx.type === "levelup" || fx.type === "evolve") {
-      const r = (1 - fx.ttl / (fx.type === "evolve" ? 900 : 600)) * 34 + 10;
-      ctx.save(); ctx.globalAlpha = Math.ceil(a * 4) / 4;
-      ringPx(ctx, fx.x, fx.y, r, r, 1.5, fx.type === "evolve" ? "#e8c45a" : "#96e096");
-      ringPx(ctx, fx.x, fx.y, r - 1.5, r - 1.5, 0.5, "#fff3d2");
-      ctx.restore();
     } else if (fx.type === "leak") {
       if (prefs.floats) drawFloatText(ctx, fx, true);
     } else if (fx.type === "pierce") {

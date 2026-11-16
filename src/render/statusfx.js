@@ -120,27 +120,44 @@ const stampAt = (ctx, s, x, y) => {
 };
 const frameOf = (time, id, rate = 10) => (Math.floor(time * rate + id * 3) % FX_N + FX_N) % FX_N;
 
-// ---- BURN: a pool of firelight, four licking flames, embers and smoke -------------------
-const burnSprite = (hw, T, f) => memo(`burn|${hw}|${T}|${f}`, () => {
-  const t = f / FX_N, fh = Math.round(12 + T * 0.1);
+// ---- BURN (owner, round 2: between A and B, nearer B, smaller flames, the view kept clear) ----
+// B's character (a hot glow and soot on the ground, embers, a thin wisp of smoke) with A's
+// hugging idea: small flames ride the figure's EDGES (hip and shoulder either side, a tongue
+// off the crown) and the middle of the body is left clear, face and torso readable.
+const SOOT = "#2a1e22";
+// a clump of tongues rooted together: n tongues across `span`, tallest in the middle
+const clump = (g, x, y, span, h, n, ph, f, lean = 0) => {
+  for (let k = 0; k < n; k++) {
+    const u = n > 1 ? k / (n - 1) - 0.5 : 0, hh = Math.max(4, Math.round(h * (1 - Math.abs(u) * 0.75) * (k % 2 ? 0.8 : 1) + ((f + k) % 3) - 1)), xx = x + Math.round(u * span), w = 5 - (k % 2);
+    flame(g, xx + Math.round(lean * u), y + (k % 2), hh, w, ph + k * 1.7, FIRE, 1.2);
+    flame(g, xx, y - 1 + (k % 2), Math.round(hh * 0.5), 3, ph + k * 1.7 + 1, [FIRE[0], FIRE[0], FIRE[1], FIRE[1]], 0.8);
+  }
+};
+const burnSprite = (hw, T, f, sb) => memo(`burn|${hw}|${T}|${f}|${sb}`, () => {
+  const t = f / FX_N, ph = t * TAU, bh = Math.round(7 + T * 0.14);
   return bake(hw, T,
-    (c) => pool(c, 0, 1, hw + 12, 6, FIRE[2], 0.55 + 0.1 * Math.sin(t * TAU)),
+    (c) => {
+      pool(c, 0, 1, hw + 13, 6, FIRE[2], 0.4 + 0.07 * Math.sin(ph));
+      pool(c, 0, 1, hw + 5, 3, FIRE[0], 0.24);
+      ell(c, 0, 1, hw + 7, 4, SOOT, { a: 0.35, dens: 0.35 });
+      for (let k = 0; k < 7; k++) { const a = k * 2.4 + 0.5; px(c, Math.cos(a) * (hw + 6) * (0.5 + 0.5 * H(k, 3)), Math.sin(a) * 4, SOOT, 0.7); }
+    },
     (g) => {
-      const X = [-0.5, -0.12, 0.28, 0.55], Y = [0.3, 0.64, 0.42, 0.7];
-      for (let k = 0; k < 4; k++) {
-        const x = Math.round(X[k] * hw * 2), y = -Math.round(T * Y[k]), ph = t * TAU + k * 1.9;
-        flame(g, x, y, fh + ((f + k) % 3), 8, ph, FIRE, 1.6);
-        flame(g, x, y - 1, Math.round(fh / 2), 4, ph + 1, [FIRE[0], FIRE[0], FIRE[1], FIRE[1]], 1);
-      }
+      // up the back and shoulder (the side away from the face), a low clump at the feet that
+      // spills onto the glow, a short tongue off the crown; the face and chest stay clear
+      clump(g, sb * Math.round(hw * 0.6), -Math.round(T * 0.36), Math.round(hw * 1.3), bh + 5, 5, ph, f, sb * 3);
+      clump(g, sb * Math.round(hw * 0.35), 1, Math.round(hw * 1.2), Math.round(bh * 0.95), 3, ph + 2, f);
+      clump(g, -sb * Math.round(hw * 0.65), 1, 5, Math.round(bh * 0.5), 2, ph + 4, f);
+      clump(g, sb * Math.round(hw * 0.15), -Math.round(T * 0.88), 3, Math.round(bh * 0.45), 2, ph + 1, f);
     },
     (c) => {
-      for (let k = 0; k < 5; k++) {
-        const q = (t + k * 0.21) % 1, x = (H(k) - 0.5) * hw * 1.6 + Math.sin(q * 8 + k) * 2, y = -T * 0.55 - q * 20;
-        px(c, x, y, q < 0.35 ? FIRE[1] : q < 0.7 ? FIRE[2] : FIRE[4]);
+      for (let k = 0; k < 6; k++) {
+        const q = (t * 1.3 + k * 0.17) % 1, x = sb * (H(k) * 0.9) * (hw + 2) + Math.sin(q * 8 + k) * 2, y = -T * 0.35 - q * (T * 0.5 + 8);
+        px(c, x, y, q < 0.35 ? FIRE[1] : q < 0.7 ? FIRE[2] : FIRE[4], 1 - q * 0.4);
       }
       for (let k = 0; k < 3; k++) {
         const q = (t + k / 3) % 1;
-        ell(c, (k - 1) * 5 + Math.sin(q * 6 + k) * 2, -T - 3 - q * 14, 2 + q * 3, 1.5 + q * 2, SMOKE[1], { a: 0.65, dens: 0.9 * (1 - q) });
+        ell(c, sb * 3 + Math.sin(q * 6 + k) * 2, -T - 4 - q * 16, 1.5 + q * 2.5, 1.2 + q * 2, SMOKE[q < 0.5 ? 1 : 2], { a: 0.6 * (1 - q * 0.6), dens: 0.85 * (1 - q) });
       }
     });
 });
@@ -217,7 +234,7 @@ const pipSprite = (n, flash) => memo(`pip|${n}|${flash ? 1 : 0}`, () => {
 
 // ---- the entry points fx.js and enemies.js call ---------------------------------------------
 // (ctx, foe, world time, ms, feet y, world headroom hr). Each is one blit.
-export const statusBurn = (ctx, e, time, feet, hr) => stampAt(ctx, burnSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 10)), e.x, feet);
+export const statusBurn = (ctx, e, time, feet, hr) => stampAt(ctx, burnSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 10), e.face < 0 ? 1 : -1), e.x, feet);
 export const statusPoison = (ctx, e, time, feet, hr) => stampAt(ctx, poisonSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 8)), e.x, feet);
 export const statusSlow = (ctx, e, time, feet, hr) => stampAt(ctx, slowSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
 export const statusMist = (ctx, e, time, feet, hr, hwWorld) => stampAt(ctx, mistSprite(bucketHW(hwWorld || e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
