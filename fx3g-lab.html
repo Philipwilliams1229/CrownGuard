@@ -77,7 +77,26 @@ const snap = async (name, g) => {
 (async () => {
   try {
     selectRealm(realm);
-    if (q.get("perf")) {
+    if (q.get("anim")) {
+      // &anim=N: each effect alone at the board's centre, N moments of its life, as one strip
+      // .shots/ringanim_<fx>.png (frames side by side), cropped round the effect
+      const N = +q.get("anim") || 16, cx = 420, cy = 290;
+      for (const type of LIST) {
+        const big = ["frostnova", "firenova", "wardwave-aegis", "wardwave"].includes(type), z = big ? 1 : 2;
+        const cw = (big ? 320 : 150) * z * RES, ch = (big ? 230 : 120) * z * RES;
+        const strip = document.createElement("canvas"); strip.width = cw * N; strip.height = ch;
+        const sx = strip.getContext("2d");
+        for (let i = 0; i < N; i++) {
+          TW.length = 0; const en = [];
+          const f = make(type, cx, cy, Math.min(0.999, (i + 0.5) / N), en);
+          const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+          draw(scene(en, [f], { zoom: z, x: cx - W / (2 * z), y: cy - 14 - H / (2 * z) }), cv, { current: null });
+          sx.drawImage(cv, (cv.width - cw) / 2, (cv.height - ch) / 2, cw, ch, i * cw, 0, cw, ch);
+        }
+        await fetch("/__shot?name=" + encodeURIComponent("ringanim_" + type), { method: "POST", body: strip.toDataURL("image/png").slice(22) });
+      }
+      document.title = "DONE anim";
+    } else if (q.get("perf")) {
       // a late-wave pile: 120 foes, then 8 rings of one kind at scattered moments
       const foes = [];
       for (let i = 0; i < 120; i++) foes.push(foe("goblin", 60 + (i * 53) % 700, 60 + (i * 97) % 440));
