@@ -825,6 +825,81 @@ const firepool = {
   },
 };
 
+// ---- burning ground, round 3 (owner: "Not loving any of those fire pools"; C = LIT) ----
+// A pool has a SHAPE (a spilled, lobed blob), a scorched cracked crust, embers living in the cracks,
+// low flames that come and go in place (never a solid sheet), a few sparks. A goblin walks through.
+const blobEdge = (x, y, R, ry, sd) => { const a = Math.atan2(y / ry, x / R);
+  const r = 1 + 0.16 * Math.sin(3 * a + sd) + 0.11 * Math.sin(5 * a + 2 * sd + 1) + 0.06 * Math.sin(9 * a + sd * 3) + (a > 2.2 || a < -2.6 ? 0.1 : 0);
+  return Math.hypot(x / R, y / ry) / r; };
+const crackAt = (x, y, s, sd) => { y *= 1.6; const gx = Math.floor(x / s), gy = Math.floor(y / s); let d1 = 1e9, d2 = 1e9, id = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const cx = gx + i, cy = gy + j, px_ = (cx + 0.15 + 0.7 * H(cx, cy + sd)) * s, py_ = (cy + 0.15 + 0.7 * H(cx + 9, cy + sd)) * s, d = Math.hypot(x - px_, y - py_);
+    if (d < d1) { d2 = d1; d1 = d; id = cx * 31 + cy; } else if (d < d2) d2 = d; }
+  return [d2 - d1, id]; };
+const eachPx = (R, ry, k, f) => { for (let y = -Math.ceil(ry * k); y <= Math.ceil(ry * k); y++) for (let x = -Math.ceil(R * k); x <= Math.ceil(R * k); x++) f(x, y); };
+// flames that come and go in place: [x, y, phase, size]
+const spots = (n, R, ry, dmin, dmax, sd) => { const o = []; for (let k = 0; k < n; k++) { const a = (k + H(k, sd)) / n * TAU, d = dmin + (dmax - dmin) * H(k, sd + 3); o.push([Math.round(Math.cos(a) * R * d * 0.88), Math.round(Math.sin(a) * ry * d * 0.88) + 3, H(k, sd + 7), H(k, sd + 11)]); } return o; };
+const grow = (e, ph) => Math.pow(Math.sin(((e.t + ph) % 1) * Math.PI), 0.7);   // 0 -> 1 -> 0 once a loop, each flame on its own clock
+const walker = (c, e, o = {}) => drawFoe(c, e, e.i, { dx: Math.round(-26 + e.t * 52), dy: 4, ...o });
+const fxAt = (e) => Math.round(-26 + e.t * 52);
+// the pool lies IN the ground: char in the middle, scorched ground grading out ragged and dithered, no outline
+const scorch = (c, R, ry, sd, o = {}) => eachPx(R, ry, 1.6, (x, y) => {
+  const d = blobEdge(x, y, R, ry, sd) + (vn(x, y, 5, 4) - 0.5) * 0.4 + (H(x, y) - 0.5) * 0.12;
+  if (d > 1.45) return;
+  if (d < 0.62) { px(c, x, y, vn(x, y, 6, 2) > 0.6 ? "#2a1c20" : "#20161a"); return; }
+  const k = (d - 0.62) / 0.83, prob = 1 - k;   // 0 at the char's edge -> 1 at the far scorch
+  if (bay(x, y) >= Math.min(1, prob * 1.25 + 0.05)) return;
+  px(c, x, y, k < 0.25 ? "#2a1c1c" : k < 0.6 ? "#3a2a1e" : "#4a3a28", k < 0.6 ? 0.95 : 0.7);
+  if (o.soot && k > 0.6 && H(x * 3, y) > 0.7) px(c, x, y, "#1e1a16", 0.6);
+});
+// hairline fissures: a few random walks that fork, made once
+const FISS = {};
+const fissures = (R, ry, sd) => FISS[sd] || (FISS[sd] = (() => { const pts = []; let id = 0;
+  const walk = (x, y, ang, len, depth) => { const my = id++; for (let i = 0; i < len; i++) { ang += (H(my * 7 + i, sd) - 0.5) * 0.9; x += Math.cos(ang); y += Math.sin(ang) * 0.6;
+    if (blobEdge(x, y, R, ry, sd) > 0.88) break; pts.push([Math.round(x), Math.round(y), my]); if (depth < 2 && H(my + i, sd + 5) > 0.93) walk(x, y, ang + (H(i, my) > 0.5 ? 0.8 : -0.8), len * 0.6 | 0, depth + 1); } };
+  for (let k = 0; k < 8; k++) { const a = H(k, sd + 1) * TAU, d = 0.08 + 0.35 * H(k, sd + 2); walk(Math.cos(a) * R * d, Math.sin(a) * ry * d, H(k, sd + 3) * TAU, 22 + 20 * H(k, sd + 4) | 0, 0); }
+  return pts; })());
+const cracks = (c, e, R, ry, sd, cols, halo) => fissures(R, ry, sd).forEach(([x, y, id]) => { const lit = 0.5 + 0.5 * Math.sin(e.t * TAU + id * 2.1);
+  if (halo && (x + y) % 2 === 0) { px(c, x, y - 1, FIRE[4], 0.45); px(c, x + 1, y, FIRE[4], 0.35); }
+  px(c, x, y, lit > 0.66 ? cols[0] : lit > 0.33 ? cols[1] : cols[2]); });
+// tongue patches: 2-4 tongues sharing a root, each patch on its own clock; [x, y, phase, size, tongues]
+const PATCH = [[-12, -4, 0.0, 1.3, 4], [10, 7, 0.3, 1.1, 3], [24, -6, 0.62, 0.8, 3], [-30, 8, 0.8, 0.7, 2], [2, -14, 0.45, 0.8, 2]];
+const patches = (g, e, front, o = {}) => PATCH.slice(0, o.n || 5).forEach(([x, y, ph, sz, n], k) => { if ((y > 5) !== front) return; const env = grow(e, ph); if (env < 0.12) return;
+  for (let j = 0; j < n; j++) { const off = Math.round((j - (n - 1) / 2) * 5 + (H(k, j) - 0.5) * 2), h = Math.round((8 + 14 * H(k, j + 3)) * sz * env * (j === 1 ? 1.3 : 1) * (o.hs || 1)); if (h < 3) continue;
+    flame(g, x + off, y - (j & 1), h, o.w || 6, e.i * 0.9 + k * 2 + j, o.pal || FIRE, { sway: 1.2, tone: o.tone || 4 }); } });
+const firepool2 = {
+  A(c, e) {   // clean: scorched ground grading out, char heart, a few hairline fissures, flame patches (line on the flames only)
+    const R = 56, ry = 33, sd = 1.3;
+    scorch(c, R, ry, sd); cracks(c, e, R, ry, sd, [FIRE[2], FIRE[3], FIRE[4]], false);
+    inked(c, e, (g) => patches(g, e, false, { n: 4, w: 5, tone: 3 }));
+    walker(c, e);
+    inked(c, e, (g) => patches(g, e, true, { n: 4, w: 5, tone: 3 }));
+    for (let k = 0; k < 3; k++) { const q = (e.t + k / 3) % 1; px(c, Math.cos(k * 2.3) * 14 + Math.sin(q * 7) * 2, -2 - q * 30, q < 0.5 ? FIRE[1] : FIRE[3], 1 - q * 0.6); }
+  },
+  B(c, e) {   // worked: soot, warm glow, glowing fissures with halos, big flame patches, smoke, embers, sparks
+    const R = 56, ry = 33, sd = 1.3, fx = fxAt(e);
+    pool(c, 0, 0, R * 1.1, ry * 1.1, FIRE[2], 0.2 + 0.04 * Math.sin(e.i * 1.6));
+    scorch(c, R, ry, sd, { soot: true }); cracks(c, e, R, ry, sd, [FIRE[0], FIRE[1], FIRE[3]], true);
+    eachPx(R, ry, 0.7, (x, y) => { if (blobEdge(x, y, R, ry, sd) < 0.7 && H(x * 2.1, y * 1.7) > 0.985) px(c, x, y, FIRE[(e.i + x) & 1 ? 2 : 3]); });
+    inked(c, e, (g) => patches(g, e, false, { w: 7, hs: 1.15 }));
+    ell(c, fx, 4, 12, 4, FIRE[1], { a: 0.25, dens: 0.5 });
+    walker(c, e);
+    inked(c, e, (g) => patches(g, e, true, { w: 7, hs: 1.15 }));
+    PATCH.slice(0, 3).forEach(([x, y, ph], k) => { const q = (e.t * 0.8 + ph) % 1; ell(c, x + Math.sin(q * 6 + k) * 3, y - 24 - q * 26, 3 + q * 5, 1.6 + q * 3, SMOKE[q < 0.5 ? 1 : 2], { a: 0.55 * (1 - q), dens: 0.85 - q * 0.4 }); });
+    for (let k = 0; k < 8; k++) { const q = (e.t * 1.2 + k * 0.13) % 1, a = k * 2.5; px(c, Math.cos(a) * 26 + Math.sin(q * 8 + k) * 2, Math.sin(a) * 12 - 4 - q * 38, q < 0.35 ? FIRE[0] : q < 0.65 ? FIRE[2] : FIRE[4], 1 - q * 0.5); }
+  },
+  C(c, e) {   // LIT: char heart, bright hairline fissures that throw light; stepped dithered wash, rim light, shimmer
+    const R = 56, ry = 33, sd = 1.3, pulse = 1 + 0.05 * Math.sin(e.t * TAU * 2);
+    eachPx(R, ry, 1.75, (x, y) => { const d = blobEdge(x, y, R, ry, sd) / pulse; if (d > 1.7) return; const st = d < 0.9 ? 0.5 : d < 1.2 ? 0.4 : d < 1.45 ? 0.32 : 0.24, dens = d < 0.9 ? 1 : d < 1.2 ? 0.7 : d < 1.45 ? 0.45 : 0.25; if (bay(x, y) < dens) px(c, x, y, "#ff8a30", st * 0.8); });
+    scorch(c, R, ry, sd); cracks(c, e, R, ry, sd, [FIRE[0], FIRE[1], FIRE[2]], true);
+    c.globalCompositeOperation = "lighter";
+    for (let k = 0; k < 7; k++) { const q = (e.t + k / 7) % 1, x = Math.round((H(k, 3) - 0.5) * R * 1.3 + Math.sin(q * 8 + k) * 1.2), y0 = Math.round((H(k, 5) - 0.5) * ry), h = 5 + k % 3 * 3; for (let j = 0; j < h; j++) if (j % 2 === 0) px(c, x, y0 - q * 22 - j, "#ffe0a0", 0.3 * (1 - q)); }
+    c.globalCompositeOperation = "source-over";
+    walker(c, e, { tint: { col: "#ff9a40", dens: 0.95, reach: 0.34, a: 0.6 } });
+    patches(c, e, false, { n: 3, w: 5, hs: 0.8, pal: [FIRE[0], FIRE[1], FIRE[1], FIRE[2]], tone: 3 });
+    for (let k = 0; k < 6; k++) { const q = (e.t * 1.1 + k / 6) % 1, x = Math.cos(k * 2.1) * 24 + Math.sin(q * 6 + k) * 2, y = Math.sin(k * 2.1) * 12 - q * 36; px(c, x, y, FIRE[0]); px(c, x, y + 1, FIRE[2], 0.6); }
+  },
+};
+
 const R2 = "Round 2";
 const BL2 = { cw: 208, ch: 214, ax: 104, ay: 106, N: 8 };
 export const ROWS2 = [
@@ -836,9 +911,13 @@ export const ROWS2 = [
   { id: "firepool", label: "Burning ground", group: R2, note: "The pools under Hellburner, the log fire, the Sunforge. TODAY: the fire pool (flames.js) and the lava pool (fx.js).", ...BL2, ch: 130, ay: 76, twoToday: true, tl: ["TODAY (fire pool)", "TODAY (lava pool)"], A: firepool.A, B: firepool.B, C: firepool.C },
 ];
 
+export const ROWS3 = [
+  { id: "firepool2", label: "Burning ground, take 2", group: "Round 3", note: "Spilled lobed pool, cracked crust with embers, flames that come and go, a goblin walking through (loops). A clean | B worked | C LIT (light thrown on the ground and the goblin). Each on grass and dark ground.", ...BL2, ch: 130, ay: 76, darkAll: true, todayKeys: ["firepool"], cLabel: "C  lit", A: firepool2.A, B: firepool2.B, C: firepool2.C },
+];
 const FOE = { cw: 64, ch: 76, ax: 30, ay: 60, N: 8 };
 const BLAST = { cw: 104, ch: 84, ax: 52, ay: 56, N: 8 };
 export const ROWS = [
+  ...ROWS3,
   ...ROWS2,
   { id: "burn", label: "Burn", group: "Status on a foe", note: "A goblin set alight.", ...FOE, A: burn.A, B: burn.B, C: burn.C },
   { id: "poison", label: "Poison", group: "Status on a foe", note: "Bubbles and drip on the body.", ...FOE, A: poison.A, B: poison.B, C: poison.C },

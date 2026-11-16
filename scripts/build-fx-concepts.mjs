@@ -3,19 +3,21 @@
 import fs from "node:fs";
 import { ROWS } from "../concept/fx-concepts.js";
 const ROUND2 = process.argv.includes("round2");   // node scripts/build-fx-concepts.mjs round2 -> only the Round 2 rows, in .shots/fx-concepts-round2/
-const OUT = ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
+const ROUND3 = process.argv.includes("round3");   // -> only the Round 3 rows, in .shots/fx-concepts-round3/
+const OUT = ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
 fs.mkdirSync(OUT, { recursive: true });
-const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", Bdark: "B on dark ground" };
+const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", Bdark: "B on dark ground", Adark: "A on dark ground", Cdark: "C on dark ground" };
 const rows = [];
 for (const r of ROWS) {
+  if (ROUND3 && r.group !== "Round 3") continue;
   if (ROUND2 && r.group !== "Round 2") continue;
-  const cols = r.cols2 ? ["today", "today2"] : r.twoToday ? ["today", "today2", "A", "B", "C", "Bdark"] : ["today", "A", "B", "C", "Bdark"];
+  const cols = r.cols2 ? ["today", "today2"] : r.twoToday ? ["today", "today2", "A", "B", "C", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])] : ["today", "A", "B", "C", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])];
   const strips = [];
   for (const k of cols) {
     const src = `.shots/fxc_${r.id}_${k}.png`;
     if (!fs.existsSync(src)) continue;
     fs.copyFileSync(src, `${OUT}/${r.id}_${k}.png`);
-    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : LABEL[k], file: `${r.id}_${k}.png` });
+    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : (k === "C" && r.cLabel) || LABEL[k], file: `${r.id}_${k}.png` });
   }
   rows.push({ id: r.id, label: r.label, group: r.group, note: r.note, cw: r.cw, ch: r.ch, n: r.N, strips });
 }
@@ -49,7 +51,7 @@ for(const r of ROWS){
   const s=Math.min(0.67,150/(r.cw*3)),fw=Math.round(r.cw*3*s),fh=Math.round(r.ch*3*s);
   for(const st of r.strips){
     const l=document.createElement("div");l.className="ln";
-    const lb=document.createElement("div");lb.className="lb"+(st.k.startsWith("today")?" t":st.k==="Bdark"?" d":"");lb.textContent=st.label;
+    const lb=document.createElement("div");lb.className="lb"+(st.k.startsWith("today")?" t":st.k.endsWith("dark")?" d":"");lb.textContent=st.label;
     const im=document.createElement("div");im.className="st";im.style.cssText="width:"+(fw*r.n)+"px;height:"+fh+"px;background-image:url("+st.file+");background-size:"+(fw*r.n)+"px "+fh+"px";
     const pl=document.createElement("div");pl.className="play";const pw=Math.round(fw*1.4),ph=Math.round(fh*1.4);
     pl.style.cssText="width:"+pw+"px;height:"+ph+"px;background-image:url("+st.file+");background-size:"+(pw*r.n)+"px "+ph+"px";

@@ -103,7 +103,7 @@ const errs = [];
 for (const row of ROWS) {
   if (only && !only.includes(row.id)) continue;
   const cols = row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
-    : [["today", TODAY[row.id], false], ...(row.twoToday ? [["today2", TODAY[row.id + "2"], false]] : []), ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ["Bdark", row.B, true]];
+    : [["today", TODAY[(row.todayKeys || [row.id])[0]], false], ...(row.twoToday ? [["today2", TODAY[(row.todayKeys || [row.id, row.id + "2"])[1]], false]] : []), ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ["Bdark", row.B, true], ...(row.darkAll ? [["Adark", row.A, true], ["Cdark", row.C, true]] : [])];
   for (const [key, fn, dark] of cols) {
     const strip = mk(row.cw * Z * row.N, row.ch * Z), sx = strip.getContext("2d"); sx.imageSmoothingEnabled = false;
     for (let i = 0; i < row.N; i++) {
