@@ -2,6 +2,7 @@
 // Draws a walking/fighting enemy (with its status auras, burn, stun, health
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
+import { ringFlash } from "./ringflash.js";
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { ASSASSIN_PALS } from "../sprites/sprites.js";
@@ -134,7 +135,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // a foe archer's bow or crossbow turns to its last mark (engine: e.aimDeg, aim.js)
   const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
   drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant, 1, aim);
-  if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7, aim);
+  if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7, aim);
   // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
   // licking flames, poison bubbles, mending motes — each a few cached sprites
   // (render/fx.js), cheap enough for a crowd of three hundred all on fire.

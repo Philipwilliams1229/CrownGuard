@@ -38,6 +38,7 @@ const VOLLEY_SHAFTS = 6;
 import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
+import { collectRings } from "./ringflash.js";
 import { drawBreath, drawFireFront } from "./flames.js";
 import { beginLights, addLight, warmPix } from "./pix/pixrigs.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
@@ -194,6 +195,8 @@ export function draw(g, canvas, bufRef) {
     // the ground half of the area effects (rime, scorch, cracks, stains)
     else drawRingFx(ctx, fx, Math.min(1, fx.ttl / 300), g, "g");
   }
+  // where each attack ring's front is now, so the foes it passes flash white (ringflash.js)
+  collectRings(g);
 
   // Wren's arrow-volley zone: the whole ring under the crowd (never over a body)
   if (g.volleys) {

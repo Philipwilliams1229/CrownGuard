@@ -1179,8 +1179,11 @@ covers it, at the back or the front, which is the right depth for a flat ring. T
 a ring round a HALL (level up, path / final): its front half draws in the air layer (`split` on
 `arcPx` / `dashArc` / `sideOf` in rings.js) so it passes in front of the hall's base. Particles
 that rise (motes, leaves, sparks, smoke) may still draw in front. `drawBlast` (fx.js) puts a
-blast's whole ground sprite under the actors and only its fireball / smoke over them. A new ring
-effect follows the same rule. The concept pages' C option now means LIT (light thrown on the
+blast's whole ground sprite under the actors and only its fireball / smoke over them. As an ATTACK's ring rolls out, each foe it passes flashes white (the
+physical hit's flash), so the flash radiates from the centre (owner, same day): `src/render/ringflash.js`
+reads every attack ring's front from the effect's `r` (the attack's area) and the painter's easing, and
+enemies.js flashes a foe while a front is over it. A new area attack: give its effect `r` and a line in
+`RING` there. A new ring effect follows the same rule. The concept pages' C option now means LIT (light thrown on the
 ground), not chunky icons (owner: the bold C's were "pretty far off").
 
 ## Performance (target: iPad mini 6)
