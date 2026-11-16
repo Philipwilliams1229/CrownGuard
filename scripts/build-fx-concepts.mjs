@@ -2,18 +2,20 @@
 // page fx-concepts.html saved as .shots/fxc_<row>_<col>.png.   node scripts/build-fx-concepts.mjs
 import fs from "node:fs";
 import { ROWS } from "../concept/fx-concepts.js";
-const OUT = ".shots/fx-concepts";
+const ROUND2 = process.argv.includes("round2");   // node scripts/build-fx-concepts.mjs round2 -> only the Round 2 rows, in .shots/fx-concepts-round2/
+const OUT = ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
 fs.mkdirSync(OUT, { recursive: true });
 const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", Bdark: "B on dark ground" };
 const rows = [];
 for (const r of ROWS) {
-  const cols = r.cols2 ? ["today", "today2"] : ["today", "A", "B", "C", "Bdark"];
+  if (ROUND2 && r.group !== "Round 2") continue;
+  const cols = r.cols2 ? ["today", "today2"] : r.twoToday ? ["today", "today2", "A", "B", "C", "Bdark"] : ["today", "A", "B", "C", "Bdark"];
   const strips = [];
   for (const k of cols) {
     const src = `.shots/fxc_${r.id}_${k}.png`;
     if (!fs.existsSync(src)) continue;
     fs.copyFileSync(src, `${OUT}/${r.id}_${k}.png`);
-    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : LABEL[k], file: `${r.id}_${k}.png` });
+    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : LABEL[k], file: `${r.id}_${k}.png` });
   }
   rows.push({ id: r.id, label: r.label, group: r.group, note: r.note, cw: r.cw, ch: r.ch, n: r.N, strips });
 }

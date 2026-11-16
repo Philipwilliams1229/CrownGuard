@@ -168,6 +168,14 @@ and `death` branches call it; the shrapnel tail is in fx.js, the heal swell in r
 drawStatus for 200 foes 1.30 -> 0.79 ms; 300 hits + 50 shards + 50 poofs 0.30 -> 0.26 ms. No body
 tint (it would need tinted rigs); the death smoke is easy to miss in a crowd.
 
+**Round 2** (owner, 2026-11-16; brief `art/briefs/fx-round2.md`): raising the dead is IN the game as the
+owner's mix, the original violet / green witch-fire over concept B's ground (rings.js `case "raise"`:
+`graveS`, `mistS`, clods, drawn at fx.y + 6, a goblin's feet); a LEVEL upgrade now has a pix mason
+(builders.js `workerSprite`) on the scaffold knocking twice, `RAISE_SECS.level` 0.45 -> 0.72 s
+(buildanim.js `raiseLevel`). Concepts for the bell toll, plague burst, level up, path / final,
+fire on a foe (again) and burning ground: private Artifact "Crownguard Effects Concepts, Round 2"
+(`node scripts/build-fx-concepts.mjs round2` -> `.shots/fx-concepts-round2/`). Awaiting the owner's picks.
+
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
 "You can take out the use old sprites thing": the switch is gone from Settings' Display tab

@@ -9,8 +9,9 @@
 <body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:12px"><div id="status">painting</div>
 <script type="module">
 import { rigFrame, rigPixels } from "/src/render/rigs.js";
-import { drawStatus, drawBlast, drawSpark, drawPoof } from "/src/render/fx.js";
+import { drawStatus, drawBlast, drawSpark, drawPoof, drawGround, ringPx } from "/src/render/fx.js";
 import { drawRingFx } from "/src/render/rings.js";
+import { drawArcherTower } from "/src/render/towers.js";
 import { PX } from "/src/render/paint.js";
 import { ROWS } from "/concept/fx-concepts.js";
 
@@ -28,7 +29,10 @@ for (let y = 0; y < s0.cv.height; y++) for (let x = 0; x < s0.cv.width; x++) if 
 const T = s0.ay - top;
 const PXW = rigPixels("goblin", ""), PXS = PXW.map(([dx, dy, col]) => [dx * PX, dy * PX, col]);
 HW = (xr - xl) / 2;
-const BASE = { foe, pixels: () => PXS, T, HW: Math.round(HW * 0.9), cx: Math.round((xl + xr) / 2) };
+// a real Archer hall under the level-up / evolve rows (the game's own painter, no crew), at the anchor
+const hall = (c, f) => { const t = { id: 3, kind: "archer", x: 0, y: 0, level: f.level, branch: f.branch || null, rank4: f.rank4 || null, cd: 0, aim: "first", lastAim: Math.PI, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true };
+  c.save(); c.scale(PX, PX); drawArcherTower(c, t, 3.2); c.restore(); };
+const BASE = { hall, foe, pixels: () => PXS, T, HW: Math.round(HW * 0.9), cx: Math.round((xl + xr) / 2) };
 
 const ground = (c, w, h, dark) => {
   const [b, d, l] = dark ? ["#3c4535", "#323a2d", "#485140"] : ["#7eab54", "#6f9a4a", "#92bf62"];
@@ -44,6 +48,12 @@ const TMS = 100000;
 const status = (extra, frame0) => (c, e) => { foeAt(c, e, frame0 ? 0 : e.i); const es = stat(e, extra(e)); W(c, () => drawStatus(c, es, 5 + e.i * 0.1, TMS + e.i * 100, 0, -e.T / PX)); };
 const FAR = TMS * 9;
 const fxd = (c, fx, layer) => W(c, () => drawBlast(c, fx, layer));
+const lvl = (c, e, life, col, gold) => {
+  e.hall(c, gold ? (e.i < 3 ? { level: 3 } : { level: 3, branch: "a" }) : { level: 2 }); const ttl = life * (1 - e.p), r = (1 - ttl / life) * 34 + 10, a = Math.max(0, Math.min(1, ttl / 400));
+  W(c, () => { c.save(); c.globalAlpha = Math.ceil(a * 4) / 4; ringPx(c, 0, 0, r, r, 1.5, col); ringPx(c, 0, 0, r - 1.5, r - 1.5, 0.5, "#fff3d2"); c.restore();
+    c.fillStyle = gold ? `rgba(232,196,90,${1 - e.p})` : `rgba(150,224,150,${1 - e.p})`;
+    for (let i = 0; i < 12; i++) { const ang = (i / 12) * Math.PI * 2 + (gold ? e.p * 1.6 : 0), rr = e.p * (gold ? 44 : 30); c.fillRect(Math.round(Math.cos(ang) * rr), Math.round(Math.sin(ang) * rr * 0.75 - e.p * 8), 1, 1); } });
+};
 const TODAY = {
   burn: status(() => ({ burnUntil: FAR })),
   poison: status(() => ({ poisonUntil: FAR })),
@@ -76,6 +86,14 @@ const TODAY = {
     W(c, () => { for (let i = 0; i < PXW.length; i++) { const [dx, dy, col] = PXW[i], hh = ((i * 7919) % 13) / 13; if (hh < p2 * 1.15) continue; const sc = p2 * (hh - 0.5) * 26, fall = p2 * p2 * (18 + hh * 22); c.fillStyle = col; c.fillRect(Math.floor(dx + sc), Math.floor(dy + fall), 1, 1); } });
     c.globalAlpha = 1;
   },
+  toll: (c, e) => { const fx = { type: "toll", x: 0, y: 0, r: 46, life: 550, ttl: 550 * (1 - e.p) }; W(c, () => { drawRingFx(c, fx, 1, {}, "g"); drawRingFx(c, fx, 1, {}, "a"); }); },
+  plagueburst: (c, e) => { const fx = { type: "plagueburst", x: 0, y: 0, r: 38, life: 500, ttl: 500 * (1 - e.p), seed: 3 }; W(c, () => { drawRingFx(c, fx, 1, {}, "g"); drawRingFx(c, fx, 1, {}, "a"); }); },
+  // draw.js's levelup / evolve ring + green or gold burst, copied (ringPx is the game's own)
+  levelup: (c, e) => lvl(c, e, 600, "#96e096", false),
+  evolve: (c, e) => lvl(c, e, 900, "#e8c45a", true),
+  burn2: status(() => ({ burnUntil: FAR })),
+  firepool: (c, e) => { W(c, () => drawGround(c, { kind: "fire", x: 0, y: 0, r: 30, born: TMS - 5000, until: TMS + 5000 }, 5 + e.i / 7, TMS)); },
+  firepool2: (c, e) => { W(c, () => drawGround(c, { kind: "lava", x: 0, y: 0, r: 30, until: TMS + 5000 }, 5 + e.i / 5, TMS)); },
   rings: (c, e) => { const fx = { type: "firenova", x: 0, y: 0, r: 20, life: 450, ttl: 450 * (1 - e.p) }; W(c, () => { drawRingFx(c, fx, 1, {}, "g"); drawRingFx(c, fx, 1, {}, "a"); }); },
   rings2: (c, e) => { const fx = { type: "frostnova", x: 0, y: 0, r: 20, life: 500, ttl: 500 * (1 - e.p) }; W(c, () => { drawRingFx(c, fx, 1, {}, "g"); drawRingFx(c, fx, 1, {}, "a"); }); },
 };
@@ -85,7 +103,7 @@ const errs = [];
 for (const row of ROWS) {
   if (only && !only.includes(row.id)) continue;
   const cols = row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
-    : [["today", TODAY[row.id], false], ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ["Bdark", row.B, true]];
+    : [["today", TODAY[row.id], false], ...(row.twoToday ? [["today2", TODAY[row.id + "2"], false]] : []), ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ["Bdark", row.B, true]];
   for (const [key, fn, dark] of cols) {
     const strip = mk(row.cw * Z * row.N, row.ch * Z), sx = strip.getContext("2d"); sx.imageSmoothingEnabled = false;
     for (let i = 0; i < row.N; i++) {

@@ -95,7 +95,7 @@ const inked = (c, e, draw, o = {}) => {
       if (n < 0) continue;
       if (o.ink) { const k = parseInt(o.ink.slice(1), 16); out[i] = k >> 16; out[i + 1] = (k >> 8) & 255; out[i + 2] = k & 255; }
       else { out[i] = d[n] * 0.4 + 10; out[i + 1] = d[n + 1] * 0.32 + 4; out[i + 2] = d[n + 2] * 0.46 + 18; }
-      out[i + 3] = 255;
+      out[i + 3] = o.fade ? d[n + 3] : 255;
     }
     img.data.set(out); g.putImageData(img, 0, 0);
   }
@@ -600,9 +600,246 @@ const death = {
   },
 };
 
+// ============ ROUND 2 (2026-11-16): toll, plague burst, level up, path / final, fire again, burning ground ============
+const BRONZE = ["#f4d8a0", "#d8a45a", "#b07a3a", "#7a4e2a", "#4a2e22"];
+const ROTP = ["#d8e8a0", "#a8c46e", "#76944a", "#4e6634", "#34442a"];
+const GOLD = HOLY;
+const squash = 0.55;
+const gring = (c, rx, col, th = 1, o = {}) => ring(c, 0, 0, rx, rx * squash, col, { th, ...o });
+const arcPos = (p, i, R, hi = 12) => { const a = i * 2.399 + 0.5, d = R * (0.3 + 0.7 * H(i, 3)) * ease(Math.min(1, p * 1.15)); return [Math.cos(a) * d, Math.sin(a) * d * squash - Math.sin(Math.min(1, p) * Math.PI) * (4 + H(i, 5) * hi)]; };
+
+// a placeholder hall's feet, so a ring has something to stand round (the real hall is not drawn here)
+export const hallBase = (c, e) => inked(c, e, (g) => {
+  rect(g, -20, -20, 40, 20, "#9a948a"); rect(g, -20, -20, 40, 4, "#bdb6a8"); rect(g, -20, -6, 40, 6, "#6f6a64");
+  for (let k = 0; k < 6; k++) px(g, -16 + k * 6, -12, "#7a756d");
+});
+const VIO = NEC;
+const arcSeg = (c, cx, cy, r, a0, a1, th, col, a = 1) => { const n = Math.ceil(Math.abs(a1 - a0) * r * 1.2); for (let k = 0; k <= n; k++) { const an = a0 + ((a1 - a0) * k) / n; rect(c, cx + Math.cos(an) * r, cy + Math.sin(an) * r * 0.9, th, th, col, a); } };
+// a bell you can read: yoke and headstock, a flared body lit from the upper left, a dark lip, a clapper that swings the other way
+const bell = (c, x, y, sw, k = 1) => {
+  c.save(); c.translate(x, y); c.scale(k, k);
+  rect(c, -9, -4, 18, 3, "#6a4a2a"); rect(c, -9, -4, 18, 1, "#8a6238"); rect(c, -1, -1, 2, 3, BRONZE[4]);
+  const shiftOf = (j) => Math.round(sw * j * 0.5);
+  for (let j = 0; j < 14; j++) {
+    const hw = j < 12 ? 2.5 + 5.5 * (1 - Math.pow(1 - j / 11, 2.1)) : 8.6 + (j - 12) * 0.2, sh = shiftOf(j);
+    for (let dx = -Math.ceil(hw); dx <= Math.ceil(hw); dx++) { if (Math.abs(dx) > hw) continue; const u = dx / hw;
+      const col = j >= 12 ? BRONZE[3] : u < -0.55 ? BRONZE[0] : u < -0.1 ? BRONZE[1] : u < 0.45 ? BRONZE[2] : BRONZE[3];
+      px(c, dx + sh, j + 1, j === 11 && u < 0.2 ? BRONZE[0] : col); }
+  }
+  const cx = Math.round(-sw * 4 + shiftOf(13)); rect(c, cx - 1, 16, 3, 3, BRONZE[3]); px(c, cx - 1, 16, BRONZE[1]);
+  c.restore();
+};
+const clamp1 = (v) => Math.max(0, Math.min(1, v));
+const toll = {
+  A(c, e) {   // clean: the bell, and two thin rings
+    const p = e.p, R = 88, sw = Math.sin(p * 11) * (1 - p * 0.6);
+    inked(c, e, (g) => { for (let k = 0; k < 2; k++) { const q = p * 1.3 - k * 0.22; if (q <= 0 || q >= 1) continue; gring(g, R * ease(q), k ? BRONZE[2] : BRONZE[1], 1.4, { a: 1 - q * 0.6 }); } }, { fade: true, ink: "#4a2e22" });
+    inked(c, e, (g) => bell(g, 0, -50, sw));
+    if (Math.abs(sw) > 0.4) for (const s of [-1, 1]) for (let j = 0; j < 3; j++) px(c, s * (14 + j * 2), -42 + j * 2 - 2, BRONZE[1], 1 - j * 0.25);
+  },
+  B(c, e) {   // the toll runs out ACROSS the ground: violet-bronze bands, dust kicked up, the graves' light flickering
+    const p = e.p, R = 92, sw = Math.sin(p * 11) * (1 - p * 0.6);
+    for (let k = 0; k < 3; k++) { const q = p * 1.35 - k * 0.2; if (q <= 0 || q >= 1) continue; const rr = R * ease(q);
+      ring(c, 0, 0, rr, rr * squash, VIO[1], { th: 10, a: 0.6 * (1 - q), dens: 0.6 });
+      ring(c, 0, 0, rr - 3, (rr - 3) * squash, BRONZE[1], { th: 4, a: 0.85 * (1 - q), dens: 0.75 });
+      for (let d = 0; d < 9; d++) { const a = d * 0.7 + k * 2.1 + H(k, d) * 0.4, ds = 0.4 + (1 - q) * 0.5; const x = Math.cos(a) * rr, y = Math.sin(a) * rr * squash;
+        ell(c, x, y - 3 * q * 4, 2.5 + q * 3, 2 + q * 2.5, DUST[1], { a: 0.8 * (1 - q), dens: ds }); px(c, x, y - 6 - q * 8, DUST[0], 1 - q); } }
+    for (let k = 0; k < 7; k++) { const a = k * 2.4 + 0.3, d = 20 + H(k, 6) * 56, x = Math.cos(a) * d, y = Math.sin(a) * d * squash, lit = clamp1(p * 1.35 * R - d + 8) > 0 && ((e.i + k) % 3 !== 0);
+      px(c, x, y, VIO[4]); px(c, x, y - 1, VIO[4]); if (lit) { px(c, x, y - 2, WITCH[1]); px(c, x, y - 3, WITCH[0]); px(c, x - 1, y - 2, WITCH[3]); px(c, x + 1, y - 2, WITCH[3]); } }
+    pool(c, 0, -46, 16, 11, BRONZE[0], 0.3 * (1 - p));
+    inked(c, e, (g) => bell(g, 0, -50, sw));
+    if (Math.abs(sw) > 0.4) for (const s of [-1, 1]) { for (let j = 0; j < 3; j++) px(c, s * (14 + j * 2), -44 + j * 2, VIO[1]); }
+  },
+  C(c, e) {   // bold: a big bell and chunky bracket-arcs of sound either side (no rings)
+    const p = e.p, sw = Math.sin(p * 9) * (1 - p * 0.5);
+    if (p < 0.2) ell(c, 0, -52, 22 - p * 50, 18 - p * 42, BRONZE[0], { a: 0.7 });
+    inked(c, e, (g) => bell(g, 0, -62, sw, 1.6), { ink: "#3a2218" });
+    for (let k = 0; k < 4; k++) { const q = p * 1.5 - k * 0.2; if (q <= 0 || q >= 1) continue; const r = 22 + q * 52, a = 1 - q * 0.8, th = 3 - (q > 0.6 ? 1 : 0);
+      for (const s of [-1, 1]) { const g0 = s > 0 ? -0.62 : Math.PI - 0.62, g1 = s > 0 ? 0.62 : Math.PI + 0.62;
+        arcSeg(c, 0, -48, r + 1.5, g0, g1, th + 2, "#3a2218", a); arcSeg(c, 0, -48, r, g0, g1, th, k % 2 ? BRONZE[1] : BRONZE[0], a); } }
+  },
+};
+
+const plague = {
+  stain(c, p, R, col = ROTP, o = {}) {
+    if (p < 0.06) return;
+    const g = ease(Math.min(1, p * 1.5)); const rx = R * 0.9 * g;
+    ell(c, 0, 0, rx, rx * squash, col[3], { a: 0.85, dens: o.dens ?? 0.8 });
+    ell(c, 0, 0, rx * 0.65, rx * 0.65 * squash, col[2], { a: 0.8, dens: 0.6 });
+    for (let k = 0; k < 6; k++) { const a = k * 1.9, d = rx * (0.2 + 0.5 * H(k, 7)); const st = (Math.floor(p * 10) + k) % 4; if (st < 3) { px(c, Math.cos(a) * d, Math.sin(a) * d * squash - st, col[0]); px(c, Math.cos(a) * d + 1, Math.sin(a) * d * squash - st, col[1]); } }
+  },
+  A(c, e) {
+    const p = e.p, R = 72, r = R * ease(Math.min(1, p * 1.2));
+    plague.stain(c, p, R, ROTP, { dens: 0.75 });
+    inked(c, e, (g) => { gring(g, r, ROTP[2], 1.5, { a: 1 - p * 0.5 }); if (p > 0.15) gring(g, r * 0.7, ROTP[1], 1, { a: 0.9 - p * 0.7 });
+      const n = 11; for (let k = 0; k < n; k++) { const a = (k / n) * TAU + 0.3, x = Math.cos(a) * r * 0.97, y = Math.sin(a) * r * 0.97 * squash - 4 - p * 6, rr = 4 + p * 2.5;
+        ell(g, x, y, rr, rr * 0.9, TOX[2], { a: 1 - p * 0.4 }); ell(g, x - 1, y - 1.5, rr * 0.55, rr * 0.5, TOX[1], { a: 1 - p * 0.4 }); px(g, x - 2, y - 2, TOX[0]); } }, { fade: true, ink: "#1e4a30" });
+    inked(c, e, (g) => { for (let i = 0; i < 10; i++) { const [x, y] = arcPos(p, i, R * 1.15, 26); rect(g, x, y - 3, 2, 2, i % 2 ? TOX[1] : TOX[0]); } }, { ink: "#1e4a30" });
+  },
+  B(c, e) {   // a sickly glow in the stain, and a cloud that rolls out and lingers
+    const p = e.p, R = 76, r = R * ease(Math.min(1, p * 1.2));
+    pool(c, 0, 0, r + 8, (r + 8) * squash, "#c8e040", 0.34);
+    plague.stain(c, p, R + 2, ROTP);
+    ell(c, 0, 0, r * 0.7, r * 0.7 * squash, "#d8e868", { a: 0.4 + 0.1 * Math.sin(e.i * 1.7), dens: 0.45 }); ell(c, 0, 0, r * 0.35, r * 0.35 * squash, "#f0f4a0", { a: 0.5, dens: 0.4 });
+    const list = []; for (let k = 0; k < 24; k++) { const a = k * 2.4 + 0.5, rr = r * (0.2 + 0.8 * Math.sqrt(H(k, 2))), s = 4 + H(k, 4) * 4 + p * 2; list.push([Math.cos(a) * rr, Math.sin(a) * rr * squash - 4 - p * 8 - H(k, 9) * 8 - Math.sin(e.i * 0.7 + k) * 1.5, s, k]); }
+    list.sort((a, b) => a[1] - b[1]);
+    inked(c, e, (g) => { for (const [x, y, s, k] of list) { ell(g, x, y, s, s * 0.85, TOX[3], { a: 0.9 - p * 0.18 }); ell(g, x - 0.8, y - 1, s * 0.65, s * 0.55, TOX[2], { a: 0.9 - p * 0.18 }); if (k % 3 === 0) px(g, x - 1, y - 2, TOX[0]); } }, { fade: true, ink: "#1e4a30" });
+    for (let i = 0; i < 14; i++) { const [x, y] = arcPos(p, i, R * 1.3, 36); if (p > 0.1) px(c, x, y - 2, i % 3 ? TOX[1] : TOX[0], 1 - p * 0.4); if (i % 4 === 0) { rect(c, x, y - 2, 2, 2, ROTP[3]); px(c, x, y - 2, ROTP[1]); } }
+    for (let k = 0; k < 5; k++) { const q = (e.t + k / 5) % 1; if (p > 0.3) ell(c, Math.cos(k * 1.6) * r * 0.5, -14 - q * 24, 3 + q * 3, 2 + q * 2.4, "#c8e040", { a: 0.35 * (1 - q), dens: 0.5 }); }
+  },
+  C(c, e) {
+    const p = e.p, R = 76, r = R * ease(Math.min(1, p * 1.15));
+    plague.stain(c, p, R, ROTP, { dens: 1 });
+    if (p < 0.22) inked(c, e, (g) => poly(g, starPts(0, -8, 34 - p * 60, 12, 8), TOX[0]), { ink: "#1e4a30" });
+    inked(c, e, (g) => { gring(g, r, TOX[2], 3, { a: 1 - p * 0.5 });
+      for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU + 0.4, x = Math.cos(a) * r * 0.9, y = Math.sin(a) * r * 0.9 * squash - 6 - p * 6, s = 7 + p * 4;
+        ell(g, x, y, s, s * 0.9, TOX[2], { a: 1 - p * 0.6 }); ell(g, x - 1, y - 1.5, s * 0.55, s * 0.5, TOX[1], { a: 1 - p * 0.6 }); } }, { ink: "#1e4a30", passes: 2 });
+    inked(c, e, (g) => { for (let i = 0; i < 6; i++) { const [x, y] = arcPos(p, i, R * 1.2, 24); rect(g, x, y - 3, 3, 3, i % 2 ? TOX[1] : TOX[2]); px(g, x, y - 3, TOX[0]); } }, { ink: "#1e4a30" });
+  },
+};
+
+const UPA = ["....1....", "...121...", "..12221..", ".1222221.", "111222111", "..12221..", "..12221..", "..12221..", "..11111.."];
+const levelup = {
+  A(c, e) {
+    const p = e.p, r = 20 + 68 * ease(p);
+    e.hall(c, { level: 2 });
+    inked(c, e, (g) => { gring(g, r, HEAL[2], 1.5, { a: 1 - p * 0.7 }); gring(g, r - 3, HEAL[0], 1, { a: 1 - p, dens: 0.7 }); for (let k = 0; k < 3; k++) { const q = cl(p * 1.2 - k * 0.12); if (q <= 0 || q >= 1) continue;
+      stamp(g, UPA, { 1: HEAL[2], 2: HEAL[0] }, (k - 1) * 26 - 4, -26 - q * 44); } }, { fade: true, ink: "#1a3d2a" });
+  },
+  B(c, e) {
+    const p = e.p, r = 20 + 68 * ease(p);
+    pool(c, 0, 0, r + 6, (r + 6) * squash, HEAL[2], 0.36 * (1 - p * 0.7));
+    e.hall(c, { level: 2 });
+    for (let y = 0; y < 60; y++) for (let x = -16; x <= 16; x++) { const f = (1 - y / 60) * (1 - p * 0.8) * (1 - Math.abs(x) / 18); if (f > 0.1 && bay(x, y + e.i) < f * 0.6) px(c, x, -20 - y, y < 10 ? HEAL[1] : HEAL[2]); }
+    inked(c, e, (g) => { gring(g, r, HEAL[2], 2, { a: 1 - p * 0.6 }); gring(g, r - 0.5, HEAL[0], 1, { a: 1 - p, dens: 0.8 }); if (p > 0.2) gring(g, r * 0.6, HEAL[1], 1, { a: 0.8 - p * 0.5 }); }, { fade: true, ink: "#1a3d2a" });
+    for (let k = 0; k < 9; k++) { const q = (p * 1.1 + k / 9) % 1, a = k * 2.4 + p * 3; px(c, Math.cos(a) * (22 - q * 8), -4 - q * 64 + Math.sin(a) * 2, q < 0.6 ? HEAL[0] : HEAL[1], 1 - q * 0.7); }
+    if (p > 0.15 && p < 0.7) star4(c, 18, -36 - p * 14, 2, HEAL);
+  },
+  C(c, e) {
+    const p = e.p, r = 20 + 68 * ease(p);
+    e.hall(c, { level: 2 });
+    inked(c, e, (g) => gring(g, r, HEAL[1], 3.4, { a: 1 - p * 0.5 }), { fade: true, ink: "#1a3d2a", passes: 2 });
+    const q = cl(p * 1.3), y = -24 - q * 44;
+    if (q < 1) inked(c, e, (g) => stamp(g, UPA, { 1: HEAL[2], 2: HEAL[0] }, -4, Math.round(y)), { fade: true, ink: "#1a3d2a", passes: 2 });
+    if (p < 0.3) inked(c, e, (g) => poly(g, starPts(0, -12, 26 - p * 60, 7, 8), HEAL[0]), { fade: true, ink: "#1a3d2a" });
+  },
+};
+
+const evolve = {
+  A(c, e) {
+    const p = e.p, r = 10 + 38 * ease(p);
+    e.hall(c, e.i < 3 ? { level: 3 } : { level: 3, branch: "a" });
+    inked(c, e, (g) => { gring(g, r, GOLD[2], 1.5, { a: 1 - p * 0.6 }); gring(g, r * 0.62, GOLD[1], 1, { a: 1 - p });
+      for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU + p * 3; if (k % 2) continue; px(g, Math.cos(a) * 36, Math.sin(a) * 36 * squash, GOLD[0], 1 - p * 0.5); px(g, Math.cos(a + 0.2) * 36, Math.sin(a + 0.2) * 36 * squash, GOLD[1], 1 - p * 0.5); }
+      for (let k = 0; k < 4; k++) { const q = cl(p * 1.1 - k * 0.1); if (q <= 0 || q >= 1) continue; stamp(g, UPA, { 1: GOLD[2], 2: GOLD[0] }, (k - 1.5) * 24 - 4, -26 - q * 50); } }, { fade: true, ink: "#4a3018" });
+  },
+  B(c, e) {
+    const p = e.p, r = 20 + 76 * ease(p);
+    pool(c, 0, 0, r + 6, (r + 6) * squash, GOLD[2], 0.4 * (1 - p * 0.6));
+    e.hall(c, e.i < 3 ? { level: 3 } : { level: 3, branch: "a" });
+    for (let y = 0; y < 80; y++) for (let x = -16; x <= 16; x++) { const f = (1 - y / 80) * Math.sin(Math.min(1, p * 1.4) * Math.PI) * (1 - Math.abs(x) / 18) * 1.3; if (f > 0.1 && bay(x, y + e.i) < f * 0.7) px(c, x, -20 - y, y < 16 ? GOLD[0] : GOLD[1]); }
+    inked(c, e, (g) => { gring(g, r, GOLD[2], 2.2, { a: 1 - p * 0.6 }); gring(g, r - 0.5, GOLD[0], 1, { a: 1 - p, dens: 0.8 }); gring(g, r * 0.6, GOLD[1], 1.4, { a: 0.9 - p }); }, { fade: true, ink: "#4a3018" });
+    for (let k = 0; k < 12; k++) { const q = (p * 1.1 + k / 12) % 1, a = k * 2.2 + p * 4; px(c, Math.cos(a) * (22 - q * 8), -4 - q * 72, q < 0.6 ? GOLD[0] : GOLD[1], 1 - q * 0.7); }
+    if (p > 0.1 && p < 0.8) { star4(c, 0, -76 + p * 14, 3, GOLD); star4(c, -22, -44, 2, GOLD); }
+  },
+  C(c, e) {
+    const p = e.p, r = 20 + 76 * ease(p);
+    e.hall(c, e.i < 3 ? { level: 3 } : { level: 3, branch: "a" });
+    inked(c, e, (g) => gring(g, r, GOLD[1], 3.6, { a: 1 - p * 0.5 }), { fade: true, ink: "#4a3018", passes: 2 });
+    if (p < 0.6) inked(c, e, (g) => poly(g, starPts(0, -24, 56 - p * 70, 8, 12), GOLD[0], 0.9), { fade: true, ink: "#4a3018" });
+    const q = cl(p * 1.2);
+    inked(c, e, (g) => stamp(g, ["1...1...1", "11.121.11", "121222121", "122222221", "123333321", "122222221", "111111111"], { 1: GOLD[3], 2: GOLD[1], 3: GOLD[0] }, -4, Math.round(-28 - q * 40)), { fade: true, ink: "#4a3018", passes: 2 });
+  },
+};
+
+// ---- fire on a foe, again: three clearly new takes ----
+const silCache = new Map();
+const silOf = (e, f) => {
+  const key = f + "|" + e.cx; if (silCache.has(key)) return silCache.get(key);
+  const s = e.foe(f), W = s.cv.width, Hh = s.cv.height, d = s.cv.getContext("2d").getImageData(0, 0, W, Hh).data;
+  const on = (x, y) => x >= 0 && y >= 0 && x < W && y < Hh && d[(y * W + x) * 4 + 3] > 40;
+  const o = { W, H: Hh, ox: Math.round(-s.ax - e.cx), oy: Math.round(-s.ay), on }; silCache.set(key, o); return o;
+};
+const burn2 = {
+  A(c, e) {   // flames hug the silhouette: the rim glows, tongues lick up off the head and shoulders
+    const S = silOf(e, e.i); drawFoe(c, e, e.i);
+    for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) if (S.on(x, y) && (!S.on(x - 1, y) || !S.on(x + 1, y) || !S.on(x, y - 1) || !S.on(x, y + 1)) && bay(x + e.i * 2, y) < 0.62)
+      px(c, S.ox + x, S.oy + y, (x * 3 + y + e.i) % 3 ? FIRE[2] : FIRE[1]);
+    inked(c, e, (g) => { for (let x = 0; x < S.W; x += 3) { let top = -1; for (let y = 0; y < S.H; y++) if (S.on(x, y)) { top = y; break; } if (top < 0) continue;
+      const hh = 4 + Math.round(H(x, 1) * 4) + (top < S.H * 0.3 ? 3 : 0), ph = e.i * 0.9 + x * 0.6; flame(g, S.ox + x, S.oy + top + 1, hh + (e.i + x) % 2, 3, ph, FIRE, { sway: 0.8, tone: 3 }); } });
+  },
+  B(c, e) {   // a fiercer fire: hot glow on the ground, a charred body, a roaring mass, a column of smoke and embers
+    pool(c, 0, 1, e.HW + 12, 6, FIRE[2], 0.4 + 0.06 * Math.sin(e.i * 1.4)); pool(c, 0, 1, e.HW + 5, 3, FIRE[0], 0.28);
+    for (let k = 0; k < 6; k++) { const q = (e.t + k / 6) % 1; ell(c, Math.sin(q * 7 + k) * 3 + 2, -e.T - 4 - q * 26, 2 + q * 4.5, 1.6 + q * 3.6, SMOKE[q < 0.4 ? 1 : 2], { a: 0.7 * (1 - q), dens: 0.9 - q * 0.4 }); }
+    drawFoe(c, e, e.i, { tint: { col: SOOT, dens: 0.5, reach: 0.85, a: 0.85 } });
+    const S = silOf(e, e.i);
+    for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) if (S.on(x, y) && !S.on(x, y - 1) && bay(x + e.i, y) < 0.7) px(c, S.ox + x, S.oy + y, FIRE[(x + e.i) % 2 ? 1 : 2]);
+    inked(c, e, (g) => { const X = [-0.55, -0.2, 0.15, 0.5, 0.05], Y = [0.34, 0.7, 0.5, 0.72, 0.9];
+      for (let k = 0; k < 5; k++) { const x = Math.round(X[k] * e.HW * 2), y = -Math.round(e.T * Y[k]), h = 11 + ((e.i + k * 2) % 4) * 2;
+        flame(g, x, y, h, 7, e.i * 0.9 + k * 1.9, FIRE, { sway: 1.6 }); flame(g, x, y - 1, Math.round(h * 0.55), 4, e.i * 0.9 + k * 1.9 + 1, [FIRE[0], FIRE[0], FIRE[1], FIRE[1]], { sway: 1 }); } });
+    for (let k = 0; k < 8; k++) { const q = (e.t * 1.3 + k * 0.17) % 1; px(c, (H(k) - 0.5) * e.HW * 2 + Math.sin(q * 9 + k) * 3, -e.T * 0.6 - q * 34, q < 0.3 ? FIRE[0] : q < 0.6 ? FIRE[2] : FIRE[4], 1 - q * 0.5); }
+  },
+  C(c, e) {   // big chunky stylised tongues: a mane of five curling blades, bold ink
+    drawFoe(c, e, e.i, { flash: e.i % 2 ? 0.22 : 0, flashCol: FIRE[3] });
+    inked(c, e, (g) => { const X = [-0.8, -0.4, 0, 0.4, 0.8];
+      for (let k = 0; k < 5; k++) { const mid = 2 - Math.abs(k - 2), x = Math.round(X[k] * e.HW * 1.25), y = -Math.round(e.T * (0.5 + mid * 0.12)), h = 13 + mid * 4 + ((e.i + k) % 2) * 3;
+        flame(g, x, y, h, 9 - (2 - mid), e.i * 1.1 + k * 1.7, [FIRE[0], FIRE[1], FIRE[2], FIRE[3]], { sway: 2.6 }); flame(g, x, y - 1, Math.round(h * 0.5), 4, e.i * 1.1 + k * 1.7 + 0.8, [FIRE[0], FIRE[0], FIRE[1], FIRE[1]], { sway: 1.6 }); } }, { passes: 2, ink: "#4a1a1c" });
+    for (let k = 0; k < 4; k++) { const q = (e.t * 1.2 + k / 4) % 1; rect(c, (k - 1.5) * 9 + Math.sin(q * 6 + k) * 3, -e.T * 0.7 - q * 28, 2, 2, q < 0.5 ? FIRE[1] : FIRE[3], 1 - q * 0.6); }
+  },
+};
+
+// ---- burning ground (the fire / lava pools under Hellburner, the log fire, Sunforge) ----
+const sm = (t) => t * t * (3 - 2 * t);
+const vn = (x, y, s, sd = 0) => { const gx = x / s, gy = y / s, ix = Math.floor(gx), iy = Math.floor(gy), fx = sm(gx - ix), fy = sm(gy - iy);
+  const a = H(ix, iy + sd), b2 = H(ix + 1, iy + sd), c2 = H(ix, iy + 1 + sd), d = H(ix + 1, iy + 1 + sd); return a + (b2 - a) * fx + (c2 - a) * fy + (a - b2 - c2 + d) * fx * fy; };
+const molten = (c, rx, ry, e, o) => {   // the pool's body, noise-driven, hard pixels
+  for (let y = -Math.ceil(ry); y <= Math.ceil(ry); y++) for (let x = -Math.ceil(rx); x <= Math.ceil(rx); x++) {
+    const nx = (x + 0.5) / rx, ny = (y + 0.5) / ry, edge = Math.sqrt(nx * nx + ny * ny) + (vn(x + 40, y + 40, 9) - 0.5) * 0.4; if (edge > 1) continue;
+    const ch = vn(x + e.i * 4, y - e.i * 3, 8, 5) * 0.65 + vn(x - e.i * 2, y + e.i * 2, 3.5, 9) * 0.35;
+    px(c, x, y, o(edge, ch, x, y));
+  }
+};
+const firepool = {
+  A(c, e) {   // clean: a scorched oval with a glowing rim and a few low two-tone flames
+    const R = 60, ry = 36;
+    inked(c, e, (g) => molten(g, R, ry, e, (ed, ch) => ed > 0.82 ? (ch > 0.4 ? FIRE[3] : FIRE[4]) : ed > 0.6 ? (ch > 0.55 ? FIRE[2] : FIRE[4]) : (ch > 0.6 ? FIRE[2] : "#4a2a2a")));
+    inked(c, e, (g) => { for (let k = 0; k < 12; k++) { const a = k * 2.4 + 0.5, d = 0.5 + 0.35 * H(k, 2), x = Math.round(Math.cos(a) * R * d), y = Math.round(Math.sin(a) * ry * d) + 2;
+      flame(g, x, y, 8 + ((e.i + k) % 3) * 2, 5, e.i * 0.9 + k * 2, FIRE, { sway: 0.8, tone: 3 }); } });
+  },
+  B(c, e) {   // worked: glow beyond the rim, soot rays, cracks of ember, taller flames, smoke and sparks
+    const R = 60, ry = 36;
+    pool(c, 0, 0, R + 10, ry + 6, FIRE[2], 0.3 + 0.05 * Math.sin(e.i * 1.5)); pool(c, 0, 0, R + 3, ry + 2, FIRE[3], 0.3);
+    inked(c, e, (g) => molten(g, R, ry, e, (ed, ch, x, y) => ed > 0.86 ? "#241a1e" : ed > 0.68 ? (ch > 0.72 ? FIRE[3] : "#3a2226") : ch > 0.78 ? FIRE[0] : ch > 0.55 ? FIRE[1] : ch > 0.32 ? FIRE[2] : FIRE[3]));
+    for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU + 0.2, d = 1.12 + H(k, 8) * 0.25; line(c, Math.cos(a) * R * 0.95, Math.sin(a) * ry * 0.95, Math.cos(a) * R * d, Math.sin(a) * ry * d, SOOT, 0.7); }
+    inked(c, e, (g) => { for (let k = 0; k < 13; k++) { const a = k * 2.1 + 0.4, d = 0.15 + 0.7 * H(k, 4), x = Math.round(Math.cos(a) * R * d), y = Math.round(Math.sin(a) * ry * d) + 3, h = 11 + Math.round(H(k, 6) * 12) + ((e.i + k) % 3);
+      flame(g, x, y, h, 5, e.i * 0.9 + k * 1.7, FIRE, { sway: 1.4 }); if (h > 12) flame(g, x, y - 1, 6, 3, e.i * 0.9 + k * 1.7 + 1, [FIRE[0], FIRE[0], FIRE[1], FIRE[1]], { sway: 1 }); } });
+    for (let k = 0; k < 4; k++) { const q = (e.t * 0.9 + k / 4) % 1; ell(c, (k - 1.5) * 6 + Math.sin(q * 6 + k) * 3, -28 - q * 30, 3 + q * 5, 1.6 + q * 3, SMOKE[q < 0.5 ? 1 : 2], { a: 0.6 * (1 - q), dens: 0.85 - q * 0.4 }); }
+    for (let k = 0; k < 7; k++) { const q = (e.t * 1.3 + k * 0.15) % 1, a = k * 2.5; px(c, Math.cos(a) * R * 0.6 + Math.sin(q * 8 + k) * 2, Math.sin(a) * ry * 0.6 - 4 - q * 40, q < 0.35 ? FIRE[0] : q < 0.65 ? FIRE[2] : FIRE[4], 1 - q * 0.5); }
+  },
+  C(c, e) {   // bold: a ring of big fire teeth round a dark molten heart, readable at a glance
+    const R = 60, ry = 36;
+    inked(c, e, (g) => molten(g, R * 0.92, ry * 0.92, e, (ed, ch) => ed > 0.7 ? FIRE[3] : ed > 0.35 ? (ch > 0.5 ? FIRE[2] : FIRE[1]) : (ch > 0.5 ? FIRE[0] : FIRE[1])), { ink: "#4a1a1c", passes: 2 });
+    inked(c, e, (g) => { const n = 12; for (let k = 0; k < n; k++) { const a = (k / n) * TAU + 0.3, x = Math.round(Math.cos(a) * R * 0.78), y = Math.round(Math.sin(a) * ry * 0.78) + 2, back = Math.sin(a) < 0;
+      flame(g, x, y, back ? 15 + (e.i + k) % 3 * 2 : 11 + (e.i + k) % 3 * 2, 9, e.i * 1.2 + k * 1.9, [FIRE[0], FIRE[1], FIRE[2], FIRE[3]], { sway: 2 }); } }, { ink: "#4a1a1c", passes: 2 });
+    for (let k = 0; k < 4; k++) { const q = (e.t * 1.2 + k / 4) % 1; rect(c, (k - 1.5) * 10 + Math.sin(q * 6 + k) * 3, -14 - q * 36, 2, 2, q < 0.5 ? FIRE[1] : FIRE[3], 1 - q * 0.6); }
+  },
+};
+
+const R2 = "Round 2";
+const BL2 = { cw: 208, ch: 214, ax: 104, ay: 106, N: 8 };
+export const ROWS2 = [
+  { id: "toll", label: "Bell toll", group: R2, note: "The Gravecaller / Hollow King / Rime Jarl bell: 550 ms, rings of sound over the ground. Frames 0-7 span one toll.", ...BL2, A: toll.A, B: toll.B, C: toll.C },
+  { id: "plagueburst", label: "Plague burst", group: R2, note: "A Plague Ghast bursts: 500 ms, a rot stain, spore clouds rolling out, gobbets flung.", ...BL2, A: plague.A, B: plague.B, C: plague.C },
+  { id: "levelup", label: "Level up", group: R2, note: "A hall levelled / a hero levelling (600 ms), at a hall's feet (a stand-in block). Today's green ring + burst of dots.", ...BL2, ch: 240, ay: 152, A: levelup.A, B: levelup.B, C: levelup.C },
+  { id: "evolve", label: "Path / final", group: R2, note: "A hall branching or ascending (900 ms): the gold version. Today's gold ring + burst of dots.", ...BL2, ch: 240, ay: 152, A: evolve.A, B: evolve.B, C: evolve.C },
+  { id: "burn2", label: "Fire on a foe, again", group: R2, note: "TODAY is round 1's pick (burn B, drawn by the game). A: flames hug the silhouette. B: fiercer, smoke column, ground glow. C: big chunky tongues.", cw: 64, ch: 84, ax: 30, ay: 68, N: 8, A: burn2.A, B: burn2.B, C: burn2.C },
+  { id: "firepool", label: "Burning ground", group: R2, note: "The pools under Hellburner, the log fire, the Sunforge. TODAY: the fire pool (flames.js) and the lava pool (fx.js).", ...BL2, ch: 130, ay: 76, twoToday: true, tl: ["TODAY (fire pool)", "TODAY (lava pool)"], A: firepool.A, B: firepool.B, C: firepool.C },
+];
+
 const FOE = { cw: 64, ch: 76, ax: 30, ay: 60, N: 8 };
 const BLAST = { cw: 104, ch: 84, ax: 52, ay: 56, N: 8 };
 export const ROWS = [
+  ...ROWS2,
   { id: "burn", label: "Burn", group: "Status on a foe", note: "A goblin set alight.", ...FOE, A: burn.A, B: burn.B, C: burn.C },
   { id: "poison", label: "Poison", group: "Status on a foe", note: "Bubbles and drip on the body.", ...FOE, A: poison.A, B: poison.B, C: poison.C },
   { id: "slow", label: "Slow / chill", group: "Status on a foe", note: "Today: a wheel of stars over the head, more stars the harder the slow.", ...FOE, A: slow.A, B: slow.B, C: slow.C },
