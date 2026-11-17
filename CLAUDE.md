@@ -199,6 +199,16 @@ fill dialled back; pools B (fx.js `poolSprite`, 6 frames). Longship / sinking / 
 (rimefx.js: pixel kit, `drawFrostShells` per-hall masks baked per form and phase, `drawFrostGround` called in
 draw.js under the foes, `warmFrost` bakes one form a frame while a freezer lives). The lab reloads on any `fx-r4*.js` edit and stalls in a hidden pane.
 
+**The last old-style art** (2026-11-17, owner: "just do all"; brief `art/briefs/old-art-last.md`, the
+checked list at the end of `art/briefs/fable-sweep-2026-11-17.md`; pending the owner's look): the halls'
+moving rings are stepped pixel rings (`src/render/halls/pixrings.js` `pxArc` / `pxRing`; the Warden pulse
+now lies on the ground at 0.7 and was not seen firing in a lab); the vale pieces are pix sculpts
+(`src/render/pix/vale-pix.js`; mill wheel and cottage smoke still the old live painters; marram and thistle
+untouched; weak: the upturned boat, the haywain's wheels); the title screen's flags, banners, smoke and
+birds are sculpted (titleCrowd.js; the torch flames are buildkit's); the campaign map's buildings got shared
+masonry / tile / lit-window helpers in mapArt.js and the crown castle was redrawn (its gate had been hidden
+behind the keep). Still old on the map: bergs, seal rocks, rune stones, Rime pines, the kraken's arms.
+
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
 "You can take out the use old sprites thing": the switch is gone from Settings' Display tab
