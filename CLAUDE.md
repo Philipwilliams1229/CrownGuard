@@ -810,9 +810,8 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
-- **The novas need another look** (owner, 2026-11-16: "we will need to come back to look at the
-  novas"): the fire and frost novas (rings.js `firenova` / `frostnova`) were kept as they were in the
-  effects pass; they now lie under the foes and flash them white. Ask what they want changed.
+- **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
+  coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
   check them out later"):** the ram was put back to its old size 2026-11-17 (the cavalier and
   gryphon stay smaller than their old rigs: the owner's call, same day); bushes, the gate threshold and a few Rime props (longhouse, rack,
