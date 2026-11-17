@@ -1174,12 +1174,12 @@ const whirl = () => spr("whirl", 16, 10, (c) => {
 // shared bits for the map's masonry: mortar courses with staggered joints, a
 // lit west edge (one sun from the upper left), tiles in rows on a roof
 const masonry = (c, x, y, w, h, seed = 0) => {
-  c.fillStyle = "rgba(36,26,44,0.15)";
+  c.fillStyle = "rgba(36,26,44,0.24)";
   for (let r = 1.0, k = 0; r < h - 0.3; r += 1, k++) {
     c.fillRect(x, y + r, w, 0.25);
     for (let j = (k + seed) % 2 ? 0.7 : 1.7; j < w - 0.4; j += 2) c.fillRect(x + j, y + r - 1, 0.25, 1);
   }
-  c.fillStyle = "rgba(255,246,220,0.26)"; c.fillRect(x, y, 0.5, h);
+  c.fillStyle = "rgba(255,246,220,0.36)"; c.fillRect(x, y, 0.5, h);
   c.fillStyle = "rgba(255,246,220,0.14)"; c.fillRect(x, y, w, 0.3);
 };
 // masonry inside any outline (a broken wall, a gable)
@@ -1456,7 +1456,10 @@ const ikTent = (v) => spr(`ik-tent${v}`, 6, 5.4, (c) => {
   c.fillStyle = cloth; poly(c, [[0.2, 5.2], [3, 0.8], [5.8, 5.2]]); c.fill();
   c.fillStyle = dk; poly(c, [[3, 0.8], [5.8, 5.2], [3.9, 5.2]]); c.fill();
   if (v % 3 !== 2) { c.fillStyle = IK.ox; poly(c, [[1.9, 2.8], [3, 0.8], [3.4, 1.5], [2.5, 3.2]]); c.fill(); }
+  c.fillStyle = "rgba(36,26,44,0.22)"; poly(c, [[3, 0.8], [1.4, 5.2], [1.8, 5.2], [3.1, 1.6]]); c.fill(); poly(c, [[3, 0.8], [4.7, 5.2], [5, 5.2], [3.1, 1.2]]); c.fill();
+  c.fillStyle = "rgba(255,246,220,0.35)"; c.fillRect(0.4, 5, 5.4, 0.2);
   c.fillStyle = IK.door; poly(c, [[2.4, 5.2], [3, 3], [3.5, 5.2]]); c.fill();
+  c.fillStyle = "#f0b860"; c.fillRect(2.9, 4.3, 0.4, 0.9);
   c.fillStyle = IK.wood; c.fillRect(2.8, 0, 0.5, 1);
 });
 const pavilion = () => spr("ik-pav", 11, 10, (c) => {
@@ -1466,7 +1469,10 @@ const pavilion = () => spr("ik-pav", 11, 10, (c) => {
   c.fillStyle = IK.ox; poly(c, [[0.6, 5.8], [5.5, 2.4], [10.4, 5.8]]); c.fill();
   c.fillStyle = IK.oxLt; poly(c, [[0.6, 5.8], [5.5, 2.4], [5.5, 5.8]]); c.fill();
   c.fillStyle = IK.brass; c.fillRect(0.6, 5.6, 9.8, 0.5);
+  c.fillStyle = "rgba(36,26,44,0.2)"; poly(c, [[5.5, 2.4], [0.8, 5.8], [1.6, 5.8], [5.5, 3.2]]); c.fill(); poly(c, [[5.5, 2.4], [9.2, 5.8], [10.4, 5.8]]); c.fill();
+  c.fillStyle = "rgba(36,26,44,0.24)"; c.fillRect(1.4, 9.2, 8.2, 0.4);
   c.fillStyle = IK.door; c.fillRect(4.8, 7.2, 1.4, 2.4);
+  c.fillStyle = "#f0b860"; c.fillRect(5.2, 8.6, 0.6, 1);
   oxFlag(c, 5.5, 2.6, 2.6, 3, 1.6);
 });
 // a camp fire with its smoke
@@ -1487,6 +1493,7 @@ const gallows = () => spr("ik-gallows", 7, 8, (c) => {
   ball(c, 3.5, 8, 3.4, 1.6, "#6a7458", { hi: 0.4, lo: 0.4, fx: -0.5, fy: -0.7 }); c.restore();
   c.fillStyle = IK.wood; c.fillRect(1.4, 1.2, 0.8, 5.8); c.fillRect(1.4, 1.2, 4.6, 0.7);
   c.fillStyle = IK.woodDk; c.fillRect(1.9, 1.2, 0.3, 5.8); poly(c, [[2.2, 3.2], [3.6, 1.9], [2.9, 1.9], [2.2, 2.6]]); c.fill();
+  c.fillStyle = "rgba(255,240,200,0.3)"; c.fillRect(1.4, 1.2, 0.35, 5.8); c.fillRect(1.4, 1.2, 4.6, 0.25);
   c.fillStyle = "#b8a878"; c.fillRect(5.2, 1.9, 0.3, 1.6);
   c.fillStyle = "#2a2430"; c.fillRect(4.9, 3.5, 0.9, 0.8);
   c.fillStyle = "#1e1a22"; c.fillRect(4.6, 0.4, 1.2, 0.8);
@@ -1499,7 +1506,9 @@ const tor = (v) => spr(`ik-tor${v}`, 11, 8, (c) => {
     c.fillStyle = "#6a655e"; c.fillRect(x + w * 0.7, y - h, w * 0.3, h);
     c.fillStyle = "#56524c"; c.fillRect(x, y - 0.5, w, 0.5);
     c.fillStyle = "#b8b3a6"; c.fillRect(x + 0.2, y - h - top, w - 0.4, top);
-    c.fillStyle = "#cfcabc"; c.fillRect(x + 0.4, y - h - top, w * 0.4, 0.5);
+    c.fillStyle = "#e0dccd"; c.fillRect(x + 0.4, y - h - top, w * 0.4, 0.5);
+    c.fillStyle = "rgba(36,30,40,0.3)"; c.fillRect(x + w * 0.3, y - h, 0.3, h * 0.7); c.fillRect(x, y - h * 0.5, w * 0.6, 0.25);
+    c.fillStyle = "rgba(255,246,220,0.3)"; c.fillRect(x, y - h, 0.4, h);
   };
   const stacks = [
     [[0.6, 7.6, 4.2, 1.6], [5, 7.6, 3.6, 2.2], [1.2, 5.1, 3.2, 1.6], [5.4, 4.5, 2.8, 1.4], [1.8, 2.6, 2, 1.2]],
@@ -1508,7 +1517,7 @@ const tor = (v) => spr(`ik-tor${v}`, 11, 8, (c) => {
     [[1.4, 7.6, 7.6, 1.6], [2.2, 5.1, 3.2, 1.8], [5.8, 5.1, 2.6, 1.2]],
   ][v % 4];
   for (const [x, y, w, h] of stacks) slab(x + (v > 3 ? 0.6 : 0), y, w, h);
-  c.fillStyle = "#6e7a52"; c.fillRect(1 + (v % 3), 7.1, 1.4, 0.5);
+  c.fillStyle = "#7e8a5a"; c.fillRect(1 + (v % 3), 7.1, 1.4, 0.5); c.fillRect(5 + (v % 2), 4.5, 0.8, 0.4);
 });
 // a column of the Iron host on the march: spears, helms, oxblood coats, a
 // banner at the head
@@ -1528,11 +1537,12 @@ const column = (v) => spr(`ik-col${v}`, 14, 5, (c) => {
 // the salt pans of Brinewick: shallow square pans of brine in stone
 // kerbs, some white with salt, and a raker's hut at their head
 const saltPans = (v) => spr(`ik-salt${v % 2}`, 13, 7, (c) => {
-  c.fillStyle = "#8e8a7e"; c.fillRect(0.4, 1.6, 12.2, 5.2);
+  c.fillStyle = "#8e8a7e"; c.fillRect(0.4, 1.6, 12.2, 5.2); masonry(c, 0.4, 1.6, 12.2, 5.2, v);
   for (let j = 0; j < 2; j++) for (let i = 0; i < 4; i++) {
     const k = hash(v * 7 + i, j + 3), x = 0.9 + i * 2.95, y = 2.1 + j * 2.4;
     c.fillStyle = k < 0.35 ? "#e8ecea" : k < 0.7 ? "#7aa2b0" : "#5f8a9c"; c.fillRect(x, y, 2.4, 1.9);
     c.fillStyle = k < 0.35 ? "#c4ccce" : "#9ac0cc"; c.fillRect(x, y, 2.4, 0.4);
+    c.fillStyle = k < 0.35 ? "#ffffff" : "#b8d8e0"; c.fillRect(x + 0.5, y + 0.8, 0.5, 0.3);
   }
   house(c, v % 2 ? 9.6 : 0.6, 2.2, 2.6, 1.4, 3);
 });
@@ -1564,6 +1574,8 @@ const ironCitadel = () => spr("ik-citadel", 32, 28, (c) => {
   c.fillStyle = IK.iron; c.fillRect(11.4, 5.2, 9.2, 0.5);
   for (const x of [12.8, 15.6, 18.4]) slit(c, x, 7.4, 1.6);
   for (const x of [12.8, 18.4]) slit(c, x, 11, 1.6);
+  for (const x of [12.8, 15.6, 18.4]) { c.fillStyle = "#f0c470"; c.fillRect(x, 8.4, 0.6, 0.5); }
+  c.fillStyle = "rgba(30,22,40,0.2)"; c.fillRect(17.6, 5, 3, 13);
   c.fillStyle = IK.ox; c.fillRect(15.2, 9.4, 1.8, 4.6); c.fillStyle = IK.oxDk; c.fillRect(15.2, 13.4, 1.8, 0.6);
   c.fillStyle = "#a8a8b0"; c.fillRect(15.8, 10.4, 0.6, 1.2);
   oxFlag(c, 16, 2.2, 2.2, 3.6, 2);
@@ -1689,6 +1701,9 @@ const chapel = (v) => spr(`hf-chapel${v}`, 14, 13, (c) => {
   c.fillStyle = HF.dark; c.fillRect(10, 11, 1.4, 1.6);
   // what's left of the roof
   c.fillStyle = HF.barkDk; c.fillRect(2.4, 6, 0.5, 2.4); c.fillRect(5.6, 6.6, 0.5, 1.8);
+  c.fillStyle = HF.barkDk; poly(c, [[1, 7], [2.4, 5.2], [3.2, 5.4], [3.6, 7.2]]); c.fill(); poly(c, [[5.2, 7.2], [6.2, 5.8], [7, 6.2], [7.4, 8]]); c.fill();
+  c.fillStyle = HF.bark; c.fillRect(2.4, 5.4, 0.3, 1.6); c.fillRect(6.2, 6, 0.3, 1.6);
+  c.fillStyle = "rgba(255,246,220,0.2)"; c.fillRect(1.4, 6.2, 1, 0.4);
   // ivy and weed
   c.fillStyle = HF.moss; c.fillRect(1, 7.4, 0.8, 3); c.fillRect(8.4, 9, 0.8, 3.6); c.fillStyle = HF.mossDk; c.fillRect(3.8, 11.4, 2, 0.6);
   if (v % 2) { c.fillStyle = HF.fire; c.fillRect(10.4, 9, 0.5, 0.6); c.fillRect(2.6, 9.8, 0.4, 0.5); }
@@ -1755,6 +1770,8 @@ const lychgate = () => spr("hf-lych", 9, 7, (c) => {
   c.fillStyle = HF.barkDk; c.fillRect(1.4, 3, 0.7, 3.8); c.fillRect(6.9, 3, 0.7, 3.8);
   c.fillStyle = HF.bark; c.fillRect(1.4, 3, 0.4, 3.8); c.fillRect(6.9, 3, 0.4, 3.8);
   c.fillStyle = HF.thatch; poly(c, [[0.2, 3.4], [2, 0.6], [7, 0.6], [8.8, 3.4]]); c.fill();
+  tileRows(c, [[0.2, 3.4], [2, 0.6], [7, 0.6], [8.8, 3.4]], 0.9, 3.4, 0.55);
+  c.fillStyle = "rgba(255,240,200,0.2)"; c.fillRect(2, 0.7, 2.4, 0.4);
   c.fillStyle = HF.thatchDk; c.fillRect(0.2, 2.8, 8.6, 0.6); c.fillStyle = HF.moss; c.fillRect(2.4, 0.6, 3, 0.5);
   c.fillStyle = HF.fire; c.fillRect(4.2, 3.4, 0.6, 0.8);
 });
@@ -1849,6 +1866,8 @@ const throneRuin = () => spr("hf-throne", 28, 22, (c) => {
 // a wreck on the strand
 const wreck = () => spr("hf-wreck", 14, 7, (c) => {
   c.fillStyle = HF.barkDk; poly(c, [[0.6, 5.6], [2, 3.4], [11, 2.6], [13.4, 4.6], [12, 6.4], [2, 6.6]]); c.fill();
+  c.fillStyle = "rgba(255,240,200,0.18)"; c.fillRect(1.4, 4.2, 10, 0.3);
+  c.fillStyle = "rgba(20,14,20,0.35)"; c.fillRect(1.8, 4.9, 10, 0.25); c.fillRect(3.4, 3.6, 0.25, 2.8); c.fillRect(7.2, 3.4, 0.25, 3);
   c.fillStyle = HF.bark; c.fillRect(2.2, 3.2, 8.6, 0.6);
   c.fillStyle = HF.barkDk; for (const x of [3.6, 5.6, 7.6, 9.6]) c.fillRect(x, 0.8 + (x % 2), 0.6, 3);
   c.fillStyle = "#6a5a44"; poly(c, [[10.6, 3], [11.2, 0], [11.6, 0.2], [11.2, 3]]); c.fill();
@@ -1950,6 +1969,8 @@ const whaleRibs = (v) => spr(`rm-whale${v % 2}`, 8, 4.4, (c) => {
   }
   c.strokeStyle = RK.boneDk; c.lineWidth = 0.5;
   c.beginPath(); c.moveTo(0.6, 4); c.lineTo(7.4, 4); c.stroke();
+  c.strokeStyle = "#fffaf0"; c.lineWidth = 0.2;
+  for (let k = 0; k < 4; k++) { const x = 1.4 + k * 1.5, hgt = 3.2 - Math.abs(k - 1.3) * 0.5; c.beginPath(); c.moveTo(x - 0.6, 3.9); c.quadraticCurveTo(x - 1, 4.1 - hgt, x + 0.5, 4.1 - hgt * 0.8); c.stroke(); }
   if (v % 2) { c.strokeStyle = RK.bone; c.beginPath(); c.moveTo(7.6, 4); c.quadraticCurveTo(7.2, 2, 5.8, 1.4); c.stroke(); }
 });
 // a longship drawn up on the strand: dragon prow, shields along her side,
@@ -1958,6 +1979,8 @@ const shipBeached = (v) => spr(`rm-beach${v % 2}`, 10, 4.6, (c) => {
   c.save(); if (v % 2) { c.translate(10, 0); c.scale(-1, 1); }
   c.fillStyle = RK.wood; poly(c, [[0.4, 1.4], [1.4, 3], [2.4, 4.2], [7.8, 4.2], [8.8, 3], [9.6, 1.4], [8.8, 2.6], [1.2, 2.6]]); c.fill();
   c.fillStyle = RK.woodDk; c.fillRect(2.2, 3.6, 6, 0.6);
+  c.fillStyle = RK.woodLt; c.fillRect(1.6, 2.7, 6.8, 0.25); c.fillRect(2.4, 3.3, 5.2, 0.25);
+  c.fillStyle = RK.snow; c.fillRect(2.6, 1.3, 4.6, 0.3);
   for (let k = 0; k < 5; k++) { c.fillStyle = k % 2 ? RK.gold : RK.blue; c.beginPath(); c.arc(2.6 + k * 1.2, 2.9, 0.5, 0, Math.PI * 2); c.fill(); }
   c.fillStyle = RK.sail; c.fillRect(2.4, 1.6, 5.6, 0.7);
   c.fillStyle = RK.red; c.fillRect(3.4, 1.6, 0.8, 0.7); c.fillRect(5.2, 1.6, 0.8, 0.7);
@@ -1969,11 +1992,14 @@ const shipSail = (v) => spr(`rm-sail${v % 2}`, 12, 11, (c) => {
   c.save(); if (v % 2) { c.translate(12, 0); c.scale(-1, 1); }
   c.fillStyle = RK.wood; poly(c, [[0.4, 6.6], [1.6, 8.4], [2.8, 9.4], [9.4, 9.4], [10.6, 8.4], [11.6, 6.6], [10.4, 7.8], [1.6, 7.8]]); c.fill();
   c.fillStyle = RK.woodDk; c.fillRect(2.6, 8.8, 7, 0.6);
+  c.fillStyle = RK.woodLt; c.fillRect(1.8, 7.9, 8, 0.25); c.fillRect(2.6, 8.5, 6.6, 0.25);
   for (let k = 0; k < 6; k++) { c.fillStyle = k % 2 ? RK.gold : RK.blue; c.beginPath(); c.arc(2.8 + k * 1.3, 8, 0.5, 0, Math.PI * 2); c.fill(); }
   c.fillStyle = RK.woodDk; c.fillRect(5.7, 0.4, 0.6, 7.6); c.fillRect(0.2, 5.4, 0.7, 1.6);
   // the sail, bellied a little, five stripes
   for (let k = 0; k < 5; k++) { c.fillStyle = k % 2 ? RK.sail : RK.red; poly(c, [[2.6 + k * 1.36, 1.2], [2.6 + (k + 1) * 1.36, 1.2], [2.8 + (k + 1) * 1.36, 6.4], [2.4 + k * 1.36, 6.4]]); c.fill(); }
   c.fillStyle = RK.woodDk; c.fillRect(2.2, 0.8, 7.6, 0.5);
+  c.fillStyle = "rgba(30,36,60,0.22)"; c.fillRect(7.4, 1.3, 2.4, 5.2);
+  c.fillStyle = "rgba(255,255,255,0.25)"; c.fillRect(2.6, 1.3, 0.5, 5);
   // her wake
   c.fillStyle = "#e4eee0"; c.fillRect(9.6, 9.8, 2, 0.5); c.fillRect(0.6, 10, 1.4, 0.5);
   c.restore();
@@ -1984,6 +2010,8 @@ const seaStack = (v) => spr(`rm-stack${v % 3}`, 5, 9, (c) => {
   c.fillStyle = "#3c414c"; poly(c, [[0.6, 8.2], [1 + tilt, 8.2 - h], [3.4 + tilt, 8.2 - h - 0.4], [4.4, 8.2]]); c.fill();
   c.fillStyle = "#5a606c"; poly(c, [[0.6, 8.2], [1 + tilt, 8.2 - h], [2 + tilt, 8.2 - h], [1.8, 8.2]]); c.fill();
   c.fillStyle = RK.snow; poly(c, [[0.9 + tilt, 8.2 - h + 0.8], [1 + tilt, 8.2 - h], [3.4 + tilt, 8.2 - h - 0.4], [3.6 + tilt, 8.2 - h + 0.6], [2.4 + tilt, 8.2 - h + 1.2]]); c.fill();
+  c.fillStyle = "rgba(10,14,24,0.35)"; for (let y = 2.2; y < 8; y += 1.3) c.fillRect(1.2, y, 3, 0.25);
+  c.fillStyle = "rgba(255,255,255,0.18)"; c.fillRect(1, 8.2 - h + 1.2, 0.5, h - 1.4);
   c.fillStyle = "#e4eee0"; c.fillRect(0, 8.2, 1.4, 0.6); c.fillRect(3.6, 8.2, 1.4, 0.6);
 });
 // a berg: a slab of old ice, its top lit, its east face in blue shadow
@@ -2012,6 +2040,7 @@ const rimeCrag = (v) => spr(`rm-crag${v % 4}`, 7, 4.6, (c) => {
   const pts = [[0.4, 4.4], [1.2, 2.2 - (v % 2) * 0.6], [2.6, 1.2], [3.8, 2], [5, 0.8 + (v % 3) * 0.3], [6.6, 4.4]];
   c.fillStyle = "#3a3f4a"; poly(c, pts); c.fill();
   c.fillStyle = "#565c68"; poly(c, [[0.4, 4.4], [1.2, 2.2 - (v % 2) * 0.6], [2.6, 1.2], [2.8, 4.4]]); c.fill();
+  c.fillStyle = "rgba(10,14,24,0.35)"; c.fillRect(1, 3.2, 5, 0.25); c.fillRect(2.2, 2.2, 0.25, 2);
   c.fillStyle = RK.snow; poly(c, [[1.1, 2.6], [2.6, 1.2], [3.8, 2], [5, 0.8 + (v % 3) * 0.3], [5.6, 1.9], [4.2, 2.6], [2.6, 2]]); c.fill();
 }, 1);
 // seals hauled out on a skerry
