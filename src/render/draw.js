@@ -38,7 +38,7 @@ const VOLLEY_SHAFTS = 6;
 import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
-import { drawRangeRing, drawPlate } from "./rangering.js";
+import { drawRangeRing } from "./rangering.js";
 import { collectRings } from "./ringflash.js";
 import { drawBreath, drawFireFront } from "./flames.js";
 import { beginLights, addLight, warmPix } from "./pix/pixrigs.js";
@@ -263,7 +263,6 @@ export function draw(g, canvas, bufRef) {
       const ghostT = { kind: g.buildMode, level: 1 };
       const radius = g.buildMode === "knight" ? RALLY_RANGE : getStats(ghostT).range;
       const fullR = g.buildMode === "knight" ? RALLY_RANGE : getStatsClear(ghostT).range;
-      drawPlate(ctx, S(hx), S(hy), ok);
       // (a River Watch's reach is the water it moors in, laid with the water
       // above; here only her first skiff's station and musket reach, faint)
       if (g.buildMode === "riverwatch") { if (watch && watch[2] !== "sel") drawWatchStation(ctx, g, hx, hy, watch[2]); }

@@ -210,8 +210,8 @@ masonry / tile / lit-window helpers in mapArt.js and the crown castle was redraw
 behind the keep); then the bergs, seal rocks, rune stones, Rime pines and kraken's arms, marram, thistle,
 the upturned boat and haywain wheels. **Range rings** (owner, same day: "the range ring looks dated"; brief
 `art/briefs/range-rings.md`): `src/render/rangering.js` `drawRangeRing` (a true circle, one-pixel lit / shaded
-line, outer tinted shade, Bayer band fading inward, drifting dashes; baked per radius, colour, fill) and
-`drawPlate` (the build ghost's tile); draw.js's `rangeRing` wraps it, every caller unchanged; selected gold
+line, outer tinted shade, Bayer band fading inward, drifting dashes; baked per radius, colour, fill) ; no tile or square under
+the build ghost (owner: "i dont want the square at all"; `drawPlate` is unused); draw.js's `rangeRing` wraps it, every caller unchanged; selected gold
 is now rgba(240,176,40). `rr-lab.html` (`mode=sel|build&build=<kind>&wx=1&old=1`). ~+0.05 ms a ring.
 
 ## Smaller blasts, a slower catapult that loads by hand (2026-11-17, owner request)
