@@ -51,7 +51,7 @@ import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
-import { drawShip, drawFrostShells, drawSea, ZONE_FX } from "./rimefx.js";
+import { drawShip, drawFrostShells, drawFrostGround, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
 import { drawHit, drawDeathPoof } from "./statusfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
@@ -215,6 +215,8 @@ export function draw(g, canvas, bufRef) {
     const tmsG = g.time * 1000;
     for (const gr of g.grounds) drawGround(ctx, gr, g.time, tmsG);
   }
+  // a frozen hall's frost sheet and thaw puddle lie under the foes (rimefx.js)
+  drawFrostGround(ctx, g);
   // the newer heroes' marks on the ground (render/heroes/<key>.js)
   drawHeroUnder(ctx, g);
 

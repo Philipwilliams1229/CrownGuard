@@ -190,7 +190,14 @@ puddles + wet road, flooded road, lightning on the ground (`concept/fx-r4-water.
 plague / spore pools (`fx-r4-novas.js`), longship landing / sinking, serpent surfacing, frozen hall
 (`fx-r4-rime.js`); gathered by `concept/fx-r4.js`. Private Artifact "Crownguard Effects Concepts, Round 4"
 (`node scripts/build-fx-concepts.mjs round4`; this round's viewer plays each option first, frames below, the
-owner's ask). Awaiting the owner's picks. The lab reloads on any `fx-r4*.js` edit and stalls in a hidden pane.
+owner's ask). **The owner's picks, IN THE GAME (2026-11-17, pending their look):** puddles A,
+"show up more gradually, and disappear more gradually" (weatherfx.js `puddleLevel`: staggered thresholds, each grows
+from its middle, drains over `PUD_DRY` 170 s of combat, freezes between waves; ground-coloured `puddle(wu, v, kind)`);
+flood B (`floodDress`, `FLOOD_R` 27); lightning ground B (`crackSprite`, `steamPuff`); storm ground +0.55 ms a frame.
+Fire / frost nova B, both squashed to 0.55 "to maintain that 3D effect" (ringflash.js follows), the frost's inside
+fill dialled back; pools B (fx.js `poolSprite`, 6 frames). Longship / sinking / serpent boil / frozen hall B
+(rimefx.js: pixel kit, `drawFrostShells` per-hall masks baked per form and phase, `drawFrostGround` called in
+draw.js under the foes, `warmFrost` bakes one form a frame while a freezer lives). The lab reloads on any `fx-r4*.js` edit and stalls in a hidden pane.
 
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 

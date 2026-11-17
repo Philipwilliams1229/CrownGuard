@@ -27,6 +27,8 @@
 // draw.js's `e.sea` hook calls drawSea, which an artist may rewrite freely.
 
 import { S, CELL } from "../data/constants.js";
+import { PX } from "./paint.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { RIGS, drawRig } from "./rigs.js";
 import { Pix, mat, toCanvas } from "./pix/pix.js";
 // the sea monsters' own frame mapping (waterlines, the arm's grab, the sinks)
@@ -103,36 +105,150 @@ const shipSprite = (face, sail) => {
   return sp;
 };
 const W2f = () => 22;
-// the hull, sail and oars of a longship centred on (x, y), facing `face`,
-// tilted by `tilt` (radians) and sunk by `sink` px (both for the wreck)
-const longship = (ctx, x, y, face, t, { tilt = 0, sink = 0, sail = true, oars = true, alpha = 1 } = {}) => {
+// ---- Round 4 (owner's picks, 2026-11-17): longship B, sea serpent surfaces B, frozen hall B ----
+// Everything below is drawn in ART PIXELS (PX to a board unit; `art` opens that frame at a world point,
+// whole pixels, one sun upper left) and baked per frame / variant (`bake`), then stamped with one drawImage.
+// Concept: concept/fx-r4-rime.js (the code these were ported from).
+const TAU = Math.PI * 2;
+const H = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bay = (x, y) => (BAYER[((y & 3) << 2) | (x & 3)] + 0.5) / 16;
+const cl = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+const ez = (p) => 1 - (1 - p) * (1 - p);
+const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+// the pen helpers keep the caller's globalAlpha and multiply it by `a`
+const px = (c, x, y, col, a = 1) => { const p = c.globalAlpha; if (a < 1) c.globalAlpha = p * a; c.fillStyle = col; c.fillRect(Math.floor(x), Math.floor(y), 1, 1); c.globalAlpha = p; };
+const rect = (c, x, y, w, h, col, a = 1) => { const p = c.globalAlpha; if (a < 1) c.globalAlpha = p * a; c.fillStyle = col; c.fillRect(Math.floor(x), Math.floor(y), w, h); c.globalAlpha = p; };
+const ell = (c, cx, cy, rx, ry, col, o = {}) => {
+  const a = o.a ?? 1, dens = o.dens ?? 1, hole = o.hole ?? 0;
+  if (rx < 0.5 || ry < 0.4) return;
+  const p = c.globalAlpha; c.fillStyle = col; if (a < 1) c.globalAlpha = p * a;
+  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+    const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry, d = nx * nx + ny * ny;
+    if (d > 1 || d < hole * hole) continue;
+    if (dens < 1 && bay(x, y) >= dens) continue;
+    c.fillRect(x, y, 1, 1);
+  }
+  c.globalAlpha = p;
+};
+const ring = (c, cx, cy, rx, ry, col, o = {}) => ell(c, cx, cy, rx, ry, col, { ...o, hole: 1 - (o.th || 1) / Math.max(1, Math.min(rx, ry)) });
+// a ring in row spans (no dither): cheap enough to run live, even for the kraken's big ones
+const spanRing = (c, cx, cy, rx, ry, col, th = 2, a = 1) => {
+  if (rx < 1 || ry < 1) return;
+  const p = c.globalAlpha; c.fillStyle = col; if (a < 1) c.globalAlpha = p * a;
+  const ix = Math.max(0, rx - th), iy = Math.max(0, ry - th * 0.9);
+  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+    const ny = (y + 0.5 - cy) / ry; if (ny * ny > 1) continue;
+    const xo = rx * Math.sqrt(1 - ny * ny), ni = iy > 0.5 ? (y + 0.5 - cy) / iy : 2;
+    const xi = ni * ni < 1 ? ix * Math.sqrt(1 - ni * ni) : -1;
+    const L = Math.round(cx - xo), R = Math.round(cx + xo);
+    if (xi > 0) { const li = Math.round(cx - xi), ri = Math.round(cx + xi); c.fillRect(L, y, Math.max(1, li - L), 1); c.fillRect(ri, y, Math.max(1, R - ri), 1); }
+    else c.fillRect(L, y, Math.max(1, R - L), 1);
+  }
+  c.globalAlpha = p;
+};
+const ring2 = (c, cx, cy, rx, ry, col, ink, th = 2, o = {}) => { ring(c, cx, cy, rx + 1, ry + 1, ink, { th: th + 2, a: o.a }); ring(c, cx, cy, rx, ry, col, { th, a: o.a, dens: o.dens }); };
+const line = (c, x0, y0, x1, y1, col, a = 1) => {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let er = dx + dy;
+  for (let n = 0; n < 400; n++) { px(c, x0, y0, col, a); if (x0 === x1 && y0 === y1) break; const e2 = 2 * er; if (e2 >= dy) { er += dy; x0 += sx; } if (e2 <= dx) { er += dx; y0 += sy; } }
+};
+// open the art-pixel frame at a world point
+const art = (ctx, x, y, fn) => { ctx.save(); ctx.translate(Math.round(x * PX) / PX, Math.round(y * PX) / PX); ctx.scale(1 / PX, 1 / PX); fn(); ctx.restore(); };
+// baked sprites: a cell of w x h art pixels whose origin is (ax, ay)
+const BK = new Map();
+const bake = (key, w, h, ax, ay, draw, ink) => {
+  let s = BK.get(key);
+  if (s) return s;
+  if (BK.size > 700) { let n = 200; for (const k of BK.keys()) { BK.delete(k); if (--n <= 0) break; } }
+  const cv = mk(w, h), g = cv.getContext("2d", { willReadFrequently: !!ink });
+  g.imageSmoothingEnabled = false; g.translate(ax, ay); draw(g);
+  if (ink) {   // the tinted one-pixel line round whatever was drawn, in its neighbour's own dark
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const img = g.getImageData(0, 0, w, h), d = img.data, out = new Uint8ClampedArray(d);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4; if (d[i + 3] > 40) continue; let n = -1;
+      if (x > 0 && d[i - 4 + 3] > 40) n = i - 4; else if (x < w - 1 && d[i + 4 + 3] > 40) n = i + 4;
+      else if (y > 0 && d[i - w * 4 + 3] > 40) n = i - w * 4; else if (y < h - 1 && d[i + w * 4 + 3] > 40) n = i + w * 4;
+      if (n < 0) continue;
+      out[i] = d[n] * 0.4 + 10; out[i + 1] = d[n + 1] * 0.32 + 4; out[i + 2] = d[n + 2] * 0.46 + 18; out[i + 3] = 255;
+    }
+    img.data.set(out); g.putImageData(img, 0, 0);
+  }
+  s = { cv, ax, ay }; BK.set(key, s);
+  return s;
+};
+const stamp = (ctx, s, dx = 0, dy = 0) => ctx.drawImage(s.cv, dx - s.ax, dy - s.ay);
+
+const FOAM = "#eef8fc", FOAM2 = "#c4dde9", MIST = "#bfe8ff";
+const foamRow = (c, cx, y, hw, amt, ph) => { for (let x = -hw; x <= hw; x++) { const h = H(x + ph * 3, 9); if (h < amt) px(c, cx + x, y + (h < amt * 0.3 ? -1 : 0), h < amt * 0.5 ? FOAM : FOAM2); } };
+const bubbles = (c, cx, cy, n, p, spread) => { for (let i = 0; i < n; i++) { const u = (p * 1.2 + H(i, 3)) % 1, x = cx + (H(i, 5) - 0.5) * spread + Math.sin(u * 9 + i) * 1.2, y = cy - u * 26; px(c, x, y, FOAM, 1 - u); if (H(i, 8) > 0.6) px(c, x + 1, y, FOAM2, 1 - u); } };
+
+// ---- the beach warning: a stepped ring, a dotted run up the shingle, a sculpted horn over it ----
+const WARN_INK = "#4a1418", WARN_RED = "#f05a44";
+const warnSprite = (step) => bake("warn" + step, 120, 62, 60, 31, (g) => {
+  const pl = step / 5;
+  ring2(g, 0, 0, Math.round((17 + 6 * pl) * 2), Math.round((8 + 3 * pl) * 2 * 0.9), WARN_RED, WARN_INK, 3);
+  ring(g, 0, 0, 16, 7, "#f6c0b0", { th: 1, dens: 0.5 });
+});
+const hornSprite = () => bake("horn", 70, 60, 35, 38, (g) => {
+  g.save(); g.scale(1.7, 1.7);
+  for (let i = 0; i <= 30; i++) {
+    const u = i / 30, hx = -11 + 22 * u, hy = 5 - 11 * u + 6 * u * u, r = 4.4 - 3.4 * u;
+    ell(g, hx, hy, r, r, u > 0.3 && u < 0.4 ? "#d9a63a" : u < 0.1 ? "#c44a3c" : "#f2ead2");
+    if (u > 0.1 && !(u > 0.3 && u < 0.4)) ell(g, hx + 0.6, hy + r * 0.45, r * 0.8, r * 0.5, "#c9b88e", { dens: 0.75 });
+    if (u > 0.4) px(g, hx - 1, hy - r * 0.5, "#ffffff");
+  }
+  ell(g, -11.5, 5, 3.4, 4.6, "#c44a3c"); ell(g, -11.2, 5, 2.2, 3.4, "#4a1a18"); px(g, -12, 3, "#e8705c"); px(g, -12, 4, "#e8705c");
+  g.restore();
+}, true);
+const landingWarn = (ctx, fx, g) => {
+  const p = 1 - fx.ttl / fx.life, t = g.time;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 8), a = Math.min(1, fx.ttl / 400);
+  art(ctx, fx.x, fx.y, () => {
+    ctx.globalAlpha = a;
+    stamp(ctx, warnSprite(Math.round(pulse * 5)));
+    const dx = (fx.rx - fx.x) * PX, dy = (fx.ry - fx.y) * PX;
+    for (let i = 0; i <= 6; i++) {
+      if ((i + Math.floor(t * 7)) % 2) continue;
+      const u = 0.16 + 0.84 * i / 6, x = Math.round(dx * u), y = Math.round(dy * u);
+      rect(ctx, x - 2, y - 2, 4, 4, WARN_INK); rect(ctx, x - 1, y - 1, 2, 2, WARN_RED);
+    }
+    if (p < 0.98) stamp(ctx, hornSprite(), 0, -34 + Math.round(Math.sin(t * 8)));
+  });
+};
+
+// ---- the longship: hull clipped at the waterline, a bow wave and a wake; holed, it snaps and goes under ----
+const hull = (ctx, sp, dx, dy, tilt, wl, half) => {
   ctx.save();
-  ctx.globalAlpha *= alpha;
-  ctx.translate(S(x), S(y + sink));
-  ctx.rotate(tilt);
-  // wake: pale foam rows trailing astern, a bow wave at the prow
-  if (oars) {
-    for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = `rgba(226,240,246,${0.55 - i * 0.1})`;
-      const wx = -face * (26 + i * 9) + Math.sin(t * 3 + i) * 1;
-      ctx.fillRect(Math.round(Math.min(wx, wx + face * -8) * 2) / 2 - (face > 0 ? 0 : -0), 5 + (i % 2) * 1.5 + 1, 8, 0.5);
-    }
-    ctx.fillStyle = "rgba(226,240,246,0.7)";
-    for (let i = 0; i < 3; i++) ctx.fillRect(face * (24 + i * 2) - 1, 6 + i * 1.5, 3, 0.5);
-  }
-  const sp = shipSprite(face, sail);
-  ctx.drawImage(sp.cv, sp.x, sp.y, sp.w, sp.h);
-  // oars, beating: stroked from the rail to the water in half-unit steps
-  if (oars) {
-    const sw = Math.sin(t * 6);
-    for (let i = -2; i <= 2; i++) {
-      const ox = i * 9 * face + face * 1, ph = Math.sin(t * 6 + i * 0.5), x1 = ox + face * (3 + ph * 4), y1 = 11 + ph * 1.5;
-      ctx.fillStyle = HULL_DK;
-      for (let k = 0; k <= 12; k++) { const f = k / 12; ctx.fillRect(Math.round((ox + (x1 - ox) * f) * 2) / 2, Math.round((5 + (y1 - 5) * f) * 2) / 2, 0.5, 0.5); }
-      ctx.fillStyle = "#2f8a84"; ctx.fillRect(Math.round(x1 * 2) / 2 - 0.5, Math.round(y1 * 2) / 2, 1.5, 1);
-    }
-  }
+  if (wl != null) { ctx.beginPath(); ctx.rect(-400, -400, 800, 400 + wl); ctx.clip(); }
+  ctx.translate(dx, dy); ctx.rotate(tilt);
+  if (half) { ctx.beginPath(); ctx.rect(half < 0 ? -400 : 0, -400, 400, 800); ctx.clip(); }
+  ctx.drawImage(sp.cv, sp.x * PX, sp.y * PX, sp.w * PX, sp.h * PX);
   ctx.restore();
+};
+const WL = 5;     // the waterline, art pixels under the ship's centre
+const longship = (ctx, x, y, face, t, { sail = true, oars = true, alpha = 1 } = {}) => {
+  const sp = shipSprite(face, sail), f = face || 1, hl = 25 * PX;
+  art(ctx, x, y, () => {
+    ctx.globalAlpha *= alpha;
+    if (oars) {   // the bow wave, and a wake trailing astern
+      for (let n = 0; n < 9; n++) { const bxx = f * (hl - n * 3.2), off = 1 + n * 0.9; px(ctx, bxx, 3 + off, n < 4 ? FOAM : FOAM2); px(ctx, bxx, 5 - off * 0.3, FOAM2); }
+      for (let n = 0; n < 4; n++) rect(ctx, f > 0 ? f * (hl + 2 + n) : f * (hl + 2 + n) - 1, 2 - n % 2, 2, 1, FOAM);
+      const ph = Math.floor(t * 5) % 3;
+      for (let n = 0; n < 26; n++) { const h = H(n, 2 + ph), xx = -f * (hl - 2 + n * 2.2); if (h < 0.75 - n * 0.02) px(ctx, xx, 6 + (h < 0.3 ? 1 : 0), h < 0.35 ? FOAM : FOAM2); }
+    }
+    hull(ctx, sp, 0, 0, 0, oars ? WL : null, 0);
+    if (oars) {
+      foamRow(ctx, 0, WL, hl, 0.35, Math.floor(t * 6) % 8);
+      for (let i = -2; i <= 2; i++) {   // oars, beating
+        const ph = Math.sin(t * 6 + i * 0.5), ox = (i * 9 * f + f) * PX, x1 = ox + f * (3 + ph * 4) * PX, y1 = (11 + ph * 1.5) * PX;
+        line(ctx, ox, 5 * PX, x1, y1, HULL_DK);
+        rect(ctx, x1 - 1, y1, 3, 2, "#2f8a84");
+        px(ctx, x1 - 2, y1 + 2, FOAM); px(ctx, x1 + 2, y1 + 2, FOAM2);
+      }
+    }
+  });
 };
 
 export const drawShip = (ctx, e, g) => {
@@ -146,36 +262,31 @@ export const drawShip = (ctx, e, g) => {
 };
 
 // ---- effects ----
-const landingWarn = (ctx, fx, g) => {
-  const p = 1 - fx.ttl / fx.life, t = g.time;
-  const pulse = 0.5 + 0.5 * Math.sin(t * 8);
-  ctx.save();
-  ctx.strokeStyle = "rgba(20,10,10,0.6)";
-  ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.ellipse(fx.x, fx.y, 20 + 6 * pulse, 10 + 3 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = `rgba(240,64,48,${0.7 + 0.3 * pulse})`;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(fx.x, fx.y, 20 + 6 * pulse, 10 + 3 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
-  // dotted run up the shingle to where they will join the road
-  ctx.fillStyle = "rgba(232,72,56,0.8)";
-  const n = 6;
-  for (let i = 0; i <= n; i++) {
-    if ((i + Math.floor(t * 6)) % 2) continue;
-    ctx.fillRect(S(fx.x + (fx.rx - fx.x) * i / n) - 1, S(fx.y + (fx.ry - fx.y) * i / n) - 1, 3, 3);
-  }
-  // a bold "!" over the beach while the ship is coming
-  if (p < 0.98) {
-    ctx.fillStyle = "rgba(20,10,10,0.7)"; ctx.fillRect(S(fx.x) - 6, S(fx.y) - 30, 12, 16);
-    ctx.fillStyle = "#ff6a50"; ctx.font = "bold 14px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", fx.x, fx.y - 21);
-  }
-  ctx.restore();
-};
 const beached = (ctx, fx, g) => longship(ctx, fx.x, fx.y, fx.face, g.time, { oars: false, sail: fx.hp > 0.5, alpha: Math.min(1, fx.ttl / 1500) });
 const shipsink = (ctx, fx, g) => {
-  const p = 1 - fx.ttl / fx.life;
-  longship(ctx, fx.x, fx.y, fx.face, g.time, { oars: false, tilt: -0.35 * p * fx.face, sink: 10 * p, sail: p < 0.5, alpha: 1 - p });
-  ctx.fillStyle = `rgba(226,240,246,${0.6 * (1 - p)})`;
-  for (let i = 0; i < 5; i++) ctx.fillRect(S(fx.x - 20 + i * 10 + Math.sin(i + p * 9) * 3), S(fx.y + 4), 6, CELL);
+  const q = cl(1 - fx.ttl / fx.life), f = fx.face || 1, i = Math.floor(g.time * 6) % 8;
+  art(ctx, fx.x, fx.y, () => {
+    ctx.globalAlpha = cl(fx.ttl / 380);
+    const brk = q > 0.12, s = ez(q), sail = q < 0.55;
+    if (brk) {   // the keel snaps: two halves tilt apart and go down
+      hull(ctx, shipSprite(f, sail), -2 * s, s * 30, -0.25 * s, WL, -1);
+      hull(ctx, shipSprite(f, sail), 3 * s, s * 35, 0.35 * s, WL, 1);
+      if (q < 0.45) for (let n = 0; n < 7; n++) { const u = q - 0.12, dx = (H(n, 1) - 0.5) * 30 * u * 2, dy = -u * 40 * (0.4 + H(n, 2)) + 90 * u * u; px(ctx, dx, 1 + dy, n % 2 ? "#8a6a48" : "#4a3426"); px(ctx, dx + 1, 1 + dy, "#6e5440"); }
+    } else hull(ctx, shipSprite(f, true), 0, 2, 0, WL, 0);
+    foamRow(ctx, 0, WL, 25 * PX * 0.9, 0.55, i);
+    spanRing(ctx, 0, WL, 12 * PX * q + 5, 4.5 * PX * q + 2, FOAM, 1, 1 - q * 0.7);
+    bubbles(ctx, 0, WL, 9, q, 34);
+    // flotsam: planks, shields, a barrel, bobbing and drifting off
+    const fl = [[-16, 3, "p"], [10, 5, "s"], [-30, 7, "p"], [22, 2, "b"], [-4, 9, "s"], [32, 8, "p"]], tt = g.time * 6.3;
+    fl.forEach(([dx, dy, kind], n) => {
+      if (q < 0.15 + n * 0.02) return;
+      const u = q - 0.15, fx0 = dx * (1 + u * 0.7) + u * 8, fy = dy + Math.round(Math.sin(tt + n)) - Math.max(0, 6 - u * 30);
+      if (kind === "p") { rect(ctx, fx0 - 6, fy, 13, 3, "#4a3426"); rect(ctx, fx0 - 6, fy, 12, 2, "#8a6a48"); rect(ctx, fx0 - 2, fy, 4, 1, "#a8865c"); }
+      else if (kind === "s") { ring(ctx, fx0, fy, 8, 4, "#2a1c12", { th: 1 }); ell(ctx, fx0, fy, 7, 3, n % 2 ? "#2f8a84" : "#d49a30"); ell(ctx, fx0 - 1.5, fy - 1, 4, 1.4, n % 2 ? "#52b0a6" : "#f0c050"); rect(ctx, fx0 - 1, fy, 2, 1, "#c4c8d0"); }
+      else { rect(ctx, fx0 - 5, fy - 7, 10, 10, "#2a1c12"); rect(ctx, fx0 - 4, fy - 6, 8, 8, "#6e5440"); rect(ctx, fx0 - 4, fy - 6, 8, 2, "#8a6a48"); rect(ctx, fx0 - 4, fy - 3, 8, 1, "#3a2a20"); rect(ctx, fx0 - 4, fy, 8, 1, "#3a2a20"); }
+      foamRow(ctx, fx0, fy + 3, 8, 0.5, i + n);
+    });
+  });
 };
 const plank = (ctx, fx) => {
   const p = 1 - fx.ttl / fx.life;
@@ -184,56 +295,193 @@ const plank = (ctx, fx) => {
 };
 const frostcast = (ctx, fx) => {
   const a = fx.ttl / fx.life;
-  ctx.save();
-  ctx.strokeStyle = `rgba(190,232,255,${0.9 * a})`; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(fx.x, fx.y);
-  // a jagged line of frost
-  for (let i = 1; i <= 6; i++) { const u = i / 6; ctx.lineTo(fx.x + (fx.tx - fx.x) * u + (i < 6 ? Math.sin(i * 2.7) * 4 : 0), fx.y + (fx.ty - fx.y) * u + (i < 6 ? Math.cos(i * 1.9) * 4 : 0)); }
-  ctx.stroke();
-  ctx.restore();
+  art(ctx, 0, 0, () => {
+    ctx.globalAlpha = a;
+    let x0 = fx.x * PX, y0 = fx.y * PX;
+    for (let i = 1; i <= 6; i++) {   // a jagged pixel line of frost
+      const u = i / 6, x1 = (fx.x + (fx.tx - fx.x) * u) * PX + (i < 6 ? Math.sin(i * 2.7) * 8 : 0), y1 = (fx.y + (fx.ty - fx.y) * u) * PX + (i < 6 ? Math.cos(i * 1.9) * 8 : 0);
+      line(ctx, x0, y0 + 1, x1, y1 + 1, "#5f98c6"); line(ctx, x0, y0, x1, y1, "#c8eafa");
+      px(ctx, x1, y1 - 1, "#f2fcff"); x0 = x1; y0 = y1;
+    }
+  });
 };
 const thaw = (ctx, fx) => {
   const p = 1 - fx.ttl / fx.life;
-  ctx.fillStyle = `rgba(214,240,255,${1 - p})`;
-  for (let i = 0; i < 8; i++) { const a = i * 0.785; ctx.fillRect(S(fx.x + Math.cos(a) * (8 + 16 * p)), S(fx.y + Math.sin(a) * (6 + 12 * p) + 10 * p * p), CELL, CELL); }
+  art(ctx, fx.x, fx.y, () => {
+    ctx.globalAlpha = 1 - p;
+    for (let i = 0; i < 12; i++) { const a = i * 0.52 + H(i, 1), r = (6 + 14 * p) * (0.6 + H(i, 2) * 0.7); rect(ctx, Math.cos(a) * r * PX * 0.9, Math.sin(a) * r * 0.55 * PX + 18 * p * p * PX, 2, 2, i % 3 ? "#bfe4f6" : "#f2fcff"); }
+  });
 };
 export const ZONE_FX = { landingWarn, beached, shipsink, plank, frostcast, thaw };
 
-// ---- frozen halls ----
-export const drawFrostShells = (ctx, g) => {
+// ---- the serpent surfaces: a boil of churned foam and popping rings, the body breaks the water, spray falls ----
+const SEA2 = "#6a97ae";
+const serpentFrame = (g, i) => {
+  const gg = cl(i / 5);
+  if (i < 12) {
+    const grow = i < 5 ? gg : 1 - (i - 5) / 9 * 0.5, R = 28 + 18 * ez(cl(i / 6));
+    ell(g, 0, 2, R, R * 0.42, "#2d4c64", { dens: 0.5, a: 0.8 }); ell(g, 0, 1, R * 0.8, R * 0.33, SEA2, { dens: 0.35, a: 0.8 });   // churned dark water under the foam, so it reads on pale seas
+    for (let n = 0; n < 46; n++) {
+      const a = H(n, 1) * TAU, r = Math.sqrt(H(n, 2)) * R * grow, x = Math.cos(a) * r, y = Math.sin(a) * r * 0.4 + 1, ph = (grow * 3 + H(n, 3) * 3) % 1;
+      if (ph > 0.85) continue;
+      rect(g, x, y + 1, 2, 1, "#2d4c64", 0.7); rect(g, x, y, 2, 1, FOAM);
+      if (H(n, 4) > 0.45) { rect(g, x, y - 1, 2, 1, FOAM2); px(g, x + 1, y + 1, FOAM2); px(g, x - 1, y, "#ffffff"); }
+    }
+    for (let n = 0; n < 6; n++) { const a = H(n, 9) * TAU, r = H(n, 8) * R * 0.7 * grow, ph = (grow * 2 + H(n, 7)) % 1; ring(g, Math.cos(a) * r, Math.sin(a) * r * 0.4, 3 + ph * 9, 1.4 + ph * 3.4, FOAM2, { th: 1, a: 1 - ph }); }
+  }
+  const rr = ez(cl((i - 3) / 9));
+  if (i >= 3) { const ra = 1 - cl((i - 3) / 10), rx = Math.round(12 + 44 * rr), ry = Math.round(5 + 17 * rr); ring(g, 0, 2, rx, ry, "#2d4c64", { th: 1, a: ra * 0.8 }); ring(g, 0, 1, rx, ry, FOAM, { th: 1, a: ra }); }
+  if (i >= 6) {   // spray, flung up and falling
+    const q = (i - 6) / 7;
+    for (let n = 0; n < 36; n++) {
+      const x0 = 6 + (H(n, 1) - 0.4) * 30, u = Math.max(0, q - H(n, 2) * 0.2), v = 40 + H(n, 3) * 60, dy = -v * u * 1.6 + 120 * u * u;
+      if (u > 0 && dy < 3) { const x = x0 + (H(n, 4) - 0.4) * 50 * u, col = n % 3 ? FOAM : MIST; rect(g, x, dy - 4, 2, 2, col); if (n % 2 === 0) px(g, x + 2, dy - 3, FOAM2); if (n % 5 === 0) px(g, x, dy - 2, "#ffffff"); }
+    }
+  }
+  if (i >= 10) for (let n = 0; n < 6; n++) { const x = -2 + H(n, 4) * 16, u = ((i - 10) / 3 + H(n, 6)) % 1; rect(g, x, -24 + u * 26, 1, 2, MIST); }
+};
+const serpentRise = (ctx, fx) => {
+  const p = cl(1 - fx.ttl / fx.life), i = Math.min(13, Math.floor(fx.dive ? 5 + p * 9 : p * 14));
+  const s = bake("serp" + i, 170, 100, 85, 75, (g) => serpentFrame(g, i));
+  art(ctx, fx.x, fx.y, () => { ctx.globalAlpha = cl(fx.ttl / 220); stamp(ctx, s); });
+};
+
+// ---- frozen halls: ice creeps up from the ground, facets, icicles, a frost sheet; then it cracks and melts ----
+const ICE = ["#f2fcff", "#c8eafa", "#94cbe8", "#5f98c6"], ICE_INK = "#2c4c78";
+const paintHallRaw = (c, t) => {
+  const f = { ...t, x: 0, y: 0, units: [], iceLeft: 0 };
+  switch (t.kind) {
+    case "archer": return drawArcherTower(c, f, 0);
+    case "wizard": return drawWizardSpire(c, f, 0);
+    case "support": return drawSupportTower(c, f, 0);
+    case "catapult": return drawCatapult(c, f, 0);
+    case "spiker": return drawBladewheel(c, f, 0);
+    case "goldworks": return drawGoldworks(c, f, 0);
+    case "trapsmith": return drawTrapsmith(c, f, 0);
+    case "assassin": return drawAssassin(c, f, 0);
+    case "falconry": return drawFalconry(c, f, 0);
+    case "sunforge": return drawSunforge(c, f, 0);
+    case "riverwatch": return drawRiverwatchHall(c, f, 0);
+    case "gunpowder": return drawGunpowder(c, f, 0);
+    default: return drawGarrison(c, f, 0);
+  }
+};
+// a hall's silhouette (art pixels from its foot), baked once per kind / level / form
+const MASKS = new Map();
+const MW = 240, MH = 280, MAX = 120, MAY = 230;
+const hallMask = (t) => {
+  const key = `${t.kind}|${t.level}|${t.branch || ""}|${t.rank4 || ""}`;
+  let r = MASKS.get(key);
+  if (r) return r;
+  const cv = mk(MW, MH), g = cv.getContext("2d", { willReadFrequently: true });
+  g.imageSmoothingEnabled = false; g.translate(MAX, MAY); g.scale(PX, PX);
+  try { paintHallRaw(g, t); } catch (err) { console.warn("frost mask", t.kind, err); g.fillStyle = "#000"; g.fillRect(-22, -56, 44, 60); }
+  const d = g.getImageData(0, 0, MW, MH).data, m = new Uint8Array(MW * MH);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (d[(y * MW + x) * 4 + 3] > 90) { m[y * MW + x] = 1; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x0 > x1) { x0 = MAX - 22; x1 = MAX + 22; y0 = MAY - 56; y1 = MAY + 4; }
+  // a round-cornered dilation by 3, as two passes (a horizontal run, then a vertical one, corners clipped)
+  const rad = 3, Hh = new Uint8Array(MW * MH), D = new Uint8Array(MW * MH);
+  const ya = Math.max(0, y0 - rad), yb = Math.min(MH - 1, y1 + rad), xa = Math.max(0, x0 - rad), xb = Math.min(MW - 1, x1 + rad);
+  for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) { let v = 0; for (let dx = -rad; dx <= rad; dx++) { const X = x + dx; if (X >= 0 && X < MW && m[y * MW + X]) { v = 1; break; } } Hh[y * MW + x] = v; }
+  for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) { let v = 0; for (let dy = -rad; dy <= rad; dy++) { const Y = y + dy; if (Y >= 0 && Y < MH && Hh[Y * MW + x]) { v = 1; break; } } D[y * MW + x] = v; }
+  for (const [cx, cy] of [[xa, ya], [xb, ya], [xa, yb], [xb, yb]]) D[cy * MW + cx] = m[cy * MW + cx];
+  r = { m, D, x0: x0 - MAX, x1: x1 - MAX, y0: y0 - MAY, y1: y1 - MAY };
+  MASKS.set(key, r);
+  return r;
+};
+// one shell frame: gi 1..8 how far it has grown up the hall, ti 0..8 how far it has thawed
+const frostSprite = (t, gi, ti, ground) => {
+  const M = hallMask(t), key = `${ground ? "icg" : "ice"}|${t.kind}|${t.level}|${t.branch || ""}|${t.rank4 || ""}|${gi}|${ti}`;
+  const grow = gi / 8, th = ti / 8, melt = cl((th - 0.5) / 0.5), crk = cl(th / 0.5);
+  const MG = 32, cx0 = M.x0 - MG, cy0 = M.y0 - 14, w = (M.x1 - M.x0) + MG * 2 + 1, h = (M.y1 - M.y0) + 14 + 22;
+  return bake(key, w, h, -cx0, -cy0, (g) => {
+    const inD = (X, Y) => (X + MAX < 0 || Y + MAY < 0 || X + MAX >= MW || Y + MAY >= MH ? 0 : M.D[(Y + MAY) * MW + X + MAX]);
+    const inM = (X, Y) => (X + MAX < 0 || Y + MAY < 0 || X + MAX >= MW || Y + MAY >= MH ? 0 : M.m[(Y + MAY) * MW + X + MAX]);
+    const top = M.y0 - 2, bot = M.y1 + 2, span = bot - top, mid = (M.x0 + M.x1) / 2;
+    if (ground) {   // the frost sheet on the ground (thinner as it thaws) and the puddle it melts into: UNDER the figures
+      const gs = ez(grow) * (1 - cl(th * 1.5)), r = ((M.x1 - M.x0) / 2 + 12) * gs;
+      ell(g, mid, bot - 2, r, r * 0.28, "#d6eaf4", { dens: 0.55, a: 0.9 }); ell(g, mid, bot - 2, r * 0.7, r * 0.2, "#f2fcff", { dens: 0.33 }); ring(g, mid, bot - 2, r, r * 0.28, "#5f98c6", { th: 1, dens: 0.5 });
+      if (melt > 0) { const pr = melt * (M.x1 - M.x0) * 0.55; ell(g, mid, bot - 1, pr, pr * 0.22, "#7fb4d6", { dens: 0.8, a: 0.9 }); ell(g, mid - 2, bot - 2, pr * 0.6, pr * 0.12, "#d6f0ff", { dens: 0.5 }); }
+      return;
+    }
+    const V = new Uint8Array(w * h), tone = new Uint8Array(w * h), ALP = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const X = x + cx0, Y = y + cy0; if (!inD(X, Y)) continue;
+      const hh = (bot - Y) / span, noise = (H(X * 0.8, 3) - 0.5) * 0.16 + Math.sin(X * 0.35) * 0.04;
+      if (hh > grow + noise) continue;
+      if (hh > 1 - melt * 1.25 + (H(X, Y * 0.3) - 0.5) * 0.18) continue;
+      const rim = !inM(X, Y), j = y * w + x, f = Math.floor((X * 0.8 + Y * 0.55 + 100) / 7) % 3;
+      V[j] = 1; ALP[j] = rim ? 0.95 : [0.56, 0.7, 0.48][f] * (1 - melt * 0.45);
+      let tn = [1, 2, 1][f] + (bay(X, Y) < 0.28 ? (f === 1 ? 1 : -1) : 0); if (H(X, Y) > 0.985) tn = 0;
+      tone[j] = cl(tn, 0, 3);
+    }
+    const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : V[y * w + x]);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const j = y * w + x; if (!V[j]) continue;
+      let tn = tone[j];
+      if (!at(x - 1, y - 1) || !at(x, y - 1) && !at(x - 1, y)) tn = 0; else if (!at(x + 1, y + 1) || !at(x, y + 1) && !at(x + 1, y)) tn = 3;
+      const edge = tn === 0 || tn === 3 ? !(at(x - 1, y - 1) && at(x + 1, y + 1)) : false;
+      px(g, x + cx0, y + cy0, ICE[tn], edge ? 0.95 : ALP[j]);
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const j = y * w + x; if (V[j] || !(at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1))) continue; px(g, x + cx0, y + cy0, ICE_INK); }
+    for (let x = 0; x < w; x++) for (let y = 0; y < h - 1; y++) {   // icicles off the lower edges
+      if (!(V[y * w + x] && !V[(y + 1) * w + x]) || y + cy0 > bot - 8) continue;
+      const hs = H(x + cx0, 7); if (hs < 0.5) continue;
+      const L = Math.round((2 + Math.floor(hs * 6)) * (1 - melt * 1.1) * cl(grow * 1.4 - 0.2));
+      for (let n = 1; n <= L; n++) { px(g, x + cx0, y + cy0 + n, n === L ? ICE[0] : ICE[1]); if (n > 1 && n < L) px(g, x + cx0 + 1, y + cy0 + n, ICE_INK, 0.5); }
+      px(g, x + cx0, y + cy0 + L + 1, ICE_INK);
+    }
+    if (crk > 0) for (let n = 0; n < 4; n++) {   // cracks, each with a lit lip
+      let cx = M.x0 + 6 + (n * (M.x1 - M.x0 - 10)) / 3 + H(n, 5) * 4, cy = top + 8 + H(n, 6) * span * 0.35; const len = Math.round(crk * span * 0.6);
+      for (let s = 0; s < len; s++) { cx += (H(n, s) - 0.5) * 2.2; cy += 1; const jx = Math.round(cx), jy = Math.round(cy); if (V[(jy - cy0) * w + (jx - cx0)]) { px(g, jx, jy, "#4a78a6"); px(g, jx - 1, jy, ICE[0], 0.9); } }
+    }
+  });
+};
+// where a frozen hall stands in its growth / thaw
+const frostPhase = (t, tms) => {
+  const k = Math.min(1, t.iceLeft / (t.iceMax || 1));         // 1 fresh, 0 melted
+  const grow = cl((tms - (t.iceAt || 0)) / Math.max(700, 0.22 * (t.iceMax || 4500))), th = cl((0.4 - k) / 0.4);
+  return { k, grow, th, gi: Math.max(1, Math.ceil(grow * 8)), ti: Math.round(th * 8) };
+};
+// the frost sheet and the thaw puddle on the ground: draw.js calls this BEFORE the figures (beside the grounds)
+export const drawFrostGround = (ctx, g) => {
   const tms = g.time * 1000;
   for (const t of g.towers) {
     if (!(t.iceLeft > 0)) continue;
-    const k = Math.min(1, t.iceLeft / (t.iceMax || 1));         // 1 fresh, 0 melted
-    const born = Math.min(1, (tms - (t.iceAt || 0)) / 200);
-    const h = 60, w = 21;          // (a generic hall: decks and crews stand ~55 px tall)
+    const { gi, ti } = frostPhase(t, tms);
+    try { const sp = frostSprite(t, gi, ti, true); art(ctx, t.x, t.y, () => stamp(ctx, sp)); } catch (err) { if (!frostWarned) { frostWarned = true; console.error("frost ground failed", err); } }
+  }
+};
+// warm one not-yet-cached hall form (mask + its first shell frame) per frame while a freezer walks, so the
+// first freeze does not hitch
+let warmI = 0;
+const warmFrost = (g) => {
+  if (!g.enemies.some((e) => e.freezeEvery && !e.dead)) return;
+  for (let n = 0; n < g.towers.length; n++) {
+    const t = g.towers[(warmI + n) % g.towers.length];
+    const key = `${t.kind}|${t.level}|${t.branch || ""}|${t.rank4 || ""}`;
+    if (MASKS.has(key)) continue;
+    warmI = (warmI + n + 1) % g.towers.length;
+    try { frostSprite(t, 1, 0); frostSprite(t, 1, 0, true); } catch (err) { /* the shell will report */ }
+    return;
+  }
+};
+export const drawFrostShells = (ctx, g) => {
+  const tms = g.time * 1000;
+  warmFrost(g);
+  for (const t of g.towers) {
+    if (!(t.iceLeft > 0)) continue;
+    const { k, grow, th, gi, ti } = frostPhase(t, tms);
     ctx.save();
-    ctx.globalAlpha = born * (0.55 + 0.45 * k);
-    // the shell: a pale blue block of ice over the hall, inked
-    ctx.fillStyle = "rgba(40,70,100,0.8)";
-    ctx.fillRect(S(t.x - w) - 2, S(t.y - h) - 2, w * 2 + 4, h + 12);
-    ctx.fillStyle = "rgba(170,220,250,0.7)";
-    ctx.fillRect(S(t.x - w), S(t.y - h), w * 2, h + 8);
-    ctx.fillStyle = "rgba(236,248,255,0.7)";
-    ctx.fillRect(S(t.x - w), S(t.y - h), w * 2, CELL);                 // lit top edge
-    ctx.fillRect(S(t.x - w), S(t.y - h), CELL, h + 8);                 // lit left edge
-    ctx.fillRect(S(t.x - w + 6), S(t.y - h + 6), CELL, 14);            // a glint
-    // rime along the top, a blue depth down the shaded right side, and
-    // icicles hanging off its lower edge (shorter as it thaws)
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    for (let i = 0; i < 6; i++) ctx.fillRect(S(t.x - w + 2 + i * 7), S(t.y - h - 1), CELL * 2, CELL);
-    ctx.fillStyle = "rgba(90,140,180,0.55)";
-    ctx.fillRect(S(t.x + w - 5), S(t.y - h + 4), CELL * 2, h);
-    for (let i = 0; i < 5; i++) { const L = Math.round((4 + (i * 7) % 6) * (0.4 + 0.6 * k)); ctx.fillRect(S(t.x - w + 3 + i * 9), S(t.y + 8), CELL, L); ctx.fillRect(S(t.x - w + 3 + i * 9), S(t.y + 8 + L), CELL * 0.5, CELL); }
-    // cracks that branch and grow as it thaws, each with a lit lip
-    ctx.fillStyle = "rgba(60,100,140,0.85)";
-    const cracks = Math.round((1 - k) * 6);
-    for (let i = 0; i < cracks; i++) {
-      const cx = S(t.x - w + 6 + i * 6), cy = S(t.y - h + 10 + (i * 13) % 26);
-      ctx.fillRect(cx, cy, CELL, 8); ctx.fillRect(cx + (i % 2 ? CELL : -CELL), cy + 8, CELL, 5); ctx.fillRect(cx + (i % 2 ? CELL : -CELL), cy + 13, CELL * 2 * (i % 2 ? 1 : -1), CELL);
-    }
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    for (let i = 0; i < cracks; i++) ctx.fillRect(S(t.x - w + 6 + i * 6) - CELL, S(t.y - h + 10 + (i * 13) % 26) - CELL, CELL, 4);
+    try {
+      const sp = frostSprite(t, gi, ti), M = hallMask(t), bot = M.y1 + 2;
+      art(ctx, t.x, t.y, () => {
+        stamp(ctx, sp);
+        if (grow < 1) for (let n = 0; n < 6; n++) { const u = (g.time * 1.4 + H(n, 4)) % 1; px(ctx, M.x0 + H(n, 2) * (M.x1 - M.x0), bot - u * 30, "#f2fcff", 1 - u); }
+        if (th > 0.3) for (let n = 0; n < 8; n++) { const u = (g.time * 1.3 + H(n, 3)) % 1; px(ctx, M.x0 + 4 + H(n, 2) * (M.x1 - M.x0 - 8), bot - 6 + u * 12, "#bfe4f6", 1 - u * 0.5); }
+      });
+    } catch (err) { if (!frostWarned) { frostWarned = true; console.error("frost shell failed", err); } }
     ctx.restore();
     // a small timer bar under it
     ctx.fillStyle = "rgba(16,14,20,0.6)"; ctx.fillRect(S(t.x) - 12, S(t.y) + 10, 24, 3);
@@ -243,6 +491,7 @@ export const drawFrostShells = (ctx, g) => {
   drawDazed(ctx, g, tms);
   drawHolds(ctx, g, tms);
 };
+let frostWarned = false;
 
 
 // ---- halls knocked out by the sea monsters (engine/serpent.js t.downLeft) ----
@@ -475,10 +724,12 @@ export const drawSea = (ctx, e, g) => {
 };
 
 // their effects
-const ringFx = (col, r0, r1) => (ctx, fx) => {
-  const p = 1 - fx.ttl / fx.life;
-  ctx.strokeStyle = col.replace("A", (1 - p).toFixed(2)); ctx.lineWidth = CELL;
-  ctx.beginPath(); ctx.ellipse(S(fx.x), S(fx.y), r0 + (r1 - r0) * p, (r0 + (r1 - r0) * p) * 0.45, 0, 0, Math.PI * 2); ctx.stroke();
+const ringFx = (col, r0, r1) => {
+  const m = col.match(/rgba\((\d+),(\d+),(\d+)/), rgb = `rgb(${m[1]},${m[2]},${m[3]})`;
+  return (ctx, fx) => {
+    const p = cl(1 - fx.ttl / fx.life), r = (r0 + (r1 - r0) * p) * PX;
+    art(ctx, fx.x, fx.y, () => spanRing(ctx, 0, 0, Math.round(r), Math.round(r * 0.45), rgb, 2, 1 - p));
+  };
 };
 const lineFx = (col) => (ctx, fx) => {
   const p = 1 - fx.ttl / fx.life;
@@ -486,7 +737,7 @@ const lineFx = (col) => (ctx, fx) => {
   for (let i = 0; i <= 8; i++) ctx.fillRect(S(fx.x + (fx.tx - fx.x) * i / 8) - 1, S(fx.y - 18 + (fx.ty - fx.y + 18) * i / 8) - 1, 4, 4);
 };
 Object.assign(ZONE_FX, {
-  serpentRise: ringFx("rgba(226,240,246,A)", 6, 24),
+  serpentRise,
   serpentGone: ringFx("rgba(226,240,246,A)", 8, 30),
   serpentBite: lineFx("rgba(240,240,220,A)"),
   krakenRise: ringFx("rgba(226,240,246,A)", 20, 70),
