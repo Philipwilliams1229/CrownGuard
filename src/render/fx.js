@@ -1526,16 +1526,96 @@ const groundSprite = (kind, rb, f) => memo(`gr|${kind}|${rb}|${f}`, () => {
   return { cv: G.done(), ax: cx, ay: cy };
 });
 
+// Round 4, B (owner's pick): broken crust plates over glowing cracks (lava),
+// scum plates over sludge (plague), a lobed haze with puffs (spores); every
+// edge breathes and bubbles of many sizes swell and pop. Six looping frames.
+const POOL_F = 6;
+const vor = (x, y, s, seed) => {
+  const gx = Math.floor(x / s), gy = Math.floor(y / s);
+  let d1 = 1e9, d2 = 1e9, id = 0, cx = 0, cy = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const ix = gx + i, iy = gy + j;
+    const px = (ix + 0.15 + 0.7 * hash(ix, iy + seed)) * s, py = (iy + 0.15 + 0.7 * hash(ix + 9, iy + seed)) * s, d = Math.hypot(x - px, y - py);
+    if (d < d1) { d2 = d1; d1 = d; id = ix * 57 + iy * 13; cx = px; cy = py; } else if (d < d2) d2 = d;
+  }
+  return { d1, d2, id, cx, cy };
+};
+const poolBubble = (G, x, y, ph, rm, K, big) => {
+  if (ph < 0.72) {
+    const r = Math.max(1, Math.round(rm * Math.min(1, ph / 0.6))), by = y - Math.round(ph * 2);
+    if (r <= 1) { G.set(x, by, K[1]); G.set(x - 1, by, K[2]); return; }
+    for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { const d = Math.hypot(i, j * 1.1); if (d > r + 0.3) continue; G.set(x + i, by + j, d > r - 1 ? K[3] : K[2]); }
+    G.set(x - Math.floor(r / 2), by - Math.floor(r / 2), K[0]); G.set(x - Math.floor(r / 2) + 1, by - Math.floor(r / 2), K[1]);
+  } else if (ph < 0.9) {
+    const t = (ph - 0.72) / 0.18, rr = rm * (0.8 + t);
+    for (let k = 0; k < 6; k++) { const an = (k * 6.283) / 6 + 0.4; G.set(x + Math.cos(an) * rr, y + Math.sin(an) * rr * 0.6 - (1 - t) * 3, t < 0.5 ? K[0] : K[1]); }
+    if (big && t < 0.5) G.set(x, y, K[1]);
+  }
+};
+const poolSprite = (kind, rb, f) => memo(`gr|${kind}|${rb}|${f}`, () => {
+  const R = rb * PX, ry = R * 0.62, seed = kind === "lava" ? 3 : kind === "plague" ? 8 : 4, t = f / POOL_F, TOP = 18;
+  const G = grid(2 * R + 14, 2 * ry + 10 + TOP), cx = G.W >> 1, cy = Math.round(ry + 5 + TOP);
+  const ox = Math.cos(t * 6.283) * 2.6, oy = Math.sin(t * 6.283) * 2.6;
+  const edgeOf = (x, y, breath) => {
+    const nx = (x + 0.5) / R, ny = (y + 0.5) / ry, jx = Math.cos(t * 6.283) * 4, jy = Math.sin(t * 6.283) * 4;
+    return Math.sqrt(nx * nx + ny * ny) + (vnoise(x + jx, y + jy, 6, seed) - 0.5) * 0.42 + breath * Math.sin(t * 6.283 + Math.atan2(ny, nx) * 2 + seed);
+  };
+  const mx = Math.ceil(R + 5), my = Math.ceil(ry + 5);
+  if (kind === "spores") {
+    for (let y = -my - 2; y <= my + 2; y++) for (let x = -mx - 2; x <= mx + 2; x++) {
+      const ed = edgeOf(x, y, 0.06); if (ed > 1.05) continue;
+      const a = ed < 0.5 ? 0.62 : ed < 0.8 ? 0.42 : 0.2, ch = vnoise(x + ox * 2, y + oy * 2, 4, 21);
+      const a2 = a * (0.55 + vnoise(x + ox, y + oy, 9, 31) * 0.9), b = bay(x & 1023, y & 1023);
+      if (b < a2) G.set(cx + x, cy + y, ch > 0.62 ? SPORE[1] : ch > 0.35 ? SPORE[2] : SPORE[3], 170);
+      if (ed > 0.9 && ed < 1 && bay((x + 1) & 1023, y & 1023) < 0.3) G.set(cx + x, cy + y, SPORE[4], 170);
+    }
+    const nm = Math.max(5, Math.round(R / 2.2));
+    for (let k = 0; k < nm; k++) {
+      const ph = (t + hash(k, 41)) % 1, x = cx + (hash(k, 42) - 0.5) * R * 1.5 + Math.sin((t + k * 0.37) * 6.283) * 2, y = cy + (hash(k, 43) - 0.5) * ry * 1.3 - ph * 16;
+      G.set(x, y, ph < 0.5 ? SPORE[0] : SPORE[1]); if (k % 2) G.set(x + 1, y, SPORE[2]);
+    }
+    for (let k = 0; k < 3; k++) poolBubble(G, Math.round(cx + (hash(k, 51) - 0.5) * R), Math.round(cy + (hash(k, 52) - 0.5) * ry), (t + k / 3) % 1, 2 + (k % 2), SPORE, true);
+    return { cv: G.done(), ax: cx, ay: cy };
+  }
+  const K = kind === "lava" ? LAVA : ROT, cell = kind === "lava" ? 9.5 : 7.5;
+  for (let y = -my; y <= my; y++) for (let x = -mx; x <= mx; x++) {
+    const edge = edgeOf(x, y, 0.05); if (edge > 1) continue;
+    const X = cx + x, Y = cy + y, up = x + y < 0, b = bay(x & 1023, y & 1023);
+    if (kind === "lava") {
+      if (edge > 0.9) { G.set(X, Y, up ? LAVA[4] : LAVA[5], 235); continue; }
+      const V = vor(x + ox + 50, y + oy + 50, cell, 4), crack = V.d2 - V.d1, ch = vnoise(x + ox * 2, y + oy * 2, 4, 17), plate = hash(V.id, 2) < 0.8;
+      if (!plate || crack < 0.9) G.set(X, Y, crack < 0.9 && plate ? (ch > 0.6 ? LAVA[1] : LAVA[2]) : (ch > 0.7 ? LAVA[1] : ch > 0.45 ? LAVA[2] : LAVA[3]));
+      else if (crack < 1.8) G.set(X, Y, up ? LAVA[3] : LAVA[4], 245);
+      else {
+        const lit = (x + ox + 50 - V.cx) + (y + oy + 50 - V.cy) < -1.5;
+        G.set(X, Y, lit ? (b < 0.5 ? LAVA[4] : LAVA[3]) : (b < 0.4 ? LAVA[5] : LAVA[4]), 245);
+      }
+    } else {
+      if (edge > 0.88) { if (b < 0.55) G.set(X, Y, ROT[4], 190); continue; }
+      const V = vor(x + ox + 50, y + oy + 50, cell, 6), crack = V.d2 - V.d1, scum = hash(V.id, 5) < 0.62, ch = vnoise(x + ox * 2, y + oy * 2, 4, 13);
+      if (!scum) G.set(X, Y, ch > 0.55 ? ROT[3] : ROT[4], 200);
+      else if (crack < 1.1) G.set(X, Y, ROT[4], 200);
+      else G.set(X, Y, up && crack < 2.4 ? ROT[0] : ch > 0.6 ? ROT[1] : ROT[2], 205);
+    }
+  }
+  const nb = Math.max(5, Math.round(R / 3.2));
+  for (let k = 0; k < nb; k++) {
+    const an = hash(k, seed + 20) * 6.283, d = Math.sqrt(hash(k, seed + 30)) * 0.62, rm = 1 + (k % 4) + (k > 4 ? 1 : 0);
+    poolBubble(G, Math.round(cx + Math.cos(an) * R * d), Math.round(cy + Math.sin(an) * ry * d), (t + hash(k, seed + 40)) % 1, rm, K, rm > 2);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+
 export const drawGround = (ctx, gr, time, tms) => {
   if (gr.kind === "fire") return drawFireGround(ctx, gr, time, tms);   // flames.js
   const r = Math.max(8, gr.r || 30);
   const rb = r <= 24 ? Math.round(r / 4) * 4 : Math.round(r / 6) * 6;
   const kind = gr.kind === "plague" || gr.kind === "spores" || gr.kind === "caltrops" ? gr.kind : "lava";
-  const f = Math.floor(time * (kind === "lava" ? 5 : 3) + (gr.x + gr.y) * 0.1) & 3;
+  const f = kind === "caltrops" ? Math.floor(time * 3 + (gr.x + gr.y) * 0.1) & 3 : Math.floor(time * (kind === "lava" ? 6 : 3.6) + (gr.x + gr.y) * 0.1) % POOL_F;
   const a = stepA(Math.min(1, (gr.until - tms) / 600), 4);
   if (a <= 0) return;
   if (a < 1) { ctx.save(); ctx.globalAlpha *= a; }
-  put(ctx, groundSprite(kind, rb, f), gr.x, gr.y);
+  put(ctx, kind === "caltrops" ? groundSprite(kind, rb, f) : poolSprite(kind, rb, f), gr.x, gr.y);
   if (a < 1) ctx.restore();
   // a lava pool breathes a little light and throws the odd flame-tongue
   if (kind === "lava") {

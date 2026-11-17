@@ -792,48 +792,62 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
   const GR = layer !== "a", AIR = layer !== "g";
   switch (fx.type) {
     case "frostnova": {
-      // An expanding ring of ice shards bursting out of the turf, a cold
-      // flash at the tower, rime settling on everything inside.
-      const life = 500, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx);
+      // Round 4, B (owner's pick), on the ground rings' angled circle: an ice
+      // rim sweeps out, a thin rime sheet (half as dense as before) settles
+      // behind it, and spikes snap up in the front's wake, then melt.
+      const life = 500, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = 0.55;
       const r = R * easeOut(p * 1.25), A = stepA(a);
       ctx.save();
       ctx.globalAlpha *= A;
       if (GR) {
-        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 6), dither(ctx, ICE[0], 0.44));
-        // rime settles in patches behind the front
-        const N = Math.max(5, Math.min(16, Math.round(R / 9)));
+        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 5), dither(ctx, ICE[0], 0.4), SQ);
+        // the rime sheet: sparse patches behind the front
+        const N = Math.max(3, Math.min(8, Math.round(R / 16)));
         for (let i = 0; i < N; i++) {
           const an = hash(sd, i) * TAU, d = (0.12 + 0.85 * Math.sqrt(hash(sd, i + 50))) * R * 0.92;
           if (d > r - 10) continue;
-          put(ctx, rimePatchS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d);
+          put(ctx, rimePatchS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
         }
         for (let i = 0; i < N; i++) {
           const an = hash(sd, i + 400) * TAU, d = Math.sqrt(hash(sd, i + 450)) * R * 0.95;
           if (d > r - 4) continue;
-          put(ctx, rimeS(i % 4), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d);
+          put(ctx, rimeS(i % 4), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
         }
+        arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, rgba(ICE[3], 0.9), true, false);
+        dashArc(ctx, fx.x, fx.y, r - 0.5, (r - 0.5) * SQ, 1, 2.2, ICE[0], true, false);
       }
-      // the rim: back half under the caster, front half over
-      arcPx(ctx, fx.x, fx.y, r, r, 2, rgba(ICE[3], 0.9), GR, AIR);
-      dashArc(ctx, fx.x, fx.y, r - 0.5, r - 0.5, 1, 2.2, ICE[0], GR, AIR);
       if (AIR) {
-        const n = Math.max(5, Math.min(34, Math.round((TAU * r) / 15)));
-        const big = p > 0.18 && a > 0.45, a0 = hash(sd, 99) * TAU;
-        for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
-          const an = a0 + (i / n) * TAU, s = Math.sin(an);
-          if ((s < 0) !== (pass === 0)) continue;
-          const rr = r + (hash(sd, i + 200) - 0.5) * 4;
-          const v = (big && (i + sd) % 3 !== 0 ? 3 : 0) + ((i * 7 + sd) % 3);
-          put(ctx, shardS(v), fx.x + Math.cos(an) * rr, fx.y + s * rr + 2, Math.cos(an) < 0);
+        // spikes: the rim's own, and a scatter inside that rise as the front passes
+        const sp = [];
+        const n = Math.max(5, Math.min(30, Math.round((TAU * r) / 15))), a0 = hash(sd, 99) * TAU;
+        const big = p > 0.18 && a > 0.45;
+        for (let i = 0; i < n; i++) {
+          const an = a0 + (i / n) * TAU, rr = r + (hash(sd, i + 200) - 0.5) * 4;
+          sp.push(fx.y + Math.sin(an) * rr * SQ + 2, fx.x + Math.cos(an) * rr, (big && (i + sd) % 3 !== 0 ? 3 : 0) + ((i * 7 + sd) % 3), Math.cos(an) < 0);
         }
+        const NI = Math.max(4, Math.min(16, Math.round(R / 5)));
+        for (let i = 0; i < NI; i++) {
+          const rho = Math.sqrt(0.08 + 0.85 * hash(sd, i + 600)) * R * 0.92, an = hash(sd, i + 650) * TAU;
+          const born = (1 - Math.sqrt(Math.max(0, 1 - rho / R))) / 1.25;
+          if (p < born) continue;
+          const melt = 0.5 + 0.18 * (rho / R) + 0.1 * hash(sd, i + 700);
+          if (p > melt + 0.3) continue;
+          const grown = p - born > 0.07, v = p > melt ? (p > melt + 0.15 ? -1 : (i % 3)) : grown ? 3 + (i % 3) : (i % 3);
+          if (v < 0) continue;
+          sp.push(fx.y + Math.sin(an) * rho * SQ, fx.x + Math.cos(an) * rho, v, Math.cos(an) < 0);
+        }
+        // far ones first, so the near spikes stand in front
+        const idx = []; for (let i = 0; i < sp.length; i += 4) idx.push(i);
+        idx.sort((u, w) => sp[u] - sp[w]);
+        for (const i of idx) put(ctx, shardS(sp[i + 2]), sp[i + 1], sp[i], sp[i + 3]);
         // the cold flash where the nova was loosed
         if (p < 0.36) put(ctx, burstS("ice", Math.min(3, Math.floor(p / 0.09))), fx.x, fx.y - 6);
         // snow motes lifting off the frozen ground
         const m1 = [], m2 = [];
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < 12; i++) {
           const an = hash(sd, i + 300) * TAU, d = r * (0.3 + 0.7 * hash(sd, i + 330));
           const z = ((age * 0.03 + hash(sd, i + 360) * 16) % 16) + 2;
-          (i % 2 ? m1 : m2).push(fx.x + Math.cos(an) * d + Math.sin(age * 0.01 + i) * 1.5, fx.y + Math.sin(an) * d - z, i % 3 ? 0.5 : 1);
+          (i % 2 ? m1 : m2).push(fx.x + Math.cos(an) * d + Math.sin(age * 0.01 + i) * 1.5, fx.y + Math.sin(an) * d * SQ - z, i % 3 ? 0.5 : 1);
         }
         dots(ctx, m1, ICE[0]); dots(ctx, m2, ICE[1]);
       }
@@ -841,33 +855,36 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       return true;
     }
     case "firenova": {
-      // The Brazier Wheel's rolling ring of flame: tongues of fire riding the
-      // wavefront on a line of coals, embers and heat haze rising off it,
-      // the turf left scorched inside.
-      const life = 450, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx);
+      // Round 4, B (owner's pick), on the ground rings' angled circle: a
+      // rolling wall of flame on a line of coals, the turf left scorched
+      // behind it in a ring, embers lifting, heat haze over the front.
+      const life = 450, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = 0.55;
       const r = R * easeOut(p * 1.15), A = stepA(a);
       ctx.save();
       ctx.globalAlpha *= A;
       if (GR) {
-        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 7), dither(ctx, FIRE[3], 0.25));
-        // scorched turf in patches behind the flames
-        const N = Math.max(4, Math.min(14, Math.round(R / 8)));
+        // the scorched ring, thick at the front and thinning inward, in dithered soot
+        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 7), dither(ctx, FIRE[5], 0.66), SQ);
+        disc(ctx, fx.x, fx.y, Math.max(0, r - 7), Math.max(0, r - 16), dither(ctx, FIRE[5], 0.4), SQ);
+        disc(ctx, fx.x, fx.y, Math.max(0, r - 3), Math.max(0, r - 6), dither(ctx, FIRE[4], 0.3), SQ);
+        const N = Math.max(3, Math.min(10, Math.round(R / 10)));
         for (let i = 0; i < N; i++) {
-          const an = hash(sd, i) * TAU, d = R * (0.2 + 0.75 * Math.sqrt(hash(sd, i + 50)));
+          const an = hash(sd, i) * TAU, d = R * (0.3 + 0.65 * Math.sqrt(hash(sd, i + 50)));
           if (d > r - 10) continue;
-          put(ctx, charS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d);
+          put(ctx, charS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
         }
+        // a line of coals under the flames: dark embers with hot hearts
+        arcPx(ctx, fx.x, fx.y, r, r * SQ, 1.5, rgba(FIRE[4], 0.9), true, false);
+        dashArc(ctx, fx.x, fx.y, r + 0.5, (r + 0.5) * SQ, 1, 2.6, FIRE[1], true, false);
+        dashArc(ctx, fx.x, fx.y, r, r * SQ, 1, 3.7, FIRE[3], true, false);
       }
-      // a line of coals under the flames: dark embers with hot hearts
-      dashArc(ctx, fx.x, fx.y, r, r, 1.5, 1.9, FIRE[4], GR, AIR);
-      dashArc(ctx, fx.x, fx.y, r + 0.5, r + 0.5, 1, 3.1, FIRE[1], GR, AIR);
       if (AIR) {
-        const n = Math.max(5, Math.min(32, Math.round((TAU * r) / 16)));
+        const n = Math.max(6, Math.min(36, Math.round((TAU * r) / 11)));
         const s = a > 0.6 && p > 0.1 ? 1 : 0, fr = Math.floor(age / 65), a0 = hash(sd, 99) * TAU;
         for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
           const an = a0 + (i / n) * TAU, sy = Math.sin(an);
           if ((sy < 0) !== (pass === 0)) continue;
-          put(ctx, flameS((i + sd) % 3, (fr + i) % 4, s && i % 4 !== 2 ? 1 : 0), fx.x + Math.cos(an) * r, fx.y + sy * r + 1, Math.cos(an) < 0);
+          put(ctx, flameS((i + sd) % 3, (fr + i) % 4, s && i % 4 !== 2 ? 1 : 0), fx.x + Math.cos(an) * r, fx.y + sy * r * SQ + 1, Math.cos(an) < 0);
         }
         if (p < 0.3) put(ctx, burstS("fire", Math.min(3, Math.floor(p / 0.075))), fx.x, fx.y - 8);
         // embers flying up off the ring, heat haze wavering above it
@@ -876,12 +893,12 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           const born = hash(sd, i + 300) * 0.6;
           if (p < born) continue;
           const an = hash(sd, i + 320) * TAU, d = R * easeOut(born * 1.15), t = (p - born) * life;
-          const x = fx.x + Math.cos(an) * d + Math.sin(t * 0.02 + i) * 2, y = fx.y + Math.sin(an) * d - 6 - t * 0.05;
+          const x = fx.x + Math.cos(an) * d + Math.sin(t * 0.02 + i) * 2, y = fx.y + Math.sin(an) * d * SQ - 4 - t * 0.05;
           (i % 3 ? e1 : e2).push(x, y, i % 4 ? 0.5 : 1);
         }
         for (let i = 0; i < 12; i++) {
           const an = (i / 12) * TAU + a0 + 0.2;
-          hz.push(fx.x + Math.cos(an) * r + Math.sin(age * 0.03 + i * 2) * 1.5, fx.y + Math.sin(an) * r - 16 - (i % 3) * 3, 1);
+          hz.push(fx.x + Math.cos(an) * r + Math.sin(age * 0.03 + i * 2) * 1.5, fx.y + Math.sin(an) * r * SQ - 14 - (i % 3) * 3, 1);
         }
         dots(ctx, e1, FIRE[1]); dots(ctx, e2, FIRE[3]);
         ctx.globalAlpha = A * 0.35;

@@ -20,8 +20,8 @@ const RING = {
   keg: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   frost: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   dust: [380, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
-  frostnova: [500, 1, (p) => easeOut(p * 1.25), 0.8],
-  firenova: [450, 1, (p) => easeOut(p * 1.15), 0.87],
+  frostnova: [500, 0.55, (p) => easeOut(p * 1.25), 0.8],
+  firenova: [450, 0.55, (p) => easeOut(p * 1.15), 0.87],
 };
 
 const LIVE = [];          // [x, y, front, squash, band] for this frame
