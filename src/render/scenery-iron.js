@@ -48,6 +48,7 @@ import {
 // the shared kit — called only inside painters, never at module load
 import { leafPart } from "./scenery.js";
 import { Pix, mat, toCanvas } from "./pix/pix.js";
+import { saltPanPix, sluicePix, wreckPix } from "./pix/iron-works.js";
 
 // ---- the Kingdom's colours and the country's -------------------------------
 const INK = "#241a26";
@@ -3700,7 +3701,7 @@ export const IRON_ART = {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
     irgibbet: gibbetX, irmile: milestone, irbeacon: beaconX, irwagon: wagonX, irpikes: pikesX,
     irtent: warTentX, irbanner: standardX, irtower: kingTowerX, irgate: ironGate, irruin: ruinX,
-    irpan: saltPan, irsluice: sluice, irsalthouse: saltHouseX, irsalt: saltStoreX, irboat: beachedBoatX, irwreck: wreck,
+    irpan: saltPanPix, irsluice: sluicePix, irsalthouse: saltHouseX, irsalt: saltStoreX, irboat: beachedBoatX, irwreck: wreckPix,
     irquintain: quintainX, irdummy: dummyX, irbutts: buttsX, irrack: rackX, irmuster: musterX,
     irstack: seaStackX, ireyrie: eyrieX, irquay: quayX, irmoor: mooringX, irtoll: tollHouseX,
   },

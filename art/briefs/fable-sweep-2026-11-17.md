@@ -48,3 +48,11 @@ Already done since the notes, drop from the list: castle wall bowmen / halberdie
 - **Perf:** puddles and floods are per-board bakes: keep animation to frame swaps, not per-frame noise. Flood currents and joined puddles raise the bake count: cap it and watch weatherbake's memo (clears at 900). Novas reusing flames.js need per-radius buckets.
 - **Bake stalls:** fixing `part()` globally re-inks every decor bake (first-sight cost); tinting adds a readback per part. Measure the first frame of an Iron board.
 - **Approval:** the owner kept the magic hit, catapult / keg blast and likes the magic "flashing rings": item 6 and the novas need a concept round first, not a straight change.
+
+## Lead's correction (2026-11-17, after acting on it)
+
+A1 was wrong: the Iron props were re-sculpted on 2026-11-15 (commit 472b9ed, the `*X` painters in
+`IRON_ART.decor`); the 387 `part()` calls are the OLD painters left in scenery-iron.js, unused. Only
+`irpan`, `irsluice`, `irwreck` were still old (now `src/render/pix/iron-works.js`). A2 (the tinted inner
+line in paint.js `part()`) is in, but changed little on screen. Before acting on A3-A10, check what
+each decor map / painter actually calls today, not how many old calls a file holds.
