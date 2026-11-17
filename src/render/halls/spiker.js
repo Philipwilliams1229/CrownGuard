@@ -84,6 +84,24 @@ export const drawBladewheel = (ctx, t, time) => {
   const k = Math.floor(((spin % step) + step) % step / step * PHASES);
   const wy0 = y - s.wy - wind * 1.5 + anim * 2.5;
   const wy = Math.round(wy0 * 2) / 2;   // the new wheel moves by whole art pixels
+  // fire: a flame on every pot, swelling as the ring gathers, and the sun. `front` false = the half
+  // behind the wheel (drawn before it), true = the half in front (after it).
+  const firePass = (front) => {
+    if (!fire) return;
+    const swell = t._idle ? 0.7 : 0.6 + r * 0.5 + anim * 0.6;
+    const col = r4 === "ba" ? "#f4c040" : r4 === "bb" ? "#f07030" : "#f0903a";
+    const core = r4 === "ba" ? "#fff8d8" : "#ffe08a";
+    const ph = (k / PHASES) * step;
+    const pots = [];
+    for (let i = 0; i < n; i++) { const a = ph + i * step; pots.push([x + Math.cos(a) * (rr + 0.5), wy + Math.sin(a) * (rr + 0.5) * SQ - 0.8, i]); }
+    pots.sort((a, b) => a[1] - b[1]);
+    for (const [px, py, i] of pots) if ((py >= wy - 0.8) === front) flame(ctx, px, py, 0.9 * swell, time, i + t.id, col, core);
+    if (anim > 0.4) {
+      const rg = rr + 4 + (1 - anim) * 14;
+      pxArc(ctx, x, wy, rg, rg * SQ, `rgba(255,200,110,${anim * 0.8})`, front ? { th: 2, a0: 0, a1: Math.PI } : { th: 2, a0: Math.PI, a1: Math.PI * 2 });
+    }
+  };
+  firePass(false);
   if (H) stampPix(ctx, pixSprite(`bw|wheel|${s.key}|${k}`, () => spikerHall.wheelPix(s, k)), x, wy);
   if (r4 === "aa") {
     // the Steel Tempest's second wheel, counter-turning above
@@ -107,18 +125,9 @@ export const drawBladewheel = (ctx, t, time) => {
       ctx.fillStyle = "#a04a3a"; ctx.fillRect(ex + 0.5, ey - 0.2, 0.8, 1);
     }
   }
-  // fire: a flame on every pot, swelling as the ring gathers, and the sun
-  if (fire) {
-    const swell = t._idle ? 0.7 : 0.6 + r * 0.5 + anim * 0.6;
-    const col = r4 === "ba" ? "#f4c040" : r4 === "bb" ? "#f07030" : "#f0903a";
-    const core = r4 === "ba" ? "#fff8d8" : "#ffe08a";
-    const ph = (k / PHASES) * step;
-    const pots = [];
-    for (let i = 0; i < n; i++) { const a = ph + i * step; pots.push([x + Math.cos(a) * (rr + 0.5), wy + Math.sin(a) * (rr + 0.5) * SQ - 0.8, i]); }
-    pots.sort((a, b) => a[1] - b[1]);
-    for (const [px, py, i] of pots) flame(ctx, px, py, 0.9 * swell, time, i + t.id, col, core);
-    if (anim > 0.4) pxArc(ctx, x, wy, rr + 4 + (1 - anim) * 14, (rr + 4 + (1 - anim) * 14) * SQ, `rgba(255,200,110,${anim * 0.8})`, { th: 2 });
-  }
+  // (the fire pots and the flash ring are painted by firePass above: the half of the ring behind
+  // the wheel before it, the half in front after, so the flames read as coming out of the wheel)
+  firePass(true);
   if (r4 === "ba") {
     const sy = wy - 18 + Math.sin(time * 2 + t.id) * 0.6;
     glow(ctx, x, sy, 14, "#f8d870", 0.3 + 0.15 * r);

@@ -55,7 +55,7 @@ import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawShip, drawFrostShells, drawFrostGround, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
 import { drawHit, drawDeathPoof } from "./statusfx.js";
-import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
+import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, spikeBehind, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { prefs } from "../data/prefs.js";
 
@@ -196,6 +196,8 @@ export function draw(g, canvas, bufRef) {
     // the ground half of the area effects (rime, scorch, cracks, stains)
     else drawRingFx(ctx, fx, Math.min(1, fx.ttl / 300), g, "g");
   }
+  // Bladewheel spikes still flying out from behind their hall: under it, so the building hides them
+  for (const p of g.projectiles) if (p.delay <= 0 && spikeBehind(p, g)) drawProjectile(ctx, p, g.time);
   // where each attack ring's front is now, so the foes it passes flash white (ringflash.js)
   collectRings(g);
 
@@ -520,7 +522,7 @@ export function draw(g, canvas, bufRef) {
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)
   for (const p of g.projectiles) {
-    if (p.delay > 0) continue;
+    if (p.delay > 0 || spikeBehind(p, g)) continue;
     drawProjectile(ctx, p, g.time);
   }
 

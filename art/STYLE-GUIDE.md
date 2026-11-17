@@ -1183,7 +1183,7 @@ blast's whole ground sprite under the actors and only its fireball / smoke over 
 physical hit's flash), so the flash radiates from the centre (owner, same day): `src/render/ringflash.js`
 reads every attack ring's front from the effect's `r` (the attack's area) and the painter's easing, and
 enemies.js flashes a foe while a front is over it. A new area attack: give its effect `r` and a line in
-`RING` there. A new ring effect follows the same rule. The concept pages' C option now means LIT (light thrown on the
+`RING` there. A new ring effect follows the same rule. **Attacks that come out of a hall** (owner, 2026-11-17: "it looks like its coming out of the tower"): the frost and fire novas stay ground layer, plus their FRONT line redrawn in the air layer only inside a clip of the source hall's foot (rings.js `hallOf` / `clipFront`), and their spikes / flames standing behind the hall drop to the ground layer (`behindHall`); Bladewheel spikes flying up or sideways draw in the ground pass while inside their hall's box (fx.js `spikeBehind`, draw.js), and the Brazier's flame ring draws its back half before the wheel, its front after (halls/spiker.js `firePass`). The box is a fixed 22 x 44 px round the foot: check it on the tallest finals. The concept pages' C option now means LIT (light thrown on the
 ground), not chunky icons (owner: the bold C's were "pretty far off").
 
 ## Performance (target: iPad mini 6)

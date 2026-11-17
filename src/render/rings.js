@@ -216,6 +216,20 @@ const dashArc = (ctx, x, y, rx, ry, sz, gap, style, GR, AIR, split = false) => {
   }
   ctx.fill();
 };
+// ---- attacks that come OUT of a hall (owner, 2026-11-17) ----------------------
+// A nova rolling out of a hall: its back half and anything rising behind the
+// building is hidden by it (ground layer), its front half shows over the base,
+// but ONLY inside the hall's own footprint, so it never crosses a foe's body.
+// `hallOf` finds the hall the effect was loosed from (none for a foe's nova).
+const hallOf = (g, fx) => g && g.towers && g.towers.find((t) => t.x === fx.x && t.y === fx.y);
+// a point in the volume behind the building (its width, its height, above the foot)
+const behindHall = (hall, fx, x, y) => !!hall && y < fx.y + 1 && y > fx.y - 44 && Math.abs(x - fx.x) <= 22;
+// clip to the hall's footprint (rx 18 / ry 13 at y+3, a little generous), front half only
+const clipFront = (ctx, fx) => {
+  ctx.beginPath(); ctx.ellipse(fx.x, fx.y + 3, 22, 17, 0, 0, TAU); ctx.clip();
+  ctx.beginPath(); ctx.rect(fx.x - 40, fx.y, 80, 40); ctx.clip();
+};
+
 // debris flung out along the ground, up and back down under gravity
 const fling = (seed, i, p, R, up, grav) => {
   const a = hash(seed, i) * TAU, v = 0.4 + 0.6 * hash(seed, i + 40);
@@ -797,9 +811,38 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       // rim sweeps out, a thin rime sheet (half as dense as before) settles
       // behind it, and spikes snap up in the front's wake, then melt.
       const life = 500, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = 0.55;
-      const r = R * easeOut(p * 1.25), A = stepA(a);
+      const r = R * easeOut(p * 1.25), A = stepA(a), hall = hallOf(g, fx);
+      const sp = [];
+      // spikes: the rim's own, and a scatter inside that rise as the front passes
+      
+      const n = Math.max(5, Math.min(30, Math.round((TAU * r) / 15))), a0 = hash(sd, 99) * TAU;
+      const big = p > 0.18 && a > 0.45;
+      for (let i = 0; i < n; i++) {
+        const an = a0 + (i / n) * TAU, rr = r + (hash(sd, i + 200) - 0.5) * 4;
+        sp.push(fx.y + Math.sin(an) * rr * SQ + 2, fx.x + Math.cos(an) * rr, (big && (i + sd) % 3 !== 0 ? 3 : 0) + ((i * 7 + sd) % 3), Math.cos(an) < 0);
+      }
+      const NI = Math.max(4, Math.min(16, Math.round(R / 5)));
+      for (let i = 0; i < NI; i++) {
+        const rho = Math.sqrt(0.08 + 0.85 * hash(sd, i + 600)) * R * 0.92, an = hash(sd, i + 650) * TAU;
+        const born = (1 - Math.sqrt(Math.max(0, 1 - rho / R))) / 1.25;
+        if (p < born) continue;
+        const melt = 0.5 + 0.18 * (rho / R) + 0.1 * hash(sd, i + 700);
+        if (p > melt + 0.3) continue;
+        const grown = p - born > 0.07, v = p > melt ? (p > melt + 0.15 ? -1 : (i % 3)) : grown ? 3 + (i % 3) : (i % 3);
+        if (v < 0) continue;
+        sp.push(fx.y + Math.sin(an) * rho * SQ, fx.x + Math.cos(an) * rho, v, Math.cos(an) < 0);
+      }
+      // far ones first, so the near spikes stand in front
+      const idx = []; for (let i = 0; i < sp.length; i += 4) idx.push(i);
+      idx.sort((u, w) => sp[u] - sp[w]);
+      // the spikes behind the hall belong to the ground layer (the hall hides them), the rest rise over it
+      const putSp = (back) => { for (const i of idx) if (behindHall(hall, fx, sp[i + 1], sp[i]) === back) put(ctx, shardS(sp[i + 2]), sp[i + 1], sp[i], sp[i + 3]); };
       ctx.save();
       ctx.globalAlpha *= A;
+      const rimLine = () => {
+        arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, rgba(ICE[3], 0.9), true, false);
+        dashArc(ctx, fx.x, fx.y, r - 0.5, (r - 0.5) * SQ, 1, 2.2, ICE[0], true, false);
+      };
       if (GR) {
         disc(ctx, fx.x, fx.y, r, Math.max(0, r - 5), dither(ctx, ICE[0], 0.4), SQ);
         // the rime sheet: sparse patches behind the front
@@ -814,33 +857,13 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           if (d > r - 4) continue;
           put(ctx, rimeS(i % 4), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
         }
-        arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, rgba(ICE[3], 0.9), true, false);
-        dashArc(ctx, fx.x, fx.y, r - 0.5, (r - 0.5) * SQ, 1, 2.2, ICE[0], true, false);
+        rimLine();
+        putSp(true);
       }
       if (AIR) {
-        // spikes: the rim's own, and a scatter inside that rise as the front passes
-        const sp = [];
-        const n = Math.max(5, Math.min(30, Math.round((TAU * r) / 15))), a0 = hash(sd, 99) * TAU;
-        const big = p > 0.18 && a > 0.45;
-        for (let i = 0; i < n; i++) {
-          const an = a0 + (i / n) * TAU, rr = r + (hash(sd, i + 200) - 0.5) * 4;
-          sp.push(fx.y + Math.sin(an) * rr * SQ + 2, fx.x + Math.cos(an) * rr, (big && (i + sd) % 3 !== 0 ? 3 : 0) + ((i * 7 + sd) % 3), Math.cos(an) < 0);
-        }
-        const NI = Math.max(4, Math.min(16, Math.round(R / 5)));
-        for (let i = 0; i < NI; i++) {
-          const rho = Math.sqrt(0.08 + 0.85 * hash(sd, i + 600)) * R * 0.92, an = hash(sd, i + 650) * TAU;
-          const born = (1 - Math.sqrt(Math.max(0, 1 - rho / R))) / 1.25;
-          if (p < born) continue;
-          const melt = 0.5 + 0.18 * (rho / R) + 0.1 * hash(sd, i + 700);
-          if (p > melt + 0.3) continue;
-          const grown = p - born > 0.07, v = p > melt ? (p > melt + 0.15 ? -1 : (i % 3)) : grown ? 3 + (i % 3) : (i % 3);
-          if (v < 0) continue;
-          sp.push(fx.y + Math.sin(an) * rho * SQ, fx.x + Math.cos(an) * rho, v, Math.cos(an) < 0);
-        }
-        // far ones first, so the near spikes stand in front
-        const idx = []; for (let i = 0; i < sp.length; i += 4) idx.push(i);
-        idx.sort((u, w) => sp[u] - sp[w]);
-        for (const i of idx) put(ctx, shardS(sp[i + 2]), sp[i + 1], sp[i], sp[i + 3]);
+        // the front of the ring over the hall's base, inside its footprint only
+        if (hall) { ctx.save(); clipFront(ctx, fx); rimLine(); ctx.restore(); }
+        putSp(false);
         // the cold flash where the nova was loosed
         if (p < 0.36) put(ctx, burstS("ice", Math.min(3, Math.floor(p / 0.09))), fx.x, fx.y - 6);
         // snow motes lifting off the frozen ground
@@ -860,9 +883,27 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       // rolling wall of flame on a line of coals, the turf left scorched
       // behind it in a ring, embers lifting, heat haze over the front.
       const life = 450, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = 0.55;
-      const r = R * easeOut(p * 1.15), A = stepA(a);
+      const r = R * easeOut(p * 1.15), A = stepA(a), hall = hallOf(g, fx);
       ctx.save();
       ctx.globalAlpha *= A;
+      // the line of coals under the flames: dark embers with hot hearts
+      const coals = () => {
+        arcPx(ctx, fx.x, fx.y, r, r * SQ, 1.5, rgba(FIRE[4], 0.9), true, false);
+        dashArc(ctx, fx.x, fx.y, r + 0.5, (r + 0.5) * SQ, 1, 2.6, FIRE[1], true, false);
+        dashArc(ctx, fx.x, fx.y, r, r * SQ, 1, 3.7, FIRE[3], true, false);
+      };
+      // the flames: those behind the hall are ground layer (it hides them), the rest rise over it
+      const flames = (back) => {
+        const n = Math.max(6, Math.min(36, Math.round((TAU * r) / 11)));
+        const s = a > 0.6 && p > 0.1 ? 1 : 0, fr = Math.floor(age / 65), a0 = hash(sd, 99) * TAU;
+        for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
+          const an = a0 + (i / n) * TAU, sy = Math.sin(an);
+          if ((sy < 0) !== (pass === 0)) continue;
+          const fxx = fx.x + Math.cos(an) * r, fyy = fx.y + sy * r * SQ + 1;
+          if (behindHall(hall, fx, fxx, fyy) !== back) continue;
+          put(ctx, flameS((i + sd) % 3, (fr + i) % 4, s && i % 4 !== 2 ? 1 : 0), fxx, fyy, Math.cos(an) < 0);
+        }
+      };
       if (GR) {
         // the scorched ring, thick at the front and thinning inward, in dithered soot
         disc(ctx, fx.x, fx.y, r, Math.max(0, r - 7), dither(ctx, FIRE[5], 0.66), SQ);
@@ -874,19 +915,14 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           if (d > r - 10) continue;
           put(ctx, charS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
         }
-        // a line of coals under the flames: dark embers with hot hearts
-        arcPx(ctx, fx.x, fx.y, r, r * SQ, 1.5, rgba(FIRE[4], 0.9), true, false);
-        dashArc(ctx, fx.x, fx.y, r + 0.5, (r + 0.5) * SQ, 1, 2.6, FIRE[1], true, false);
-        dashArc(ctx, fx.x, fx.y, r, r * SQ, 1, 3.7, FIRE[3], true, false);
+        coals();
+        flames(true);
       }
       if (AIR) {
-        const n = Math.max(6, Math.min(36, Math.round((TAU * r) / 11)));
-        const s = a > 0.6 && p > 0.1 ? 1 : 0, fr = Math.floor(age / 65), a0 = hash(sd, 99) * TAU;
-        for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
-          const an = a0 + (i / n) * TAU, sy = Math.sin(an);
-          if ((sy < 0) !== (pass === 0)) continue;
-          put(ctx, flameS((i + sd) % 3, (fr + i) % 4, s && i % 4 !== 2 ? 1 : 0), fx.x + Math.cos(an) * r, fx.y + sy * r * SQ + 1, Math.cos(an) < 0);
-        }
+        const a0 = hash(sd, 99) * TAU;
+        // the front of the ring over the hall's base, inside its footprint only
+        if (hall) { ctx.save(); clipFront(ctx, fx); coals(); ctx.restore(); }
+        flames(false);
         if (p < 0.3) put(ctx, burstS("fire", Math.min(3, Math.floor(p / 0.075))), fx.x, fx.y - 8);
         // embers flying up off the ring, heat haze wavering above it
         const e1 = [], e2 = [], hz = [];

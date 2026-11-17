@@ -941,6 +941,17 @@ const flight = (p) => {
   return [clamp01(1 - Math.hypot(p.tx - p.x, p.ty - p.y) / tot), tot];
 };
 
+// A Bladewheel spike still over its own hall's sprite and flying up or sideways comes out
+// from BEHIND the building: draw.js paints it before the halls, so the hall hides it, and
+// once it is clear of the building (or flying toward the viewer) it draws as any shot does.
+export const spikeBehind = (p, g) => {
+  if (p.kind !== "spike" || p.src == null) return false;
+  const ang = p.angle ?? Math.atan2(p.ty - p.y, p.tx - p.x);
+  if (Math.sin(ang) > 0.15) return false;
+  const t = g.towers.find((w) => w.id === p.src);
+  return !!t && p.y < t.y + 1 && p.y > t.y - 44 && Math.abs(p.x - t.x) <= 22;
+};
+
 export const drawProjectile = (ctx, p, time) => {
   const ang = p.angle ?? Math.atan2(p.ty - p.y, p.tx - p.x);
   const dx = Math.cos(ang), dy = Math.sin(ang);
