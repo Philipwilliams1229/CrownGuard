@@ -1,14 +1,18 @@
 // Builds .shots/fx-concepts/index.html (standalone: PNGs + labels + playing boxes) from the strips the lab
 // page fx-concepts.html saved as .shots/fxc_<row>_<col>.png.   node scripts/build-fx-concepts.mjs
 import fs from "node:fs";
-import { ROWS } from "../concept/fx-concepts.js";
+import { ROWS as ROWS1 } from "../concept/fx-concepts.js";
+import { ROWS4 } from "../concept/fx-r4.js";
+const ROWS = [...ROWS4, ...ROWS1];
+const ROUND4 = process.argv.includes("round4");   // -> only the Round 4 rows, in .shots/fx-concepts-round4/
 const ROUND2 = process.argv.includes("round2");   // node scripts/build-fx-concepts.mjs round2 -> only the Round 2 rows, in .shots/fx-concepts-round2/
 const ROUND3 = process.argv.includes("round3");   // -> only the Round 3 rows, in .shots/fx-concepts-round3/
-const OUT = ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
+const OUT = ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
 fs.mkdirSync(OUT, { recursive: true });
 const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", Bdark: "B on dark ground", Adark: "A on dark ground", Cdark: "C on dark ground" };
 const rows = [];
 for (const r of ROWS) {
+  if (ROUND4 && r.group !== "Round 4") continue;
   if (ROUND3 && r.group !== "Round 3") continue;
   if (ROUND2 && r.group !== "Round 2") continue;
   const cols = r.cols2 ? ["today", "today2"] : r.twoToday ? ["today", "today2", "A", "B", "C", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])] : ["today", "A", "B", "C", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])];
@@ -35,12 +39,13 @@ h2{margin:22px 16px 6px;font-size:13px;letter-spacing:.08em;text-transform:upper
 .st{flex:0 0 auto;image-rendering:pixelated;background-repeat:no-repeat;border:1px solid #2c3146}
 .pick{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}.pick button{height:38px;min-width:64px;border-radius:6px;border:1px solid #555d7a;background:#2b3250;color:#fff;font-size:14px}.pick button.on{background:#d9b25a;color:#15171d;border-color:#d9b25a;font-weight:700}
 #bar{position:sticky;top:0;z-index:5;background:#1e2230;border-bottom:1px solid #353b52;padding:8px 12px;display:flex;gap:10px;align-items:center}#bar button{height:36px;border-radius:6px;border:1px solid #555d7a;background:#2b3250;color:#fff;padding:0 14px}#bar textarea{display:none;flex:1;height:60px}
+.ln.pf{align-items:flex-start;margin:10px 0}.col{display:flex;flex-direction:column;gap:6px;min-width:0}.frames{overflow-x:auto;max-width:calc(100vw - 140px)}.ln.pf .play{margin-left:0}
 .play{flex:0 0 auto;image-rendering:pixelated;background-repeat:no-repeat;border:2px solid #3a4160;border-radius:4px;margin-left:6px}
 </style></head><body>
 <h1>Crownguard combat effects: concept options<span>One row per effect. TODAY is the game's own code; A clean, B worked, C bold. The box at the end of each strip plays it. Zoom 3, grass ground (and B on a Hollow dark ground).</span></h1>
 <div id="bar"><span id="cnt">0 picked</span><button id="cp">Copy my picks</button><textarea id="fb" readonly></textarea></div><div id="root"></div>
 <script>
-const ROWS=${JSON.stringify(rows)};
+const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND4};
 let picks={};try{picks=JSON.parse(localStorage.getItem("cg-fx-picks")||"{}")}catch(e){}
 const cnt=document.getElementById("cnt"),save=()=>{try{localStorage.setItem("cg-fx-picks",JSON.stringify(picks))}catch(e){}cnt.textContent=Object.keys(picks).length+" picked";};
 document.getElementById("cp").onclick=()=>{const t=Object.entries(picks).map(([k,v])=>k+": "+v).join("\\n");const fb=document.getElementById("fb");const fail=()=>{fb.style.display="block";fb.value=t;fb.select();};try{navigator.clipboard.writeText(t).then(()=>{document.getElementById("cp").textContent="Copied";setTimeout(()=>document.getElementById("cp").textContent="Copy my picks",1200)},fail)}catch(e){fail()}};
@@ -53,9 +58,11 @@ for(const r of ROWS){
     const l=document.createElement("div");l.className="ln";
     const lb=document.createElement("div");lb.className="lb"+(st.k.startsWith("today")?" t":st.k.endsWith("dark")?" d":"");lb.textContent=st.label;
     const im=document.createElement("div");im.className="st";im.style.cssText="width:"+(fw*r.n)+"px;height:"+fh+"px;background-image:url("+st.file+");background-size:"+(fw*r.n)+"px "+fh+"px";
-    const pl=document.createElement("div");pl.className="play";const pw=Math.round(fw*1.4),ph=Math.round(fh*1.4);
+    const pl=document.createElement("div");pl.className="play";const pw=Math.min(Math.round(fw*(PLAYFIRST?2:1.4)),PLAYFIRST?Math.max(fw,window.innerWidth-140):1e9),ph=Math.round(pw*fh/fw);
     pl.style.cssText="width:"+pw+"px;height:"+ph+"px;background-image:url("+st.file+");background-size:"+(pw*r.n)+"px "+ph+"px";
-    players.push({pl,pw,n:r.n});l.append(lb,im,pl);d.appendChild(l);
+    players.push({pl,pw,n:r.n});
+    if(PLAYFIRST){const col=document.createElement("div");col.className="col";const fr=document.createElement("div");fr.className="frames";fr.appendChild(im);col.append(pl,fr);l.classList.add("pf");l.append(lb,col);}else l.append(lb,im,pl);
+    d.appendChild(l);
   }
   if(!r.strips.some(x=>x.k==="A")){root.appendChild(d);continue;}
   const pk=document.createElement("div");pk.className="pick";
