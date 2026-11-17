@@ -1207,6 +1207,24 @@ and the Wolf-Rider too (`trapBane` 1.5, armor 0.1: a level-3 spike 88 ->
 147). Not the Gryphon Knight (it flies: only the Aerostat's balloons reach
 it) nor the Rime Jarl's mammoth (a boss). Not simmed.
 
+## Necromancers don't drag a wave out (2026-11-17, owner request)
+
+"Frequent jam ups at the ends of rounds where they stay back and just resurrect everything on the
+board a little at a time." The owner picked two fixes, held a third ("maybe 5", a raise reach again)
+until they have played these. Provisional.
+- **A stand-off foe walks on once his column is gone:** `columnSpent` (update.js) is true when no
+  living rank and file (`inColumn`, not `revived`) is within `COLUMN_SPAN` 260 of road of him; then a
+  `standOff` foe (necromancer, magister, gravecaller) stops hanging back and marches into your line.
+  Mid-wave nothing changes. Archers keep `STAND_MS`: giving them the same rule made Iron / Hollow ~12%
+  harder (seeds 1-2), and letting them walk on mid-wave too (the magister's `columnGone`) +17% / +39%.
+- **His risen fall with him:** a raise stamps `u.raisedBy` with the necromancer's id; when he dies
+  (dealDamage, actions.js) each one still standing (or climbing out) crumbles, no bounty
+  (`g.risenFell` counts them: 44-66 a Goblin Warrens run).
+- Measured `--endure`, seeds 1-2: the Goblin Warrens' swarm doctrine played ~3% faster in all
+  (necromancer waves 10-30 s shorter, e.g. wave 5 77 -> 49 s), castle damage flat (526 / 614 ->
+  576 / 526); Iron flat (better doctrine 10812 / 10755 -> 10326 / 10777); Hollow 10936 / 12185 ->
+  12229 / 12551 (the gravecaller walks on too; mixed). None stuck.
+
 ## Idle soldiers gang up (2026-11-08, owner request)
 
 "If there's idle knights during a battle, allow them to gang up ... Same for

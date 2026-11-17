@@ -923,6 +923,23 @@ const columnGone = (g, e) => {
   }
   return ahead > here;
 };
+// Is the fight over for a foe who hangs back (owner, 2026-11-17: necromancers
+// stood off at the end of a wave raising the dead a few at a time, and the
+// wave dragged on)? True when none of the living rank and file is left
+// within COLUMN_SPAN of road of him (killed, or marched on); the risen
+// (`revived`) are not his column. Then a standoff foe (necromancer,
+// magister, gravecaller) stops hanging back and marches on. Mid-wave he hangs
+// back as before. Archers keep their STAND_MS: letting them walk on too made
+// Iron / Hollow ~12% harder in the sims (the walking-on-mid-wave version
+// +17% / +39%).
+const columnSpent = (g, e) => {
+  for (const o of g.enemies) {
+    if (!inColumn(o, e) || o.revived) continue;
+    const dd = o.dist - e.dist;
+    if (dd >= -COLUMN_SPAN && dd <= COLUMN_SPAN) return false;
+  }
+  return true;
+};
 // ...and the other way (owner, 2026-11-08: "one just charged ahead even when
 // there was a huge group of soldiers behind him"): while most of his column
 // is more than COLUMN_LAG behind him, and at least three of them, he waits
@@ -1922,6 +1939,7 @@ export function updateGame(g, dt) {
             u.dist = c.dist; u.lane = c.lane; u.x = c.x; u.y = c.y;
             u.bounty = Math.ceil(u.bounty / 2);
             u.revived = true;
+            u.raisedBy = e.id;   // and falls when he does (actions.js dealDamage)
             if (c.sprite) u.sprite = c.sprite;   // it rises in the look it fell in
             // it climbs out of the ground on the spot, slowly (the wraith's
             // rising, only longer): held there, sunk and faded, then it walks
@@ -2115,6 +2133,7 @@ export function updateGame(g, dt) {
         // (owner, 2026-11-08: he waited at the first knights while the column
         // walked on without its shields): he goes after it, past the fight
         if (near && e.followColumn && columnGone(g, e)) near = false;
+        if (near && columnSpent(g, e)) near = false;
         e.aiming = near;
       }
       if ((!e.rangedAtk && !e.standOff) || stunned) e.aiming = false;

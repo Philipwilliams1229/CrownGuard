@@ -488,6 +488,16 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
       if (hb && (src === hb || (hu && hu.state !== "dead" && Math.hypot(hu.x - e.x, hu.y - e.y) < KILL_NEAR))) hb.xp = (hb.xp || 0) + killXp(e, src === hb);
     }
     e.dead = true;
+    // a necromancer's risen fall with him (owner, 2026-11-17): back to bones,
+    // no bounty, the ones still climbing out too
+    if (e.raiseEvery) {
+      for (const o of g.enemies) {
+        if (o.dead || o.raisedBy !== e.id) continue;
+        o.dead = true; o.hp = 0;
+        g.risenFell = (g.risenFell || 0) + 1;
+        g.effects.push({ type: "death", etype: o.sprite || o.type, x: o.x, y: o.y, face: o.face, ttl: 550, life: 550, revived: true, lite: true });
+      }
+    }
     // a Risen knocked apart by steel, arrows or stones gets back up, once
     // (`reassemble`, enemies.js); magic and holy blows end it (update.js)
     if (e.reassemble && !e.revived && dtype === "phys" && !holy) e.reforms = true;
