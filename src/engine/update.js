@@ -3076,7 +3076,8 @@ export function updateGame(g, dt) {
           if (!p.mini) sfx.play(p.kind === "rock" ? "rock" : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane");
           g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
           // a mark on the ground that outlives the blast: soot, or a rime of frost
-          if (!p.mini) {
+          // (owner, 2026-11-17: a catapult's stone leaves no mark; its dust is enough)
+          if (!p.mini && p.kind !== "rock") {
             g.effects.push({
               type: "scorch", x: p.tx, y: p.ty, ttl: 2600, life: 2600,
               r: Math.max(12, p.splash * 0.62), frost: !!p.slow && !p.burn, seed: Math.random() * 6,

@@ -86,6 +86,14 @@ const logSpot = (t, x, y, f, s) => {
 // on it (`lever`) and crouches over it as the roll comes due.
 //   At ease: `winchIdle` / `lever`, and at the winch two raps on a peg now and then.
 const frac = (v) => v - Math.floor(v);
+// The mangonel / trebuchet's reload (owner, 2026-11-17: "pick up a rock and drop it in the
+// slot"): the arm is winched down by COCK_END of the reload, then he loads (`winchLoad`), the
+// stone flies the last bit from his hands into the cup in LOAD_FLY ms, and only then is it loaded.
+const COCK_END = 0.5, LOAD_FLY = 200;
+const loadPlan = (rate) => {
+  const L = ENG.CLIPS.winchLoad, start = rate * COCK_END, hit = start + L.hit * L.ms;
+  return { start, hit, landed: hit + LOAD_FLY, end: start + L.ms };
+};
 const shotPart = (clip, cd, since) => {
   const c = ENG.CLIPS[clip], n1 = c.n - 1, hitF = Math.round(c.hit * n1), pre = c.hit * c.ms, post = (1 - c.hit) * c.ms;
   if (since < post) return { clip, f: Math.min(n1, hitF + Math.round((n1 - hitF) * (since / post))) };   // the release and its follow-through
@@ -110,9 +118,10 @@ const engineerNow = (t, time, s, r, anim) => {
     if (u > 0.62 && u < 0.8) { const q = frac((u - 0.62) / 0.09); return { clip: "winchRap", f: fracFrame(ENG, "winchRap", q) }; }
     return loop("winchIdle");
   }
-  const L = ENG.CLIPS.winchLoose;
+  const L = ENG.CLIPS.winchLoose, P = loadPlan(rate);
   if (since < (1 - L.hit) * L.ms) return shotPart("winchLoose", cd, since);
-  if (anim === 0 && r < 0.8) return { clip: "winch", f: Math.floor(frac(time * 1.45 + t.id * 0.37) * ENG.CLIPS.winch.n) % ENG.CLIPS.winch.n };
+  if (anim === 0 && since >= P.start && since < P.end) return { clip: "winchLoad", f: fracFrame(ENG, "winchLoad", (since - P.start) / ENG.CLIPS.winchLoad.ms) };
+  if (anim === 0 && since < P.start) return { clip: "winch", f: Math.floor(frac(time * 1.45 + t.id * 0.37) * ENG.CLIPS.winch.n) % ENG.CLIPS.winch.n };
   return shotPart("winchLoose", cd, Infinity) || loop("winchIdle");
 };
 
@@ -123,7 +132,7 @@ const armAngle = (t, s, r) => {
     if (s.treb) return s.rest + (s.stop - s.rest) * Math.pow(1 - p, 1.4) * Math.cos(p * 4);
     return s.stop + 12 * Math.sin(p * Math.PI * 2.5) * (1 - p) * (1 - p);
   }
-  const k = Math.max(0, Math.min(1, (r - 0.08) / 0.7));
+  const k = Math.max(0, Math.min(1, (r - 0.08) / (COCK_END - 0.1)));
   const e = k * k * (3 - 2 * k);
   return s.rest + (s.cocked - s.rest) * e;
 };
@@ -215,7 +224,9 @@ export const drawCatapult = (ctx, t, time) => {
     }
     if (H) stampPix(ctx, pixSprite(catHall.armKey(fo, deg, flip), () => catHall.arm(fo, deg, flip)), px, py, f);
 
-    const loaded = anim === 0 && r > 0.8;
+    const rate = getStats(t).rate || 1000, since = t._idle || !(t.cd > 0) ? Infinity : rate - t.cd, P = loadPlan(rate);
+    const loaded = anim === 0 && since >= P.landed;
+    let cup;
     if (s.treb) {
       // the sling: hanging from the tip while it winds and while it waits
       // cocked, the stone in its pouch (a sling laid back in a trough on the
@@ -226,6 +237,7 @@ export const drawCatapult = (ctx, t, time) => {
       let sx, sy;
       if (anim > 0) { sx = tx + ux * 9 + f * 4 * anim; sy = ty + uy * 9 - 3 * anim; }
       else { sx = tx + Math.sin(time * 2.5) * (loaded ? 0.4 : 0.8); sy = ty + 7; }
+      cup = [sx, sy - 1.8];
       rope(ctx, tx, ty, sx, sy, anim > 0 ? 0 : 1.5, ROPE, 0.8);
       ball(ctx, sx, sy, 2.2, 1.6, "#6a4a2e", { hi: 0.35, lo: 0.4 });
       if (loaded) {
@@ -236,7 +248,8 @@ export const drawCatapult = (ctx, t, time) => {
       // pivot, so it leans in toward the engine, clear of the engineer's face
       if (anim === 0) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT, 0.5, ROPE, 0.7);
     } else {
-      if (loaded && H) stampPix(ctx, pic("shot", () => catHall.shot(fo, flip)), tx - uy * f * 0.5, ty - 2.2, f);
+      cup = [tx - uy * f * 0.5, ty - 2.6];
+      if (loaded && H) stampPix(ctx, pic("shot", () => catHall.shot(fo, flip)), cup[0], cup[1], f);
       // the winch rope takes the arm near the pivot, so it leans in toward
       // the engine with air in front of the engineer's face, never across
       // it to the cup
@@ -254,6 +267,7 @@ export const drawCatapult = (ctx, t, time) => {
       ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - WINCH_DY); ctx.lineTo(px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT); ctx.stroke();
     }
     // a thump of dust at the wheels as it looses
+    t._cup = cup; t._load = anim === 0 && since < P.landed ? { since, P } : null;
     if (anim > 0.5) for (const sgn of [-1, 1]) soft(ctx, x + sgn * (hw - 1), y + 5, 6 * anim, 2.4, [[0, `rgba(190,170,130,${0.5 * anim})`], [1, "rgba(190,170,130,0)"]]);
   }
   // Comet Sling: the cauldron smokes and glows under
@@ -272,13 +286,29 @@ export const drawCatapult = (ctx, t, time) => {
   if (now) {
     if (!s.roller) {
       // the winch's crank and its handle, at the turn his fists are on
-      const ax = x - f * (hw - 3), ay = y - WINCH_DY, gx = ex + grip[0], gy = ey + grip[1];
+      // (loading, his hands are off it: the handle stays where he left it)
+      const hg = now.clip === "winchLoad" ? crewMark(ENG, "winchIdle", 0, "grip", f, "engineer") : grip;
+      const ax = x - f * (hw - 3), ay = y - WINCH_DY, gx = ex + hg[0], gy = ey + hg[1];
       ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(gx, gy); ctx.stroke();
       ctx.fillStyle = "#241a26"; ctx.fillRect(gx - 1, gy - 1, 2, 2);
       ctx.fillStyle = "#8a909c"; ctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
     }
+    // the stones: the next one waits at his feet; in the load he carries it, then it flies to the cup
+    const ld = !s.roller && t._load, LC = ENG.CLIPS.winchLoad;
+    const stone = (sx, sy) => { if (H) stampPix(ctx, pixSprite(`catshot|${form}`, () => catHall.shot(fo, flip)), sx, sy, f); };
+    const pick = crewMark(ENG, "winchLoad", Math.round(0.34 * (LC.n - 1)), "grip", f, "engineer");
+    const lp = ld && ld.since >= ld.P.start ? (ld.since - ld.P.start) / LC.ms : -1;
+    const carried = lp >= 0.34 && lp < LC.hit;
+    if (!s.roller && !carried && !(ld && ld.since >= ld.P.hit)) stone(ex + pick[0], ey + pick[1] - 0.6);
     const rec = drawCrewPix(ctx, ENG, ex, ey, f, now.clip, now.f, { variant: "engineer" });
+    if (carried) stone(ex + grip[0], ey + grip[1] - 0.8);
+    else if (ld && ld.since >= ld.P.hit && t._cup) {
+      // in flight: from where his hands let go to the cup, over a little arc
+      const rel = crewMark(ENG, "winchLoad", Math.round(LC.hit * (LC.n - 1)), "grip", f, "engineer");
+      const u = Math.min(1, (ld.since - ld.P.hit) / LOAD_FLY), x0 = ex + rel[0], y0 = ey + rel[1] - 0.8;
+      stone(x0 + (t._cup[0] - x0) * u, y0 + (t._cup[1] - y0) * u - Math.sin(u * Math.PI) * 4);
+    }
     if (now.clip === "winchRap") {
       // the rap sparks where his fist lands on the peg
       const R = ENG.CLIPS.winchRap, hitF = Math.round(R.hit * (R.n - 1));

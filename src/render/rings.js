@@ -643,14 +643,15 @@ const graveS = (lv = 3) => memo(`grave|${lv}|${PX}`, () => {
   for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
     const n = Math.hypot((x + 0.5 - cx) / (13 * S), (y + 0.5 - cy) / (5.6 * S)) + (vnoise(x, y, 3 * S, 7) - 0.5) * 0.4;
     if (n > 1) continue;
-    G.set(x, y, n < 0.45 ? "#120c0a" : n < 0.8 ? "#1e1612" : bay(x, y) < 0.6 ? "#2a1e16" : "#1e1612", n > 0.85 ? 210 : 255);
+    // (owner, 2026-11-17: lighter than the old near-black, turned earth rather than a hole)
+    G.set(x, y, n < 0.45 ? "#3a2a1e" : n < 0.8 ? "#4a3626" : bay(x, y) < 0.6 ? "#5a4430" : "#4a3626", n > 0.85 ? 170 : 215);
   }
   const cr = lv / 3;
   for (let k = 0; k < 7; k++) {
     const a = (k / 7) * TAU + 0.3, L = (6 + 8 * hash(k, 3)) * cr;
     for (let t = 3.6; t < 4 + L; t += 0.5 / S) {
       const w = Math.sin(t * 1.3 + k) * 0.5;
-      G.set(cx + (Math.cos(a) * t + w) * S, cy + (Math.sin(a) * t * 0.42 + w * 0.3) * S, t < 7 ? "#4a3322" : "#3a2818");
+      G.set(cx + (Math.cos(a) * t + w) * S, cy + (Math.sin(a) * t * 0.42 + w * 0.3) * S, t < 7 ? "#6a4c32" : "#5a4028");
     }
   }
   for (let k = 0; k < 5; k++) { const a = hash(k, 9) * TAU, r = 1 + hash(k, 5) * 3; G.set(cx + Math.cos(a) * r * S, cy + Math.sin(a) * r * 0.45 * S, VIOLET[2]); }
@@ -1309,7 +1310,10 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       if (GR) {
         const sd = seedOf(fx);
         
-        put(ctx, graveS(p < 0.12 ? 1 : p < 0.3 ? 2 : 3), fx.x, fx.y + 6);
+        // the ground darkens gradually (owner, 2026-11-17): in steps over the first 40% of the rise
+        ctx.globalAlpha = stepA(a) * Math.min(1, Math.ceil(clamp01(p / 0.4) * 5) / 5);
+        put(ctx, graveS(p < 0.15 ? 1 : p < 0.35 ? 2 : 3), fx.x, fx.y + 6);
+        ctx.globalAlpha = stepA(a);
         for (let k = 0; k < 4; k++) {
           const q = ((age / 1250) + k * 0.25 + hash(sd, k) * 0.1) % 1, f = Math.min(3, Math.floor(q * 4));
           if (p > 0.92 && q > 0.5) continue;

@@ -212,6 +212,8 @@ const resting = (g, ph, o = {}) => {
 const hold = (g, o = {}) => ({ ...STANCE, rx: 0.2, drop: -0.35, rise: 0.45, lean: 0, twist: 1.2, gN: g, gF: far(g), grip: g, ...o });
 
 const W = MACHINES.winch, W0 = gripAt(W, W.at), PEG = [W.hub[0] + 2.8, W.hub[1] - 3.6];
+// where the next stone waits on the ground before him (catapult.js draws it there): hands on it
+export const LOAD_PICK = [9, -4];
 const LEV = { rx: 1.2, lean: 0.05 }, LEV_UP = { rx: 0.8, lean: -0.05 };
 export const CLIPS = {
   // ---- the catapult's winch
@@ -241,6 +243,23 @@ export const CLIPS = {
       { t: 0.74, e: "out", p: hold(W0, { gN: [PEG[0] + 0.4, PEG[1] - 1.8], rx: 1.2, lean: 0.04, twist: 1.3 }) },
       { t: 1, e: "io", p: hold(W0) },
     ], ph),
+  },
+  // loading (owner, 2026-11-17): the arm is down; he lets go of the handle, stoops to the
+  // stone at his feet, hugs it up to his chest, and heaves it overhead into the cup above
+  // and behind him (it leaves his hands on `hit`; catapult.js flies it the rest of the way).
+  // `grip` is the middle of his two hands: where the stone is while he holds it.
+  winchLoad: {
+    n: 14, ms: 1150, loop: false, hit: 0.72,
+    pose: (ph) => sampleKeys([
+      { t: 0, p: hold(W0) },
+      { t: 0.1, e: "io", p: hold([7, -20], { rx: 0.8, drop: 0.8, lean: 0.1, twist: 1.1 }) },
+      { t: 0.3, e: "io", p: hold(LOAD_PICK, { gF: [LOAD_PICK[0] + 2.2, LOAD_PICK[1]], rx: 2.2, drop: 5.6, rise: 0, lean: 0.5, twist: 0.95, hy: 1.2 }) },
+      { t: 0.38, e: "io", p: hold(LOAD_PICK, { gF: [LOAD_PICK[0] + 2.2, LOAD_PICK[1]], rx: 2, drop: 5.4, rise: 0, lean: 0.46, twist: 0.95, hy: 1 }) },
+      { t: 0.55, e: "io", p: hold([4.5, -27], { gF: [6.5, -27], rx: 0.2, drop: 1.2, rise: 0.2, lean: 0.02, twist: 0.95 }) },
+      { t: 0.72, e: "in3", p: hold([3, -54], { gF: [5, -54], rx: -0.6, drop: 0, rise: 2, lean: -0.06, twist: 0.9, hx: -0.4, hy: -0.8 }) },
+      { t: 0.84, e: "out", p: hold([1.5, -52], { gF: [3.5, -52], rx: -0.8, drop: 0, rise: 1.6, lean: -0.1, twist: 0.9, hx: -0.5, hy: -0.9 }) },
+      { t: 1, e: "io", p: hold(W0) },
+    ].map((k) => ({ ...k, p: { ...k.p, grip: [(k.p.gN[0] + k.p.gF[0]) / 2, (k.p.gN[1] + k.p.gF[1]) / 2] } })), ph),
   },
   // ---- the Log Roller's lever (its end in his fists: low while the chock is set, up once it is knocked out)
   lever: { n: 8, ms: 2600, loop: true, pose: (ph) => resting(LEVER, ph, LEV) },

@@ -209,6 +209,23 @@ birds are sculpted (titleCrowd.js; the torch flames are buildkit's); the campaig
 masonry / tile / lit-window helpers in mapArt.js and the crown castle was redrawn (its gate had been hidden
 behind the keep). Still old on the map: bergs, seal rocks, rune stones, Rime pines, the kraken's arms.
 
+## Smaller blasts, a slower catapult that loads by hand (2026-11-17, owner request)
+
+Provisional ("we'll see how that feels"). `aoe-lab.html` showed every blast PICTURE is exactly
+as wide as its damage circle (the picture squashes to 0.7 tall; the damage circle is round), so
+the owner cut the AREAS: every wizard `splash` halved (55-76 -> 28-38), every catapult throwing
+step's x0.75 (58-105 -> 44-79). Catapult levels 1-3 reload x1.25 (`rate` 2600/2500/2400 ->
+3250/3125/3000; the Trebuchet line unchanged). Its stones leave no scorch now (update.js; the
+dust burst stays). The reload shows it: the arm is winched down by `COCK_END` 0.5 of the reload,
+then the engineer stoops, lifts a stone from beside his feet and heaves it overhead into the cup
+(fig-engineer.js `winchLoad`, `LOAD_PICK`; halls/catapult.js `loadPlan`, the stone flies the last
+`LOAD_FLY` 200 ms); only then is it loaded. The trebuchet loads its sling the same way. The cup
+is bigger (hall-catapult.js `armInto`). `--endure` seed 1, better doctrine, old -> new: gw3 33 ->
+82, ir3 425 -> 557 castle damage (all held). The raise-dead ground (rings.js `graveS`) is turned
+earth now, not near-black, and fades in over the first 40% of the rise.
+Heights measured for the scale question (idle, art px): garrison 44, Aldric 48, Wren 48, Osric 40,
+Hale 51, Ysolde 46, Champion 69. Figures draw at one fixed 0.5 board px an art px.
+
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
 "You can take out the use old sprites thing": the switch is gone from Settings' Display tab

@@ -207,8 +207,9 @@ const armInto = (px, cx, cy, deg, G, F, z) => {
   if (lvl === 1) for (const fr of [0.3, 0.7]) lash(px, cx + ux * L * fr, cy + uy * L * fr, 5, 5, z + 0.2);
   // the cup: a leather sling-bucket at one, iron after, its hollow turned to the sky
   // (a mid iron and a small hollow: all dark, the empty cup read as a stone still in it)
-  px.part(); px.ellipse(tx, ty, 6.2, 5.8, lvl === 1 ? LEATHER : TYRE, z + 0.4, { round: 0.9 });
-  px.ellipse(tx - uy * 1.8, ty + ux * 1.8 - 0.8, 3.2, 1.8, DARK, z + 0.5, { cast: 0 });
+  // (owner, 2026-11-17: a bigger cradle, so the stone visibly sits IN it)
+  px.part(); px.ellipse(tx, ty, 8.4, 6.8, lvl === 1 ? LEATHER : TYRE, z + 0.4, { round: 0.9 });
+  px.ellipse(tx - uy * 2.2, ty + ux * 2.2 - 1, 5, 2.6, DARK, z + 0.5, { cast: 0 });
 };
 const formKey = (o) => `${o.level || 3}|${o.branch || ""}|${o.rank4 || ""}`;
 export const armKey = (o, deg, flip) => `catarm|${formKey(o)}|${deg}|${flip ? 1 : 0}`;

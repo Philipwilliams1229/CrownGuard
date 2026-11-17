@@ -59,16 +59,16 @@ export const TOWERS = {
     name: "Wizard Spire", cost: 140, dtype: "magic", proj: "orb",
     blurb: "Arcane blasts splash in an area — strongest at the blast's heart — and ignore armor.",
     levels: [
-      { dmg: 20, rate: 1300, range: 90, splash: 55 },
-      { dmg: 34, rate: 1250, range: 96, splash: 60, cost: 100, label: "Adept Circle" },
-      { dmg: 52, rate: 1200, range: 102, splash: 66, cost: 170, label: "High Sorcery" },
+      { dmg: 20, rate: 1300, range: 90, splash: 28 },
+      { dmg: 34, rate: 1250, range: 96, splash: 30, cost: 100, label: "Adept Circle" },
+      { dmg: 52, rate: 1200, range: 102, splash: 33, cost: 170, label: "High Sorcery" },
     ],
     branches: {
       a: {
-        name: "Pyromancer", cost: 455, stats: { dmg: 46, rate: 1200, range: 105, splash: 72, burn: 8, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
+        name: "Pyromancer", cost: 455, stats: { dmg: 46, rate: 1200, range: 105, splash: 36, burn: 8, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
         rank4: {
           // every 5th fireball (poolEvery) leaves the road burning behind it
-          a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 76, burn: 9, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
+          a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 38, burn: 9, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
           // a held gout of flame, not shots: dmg is per SECOND to everything
           // inside the cone (update.js breathe); fire it close to the road
           b: { name: "Dragonbreath", cost: 975, stats: { dmg: 60, range: 69, breath: true, cone: 0.42, burn: 13, burnDur: 1500 }, desc: "A flamethrower: a cone of dragonfire scorching EVERYTHING in it. Short reach — build it by the road." },
@@ -89,16 +89,16 @@ export const TOWERS = {
     groundOnly: true,
     blurb: "Lobs boulders in a high arc — heavy splash at long range, but blind up close and to anything that flies. At level three it chooses: keep throwing things UP, or start rolling them ALONG.",
     levels: [
-      { dmg: 36, rate: 2600, range: 142, minRange: 52, splash: 58 },
-      { dmg: 58, rate: 2500, range: 154, minRange: 52, splash: 64, cost: 110, label: "Reinforced Arm" },
-      { dmg: 84, rate: 2400, range: 165, minRange: 52, splash: 70, cost: 185, label: "Master Engineers" },
+      { dmg: 36, rate: 3250, range: 142, minRange: 52, splash: 44 },
+      { dmg: 58, rate: 3125, range: 154, minRange: 52, splash: 48, cost: 110, label: "Reinforced Arm" },
+      { dmg: 84, rate: 3000, range: 165, minRange: 52, splash: 53, cost: 185, label: "Master Engineers" },
     ],
     branches: {
       a: {
-        name: "Trebuchet", cost: 440, stats: { dmg: 200, rate: 4200, range: 255, minRange: 75, splash: 88 }, desc: "One colossal counterweighted arm: boulders across half the field — but its blind circle grows.",
+        name: "Trebuchet", cost: 440, stats: { dmg: 200, rate: 4200, range: 255, minRange: 75, splash: 66 }, desc: "One colossal counterweighted arm: boulders across half the field — but its blind circle grows.",
         rank4: {
-          a: { name: "Earthshaker", cost: 1020, stats: { dmg: 260, rate: 4400, range: 262, minRange: 75, splash: 105, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
-          b: { name: "Comet Sling", cost: 1020, stats: { dmg: 230, rate: 4200, range: 315, minRange: 75, splash: 80, burn: 9, burnDur: 2400, targeting: "strongest", hitsAir: true }, desc: "Burning stones flung at the MIGHTIEST foe anywhere — even fliers, the only catapult that can." },
+          a: { name: "Earthshaker", cost: 1020, stats: { dmg: 260, rate: 4400, range: 262, minRange: 75, splash: 79, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
+          b: { name: "Comet Sling", cost: 1020, stats: { dmg: 230, rate: 4200, range: 315, minRange: 75, splash: 60, burn: 9, burnDur: 2400, targeting: "strongest", hitsAir: true }, desc: "Burning stones flung at the MIGHTIEST foe anywhere — even fliers, the only catapult that can." },
         },
       },
       b: {
