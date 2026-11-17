@@ -184,6 +184,14 @@ Artifact "Crownguard Effects Concepts, Burning Ground" (`build-fx-concepts.mjs r
 picked **B**, now in the game (flames.js `drawFireGround` + `drawFireFront`, the front tongues drawn
 after the figures in draw.js; baked per radius bucket, shape and frame; `fxfire-lab.html`). `fx3g-lab.html` shows the rings with a real hall and foes standing in them.
 
+**Round 4** (2026-11-17, owner: "have Fable do a sweep"): Fable's report of old-style art and weak effects is
+`art/briefs/fable-sweep-2026-11-17.md`; the brief `art/briefs/fx-round4.md`. Three Sonnet artists drew A/B/C for
+puddles + wet road, flooded road, lightning on the ground (`concept/fx-r4-water.js`), fire and frost novas, lava /
+plague / spore pools (`fx-r4-novas.js`), longship landing / sinking, serpent surfacing, frozen hall
+(`fx-r4-rime.js`); gathered by `concept/fx-r4.js`. Private Artifact "Crownguard Effects Concepts, Round 4"
+(`node scripts/build-fx-concepts.mjs round4`; this round's viewer plays each option first, frames below, the
+owner's ask). Awaiting the owner's picks. The lab reloads on any `fx-r4*.js` edit and stalls in a hidden pane.
+
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
 "You can take out the use old sprites thing": the switch is gone from Settings' Display tab
