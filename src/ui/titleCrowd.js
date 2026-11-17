@@ -19,6 +19,7 @@ import * as halberdierFig from "../render/pix/fig-halberdier.js";
 import * as bowmanFig from "../render/pix/fig-bowman.js";
 import { crew, crewRec, loopFrame, fracFrame } from "../render/pix/crews.js";
 import { PX, bakeSprite, part, lighten, darken, blobBall, cylinder, hash } from "../render/paint.js";
+import { Pix, mat, flat, toCanvas } from "../render/pix/pix.js";
 import { flame } from "../render/buildkit.js";
 import { VW, ROAD, ROAD_W, HAY, CASTLE_LIFE as CL } from "./titleArt.js";
 
@@ -114,64 +115,82 @@ const shadowSprite = () => {
 // over each gate banner), and a few birds wheeling over the towers who now
 // and then settle on a merlon.
 const BLUE = "#34508e", GOLD = "#d8b34a";
-const band3 = (v, col) => (v > 0.35 ? lighten(col, 0.18) : v < -0.35 ? darken(col, 0.3) : col);
-// a flag streaming from a pole at (1, 1): length `len`, depth `dep`, rippling
-// with phase `ph`; a swallowtail at the fly and, if `crown`, the gold device
-const flagFrame = (len, dep, ph, col, o = {}) => bakeSprite(len + 3, dep + 4 + (o.pole || 0), (c) => {
-  const y0 = 1.5, wave = (u) => Math.sin(u * 0.55 - ph) * (u / len) * 1.3;
-  if (o.pole) part(c, (cc) => { cylinder(cc, 0.3, 0.4, 1.2, dep + 1.5 + o.pole, "#6a4a2e", { r: 0.5, hi: 0.3, lo: 0.5 }); });
-  part(c, (cc) => {
-    for (let u = 0; u < len; u += 0.5) {
-      const w = wave(u), tail = u > len - 3 ? Math.min(dep * 0.35, (u - (len - 3)) * 0.8) : 0;
-      cc.fillStyle = band3(Math.cos(u * 0.55 - ph), col);
-      const top = y0 + w, bot = y0 + w + dep * (1 - (u / len) * 0.18);
-      if (tail) { cc.fillRect(1.3 + u, top, 0.5, (bot - top) / 2 - tail / 2); cc.fillRect(1.3 + u, (top + bot) / 2 + tail / 2, 0.5, (bot - top) / 2 - tail / 2); }
-      else cc.fillRect(1.3 + u, top, 0.5, bot - top);
-      if (o.trim) { cc.fillStyle = GOLD; cc.fillRect(1.3 + u, top, 0.5, 0.5); }
+// Sculpted in the pix kit (one sun from the upper left, the tinted one-pixel line), at the art's
+// own density: PX art pixels to a scene unit, so a sprite keeps the size and anchor it always had.
+const cloth = () => mat(BLUE), gold = () => mat(GOLD, { contrast: 0.8 }), wood = () => mat("#6a4a2e"), rope = () => mat("#a89676");
+const pxs = (u) => Math.max(1, Math.round(u * PX));
+// bake a Pix into a canvas the size bakeSprite would have made (w x h scene units)
+const sculptCv = (w, h, build, line = "tint", over = null) => {
+  const W = Math.ceil(w * PX), H = Math.ceil(h * PX), b = new Pix(W, H, 0, 0);
+  build(b, W, H);
+  const cv = toCanvas(b.resolve({ line }));
+  if (over) over(cv.getContext("2d"));     // hard gold pixels laid over the cloth (one-pixel shapes are all outline inside the sculptor)
+  return cv;
+};
+// the gold device: a band and three points (`n` pixels wide), its foot at (cx, cy), in two golds
+const crownAt = (c, cx, cy, n) => {
+  const k = 1;
+  c.fillStyle = darken(GOLD, 0.12); c.fillRect(cx - 2 * k, cy, n * k, k);
+  c.fillStyle = GOLD; c.fillRect(cx - 2 * k, cy - k, n * k, k);
+  for (const i of [-2, 0, 2]) { c.fillStyle = GOLD; c.fillRect(cx + i * k, cy - 2 * k, k, k); c.fillStyle = lighten(GOLD, 0.2); c.fillRect(cx + i * k, cy - 3 * k, k, k); }
+};
+// a flag streaming from a pole at (1, 1): length `len`, depth `dep`, rippling with phase `ph`; a
+// swallowtail at the fly and, if `crown`, the gold device; `pole` units of staff below (a pennant)
+const flagFrame = (len, dep, ph, col, o = {}) => sculptCv(len + 3, dep + 4 + (o.pole || 0), (b, W) => {
+  const L = pxs(len), D = pxs(dep), x0 = pxs(1.3), y0 = pxs(1.5), cl = mat(col), gd = gold(), gf = flat(GOLD);
+  if (o.pole) b.part().capsule(pxs(1) - 0.5, pxs(0.4), 0.7, pxs(1) - 0.5, y0 + D + pxs(o.pole), 0.7, wood(), 2, { limb: false });
+  b.part();
+  for (let i = 0; i < L; i++) {
+    const u = i / PX, f = Math.cos(u * 0.55 - ph), wave = Math.round(Math.sin(u * 0.55 - ph) * (u / len) * 1.3 * PX);
+    const top = y0 + wave, bot = y0 + wave + Math.round(D * (1 - (u / len) * 0.18));
+    const tail = u > len - 3 ? Math.round(Math.min(D * 0.35, (u - (len - 3)) * 0.8 * PX)) : 0, mid = (top + bot) >> 1;
+    for (let j = top; j < bot; j++) {
+      if (tail && Math.abs(j - mid + 0.5) < tail) continue;
+      const n = [-f * 0.75, (j - mid) / Math.max(1, bot - top) * 0.3, 0.6];
+      b.dot(x0 + i + 0.5, j + 0.5, o.trim && j === top ? gd : cl, 3, { n });
     }
-    if (o.crown) {
-      const cx = 1.3 + len * 0.36, cy = y0 + wave(len * 0.36) + dep * 0.5;
-      cc.fillStyle = GOLD;
-      cc.fillRect(cx - 1.5, cy, 3, 1); cc.fillRect(cx - 1.5, cy - 1.2, 0.6, 1.2); cc.fillRect(cx - 0.3, cy - 1.6, 0.6, 1.6); cc.fillRect(cx + 0.9, cy - 1.2, 0.6, 1.2);
-    }
-  });
+  }
+}, "tint", (c) => {
+  if (!o.crown) return;
+  const D = pxs(dep), cx = pxs(1.3) + Math.round(pxs(len) * 0.36), cy = pxs(1.5) + Math.round(Math.sin(len * 0.36 * 0.55 - ph) * 0.36 * 1.3 * PX) + (D >> 1) + 1;
+  crownAt(c, cx, cy, 5);
 });
 // a crown banner hanging from its rod: the hem sways, a fold travels across
-const bannerFrame = (ph) => bakeSprite(11, 19, (c) => {
-  const w = 7, h = 14, x = 5.5, top = 1.5;
-  part(c, (cc) => {
-    for (let y = 0; y < h + 3; y += 0.5) {
-      const sway = Math.sin(ph + y * 0.3) * 0.7 * (y / h);
-      const tail = y > h - 3 ? (y - (h - 3)) * 1.2 : 0;
-      for (let u = 0; u < w; u += 0.5) {
-        if (tail && Math.abs(u - w / 2 + 0.25) < tail * 0.5) continue;
-        if (y >= h) continue;
-        const fold = Math.sin(u * 0.9 + ph * 1.3 - y * 0.12);
-        cc.fillStyle = u < 0.6 || u >= w - 0.6 || (y > 1 && y < 1.6) ? GOLD : band3(fold - (u / w) * 0.5 + 0.2, BLUE);
-        cc.fillRect(x - w / 2 + u + sway, top + y, 0.5, 0.5);
-      }
+const bannerFrame = (ph) => sculptCv(11, 19, (b) => {
+  const w = pxs(7), h = pxs(14), x = pxs(5.5) - (w >> 1), top = pxs(1.5), cl = cloth(), gd = gold(), gf = flat(GOLD);
+  b.part();
+  for (let j = 0; j < h; j++) {
+    const sway = Math.round(Math.sin(ph + (j / PX) * 0.3) * 0.7 * (j / h) * PX);
+    const tail = j > h - pxs(3) ? (j - (h - pxs(3))) * 1.2 : 0;
+    for (let i = 0; i < w; i++) {
+      if (tail && Math.abs(i - w / 2 + 0.5) < tail * 0.5) continue;
+      const fold = Math.sin((i / PX) * 0.9 + ph * 1.3 - (j / PX) * 0.12), edge = i === 0 || i === w - 1 || j === 0;
+      b.dot(x + i + sway + 0.5, top + j + 0.5, edge ? gd : cl, 3, { n: [-fold * 0.7, 0.1, 0.6] });
     }
-    const sw = Math.sin(ph + 1.5) * 0.25;
-    cc.fillStyle = GOLD;
-    const cy = top + 7 + sw;
-    cc.fillRect(x - 2 + sw, cy, 4, 1.2); cc.fillRect(x - 2 + sw, cy - 1.8, 0.8, 1.8); cc.fillRect(x - 0.4 + sw, cy - 2.4, 0.8, 2.4); cc.fillRect(x + 1.2 + sw, cy - 1.8, 0.8, 1.8);
-    cc.fillStyle = "#c04a52"; cc.fillRect(x - 0.4 + sw, cy + 0.2, 0.8, 0.6);
-  });
-  part(c, (cc) => cylinder(cc, x - w / 2 - 1.2, top - 1, w + 2.4, 1.4, "#5a3f26", { r: 0.6, hi: 0.3, lo: 0.4 }));
+  }
+  b.part().capsule(x - pxs(1.2), top - pxs(0.5), 0.8, x + w + pxs(1.2), top - pxs(0.5), 0.8, wood(), 5, { limb: false });
+}, "tint", (c) => crownAt(c, pxs(5.5) + Math.round(Math.sin(ph + 1.5) * 0.25 * PX), pxs(1.5) + pxs(7), 5));
+// a puff of chimney smoke: a lilac-grey cloud, lit from the upper left, no outline
+const puffFrame = () => sculptCv(7, 6, (b) => {
+  const m = mat("#b8b0c4", { contrast: 0.7 });
+  b.part().ellipse(pxs(3.5), pxs(3), pxs(2.8), pxs(2.2), m, 3, { round: 0.9 });
+}, "none");
+// a bird in three poses: wings up, wings down, perched (a small dark body, a pale belly, a gold bill)
+const birdFrame = (pose) => sculptCv(8, 6, (b) => {
+  const k = mat("#3e3650"), lt = mat("#6a6078", { contrast: 0.6 }), bill = flat("#d8a040");
+  const X = (u) => u * PX, n = [-0.3, -0.3, 0.9];
+  b.part().ellipse(X(4), X(3), X(2.1), X(1.1), k, 3, { round: 1 });
+  b.part().ellipse(X(6), X(2.3), X(0.95), X(0.95), k, 4, { round: 1 });                 // the head
+  b.part().dot(X(7.2), X(2.6), bill, 5, { n });
+  if (pose === 2) { b.part().poly([[X(2.4), X(2.3)], [X(0.8), X(3.4)], [X(2.6), X(3.6)]], k, 2, { round: 0.6 }); b.part().dot(X(3.5), X(4.7), k, 2, { n }); }
+  else {
+    const up = pose === 0, tip = up ? X(0.2) : X(5.2);
+    b.part().poly([[X(2.6), X(2.7)], [X(4.6), X(2.7)], [X(3.4), tip]], k, 1, { round: 0.7 });
+    b.part().poly([[X(3.4), X(3.2)], [X(5), X(3.2)], [X(4.6), up ? X(4.4) : X(3.6)]], lt, 2, { round: 0.6 });
+  }
 });
+
 const flameFrame = (i) => bakeSprite(10, 12, (c) => flame(c, 5, 10.5, 0.55, i * 0.137 + 0.4, i * 3), false);
-const puffFrame = () => bakeSprite(7, 6, (c) => blobBall(c, 3.5, 3, 2.8, 2.2, "#b8b0c4", 5, { hi: 0.5, lo: 0.4 }), false);
-// a bird in three poses: wings up, wings down, perched
-const birdFrame = (pose) => bakeSprite(8, 6, (c) => {
-  const col = "#3e3650", lt = "#6a6078", bill = "#d8a040";
-  const parts = pose === 2
-    ? [[2.5, 2.5, 3, 1.5, col], [5, 2, 1, 1, col], [6, 2.5, 0.5, 0.5, bill], [3, 4, 0.5, 1, "#2a2230"], [1.5, 3, 1, 0.5, col]]
-    : [[2.5, 2.5, 3, 1, col], [3, 3.5, 2, 0.5, lt], [5.5, 2, 1, 1, col], [6.5, 2.5, 0.5, 0.5, bill],
-      ...(pose === 0 ? [[1.5, 0.5, 1, 2, col], [3.5, 1, 1, 1.5, col]] : [[1.5, 3.5, 1, 1.5, col], [3.5, 3.5, 1, 1, col]])];
-  c.fillStyle = "#241a26";
-  for (const [x, y, w, h] of parts) c.fillRect(x - 0.5, y - 0.5, w + 1, h + 1);
-  for (const [x, y, w, h, cc] of parts) { c.fillStyle = cc; c.fillRect(x, y, w, h); }
-}, false);
 
 let LIFE = null;
 const lifeBakes = () => [
