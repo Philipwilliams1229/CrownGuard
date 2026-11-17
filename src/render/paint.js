@@ -8,6 +8,8 @@
 // underneath, so a 2px pebble comes out with real curved edges at any zoom.
 
 // Where the light comes from, as a direction across the board.
+import { inkTint } from "./inktint.js";   // part()'s tinted inner line (inktint.js imports INK_LINE back: used only at call time)
+
 export const SUN = { x: -0.42, y: -0.58 };
 
 // ---- pixel mode ------------------------------------------------------
@@ -399,7 +401,9 @@ export const part = (ctx, fn, o = {}) => {
     c.setTransform(ctx.getTransform());
     fn(c);
     c.restore();
-    inkOutline(layer, INK_LINE, STYLE.inner, o.ink || null);
+    // the inner line is the tinted one (the new style's outline C), not near-black: each
+    // piece's edge is the darkest of its own colour (inktint.js, the same as the decor rings)
+    inkTint(layer, INK_LINE, STYLE.inner, o.ink || null);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(layer, 0, 0);
