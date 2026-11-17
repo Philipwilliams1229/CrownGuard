@@ -127,7 +127,7 @@
         const sky = time(() => drawWeather(sctx, g));
         let old = {};
         if (q.get("old")) {
-          const O = await import("/scratchpad/rain/oldfx.js");
+          const O = await import(/* @vite-ignore */ "/scratchpad/rain/" + "oldfx.js");
           for (let i = 0; i < 5; i++) { O.drawWeatherGround(sctx, g); O.drawWeather(sctx, g); }
           old = { oldGround: +time(() => O.drawWeatherGround(sctx, g)).toFixed(2), oldSky: +time(() => O.drawWeather(sctx, g)).toFixed(2) };
         }

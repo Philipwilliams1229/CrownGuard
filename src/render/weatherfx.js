@@ -237,7 +237,7 @@ const warm = (kind) => {
       () => { if (NEED.some((v) => v > 0)) fogLandWide(); }, () => { if (NEED.some((v) => v > 0)) B.fogShafts(B.FOG_WIDE); }],
     storm: [B.stormShade, () => { B.rainFar(0); B.rainMid(0); B.rainMid(3); }, () => [0, 1, 2].forEach((v) => [0, 1, 2, 3].forEach((l) => B.rainDrop(v, l))),
       B.rainSpray, B.rainCurtain, B.floodTex, wetRoadArt, () => { if (RIVERS.length) siltArt(); }, waterSpots, riverLines,
-      () => puddles().forEach((p) => { for (let wu = 4; wu <= p.wu; wu += 2) B.puddle(wu, p.v); })],
+      () => puddles().forEach((p) => { for (let wu = 4; wu <= p.wu; wu += 2) B.puddle(wu, p.v, "road"); B.puddle(wu, p.v, "grass"); })],
     blizzard: [() => B.snowDrift(false), () => B.snowDrift(true), () => B.snowSheet(false),
       ...["t", "b", "l", "r"].flatMap((sd) => [1, 2, 3, 4].map((i) => () => B.frostStrip(sd, FROST_D[sd], i / 4)))],
     eruption: [B.ashHaze, B.ashSheet, () => { for (let v = 0; v < 3; v++) for (let f = 0; f < 8; f++) B.boulder(ROCK_R, v, f); }],
@@ -361,7 +361,7 @@ const puddles = () => B.memo(`puds3|${realmKey()}`, () => {
     const wu = 2 * Math.round(edge ? 5 + B.h2(i, 3, 200) * 3 : 7 + B.h2(i, 3, 200) * 8);
     // never on a bridge, nor so near one that a full-grown puddle laps onto its deck
     if (DECKS().some((b) => d > b.d0 - wu / 2 - 12 && d < b.d1 + wu / 2 + 12) || onDeck(x, y, wu / 2 + 6)) continue;
-    out.push({ x, y, wu, v: i & 3, i, th: 0.08 + 0.55 * B.h2(i, 5, 200) });
+    out.push({ x, y, wu, v: i & 3, i, edge, th: 0.05 + 0.57 * B.h2(i, 5, 200) });
   }
   return out;
 });
@@ -421,10 +421,29 @@ const bridgePools = () => B.memo(`bpools|${realmKey()}`, () => {
   return out;
 });
 // how big a puddle is at this wetness (even units; 0 = not yet)
-const puddleW = (p, wet) => {
-  if (wet <= p.th) return 0;
-  const grow = clamp01(((wet - p.th) / (1 - p.th)) * 1.15);
-  return Math.max(4, 2 * Math.round((p.wu * (0.35 + 0.65 * grow)) / 2));
+// Round 4 (owner: "show up more gradually, and disappear more gradually"): each
+// puddle opens as a speck at its own threshold, swells from its middle over
+// PUD_SPAN of wetness and fades in over the first of it; and the level the
+// puddles read is not the road's wetness but `puddleLevel`, which follows it up
+// and drains behind it, so the lowest thresholds linger the longest.
+const PUD_SPAN = 0.34;
+const puddleW = (p, lv) => {
+  if (lv <= p.th) return 0;
+  const grow = clamp01((lv - p.th) / PUD_SPAN);
+  return Math.max(2, 2 * Math.round((p.wu * (0.12 + 0.88 * (grow * grow * (3 - 2 * grow)))) / 2));
+};
+const PUD_DRY = 170;     // seconds of fighting for the puddles to drain from full to nothing
+let PL = { g: null, t: 0, v: 0 };
+// the puddle level: rises with the ground's wet, falls only PUD_DRY-slowly, and
+// (like w.wet) only moves while a wave is being fought
+const puddleLevel = (g, w) => {
+  const wet = wetOf(w);
+  if (PL.g !== g || g.time < PL.t - 1) PL = { g, t: g.time, v: wet };
+  const dt = Math.max(0, Math.min(0.25, g.time - PL.t));
+  PL.t = g.time;
+  if (wet >= PL.v) PL.v = wet;
+  else if (g.phase === "combat") PL.v = Math.max(wet, PL.v - dt / PUD_DRY);
+  return PL.v;
 };
 // spots of open water on this board, for the rain's rings
 const waterAt = (x, y) => (RIVERS.length && inRiver(x, y, -3))
@@ -459,7 +478,7 @@ const putTiles = (ctx, cv, rects) => { for (const [x, y, w, h] of rects) ctx.dra
 // line, the water's face laid source-atop, a pale scum rim slid in behind),
 // rain rings on it and wakes round everyone wading
 const FLOODS = new Map();                // a flood's layer, kept until its size changes: c -> { key, cv, x0, y0 }
-const FLOOD_R = 30;                      // the disc's radius at depth 0 (+6 at depth 1): spills a little past the road
+const FLOOD_R = 27;                      // the disc's radius at depth 0 (+6 at depth 1): spills a little past the road
 const inFlood = (F, x, y, m) => F.some((f) => f.pts.some(([px, py]) => Math.abs(x - px) < m && Math.abs(y - py) < m));
 const floodLayer = (f, R) => {
   const P = f.pts, n = P.length, key = `${realmKey()}|${n}|${R}|${Math.round(P[0][0])}|${Math.round(P[0][1])}`;
@@ -485,6 +504,62 @@ const floodLayer = (f, R) => {
   FLOODS.set(f.c, L);
   return L;
 };
+// Round 4 (owner's pick B): the flood's dress: a foamy edge that creeps in and
+// out, a current racing across it in broken dashes, and debris drifting down it
+const flowAt = (P, u) => {              // a point u (0..1) along the flooded centre line, and its heading
+  const n = P.length - 1, f = Math.min(n - 1e-6, Math.max(0, u * n)), i = Math.floor(f), a = P[i], b = P[i + 1], r = f - i;
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+  return [a[0] + dx * r, a[1] + dy * r, dx / L, dy / L];
+};
+const dashSprite = (hd, len, bright) => B.memo(`dsh|${hd}|${len}|${bright}`, () => {
+  const a = (hd / 16) * Math.PI * 2, tx = Math.cos(a), ty = Math.sin(a), n = len + 4, G = B.grid(n * 2 + 4, n * 2 + 4), c = n + 2;
+  for (let q = 0; q < len; q++) { G.set(c + Math.round(tx * q) + 1, c + Math.round(ty * q) + 1, "#46402f"); G.set(c + Math.round(tx * q), c + Math.round(ty * q), bright ? "#f2f6fa" : "#c8d6e4"); }
+  return { cv: G.done(), ax: c, ay: c };
+});
+const debrisSprite = (k) => B.memo(`dbr|${k}`, () => {
+  const G = B.grid(24, 10), put1 = (x, y, c) => G.set(x, y, c);
+  if (k === 0) { for (let x = 3; x < 16; x++) { put1(x, 3, "#b88a54"); put1(x, 4, "#7a5634"); put1(x, 5, "#4a3220"); } put1(2, 4, "#2e2418"); put1(16, 4, "#2e2418"); }
+  else if (k === 1) { for (const [x, y, c] of [[3, 3, "#9aba5c"], [4, 3, "#7a9a3c"], [5, 3, "#7a9a3c"], [4, 4, "#7a9a3c"], [5, 4, "#2e3a1c"], [6, 4, "#2e3a1c"]]) put1(x, y, c); }
+  else for (let q = 0; q < 8; q++) { put1(3 + q, 4 + (q > 5 ? 1 : 0), q % 2 ? "#4a3420" : "#7a5a38"); put1(3 + q, 3, q % 2 ? "#9a7a58" : "#b09068"); }
+  for (const x of k === 0 ? [2, 17] : [3, 11]) put1(x, 7, "#e4e8e2");
+  return { cv: G.done(), ax: 9, ay: 4 };
+});
+const floodDress = (ctx, g, f, R, rk) => {
+  const P = f.pts, n = P.length;
+  if (n < 2) return;
+  const t = g.time, dp = f.depth, sid = Math.round(P[0][0] + P[0][1]);
+  // the edge: foam creeping in and out along both banks
+  const edges = Math.round(n * 2.4 * (0.5 + 0.5 * dp));
+  for (let i = 0; i < edges; i++) {
+    const side = i & 1 ? 1 : -1, u = B.h2(i, sid, 400) , [x, y, tx, ty] = flowAt(P, u);
+    const creep = 0.5 + 0.5 * Math.sin(t * 2.4 + B.h2(i, 2, 401) * 6.28);
+    const off = side * R * (0.86 + 0.1 * creep) * (Math.abs(tx) > 0.7 ? 0.8 : 1);
+    const hd = ((Math.round((Math.atan2(ty, tx) / (Math.PI * 2)) * 16) % 16) + 16) % 16;
+    ctx.globalAlpha = step4(0.35 + 0.65 * creep) * Math.min(1, dp * 2);
+    put(ctx, B.foam(hd, (i + Math.floor(t * 2)) % 3), x - ty * off, y + tx * off);
+  }
+  // the current: short pale dashes sliding downstream, a dark trail behind each
+  const flows = Math.round(n * 3.5 * dp);
+  for (let i = 0; i < flows; i++) {
+    const sp = 0.06 + B.h2(i, 1, 402) * 0.05, u = frac(B.h2(i, 2, 402) + t * sp), [x, y, tx, ty] = flowAt(P, u);
+    const lat = (B.h2(i, 3, 402) - 0.5) * R * 1.1, len = 6 + Math.floor(B.h2(i, 4, 402) * 6);
+    const px0 = x - ty * lat, py0 = y + tx * lat * 0.8;
+    if (onDeck(px0, py0, 2)) continue;
+    const hd = ((Math.round((Math.atan2(ty, tx) / (Math.PI * 2)) * 16) % 16) + 16) % 16;
+    ctx.globalAlpha = 0.9 * Math.min(u * 6, (1 - u) * 6, 1);
+    put(ctx, dashSprite(hd, len, i % 3 === 0 ? 1 : 0), px0, py0);
+  }
+  // debris riding the current: a log, a leaf, a plank, each with a little bow wave
+  for (let i = 0; i < 6; i++) {
+    const sp = 0.025 + B.h2(i, 1, 403) * 0.012, u = frac(B.h2(i, 2, 403) + t * sp), [x, y, tx, ty] = flowAt(P, u);
+    const lat = (B.h2(i, 3, 403) - 0.5) * R * 0.9, bob = Math.sin(t * 3 + i * 2) * 0.5;
+    const X = x - ty * lat, Y = y + tx * lat * 0.8 + bob;
+    if (onDeck(X, Y, 4)) continue;
+    ctx.globalAlpha = Math.min(1, u * 8, (1 - u) * 8) * Math.min(1, dp * 2.5);
+    put(ctx, debrisSprite(i % 3), X, Y);
+  }
+  ctx.globalAlpha = 1;
+};
 const drawFloods = (ctx, g, F, rk) => {
   if (typeof document === "undefined") return;
   const t = g.time;
@@ -494,9 +569,10 @@ const drawFloods = (ctx, g, F, rk) => {
     const R = Math.round(FLOOD_R + 6 * f.depth), L = floodLayer(f, R);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = Math.min(0.92, 0.45 + 0.5 * f.depth);
+    ctx.globalAlpha = Math.min(0.96, 0.6 + 0.36 * f.depth);
     ctx.drawImage(L.cv, L.x0, L.y0);
     ctx.restore();
+    floodDress(ctx, g, f, R, rk);
     // rain rings peppering it
     const rings = Math.round(n * 1.4 * rk);
     for (let i = 0; i < rings; i++) {
@@ -538,6 +614,41 @@ const boltSeed = (x, y) => (Math.round(x) * 13 + Math.round(y) * 7) | 0;
 // strikes remembered for their scorch (render-side, cosmetic)
 const SEEN = new WeakSet();
 let SCORCH = [];
+
+// Round 4 lightning-on-the-ground sprites, baked once each (art pixels)
+const CRACK_COLS = ["#ffffff", "#fff0b0", "#ffb23c", "#f0602a", "#b02a1c", "#5a2018"];
+const crackSprite = (r, v, stage, grow) => B.memo(`crk|${r}|${v}|${stage}|${grow}`, () => {
+  const R = Math.ceil(r * PX * 2), G = B.grid(R * 2 + 8, R + 8), cx = G.W / 2, cy = G.H / 2, pts = [];
+  const lim = [0.3, 0.55, 0.8, 1][grow];
+  const walk = (x, y, a, n, depth, sd) => {
+    for (let q = 0; q < n * lim; q++) {
+      a += (B.h2(q, sd + depth * 5, 412) - 0.5) * 0.95;
+      x += Math.cos(a) * 1.5; y += Math.sin(a) * 0.75;
+      pts.push([Math.round(x), Math.round(y), depth]);
+      if (!depth && q % 5 === 4 && n > 12) walk(x, y, a + (q & 5 ? 0.8 : -0.8), Math.round(n * 0.45), 1, sd);
+    }
+  };
+  for (let c = 0; c < 7; c++) walk(0, 0, (c / 7) * Math.PI * 2 + B.h2(c, v, 410) * 0.8, Math.round(r * PX * (1.0 + 0.8 * B.h2(c, v, 411)) / 1.5), 0, v * 7 + c);
+  for (const [x, y] of pts) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) G.set(cx + x + dx, cy + y + dy, "#241412");
+  const hot = stage < 3;
+  for (const [x, y, d] of pts) {
+    const col = !d && hot && stage < 3 ? (stage === 2 ? "#ffd27a" : "#fff6d0") : CRACK_COLS[stage];
+    G.set(cx + x, cy + y, col); G.set(cx + x + 1, cy + y, col);
+    if (!d && stage < 4) G.set(cx + x, cy + y + 1, CRACK_COLS[stage]);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+const steamPuff = (ph8, v) => B.memo(`stm|${ph8}|${v}`, () => {
+  const ph = (ph8 + 0.5) / 8, rr = (3 + ph * 5) * PX, ry = (2 + ph * 2) * PX, G = B.grid(rr * 2 + 6, ry * 2 + 6), cx = G.W / 2, cy = G.H / 2;
+  for (let dy = -ry; dy <= ry; dy += 2) for (let dx = -rr; dx <= rr; dx += 2) {
+    const d = (dx / rr) ** 2 + (dy / ry) ** 2 + (B.h2(Math.round(dx), Math.round(dy), v + 415) - 0.5) * 0.5;
+    if (d > 1) continue;
+    if (d > 0.6 && ph > 0.5 && (Math.round(dx) + Math.round(dy)) & 1) continue;
+    const col = dy < -ry * 0.2 ? "#f6fafc" : d > 0.55 ? "#9aa6b2" : "#d4dce4";
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) G.set(cx + dx + i, cy + dy + j, col);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
 
 const stormGround = (ctx, g, w) => {
   const k = w.k, t = g.time, tms = t * 1000, wet = wetOf(w);
@@ -587,17 +698,32 @@ const stormGround = (ctx, g, w) => {
     // the afterglow: the burn still hot for a moment
     if (age < 0.9) { ctx.globalAlpha = step4(1 - age / 0.9); put(ctx, B.staticGlow(Math.round(s.r * 1.2), 2), s.x, s.y + 3); }
   }
+  // Round 4 (owner's pick B): cracks fan out of every scorch and cool white-gold ->
+  // orange -> red -> dead; the puddles beside it steam while they last
+  for (const s of SCORCH) {
+    const age = t - s.t, seed = (s.v + 1) * 7 + Math.round(s.x);
+    if (age < 0 || age > 3.6) continue;
+    const heat = 1 - age / 3.6;
+    const stage = heat > 0.9 ? 0 : heat > 0.72 ? 1 : heat > 0.5 ? 2 : heat > 0.3 ? 3 : heat > 0.12 ? 4 : 5;
+    // a hot bloom under the cracks while they are white-gold
+    if (age < 1.6) { ctx.globalAlpha = step4(0.8 * (1 - age / 1.6)); put(ctx, B.staticGlow(Math.round(s.r * 1.1), 1), s.x, s.y + 3); }
+    ctx.globalAlpha = age > 3.1 ? 0.6 : 1;
+    put(ctx, crackSprite(s.r, seed & 7, stage, Math.min(3, Math.floor(age * 16))), s.x, s.y + 3);
+    ctx.globalAlpha = 1;
+  }
+  ctx.globalAlpha = 1;
   ctx.globalAlpha = 1;
   // puddles open as it soaks, grow, and shrink as it dries; rain rings in them
-  if (wet > 0.05) {
+  const lv = PL.g === g ? PL.v : wet;
+  if (lv > 0.03) {
     ctx.save();
     clipDecks(ctx);
     for (const p of [...puddles(), ...bridgePools()]) {
-      const wu = puddleW(p, wet);
+      const wu = puddleW(p, lv);
       if (!wu || (F && F.length && inFlood(F, p.x, p.y, 34))) continue;
-      ctx.globalAlpha = step4((wet - p.th) / 0.1);
-      put(ctx, B.puddle(wu, p.v, !!p.mud), p.x, p.y);
-      if (k > 0.12) {
+      ctx.globalAlpha = step4((lv - p.th) / 0.07);
+      put(ctx, B.puddle(wu, p.v, p.mud ? "mud" : p.edge ? "grass" : "road"), p.x, p.y);
+      if (k > 0.12 && lv >= wet - 0.001) {
         const rings = Math.min(3, 1 + Math.floor(wu / 9));
         for (let r = 0; r < rings; r++) {
           const P = 0.5 + B.h2(p.i, r, 202) * 0.3, q = (t + B.h2(p.i, r + 7, 202) * P) / P, cyc = Math.floor(q), f = Math.floor(frac(q) * 5);
@@ -610,6 +736,20 @@ const stormGround = (ctx, g, w) => {
     ctx.restore();
     ctx.globalAlpha = 1;
   }
+  // steam rising off puddles beside a fresh strike (over the puddles, under the actors)
+  for (const s of SCORCH) {
+    const age = t - s.t;
+    if (age < 0) continue;
+    if (age < 3.2) for (const p of puddles()) {
+      if (Math.hypot(p.x - s.x, (p.y - s.y) * 2) > s.r * 2.6 + 20 || puddleW(p, PL.g ? PL.v : 1) < 4) continue;
+      for (let q = 0; q < 4; q++) {
+        const ph = frac(t * 0.4 + B.h2(q, p.i, 413)), fade = Math.min(1, Math.sin(ph * Math.PI) * 1.8) * clamp01(1.4 - age / 3.2);
+        ctx.globalAlpha = step4(fade);
+        put(ctx, steamPuff(Math.min(7, Math.floor(ph * 8)), q % 3), p.x + (B.h2(q, p.i, 414) - 0.5) * p.wu * 0.8 + Math.sin(ph * 6 + q) * 2.5, p.y - 1 - ph * 22);
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
   const rk = rainOf(k);
   if (k > 0.05) {
     // rings peppering the rivers, ponds and sea
@@ -1200,7 +1340,8 @@ export const drawWeatherGround = (ctx, g) => {
   if (!w) { if (SCORCH.length) SCORCH = []; return; }
   warm(w.paint);
   const f = GROUND[w.paint];
-  if (f && (w.k > 0.01 || w.wet > 0.01 || w.marks?.length || SCORCH.length)) f(ctx, g, w);
+  const lv = w.soaks === false ? 0 : puddleLevel(g, w);
+  if (f && (w.k > 0.01 || w.wet > 0.01 || lv > 0.03 || w.marks?.length || SCORCH.length)) f(ctx, g, w);
 };
 // over everything (world space, inside the camera)
 export const drawWeather = (ctx, g) => {

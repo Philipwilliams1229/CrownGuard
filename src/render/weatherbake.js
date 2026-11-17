@@ -699,9 +699,17 @@ export const splash = (f, big = 0) => memo(`spl2|${f}|${big}`, () => {
 // the near rim catching the light
 // (mud: the brown run-off pool at a bridge's foot, owner 2026-11-09)
 const MUD = { halo: "#2a2219", deep: "#3a2c1c", mid: "#54402a", sky: "#7c6a50", glint: "#c8b894", lip: "#1e1810", rim: "#a28c68" };
-export const puddle = (wu, v, mud = false) => memo(`pud2|${wu}|${v}|${mud ? 1 : 0}`, () => {
+// Round 4 (owner's pick A): the water takes the colour of the ground it lies on,
+// dark mud on the road, dark green on the turf, with a dark far lip and a lit near rim
+const PUD_PALS = {
+  mud: MUD,
+  road: { halo: "#2a2118", deep: "#35291e", mid: "#4c3f33", sky: "#6a6e7a", glint: "#aab2c0", lip: "#2a2016", rim: "#bcae8c" },
+  grass: { halo: "#243620", deep: "#25402a", mid: "#355a3a", sky: "#7a9aa2", glint: "#d2e4e2", lip: "#1a2a1a", rim: "#a6c48c" },
+};
+export const puddle = (wu, v, kind = "road") => memo(`pud3|${wu}|${v}|${kind}`, () => {
+  if (kind === true) kind = "mud"; else if (!PUD_PALS[kind]) kind = "road";
   const rx = (wu / 2) * PX, ry = rx * 0.42, pad = 7, G = grid(rx * 2 + pad * 2, ry * 2 + pad * 2), cx = G.W / 2, cy = G.H / 2;
-  const P = mud ? MUD : { halo: "#262329", deep: "#1f283a", mid: "#2e3c58", sky: "#6a7ea2", glint: "#d0dcf0", lip: "#1a161c", rim: "#b4c4dc" };
+  const P = PUD_PALS[kind];
   const halo = C(P.halo), deep = C(P.deep), mid = C(P.mid), sky = C(P.sky), glint = C(P.glint), lip = C(P.lip), rim = C(P.rim);
   for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
     const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, d = Math.hypot(dx, dy);
@@ -864,7 +872,7 @@ export const dudKeg = () => memo("dud", () => {
 // then the water's texture laid source-atop. r in units; kind 0 rim, 1 water.
 export const floodDisc = (r, kind) => memo(`fd|${r}|${kind}`, () => {
   const R = r + (kind ? 0 : 2), n = Math.ceil(R) * 2 + 2, G = grid(n, n), c = n / 2;
-  const k = C(kind ? "#4a4436" : "#a2967a");
+  const k = C(kind ? "#4a4436" : "#d6dccf");   // the rim is FOAM (Round 4 flood B)
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const dx = x + 0.5 - c, dy = (y + 0.5 - c) / 0.8, d = Math.hypot(dx, dy);
     const e = R * (0.9 + 0.12 * vnoise(Math.atan2(dy, dx) * 5 + 30, 0, 1, 1, 360 + r));
@@ -878,13 +886,13 @@ export const floodDisc = (r, kind) => memo(`fd|${r}|${kind}`, () => {
 // sky lying in long pale bands, specks of scum (1 texel a unit)
 export const floodTex = () => memo("ftex2", () => {
   const tw = 96, th = 64, G = grid(tw, th);
-  const deep = C("#3a3830"), base = C("#57513f"), silt = C("#6e6450"), sky = C("#6c7586"), hi = C("#929eb2"), scum = C("#b0a684");
+  const deep = C("#313a40"), base = C("#566058"), silt = C("#7a7458"), sky = C("#7d90a6"), hi = C("#bccce0"), scum = C("#d8dccf");
   for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
     const n = 0.6 * vnoise(x, y, 24, 16, 371, 4, 4) + 0.4 * vnoise(x, y, 8, 8, 372, 12, 8);
     // short, broken streaks of the storm's sky lying on it
     const b = vnoise(x, y, 24, 4, 373, 4, 16) * (0.55 + 0.45 * vnoise(x, y, 12, 8, 375, 8, 8));
     let k = n < 0.36 ? deep : n > 0.66 ? silt : base;
-    if (b > 0.58) k = b > 0.68 && thr(x, y) > 0.5 ? hi : sky;
+    if (b > 0.5) k = b > 0.62 && thr(x, y) > 0.4 ? hi : sky;
     if (h2(x, y, 374) < 0.012) k = scum;
     G.set(x, y, k, 255);
   }
