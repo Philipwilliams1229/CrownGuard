@@ -12,8 +12,8 @@
 import { Pix } from "/src/render/pix/pix.js";
 import { frameAt } from "/src/render/pix/rig.js";
 const Z = +(new URLSearchParams(location.search).get("z") || 3);
-const LINE = ["garrison", "knight", "archer", "friar", "captain", "storm", "champion", "ram"];
-const NAME = { garrison: "Garrison knight", knight: "Aldric", archer: "Wren", friar: "Osric", captain: "Hale", storm: "Ysolde", champion: "Champion", ram: "Siege ram" };
+const LINE = (new URLSearchParams(location.search).get("figs") || "garrison,knight,archer,friar,captain,storm,champion,ram,cavalier,gryphon").split(",");
+const NAME = { garrison: "Garrison knight", knight: "Aldric", archer: "Wren", friar: "Osric", captain: "Hale", storm: "Ysolde", champion: "Champion", ram: "Siege ram", cavalier: "Cavalier", gryphon: "Gryphon Knight" };
 const bake = (fig) => {
   const clip = fig.CLIPS.idle || fig.CLIPS.walk, F = frameAt(clip, 0, fig.BONES);
   const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);

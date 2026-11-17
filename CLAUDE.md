@@ -237,8 +237,10 @@ approved swings keep their keyframes. Wren's `AIM` scales with her (muzzles.js r
 Ysolde's `STORM_TIP` (rigs-crown.js) x1.22. The siege ram is back to the old rig's footprint
 (~102 x 61 board px, BOX 252 x 140; it had drawn at half that) with 1-px detail, `per` 1.74 -> 3.5.
 Brief `art/briefs/scale-pass.md`; `scale-lab.html` lines the figures up on one ground line (copy
-old versions to `src/render/pix/zzold-<name>.js` for a BEFORE row). Still small: the cavalier and
-the gryphon (not yet done). Figures draw at one fixed 0.5 board px an art px.
+old versions to `src/render/pix/zzold-<name>.js` for a BEFORE row). The cavalier and gryphon were
+redrawn at the old rigs' size (72 / 94 art px) and the owner turned it down: "that horse is too
+big, and griffin too ... keep those riders down to the same size as the normal troops"; they stay
+at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Figures draw at one fixed 0.5 board px an art px.
 
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
@@ -812,8 +814,8 @@ Bring these up with the owner; don't act on them unasked.
   novas"): the fire and frost novas (rings.js `firenova` / `frostnova`) were kept as they were in the
   effects pass; they now lie under the foes and flash them white. Ask what they want changed.
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
-  check them out later"):** the cavalier and gryphon draw smaller than their old rigs (the ram
-  was fixed 2026-11-17); bushes, the gate threshold and a few Rime props (longhouse, rack,
+  check them out later"):** the ram was put back to its old size 2026-11-17 (the cavalier and
+  gryphon stay smaller than their old rigs: the owner's call, same day); bushes, the gate threshold and a few Rime props (longhouse, rack,
   whale bones, ship) still old style; the skald's chant clip never plays (no engine clock);
   Hale's crossbowmen wear the Iron crossbowman; at the steepest aims the siege bow stands
   almost upright and a shooter may turn fast if it switches mark just before a shot;
