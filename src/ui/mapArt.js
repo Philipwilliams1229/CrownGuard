@@ -1532,6 +1532,8 @@ const column = (v) => spr(`ik-col${v}`, 14, 5, (c) => {
     c.fillStyle = "#8a8e98"; c.fillRect(x + 0.7, y - 3.4, 0.4, 0.8);
     if (k < n - 1) { c.fillStyle = IK.wood; c.fillRect(x + 1.2, y - 4.6, 0.3, 3); c.fillStyle = "#dadde4"; c.fillRect(x + 1.2, y - 5, 0.3, 0.5); }
   }
+  c.fillStyle = "rgba(20,18,28,0.28)"; c.fillRect(0.6, 4.8, 1.2 + (n - 1) * 2.1 + 1.4, 0.3);
+  c.fillStyle = "#ffffff"; for (let k = 0; k < n; k++) c.fillRect(1.1 + k * 2.1, 1.4 - (k % 2) * 0.2, 0.4, 0.3);
   oxFlag(c, 1 + (n - 1) * 2.1 + 1.3, 3.2, 3.2, 2, 1.2);
 });
 // the salt pans of Brinewick: shallow square pans of brine in stone
@@ -1945,6 +1947,8 @@ const rimePine = (v) => spr(`rm-pine${v}`, 6, 11, (c) => {
   cone(c, 3, 4.6 - tall * 0.2, 2.7, 5, col, { scallops: 3, sag: 0.6, hi: 0.3, lo: 0.55 });
   cone(c, 3, 2.2 - tall * 0.6, 2.1, 4, col, { scallops: 2, sag: 0.5, hi: 0.35, lo: 0.5 });
   cone(c, 3, 0.6 - tall * 0.8 + 0.8, 1.3, 2.8, col, { scallops: 2, sag: 0.4, hi: 0.4, lo: 0.45 });
+  c.fillStyle = "rgba(10,24,30,0.3)"; c.fillRect(3.6, 4.2, 1.8, 0.35); c.fillRect(3.4, 2.4, 1.2, 0.3); c.fillRect(3.5, 6.4, 1.4, 0.3);
+  c.fillStyle = "rgba(120,190,150,0.28)"; c.fillRect(1.1, 3.6, 0.5, 2); c.fillRect(1.9, 1.8, 0.4, 1.4);
   // snow on the tiers' shoulders, the windward (west) side heavier
   c.fillStyle = RK.snow;
   for (const [ty, hw] of [[4.6 - tall * 0.2 + 1.2, 1.9], [2.2 - tall * 0.6 + 1, 1.4], [1.4 - tall * 0.8 + 0.6, 0.8]]) {
@@ -1956,6 +1960,9 @@ const runeStone = (v) => spr(`rm-rune${v % 3}`, 2.8, 5, (c) => {
   const h = 3.8 + (v % 3) * 0.4;
   c.fillStyle = RK.stone; poly(c, [[0.3, 4.8], [0.3, 4.8 - h + 1], [1, 4.8 - h], [1.9, 4.8 - h + 0.3], [2.5, 4.8 - h + 1.2], [2.5, 4.8]]); c.fill();
   c.fillStyle = RK.stoneDk; c.fillRect(1.8, 4.8 - h + 0.8, 0.7, h - 0.8);
+  c.fillStyle = "rgba(255,255,255,0.3)"; c.fillRect(0.3, 4.8 - h + 1.2, 0.35, h - 1.2);
+  c.fillStyle = "rgba(20,24,34,0.3)"; c.fillRect(0.5, 3.6, 1.4, 0.2); c.fillRect(0.5, 2.8, 1, 0.2);
+  c.fillStyle = RK.snow; c.fillRect(0.1, 4.6, 0.8, 0.3); c.fillRect(1.7, 4.65, 0.8, 0.25);
   c.fillStyle = RK.snow; poly(c, [[0.3, 4.8 - h + 1], [1, 4.8 - h], [1.9, 4.8 - h + 0.3], [2.3, 4.8 - h + 0.9], [1.2, 4.8 - h + 0.8]]); c.fill();
   c.strokeStyle = RK.red; c.lineWidth = 0.35;
   c.beginPath(); c.moveTo(0.9, 4.4); c.quadraticCurveTo(0.6, 4.8 - h + 2.2, 1.4, 4.8 - h + 1.6); c.quadraticCurveTo(1.8, 3, 1.1, 3.6); c.stroke();
@@ -2022,6 +2029,9 @@ const berg = (v) => spr(`rm-berg${v % 3}`, 9, 7, (c) => {
   c.fillStyle = RK.ice; poly(c, [[1, 5.8], [1.4, t + 1.4], [w * 0.55, t + 1], [w * 0.5, 5.8]]); c.fill();
   c.fillStyle = RK.iceLt; poly(c, [[1.4, t + 1.4], [2.4, t], [w * 0.6, t - 0.4], [w + 0.6, t + 0.6], [w + 1, t + 1.8], [w * 0.55, t + 1]]); c.fill();
   c.fillStyle = RK.iceDp; c.fillRect(w * 0.7, t + 2.4, 0.4, 2.6);
+  c.fillStyle = "rgba(255,255,255,0.55)"; c.fillRect(2.4, t + 0.2, w * 0.35, 0.4); c.fillRect(1.4, t + 1.6, 0.4, 2.4);
+  c.fillStyle = "rgba(60,100,140,0.45)"; c.fillRect(w * 0.55, t + 1.6, w * 0.45, 0.3); c.fillRect(w * 0.4, t + 3.2, 0.3, 1.6);
+  c.fillStyle = "#e4eee0"; c.fillRect(0.6, 5.5, 1.6, 0.4); c.fillRect(w - 0.6, 5.6, 1.8, 0.4);
 });
 // a bergy bit: a lump of glacier ice afloat
 const bergBit = (v) => spr(`rm-bit${v % 3}`, 5.5, 4.6, (c) => {
@@ -2034,6 +2044,8 @@ const bergBit = (v) => spr(`rm-bit${v % 3}`, 5.5, 4.6, (c) => {
   c.fillStyle = RK.iceDk; poly(c, [[k + 0.2, 3.2], [k, 0.5], [w + 0.2, 1.1], [w + 1, 2], [w + 1.1, 3.2]]); c.fill();
   c.fillStyle = RK.ice; poly(c, [[k, 0.5], [w + 0.2, 1.1], [w, 1.5], [k + 0.3, 1.2]]); c.fill();
   c.fillStyle = RK.iceDp; c.fillRect(k + 0.1, 1.2, 0.45, 2);
+  c.fillStyle = "#ffffff"; c.fillRect(0.9, 1.9, 0.4, 0.7); c.fillRect(k + 0.7, 0.9, 0.7, 0.3);
+  c.fillStyle = "#e4eee0"; c.fillRect(0.2, 3.2, 1, 0.35); c.fillRect(w + 0.2, 3.2, 1, 0.35);
 });
 // black crags breaking the snow
 const rimeCrag = (v) => spr(`rm-crag${v % 4}`, 7, 4.6, (c) => {
@@ -2047,6 +2059,8 @@ const rimeCrag = (v) => spr(`rm-crag${v % 4}`, 7, 4.6, (c) => {
 const sealRock = (v) => spr(`rm-seal${v % 2}`, 7, 4, (c) => {
   blobBall(c, 3.5, 2.8, 3, 1.3, "#5a606a", 90 + v, { hi: 0.5, lo: 0.5 });
   for (const [x, y] of v % 2 ? [[2, 1.6], [4.6, 1.8]] : [[1.6, 1.8], [3.6, 1.4], [5.4, 1.9]]) { c.fillStyle = "#4a4448"; c.beginPath(); c.ellipse(x, y, 0.9, 0.5, 0, 0, Math.PI * 2); c.fill(); c.fillStyle = "#6e6870"; c.fillRect(x - 0.6, y - 0.4, 0.5, 0.3); }
+  c.fillStyle = RK.snow; c.fillRect(1.2, 1.5, 1.2, 0.4); c.fillRect(4.6, 1.2, 1.4, 0.4);
+  c.fillStyle = "rgba(255,255,255,0.3)"; c.fillRect(0.8, 2.2, 0.5, 1);
   c.fillStyle = "#e4eee0"; c.fillRect(0, 3.4, 1.4, 0.5); c.fillRect(5.6, 3.4, 1.4, 0.5);
 });
 // the kraken's arms breaking the firth
@@ -2059,7 +2073,13 @@ const krakenArms = () => spr("rm-kraken", 16, 9, (c) => {
     c.strokeStyle = lt; c.lineWidth = 0.4;
     c.beginPath(); c.moveTo(x - 0.3, 8.2); c.quadraticCurveTo(x + d * 1.2, 8.4 - h * 0.6, x - d * 0.6, 8.4 - h + 0.3); c.stroke();
   }
+  for (const [x, h, d] of [[3, 6, 1], [8, 8, -1], [12.6, 5, 1]]) {
+    c.fillStyle = "#c88aa8"; for (let k = 1; k < 4; k++) c.fillRect(x - d * 0.2 + d * 0.6, 8.4 - h * (0.2 + k * 0.18), 0.35, 0.35);
+    c.fillStyle = "#3a1830"; c.fillRect(x + 0.3, 7.6, 0.5, 0.8);
+    c.fillStyle = "#d8a8c0"; c.fillRect(x - d * 0.4 - 0.2, 8.4 - h, 0.5, 0.4);
+  }
   c.fillStyle = "#e4eee0"; for (const x of [1.6, 4.4, 6.8, 9.4, 11.4, 14]) c.fillRect(x, 8.4, 1, 0.5);
+  c.fillStyle = "#ffffff"; for (const x of [2.2, 8.2, 12.8]) c.fillRect(x, 8.3, 0.5, 0.3);
 });
 // the Jarl's hall: the great mead-hall at the head of his fjord, snow on its
 // long roof and beast-heads on its gables, two lesser halls behind, the
