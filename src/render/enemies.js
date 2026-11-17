@@ -7,7 +7,8 @@ import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { ASSASSIN_PALS } from "../sprites/sprites.js";
 import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
-import { atkFrac, walkByGait, walkByTime, marchSheet } from "./pix/pixrigs.js";
+import { atkFrac, walkByGait, walkByTime, marchSheet, vertSheet } from "./pix/pixrigs.js";
+import { vertOf, turnOf, drawTurned } from "./march.js";
 import { skiffGunPose, skiffRowFrame, skiffBlade, skiffBob, SKIFF_LIFT } from "./rigs-skiff.js";
 import { fillWet } from "./waterreach.js";
 import * as CROWN from "./rigs-crown.js";
@@ -130,12 +131,18 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // the clip's strike lands on the engine's
   let ps = rsheet, pf;
   // (a flier's "walk" is its wingbeat, on the clock; a walker may be mid-chant or sounding a horn)
-  if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = marchSheet(skin, e, tms); }
+  // (up and down the screen a walker steps under himself, render/march.js)
+  const heading = vertOf(e);
+  if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = vertSheet(skin, marchSheet(skin, e, tms), airborne || e.swimming ? 0 : heading); }
   else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
   // a foe archer's bow or crossbow turns to its last mark (engine: e.aimDeg, aim.js)
   const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
-  drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant, 1, aim);
-  if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7, aim);
+  // a change of facing turns him through a squeeze, not a one-frame mirror (render/march.js)
+  const tn = e.swimming ? { face: e.face, sx: 1 } : turnOf(e, e.face, tms);
+  drawTurned(ctx, e.x + lunge, feet, tn.sx, () => {
+    drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, variant, 1, aim);
+    if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "white", 0.7, aim);
+  });
   // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
   // licking flames, poison bubbles, mending motes — each a few cached sprites
   // (render/fx.js), cheap enough for a crowd of three hundred all on fire.
@@ -193,9 +200,10 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
   // the blade (fig-blade.js): a smooth walk, a real idle at the tent, and the cut
   // timed off his own attack clock as the soldiers' blows are
-  const sheet = u.state === "moving" ? "walk" : fighting ? "atk" : "idle";
+  const heading = vertOf(u), tn = turnOf(u, u.face, time * 1000);
+  const sheet = u.state === "moving" ? vertSheet(rig, "walk", heading) : fighting ? "atk" : "idle";
   const fr = u.state === "moving" ? walkByTime(rig, time, u.id) : fighting ? atkFrac(rig, u.atkCd, getStats(t).rate) : time + u.id * 1.3;
-  drawRig(ctx, rig, u.x, u.y + 9, u.face, sheet, fr);
+  drawTurned(ctx, u.x, u.y + 9, tn.sx, () => drawRig(ctx, rig, u.x, u.y + 9, tn.face, sheet, fr));
   // the Plague Bearer's censer breathes: a spore or two drifting up off it
   if (r4 === "bb") {
     for (let i = 0; i < 2; i++) {
@@ -370,8 +378,8 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     const rsheet = fighting ? "fight" : "walk";
     const st = getStats(t);
     const rframe = u.state === "moving" ? Math.floor(time * (rider ? 9 : 7) + u.id) % 4 : fighting ? fightFrame(kind, u, bow ? st.bowRate : st.rate, bow) : 0;
-    const face = (u.face < 0) !== glance ? -1 : 1;
-    drawRig(ctx, kind, u.x, u.y + 9 + stoop, face, rsheet, rframe);
+    const heading = vertOf(u), tn = turnOf(u, (u.face < 0) !== glance ? -1 : 1, time * 1000);
+    drawTurned(ctx, u.x, u.y + 9 + stoop, tn.sx, () => drawRig(ctx, kind, u.x, u.y + 9 + stoop, tn.face, u.state === "moving" ? vertSheet(kind, rsheet, heading) : rsheet, rframe));
     if (fidget === 0 && fp >= 0.3 && fp < 0.62) {
       // down among the stems: a couple of blades coming loose
       ctx.fillStyle = "#6a8a3e";
@@ -456,7 +464,9 @@ export const drawBandUnit = (ctx, u, b, time) => {
   // seized by a sea monster (engine/serpent.js): lifted in its coils, wriggling
   const lift = u.seizedBy ? 2.5 + Math.sin(time * 9 + u.id) * 0.8 : 0;
   // a bowman turns his bow to the foe he last loosed at (engine: u.aimDeg, aim.js)
-  drawRig(ctx, kind, u.x, u.y + 9 - lift, u.face, psheet, frame, "", 1, u.aimDeg || 0);
+  const heading = vertOf(u), tn = turnOf(u, u.face, time * 1000);
+  if (u.state === "moving" && !own && sky < 0) psheet = vertSheet(kind, psheet, heading);
+  drawTurned(ctx, u.x, u.y + 9 - lift, tn.sx, () => drawRig(ctx, kind, u.x, u.y + 9 - lift, tn.face, psheet, frame, "", 1, u.aimDeg || 0));
   // the huntress at the string: a short pull when she has just loosed
   if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
   // health: the hero always shows his, a farmer only once hurt

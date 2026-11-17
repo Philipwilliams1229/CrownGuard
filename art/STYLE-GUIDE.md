@@ -1532,6 +1532,24 @@ a pix figure now, drawn through `pix/crews.js` (see "Tower crews" below).
   material table); a `requestAnimationFrame` clock can start slightly
   negative: clamp it before picking a frame.
 
+### Walking up and down the screen; the squeeze turn (2026-11-17, owner)
+
+The figures are side-on only. On a road running up or down the board a side stride
+slid upward like a moonwalk, so every two-legged walk (a `walk` clip whose pose has
+`fN` / `fF`) gets four foreshortened walks made from it, nothing in the figure file:
+`walkU` / `walkUh` (up, fully / half) and `walkD` / `walkDh` (`pix/march.js`
+`vertWalk`, added in pixrigs.js). The feet step under the body, the planted foot
+slides toward or away from the camera with the ground, the step back is short and
+high, arms and twist swing half as much. `render/march.js` `vertOf` keeps each
+walker's up/down share from its own movement (eased over ~6 px, so a corner blends
+side -> half -> full) and `vertSheet` picks the walk. Four-legged beasts, riders,
+fliers and swimmers keep their side walk. A new figure needs nothing; if its up
+walk looks wrong, the knobs are `DEPTH` / `LIFT` in pix/march.js.
+**The squeeze turn** (provisional, the owner may revert it): when a figure's facing
+flips it narrows to a sliver, mirrors while thin and widens the other way over
+`TURN_MS` 200 (`turnOf` / `drawTurned`, render/march.js); `SQUEEZE = false` puts
+back the one-frame mirror. `march-lab.html` shows both on the goblin (today vs fix).
+
 ### The joint kit: one body, welded limbs, wrapped fur, named layers (2026-11-15)
 
 Why joints looked rough: every shape was lit as its own solid, parts cast shadows and

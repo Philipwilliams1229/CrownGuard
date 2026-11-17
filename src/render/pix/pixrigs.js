@@ -23,6 +23,7 @@
 //     whoever stands in it. "Spell light" in Settings turns both off.
 import { prefs } from "../../data/prefs.js";
 import { bakeFrame, rimOf } from "./bake.js";
+import { vertWalk, marchesOnFoot } from "./march.js";
 import * as knight from "./fig-knight.js";
 import * as archer from "./fig-archer.js";
 import * as goblin from "./fig-goblin.js";
@@ -205,6 +206,21 @@ export const PIX = {
   // (kraken: fig-kraken.js is drawn but held back: the seized-victim coil (drawSeaHold) is still the old painter, and the body needs another pass)
   // (krakenarm: fig-krakenarm.js is drawn but held back: the seized-victim coil (drawSeaHold) is still the old painter, and the body needs another pass)
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
+};
+// Up and down the screen every two-legged walker steps under himself instead of
+// striding sideways (march.js): four more walks per figure, baked as they are asked for.
+for (const d of Object.values(PIX)) {
+  if (!marchesOnFoot(d.fig)) continue;
+  const W = d.fig.CLIPS.walk;
+  d.fig = { ...d.fig, CLIPS: { ...d.fig.CLIPS, walkU: vertWalk(W, 1, -1), walkUh: vertWalk(W, 0.5, -1), walkD: vertWalk(W, 1, 1), walkDh: vertWalk(W, 0.5, 1) } };
+  d.vert = true;
+}
+// the walk sheet for a figure heading `v` up (-1) or down (+1) the screen (render/march.js
+// keeps v): the side walk, half-way, or fully foreshortened
+export const vertSheet = (type, sheet, v) => {
+  if (sheet !== "walk" || !v || !hasPix(type) || !PIX[type].vert) return sheet;
+  const a = Math.abs(v);
+  return a > 0.8 ? (v < 0 ? "walkU" : "walkD") : a > 0.45 ? (v < 0 ? "walkUh" : "walkDh") : sheet;
 };
 export const hasPix = (type) => Object.prototype.hasOwnProperty.call(PIX, type);
 

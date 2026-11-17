@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+  Dev tool (2026-11-17, owner: "walking up looks like moonwalking"): the goblin
+  marching round a loop of road, TODAY (the side walk in every direction) beside
+  the FIX (a squeeze turn at each change of facing, ?turn=S seconds, and a foreshortened walk on up / down stretches: the feet step under the
+  body and slide toward / away from the camera instead of swinging sideways,
+  mixed in by how much of the march is up or down, in three baked steps).
+  /march-lab.html?z=4&slow=1&bare=1
+  Only this page has the fix: nothing in the game changed.
+-->
+<html><head><meta charset="utf-8" /><title>march lab</title></head>
+<body style="background:#14171d;color:#e8e0c8;font:14px system-ui;margin:0;padding:12px">
+<div id="t" style="margin-bottom:8px"></div>
+<canvas id="c" style="image-rendering:pixelated"></canvas>
+<script type="module">
+import { Pix, toCanvas } from "/src/render/pix/pix.js";
+import { solve, mixPose, walkPose, EASE } from "/src/render/pix/rig.js";
+import * as gob from "/src/render/pix/fig-goblin.js";
+
+const Q = new URLSearchParams(location.search);
+const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), VARIANT = Q.get("bare") ? "bare" : "";
+
+// ---- the walks ----------------------------------------------------------------
+const side = gob.CLIPS.walk.pose;                    // the goblin's own walk, untouched
+const N = 8, MS = gob.CLIPS.walk.ms, S = 3.7;        // its frames, loop time, stride
+const SPEED = (4 * S) / (MS / 1000);                 // art px a second at which his planted foot holds the ground
+// up / down the screen the ground slides under him toward or away from the camera:
+// the planted foot drifts DOWN the picture (walking up) or UP it (walking down),
+// the free foot comes back on a high, short arc. Depth on screen is squashed (0.55).
+const D = S * 0.55;
+const vfoot = (q, dir) => {
+  q = ((q % 1) + 1) % 1;
+  if (q < 0.5) { const s = -D + 4 * D * q; return [0.6 - 1.2 * q, -s * dir]; }            // planted: slides with the ground
+  const u = (q - 0.5) * 2, e = EASE.io(u), s = D - 2 * D * e;
+  return [0.3 * Math.sin(Math.PI * u), -s * dir + Math.sin(Math.PI * u) * 3.4];          // swing: short, lifted high
+};
+const vert = (dir) => (ph) => {
+  const w = side(ph), a = Math.cos(ph * Math.PI * 2);
+  return { ...w, rx: 0, lean: 0.22, twist: -a * 0.2, drop: w.drop + 0.4 * (0.5 + 0.5 * Math.cos(ph * Math.PI * 4)),
+    fN: vfoot(ph, dir), fF: vfoot(ph + 0.5, dir),
+    aN: [-a * 0.22 + 0.3, 0.84, 0], aF: [1.2 + 0.04 * a, 0.9, 0], bF: [a * 0.25 + 0.3, 0.8, 0] };
+};
+const UP = vert(1), DOWN = vert(-1);
+
+// ---- baking: one frame per (walk, how vertical in 3 steps, frame, facing) --------
+const CACHE = new Map();
+const frame = (k, dir, f, flip) => {
+  const key = `${k}|${dir}|${f}|${flip}`;
+  if (CACHE.has(key)) return CACHE.get(key);
+  const pose = (ph) => (k === 0 ? side(ph) : mixPose(side(ph), (dir < 0 ? UP : DOWN)(ph), k));
+  const B = gob.BONES, at = (ph) => solve(pose(((ph % 1) + 1) % 1), B), ph = f / N;
+  const F = { ph, sk: at(ph), lag1: at(ph - 0.09), lag2: at(ph - 0.18), at };
+  const px = new Pix(gob.BOX.w, gob.BOX.h, gob.BOX.ox, gob.BOX.oy);
+  gob.draw(px, F, { variant: VARIANT });
+  const cv = toCanvas(px.resolve({ flip }));
+  CACHE.set(key, cv);
+  return cv;
+};
+
+// ---- the road: a loop, so he walks right, up, left and down, round four corners ---
+const PW = 170, PH = 150, M = 34;                    // a panel in art px, the loop's margin
+const pts = [[M - 10, PH - M], [PW - M, PH - M], [PW - M, M + 6], [M - 10, M + 6]];
+const segs = pts.map((p, i) => { const q = pts[(i + 1) % 4]; return { p, q, len: Math.hypot(q[0] - p[0], q[1] - p[1]) }; });
+const LOOP = segs.reduce((s, g) => s + g.len, 0);
+// a rounded walk round the corners: sample the loop and ease the heading
+const posAt = (d) => {
+  d = ((d % LOOP) + LOOP) % LOOP;
+  for (const g of segs) { if (d <= g.len) { const t = d / g.len; return [g.p[0] + (g.q[0] - g.p[0]) * t, g.p[1] + (g.q[1] - g.p[1]) * t]; } d -= g.len; }
+  return pts[0];
+};
+const smoothPos = (d) => { let x = 0, y = 0; const n = 9; for (let i = 0; i < n; i++) { const p = posAt(d + (i - 4) * 3); x += p[0]; y += p[1]; } return [x / n, y / n]; };
+
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const GAP = 8, STRIP = 4 * 52 + 6;
+cv.width = (PW * 2 + GAP) * Z; cv.height = (PH + 14 + STRIP) * Z;
+// below: the eight frames of each walk, side by side
+const drawStrips = () => {
+  ctx.save(); ctx.scale(Z, Z); ctx.imageSmoothingEnabled = false;
+  const rows = [["side walk (today, every way)", 0, 1], ["walking UP the screen (fix)", 1, -1], ["walking DOWN the screen (fix)", 1, 1]];
+  rows.forEach(([name, k, dir], r) => {
+    const y0 = PH + 14 + r * 52;
+    ctx.fillStyle = "#1c2016"; ctx.fillRect(0, y0, PW * 2 + GAP, 50);
+    ctx.fillStyle = "#c8c0a8"; ctx.font = "7px system-ui"; ctx.fillText(name, 3, y0 + 9);
+    for (let f = 0; f < N; f++) ctx.drawImage(frame(k, dir, f, false), 4 + f * 42, y0 + 4);
+  });
+  // the squeeze turn, step by step (right to left, on the up walk, as at the loop's top corner)
+  const y0 = PH + 14 + 3 * 52;
+  ctx.fillStyle = "#1c2016"; ctx.fillRect(0, y0, PW * 2 + GAP, 50);
+  ctx.fillStyle = "#c8c0a8"; ctx.font = "7px system-ui"; ctx.fillText("the squeeze turn, step by step (about 1/5 s in the game)", 3, y0 + 9);
+  for (let i = 0; i < 7; i++) {
+    const u = i / 6, face = u < 0.5 ? 1 : -1, sx = i === 0 || i === 6 ? 1 : Math.max(SLIVER, Math.abs(Math.cos(Math.PI * u)));
+    ctx.save(); ctx.translate(4 + gob.BOX.ox + i * 46, y0 + 4 + gob.BOX.oy); ctx.scale(face * sx, 1);
+    ctx.drawImage(frame(1, -1, (i * 2) % N, face < 0), -gob.BOX.ox, -gob.BOX.oy); ctx.restore();
+  }
+  ctx.restore();
+};
+setTimeout(drawStrips, 0);
+document.getElementById("t").innerHTML =
+  `<b>Goblin, walking round a loop of road.</b> Left: today. Right: the fix (only on this page). ` +
+  `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW === 1 ? 3 : 1}${VARIANT ? "&bare=1" : ""}">${SLOW === 1 ? "slow motion" : "normal speed"}</a> · ` +
+  `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${VARIANT ? "" : "&bare=1"}">${VARIANT ? "hooded goblin" : "bare goblin"}</a>`;
+
+const drawPanel = (ox, label, fixed, t) => {
+  ctx.save(); ctx.scale(Z, Z); ctx.translate(ox, 0); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#6f9a4c"; ctx.fillRect(0, 0, PW, PH);
+  // a few grass flecks so the ground reads as passing under him
+  ctx.fillStyle = "#5f8a40";
+  for (let i = 0; i < 90; i++) { const x = (i * 53) % PW, y = (i * 37 + (i % 7) * 11) % PH; ctx.fillRect(x, y, 1, 1); }
+  // the road
+  ctx.strokeStyle = "#9c7a4e"; ctx.lineWidth = 22; ctx.lineJoin = "round";
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle = "#a9875a"; ctx.lineWidth = 12; ctx.stroke();
+  // pebbles on the road: fixed to the ground, so a foot that skates shows it
+  ctx.fillStyle = "#7d6040";
+  for (let d = 0; d < LOOP; d += 9) { const p = posAt(d), j = (d * 7.3) % 7 - 3.5; ctx.fillRect(Math.round(p[0] + j), Math.round(p[1] + ((d * 3.1) % 7) - 3.5), 1, 1); }
+
+  // the goblin
+  const d = t * SPEED, p = smoothPos(d), p2 = smoothPos(d + 2);
+  const vx = p2[0] - p[0], vy = p2[1] - p[1], v = Math.hypot(vx, vy) || 1;
+  const was = panelFace[label] || 1;
+  const want = Math.abs(vx / v) > 0.3 ? (vx >= 0 ? 1 : -1) : was;
+  // the squeeze turn (fix only): a change of facing narrows the picture to a sliver,
+  // mirrors it while it is thin, and widens it the other way, over TURN seconds
+  let face = want, sx = 1;
+  if (fixed && want !== was && !(turn[label] && turn[label].to === want)) turn[label] = { at: t, from: was, to: want };
+  const tr = fixed && turn[label];
+  if (tr) {
+    const u = (t - tr.at) / TURN;
+    if (u >= 1) turn[label] = null;
+    else { face = u < 0.5 ? tr.from : tr.to; sx = Math.max(SLIVER, Math.abs(Math.cos(Math.PI * u))); }
+  }
+  panelFace[label] = want;
+  const vertical = Math.abs(vy / v);
+  const k = fixed ? (vertical > 0.8 ? 1 : vertical > 0.4 ? 0.5 : 0) : 0;
+  const f = Math.floor(((d / (SPEED * MS / 1000)) % 1) * N);
+  const img = frame(k, vy < 0 ? -1 : 1, f, face < 0);
+  // his shadow
+  ctx.fillStyle = "rgba(20,24,12,0.35)"; ctx.beginPath(); ctx.ellipse(Math.round(p[0]), Math.round(p[1]) + 1, 7, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(Math.round(p[0]), Math.round(p[1]));
+  ctx.scale(face < 0 ? -sx : sx, 1);
+  ctx.drawImage(img, -gob.BOX.ox, -gob.BOX.oy);
+  ctx.restore();
+
+  ctx.fillStyle = "#14171d"; ctx.fillRect(0, PH, PW, 14);
+  ctx.fillStyle = fixed ? "#e8c070" : "#c8c0a8"; ctx.font = "8px system-ui";
+  ctx.fillText(label + (fixed ? `   (up/down mix ${k}${tr ? ", turning" : ""})` : ""), 3, PH + 10);
+  ctx.restore();
+};
+const panelFace = {}, turn = {};
+window.__lab = { turn };
+const TURN = +(Q.get("turn") || 0.2), SLIVER = 0.3;   // seconds a turn takes; how thin he gets mid-turn
+const t0 = performance.now(), AT = +(Q.get("at") || 0), FREEZE = !!Q.get("freeze");   // ?at=S&freeze=1 holds one moment (for checking)
+const tick = (now) => {
+  const t = AT + (FREEZE ? 0 : (now - t0) / 1000 / SLOW);
+  drawPanel(0, "TODAY", false, t);
+  drawPanel(PW + GAP, "THE FIX", true, t);
+  requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+window.__marchReady = true;
+</script>
+</body></html>

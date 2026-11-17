@@ -242,6 +242,18 @@ redrawn at the old rigs' size (72 / 94 art px) and the owner turned it down: "th
 big, and griffin too ... keep those riders down to the same size as the normal troops"; they stay
 at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Figures draw at one fixed 0.5 board px an art px.
 
+## Walking up the screen; the squeeze turn (2026-11-17, owner request)
+
+"When they are walking up, it almost looks like they are moonwalking." The cheap fix
+(no new art): on up / down stretches every two-legged figure plays a foreshortened walk
+made from its own side walk (feet under the body), blended in round corners, and a
+change of facing is a 200 ms SQUEEZE (narrow, mirror, widen) instead of a one-frame flip.
+Render only, the engine is untouched. Style guide, "Walking up and down the screen";
+`march-lab.html` (today vs fix on the goblin). The owner: "we may end up reverting the
+squeeze": `SQUEEZE = false` in src/render/march.js. Pending the owner's look in the game.
+The bigger option put to them and NOT started: real front / back views (a yaw in the
+skeleton plus a hand-drawn front and back head for every figure; weeks of artist work).
+
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
 "You can take out the use old sprites thing": the switch is gone from Settings' Display tab
