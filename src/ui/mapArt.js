@@ -1098,18 +1098,30 @@ const hill = (w, h, seed, pal) => spr(`hl${w}${h}${seed}${pal.key}`, w, h, (c) =
 });
 // a cottage with a red roof
 const cottage = (v) => spr(`cot${v}`, 6, 6, (c) => {
-  c.fillStyle = v % 2 ? "#e8dcc0" : "#dcd0b0"; c.fillRect(0.8, 2.6, 4.4, 3.2);
-  c.fillStyle = "#b8a888"; c.fillRect(3.4, 2.6, 1.8, 3.2);
-  c.fillStyle = v % 3 ? "#a8505c" : "#8e4450"; poly(c, [[0.2, 3], [3, 0.4], [5.8, 3]]); c.fill();
-  c.fillStyle = "#c46a70"; poly(c, [[0.2, 3], [3, 0.4], [3, 3]]); c.fill();
-  c.fillStyle = "#4a3428"; c.fillRect(1.6, 4, 0.9, 1.8);
+  const wall = v % 2 ? "#eadfc4" : "#dfd3b2", rf = v % 3 ? "#a8505c" : "#8e4450";
+  c.fillStyle = wall; c.fillRect(0.8, 2.6, 4.4, 3.2);
+  // timber frame, lit west edge, shaded east face
+  c.fillStyle = "#7a5a3c"; c.fillRect(0.8, 2.6, 0.5, 3.2); c.fillRect(4.7, 2.6, 0.5, 3.2); c.fillRect(0.8, 3.9, 4.4, 0.35);
+  c.fillStyle = "#b8a888"; c.fillRect(3.4, 2.6, 1.3, 3.2);
+  c.fillStyle = "#5a4028"; c.fillRect(0.8, 5.6, 4.4, 0.4);
+  const r = [[0.2, 3], [3, 0.4], [5.8, 3]];
+  c.fillStyle = rf; poly(c, r); c.fill();
+  c.fillStyle = "#d87c7c"; poly(c, [[0.2, 3], [3, 0.4], [3, 3]]); c.fill();
+  tileRows(c, r, 0.4, 3, 0.55);
+  c.fillStyle = "#4a3428"; c.fillRect(1.6, 4.2, 0.9, 1.6);
+  c.fillStyle = "#f2c878"; c.fillRect(3.5, 3.1, 0.6, 0.6);
+  c.fillStyle = "#7a5a3c"; c.fillRect(4.1, 0.9, 0.7, 1.2);
 });
 // the windmill on the farmland
 const windmill = () => spr("mill", 11, 14, (c) => {
   c.fillStyle = "#e0d4b4"; poly(c, [[3.6, 13.6], [4.4, 5], [6.6, 5], [7.4, 13.6]]); c.fill();
   c.fillStyle = "#b8a888"; poly(c, [[5.5, 5], [6.6, 5], [7.4, 13.6], [5.9, 13.6]]); c.fill();
+  c.fillStyle = "rgba(36,26,44,0.14)"; for (let y = 6.6; y < 13; y += 1.2) c.fillRect(3.8 + (y - 5) * 0.09, y, 3.4, 0.25);
+  c.fillStyle = "rgba(255,246,220,0.3)"; poly(c, [[3.6, 13.6], [4.4, 5], [4.9, 5], [4.2, 13.6]]); c.fill();
   c.fillStyle = "#a8505c"; poly(c, [[3.8, 5.4], [5.5, 2.8], [7.2, 5.4]]); c.fill();
+  c.fillStyle = "#d87c7c"; poly(c, [[3.8, 5.4], [5.5, 2.8], [5.5, 5.4]]); c.fill();
   c.fillStyle = "#4a3428"; c.fillRect(5, 11.4, 1.1, 2.2);
+  c.fillStyle = "#f2c878"; c.fillRect(5.2, 8, 0.6, 0.7);
   c.strokeStyle = "#7a5334"; c.lineWidth = 0.7;
   const cx = 5.5, cy = 4.4;
   for (let k = 0; k < 4; k++) {
@@ -1159,27 +1171,71 @@ const whirl = () => spr("whirl", 16, 10, (c) => {
 }, 0);
 
 // ---- the crown's castle, and other set pieces --------------------------
+// shared bits for the map's masonry: mortar courses with staggered joints, a
+// lit west edge (one sun from the upper left), tiles in rows on a roof
+const masonry = (c, x, y, w, h, seed = 0) => {
+  c.fillStyle = "rgba(36,26,44,0.15)";
+  for (let r = 1.0, k = 0; r < h - 0.3; r += 1, k++) {
+    c.fillRect(x, y + r, w, 0.25);
+    for (let j = (k + seed) % 2 ? 0.7 : 1.7; j < w - 0.4; j += 2) c.fillRect(x + j, y + r - 1, 0.25, 1);
+  }
+  c.fillStyle = "rgba(255,246,220,0.26)"; c.fillRect(x, y, 0.5, h);
+  c.fillStyle = "rgba(255,246,220,0.14)"; c.fillRect(x, y, w, 0.3);
+};
+// masonry inside any outline (a broken wall, a gable)
+const masonryIn = (c, pts, seed = 0, ink = 1) => {
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  c.save(); poly(c, pts); c.clip(); masonry(c, x, y, Math.max(...xs) - x, Math.max(...ys) - y, seed); c.restore();
+};
+const tileRows = (c, pts, y0, y1, step = 0.7) => {
+  c.save(); poly(c, pts); c.clip();
+  c.fillStyle = "rgba(30,18,30,0.22)";
+  for (let y = y0; y < y1; y += step) c.fillRect(-2, y, 40, 0.25);
+  c.restore();
+};
+// a lit window: dark slot with a warm pane
+const litSlit = (c, x, y, h = 1.2, warm = true) => {
+  c.fillStyle = "#2a2230"; c.fillRect(x, y, 0.6, h);
+  if (warm) { c.fillStyle = "#f0c470"; c.fillRect(x, y + h - 0.6, 0.6, 0.5); }
+};
 const crownCastle = () => spr("crown", 22, 20, (c) => {
-  const stone = "#a19a8a", lit = "#bdb6a4", dk = "#7e776c", roof = "#a8505c", roofLt = "#c46a70";
-  // curtain wall
+  const stone = "#a8a191", lit = "#c6bfac", dk = "#7e776c", deep = "#5e584f", roof = "#a24858", roofLt = "#d97c7c", roofDk = "#6a2c40";
+  // curtain wall, mortared, with its shaded east end and a foot of shadow
   c.fillStyle = stone; c.fillRect(2, 11, 18, 8.6);
-  c.fillStyle = dk; c.fillRect(2, 17.4, 18, 2.2);
-  c.fillStyle = lit; for (let k = 0; k < 9; k++) c.fillRect(2 + k * 2, 10, 1.2, 1.4);
-  // the gate
-  c.fillStyle = "#3a2a24"; c.beginPath(); c.moveTo(9.4, 19.6); c.lineTo(9.4, 15.6); c.arc(11, 15.6, 1.6, Math.PI, 0); c.lineTo(12.6, 19.6); c.fill();
+  masonry(c, 2, 11, 18, 8.6, 1);
+  c.fillStyle = dk; c.fillRect(15.6, 11, 4.4, 8.6);
+  c.fillStyle = deep; c.fillRect(2, 18.8, 18, 0.8);
+  // wall walk and merlons, each with a shaded right side
+  c.fillStyle = lit; c.fillRect(2, 10.4, 18, 0.7);
+  for (let k = 0; k < 9; k++) { c.fillStyle = lit; c.fillRect(2 + k * 2, 9.4, 1.2, 1.2); c.fillStyle = dk; c.fillRect(2.8 + k * 2, 9.6, 0.4, 1); }
   // towers
-  const tower = (x, top, w) => {
+  const tower = (x, top, w, tall) => {
     c.fillStyle = stone; c.fillRect(x, top, w, 19.6 - top);
+    masonry(c, x, top, w, 19.6 - top, 0);
     c.fillStyle = dk; c.fillRect(x + w * 0.62, top, w * 0.38, 19.6 - top);
-    c.fillStyle = roof; poly(c, [[x - 0.6, top + 0.2], [x + w / 2, top - 4.4], [x + w + 0.6, top + 0.2]]); c.fill();
-    c.fillStyle = roofLt; poly(c, [[x - 0.6, top + 0.2], [x + w / 2, top - 4.4], [x + w / 2, top + 0.2]]); c.fill();
-    c.fillStyle = "#2a2230"; c.fillRect(x + w / 2 - 0.4, top + 2, 0.9, 1.6);
+    c.fillStyle = deep; c.fillRect(x, 18.8, w, 0.8);
+    c.fillStyle = lit; c.fillRect(x - 0.4, top - 0.2, w + 0.8, 0.8);
+    const r = [[x - 0.6, top], [x + w / 2, top - 4.4], [x + w + 0.6, top]];
+    c.fillStyle = roof; poly(c, r); c.fill();
+    c.fillStyle = roofLt; poly(c, [[x - 0.6, top], [x + w / 2, top - 4.4], [x + w / 2 - 0.4, top]]); c.fill();
+    c.fillStyle = roofDk; poly(c, [[x + w / 2 + 0.2, top - 3.6], [x + w + 0.6, top], [x + w / 2 + 0.6, top]]); c.fill();
+    tileRows(c, r, top - 4.4, top, 0.8);
+    litSlit(c, x + w / 2 - 0.3, top + 1.8, 1.8, tall);
+    if (tall) litSlit(c, x + w / 2 - 0.3, top + 5.4, 1.4, false);
   };
-  tower(0.8, 8, 4); tower(17.2, 8, 4);
-  // the keep, with the crown's banner
-  tower(8.4, 5, 5.2);
+  tower(0.8, 8, 4, false); tower(17.2, 8, 4, false);
+  // the keep, with the crown's banner and a gilded finial
+  tower(8.4, 5, 5.2, true);
+  // the keep's gate: a deep arch, portcullis bars and a lit stone head
+  c.fillStyle = lit; c.beginPath(); c.moveTo(8.8, 19.6); c.lineTo(8.8, 15.6); c.arc(11, 15.6, 2.2, Math.PI, 0); c.lineTo(13.2, 19.6); c.fill();
+  c.fillStyle = "#2c1f22"; c.beginPath(); c.moveTo(9.4, 19.6); c.lineTo(9.4, 15.6); c.arc(11, 15.6, 1.6, Math.PI, 0); c.lineTo(12.6, 19.6); c.fill();
+  c.fillStyle = "#6a6258"; for (const gx of [10, 11, 12]) c.fillRect(gx - 0.15, 14.6, 0.3, 3.6);
+  c.fillStyle = "#6a6258"; c.fillRect(9.4, 16.4, 3.2, 0.3);
   c.fillStyle = "#6b5a3c"; c.fillRect(10.8, -0.2 + 0.4, 0.6, 1.6);
-  c.fillStyle = "#d8b34a"; c.fillRect(11.4, 0.4, 3, 1.8);
+  c.fillStyle = "#e6c35a"; c.fillRect(11.4, 0.4, 3, 1.8);
+  c.fillStyle = "#b8903a"; c.fillRect(11.4, 1.8, 3, 0.4);
+  c.fillStyle = "#fff0b8"; c.fillRect(12.2, 0.8, 0.6, 0.6);
 });
 const ship = () => spr("ship", 14, 13, (c) => {
   c.fillStyle = "#7a5334"; poly(c, [[0.4, 9], [13.6, 9], [11.6, 12.4], [2.2, 12.4]]); c.fill();
@@ -1236,9 +1292,12 @@ const bridge = () => spr("bridge", 7, 5, (c) => {
 // turning in the leat on its west side
 const watermill = () => spr("wmill", 10, 8, (c) => {
   c.fillStyle = "#e8dcc0"; c.fillRect(3.4, 3.4, 5.8, 4.2);
-  c.fillStyle = "#b8a888"; c.fillRect(7.2, 3.4, 2, 4.2);
-  c.fillStyle = "#a8505c"; poly(c, [[2.8, 3.8], [6.3, 0.6], [9.8, 3.8]]); c.fill();
-  c.fillStyle = "#c46a70"; poly(c, [[2.8, 3.8], [6.3, 0.6], [6.3, 3.8]]); c.fill();
+  c.fillStyle = "#7a5a3c"; c.fillRect(3.4, 3.4, 0.5, 4.2); c.fillRect(8.7, 3.4, 0.5, 4.2); c.fillRect(3.4, 5.2, 5.8, 0.35);
+  c.fillStyle = "#b8a888"; c.fillRect(7.2, 3.4, 1.5, 4.2);
+  const wr = [[2.8, 3.8], [6.3, 0.6], [9.8, 3.8]];
+  c.fillStyle = "#a8505c"; poly(c, wr); c.fill();
+  c.fillStyle = "#d87c7c"; poly(c, [[2.8, 3.8], [6.3, 0.6], [6.3, 3.8]]); c.fill();
+  tileRows(c, wr, 0.6, 3.8, 0.6);
   c.fillStyle = "#4a3428"; c.fillRect(5.6, 5.6, 1, 2);
   c.fillStyle = "#e8c070"; c.fillRect(7.6, 4.6, 0.7, 0.7);
   // the wheel, spokes and paddles, standing in its race
@@ -1291,7 +1350,8 @@ const oxFlag = (c, x, y, pole, len = 2.6, h = 1.6) => {
 // shade, a paler roof-walk on top and a row of merlons
 const block = (c, x, y, w, h, o = {}) => {
   c.fillStyle = o.st || IK.st; c.fillRect(x, y - h, w, h);
-  c.fillStyle = o.dk || IK.stDk; c.fillRect(x + w * 0.64, y - h, w * 0.36, h);
+  masonry(c, x, y - h, w, h, (x * 3) | 0);
+  c.fillStyle = (o.dk || IK.stDk) + "d8"; c.fillRect(x + w * 0.64, y - h, w * 0.36, h);
   c.fillStyle = IK.stDp; c.fillRect(x, y - 0.6, w, 0.6);
   if (o.top !== false) {
     const d = o.deck ?? 1.2;
@@ -1301,18 +1361,21 @@ const block = (c, x, y, w, h, o = {}) => {
     for (let k = x - 0.2; k < x + w; k += 1.6) c.fillRect(k, y - h - d - 0.8, 0.9, 0.8);
   }
 };
-const slit = (c, x, y, h = 1.2) => { c.fillStyle = IK.door; c.fillRect(x, y, 0.6, h); };
+const slit = (c, x, y, h = 1.2) => { c.fillStyle = IK.door; c.fillRect(x, y, 0.6, h); if (h > 1.4 && ((x * 7 + y * 3) | 0) % 3 === 0) { c.fillStyle = "#f0c470"; c.fillRect(x, y + h - 0.6, 0.6, 0.5); } };
 // a slate-roofed stone house: gable end to the south or the long side
 const house = (c, x, y, w, h, v) => {
   const wall = v % 3 === 2 ? "#b4ac9a" : IK.st, dk = v % 3 === 2 ? "#8a8272" : IK.stDk;
   c.fillStyle = wall; c.fillRect(x, y - h, w, h);
   c.fillStyle = dk; c.fillRect(x + w * 0.66, y - h, w * 0.34, h);
   const rf = v % 4 === 3 ? ["#7a4a3a", "#94604a", "#5a3428"] : [IK.sl, IK.slLt, IK.slDk];
-  c.fillStyle = rf[0]; poly(c, [[x - 0.4, y - h + 0.2], [x + 0.6, y - h - 1.8], [x + w - 0.6, y - h - 1.8], [x + w + 0.4, y - h + 0.2]]); c.fill();
+  const rp = [[x - 0.4, y - h + 0.2], [x + 0.6, y - h - 1.8], [x + w - 0.6, y - h - 1.8], [x + w + 0.4, y - h + 0.2]];
+  c.fillStyle = rf[0]; poly(c, rp); c.fill();
+  tileRows(c, rp, y - h - 1.8, y - h + 0.2, 0.6);
   c.fillStyle = rf[1]; c.fillRect(x + 0.6, y - h - 1.8, w - 1.2, 0.6);
+  c.fillStyle = "rgba(255,240,210,0.22)"; c.fillRect(x - 0.4, y - h - 0.6, 0.9, 0.8);
   c.fillStyle = rf[2]; c.fillRect(x - 0.4, y - h - 0.3, w + 0.8, 0.5);
   c.fillStyle = IK.door; c.fillRect(x + w * 0.3, y - 1.3, 0.8, 1.3);
-  if (w > 3) { c.fillStyle = "#e8c070"; c.fillRect(x + w * 0.62, y - h + 0.5, 0.6, 0.6); }
+  if (w > 3) { c.fillStyle = "#f2c878"; c.fillRect(x + w * 0.62, y - h + 0.5, 0.6, 0.6); c.fillStyle = "#c89048"; c.fillRect(x + w * 0.62, y - h + 1.1, 0.6, 0.2); }
   if (v % 2) { c.fillStyle = IK.stDk; c.fillRect(x + w - 1.4, y - h - 2.6, 0.8, 1.4); }
 };
 // a stone farmhouse with its byre
@@ -1612,11 +1675,13 @@ const graves = (v) => spr(`hf-graves${v}`, 8, 4, (c) => {
 const chapel = (v) => spr(`hf-chapel${v}`, 14, 13, (c) => {
   // the nave's side walls, broken to different heights
   c.fillStyle = HF.st; poly(c, [[1, 12.6], [1, 7], [3, 6.6], [4.4, 8], [6, 7.2], [7.6, 8.6], [9, 12.6]]); c.fill();
+  masonryIn(c, [[1, 12.6], [1, 7], [3, 6.6], [4.4, 8], [6, 7.2], [7.6, 8.6], [9, 12.6]], 1);
   c.fillStyle = HF.stDk; c.fillRect(1, 11.8, 8, 0.8);
   // the open window bays
   c.fillStyle = HF.dark; for (const x of [2.2, 5.4]) { c.fillRect(x, 9, 1.1, 2); c.beginPath(); c.arc(x + 0.55, 9, 0.55, Math.PI, 0); c.fill(); }
   // the west gable: tall, pointed, an empty lancet, a broken cote
   c.fillStyle = HF.st; poly(c, [[8.4, 12.6], [8.4, 5.2], [10.6, 2.4], [12.8, 5.2], [12.8, 12.6]]); c.fill();
+  masonryIn(c, [[8.4, 12.6], [8.4, 5.2], [10.6, 2.4], [12.8, 5.2], [12.8, 12.6]], 0);
   c.fillStyle = HF.stDk; poly(c, [[10.6, 2.4], [12.8, 5.2], [12.8, 12.6], [11.4, 12.6], [11.4, 3.4]]); c.fill();
   c.fillStyle = HF.stLt; c.fillRect(8.4, 5.2, 0.6, 7.4);
   c.fillStyle = HF.st; c.fillRect(9.8, 0.4, 1.6, 2.4); c.fillStyle = HF.stDk; c.fillRect(10.8, 0.8, 0.6, 2);
@@ -1632,12 +1697,14 @@ const chapel = (v) => spr(`hf-chapel${v}`, 14, 13, (c) => {
 const drowned = (v) => spr(`hf-drown${v}`, 8, 7, (c) => {
   const w = 5.4, x = 1.2;
   c.fillStyle = "#8e8676"; c.fillRect(x, 3.2, w, 3);
-  c.fillStyle = "#6a6458"; c.fillRect(x + w * 0.64, 3.2, w * 0.36, 3);
+  masonry(c, x, 3.2, w, 3, v);
+  c.fillStyle = "#6a6458d8"; c.fillRect(x + w * 0.64, 3.2, w * 0.36, 3);
   c.fillStyle = HF.dark; c.fillRect(x + 1, 4.2, 0.9, 1.2); c.fillRect(x + 3.2, 4.2, 0.9, 1.2);
   // the roof: whole thatch, or a broken one with bare rafters
   if (v % 3 === 0) {
     c.fillStyle = HF.thatch; poly(c, [[x - 0.4, 3.4], [x + w / 2, 0.6], [x + w + 0.4, 3.4]]); c.fill();
     c.fillStyle = HF.thatchDk; poly(c, [[x + w / 2, 0.6], [x + w + 0.4, 3.4], [x + w / 2 + 0.6, 3.4]]); c.fill();
+    tileRows(c, [[x - 0.4, 3.4], [x + w / 2, 0.6], [x + w + 0.4, 3.4]], 0.6, 3.4, 0.5);
     c.fillStyle = HF.dark; poly(c, [[x + 1.2, 3.2], [x + 2.2, 1.8], [x + 3.4, 2.6], [x + 2.6, 3.2]]); c.fill();
   } else {
     c.fillStyle = HF.thatch; poly(c, [[x - 0.4, 3.4], [x + 1.6, 1.4], [x + 2, 3.4]]); c.fill();
@@ -1654,15 +1721,15 @@ const drowned = (v) => spr(`hf-drown${v}`, 8, 7, (c) => {
 const drownedVillage = () => spr("hf-village", 22, 13, (c) => {
   c.fillStyle = HF.water; c.beginPath(); c.ellipse(11, 10.4, 10.6, 2.5, 0, 0, Math.PI * 2); c.fill();
   const hut = (x, y, w, broken) => {
-    c.fillStyle = "#8e8676"; c.fillRect(x, y - 1.6, w, 1.6);
-    c.fillStyle = "#6a6458"; c.fillRect(x + w * 0.64, y - 1.6, w * 0.36, 1.6);
+    c.fillStyle = "#8e8676"; c.fillRect(x, y - 1.6, w, 1.6); masonry(c, x, y - 1.6, w, 1.6, 1);
+    c.fillStyle = "#6a6458d8"; c.fillRect(x + w * 0.64, y - 1.6, w * 0.36, 1.6);
     c.fillStyle = HF.dark; c.fillRect(x + 0.8, y - 1.2, 0.8, 0.8);
     c.fillStyle = HF.thatch; poly(c, broken ? [[x - 0.4, y - 1.4], [x + w * 0.4, y - 3.8], [x + w * 0.5, y - 1.4]] : [[x - 0.4, y - 1.4], [x + w / 2, y - 4.2], [x + w + 0.4, y - 1.4]]); c.fill();
     c.fillStyle = HF.thatchDk; if (!broken) { poly(c, [[x + w / 2, y - 4.2], [x + w + 0.4, y - 1.4], [x + w / 2 + 0.6, y - 1.4]]); c.fill(); }
     else { c.fillStyle = HF.barkDk; for (let k = 0; k < 3; k++) c.fillRect(x + w * 0.5 + k * 0.9, y - 3.6 + k * 0.5, 0.4, 2.2 - k * 0.5); }
   };
   // the church, its spire snapped
-  c.fillStyle = "#8a8a80"; c.fillRect(9.4, 2.4, 3, 7.4); c.fillStyle = "#5e605c"; c.fillRect(11.2, 2.4, 1.2, 7.4);
+  c.fillStyle = "#8a8a80"; c.fillRect(9.4, 2.4, 3, 7.4); masonry(c, 9.4, 2.4, 3, 7.4, 0); c.fillStyle = "#5e605cd8"; c.fillRect(11.2, 2.4, 1.2, 7.4);
   c.fillStyle = HF.thatchDk; poly(c, [[9, 2.6], [10.2, 0.2], [11.2, 1.4], [12.8, 2.6]]); c.fill();
   c.fillStyle = HF.dark; c.fillRect(10.2, 4, 0.8, 1.6);
   hut(2, 10, 4.6, false); hut(15, 9.8, 4.4, true); hut(6.4, 11.4, 3.8, true); hut(13.2, 11.8, 4, false);
@@ -1673,7 +1740,8 @@ const drownedVillage = () => spr("hf-village", 22, 13, (c) => {
 const bellTower = () => spr("hf-bell", 8, 15, (c) => {
   c.save(); c.translate(4, 13.4); c.rotate(0.12);
   c.fillStyle = HF.st; c.fillRect(-2, -11, 4, 11);
-  c.fillStyle = HF.stDk; c.fillRect(0.6, -11, 1.4, 11);
+  c.save(); c.translate(-2, -11); masonry(c, 0, 0, 4, 11, 1); c.restore();
+  c.fillStyle = HF.stDk + "d8"; c.fillRect(0.6, -11, 1.4, 11);
   c.fillStyle = HF.dark; c.fillRect(-1.2, -9.6, 2.4, 2.6);
   c.fillStyle = "#8a7a4a"; c.fillRect(-0.8, -8.8, 1.6, 1.6); c.fillStyle = "#5a8a78"; c.fillRect(-0.8, -7.6, 1.6, 0.4);
   c.fillStyle = HF.thatchDk; poly(c, [[-2.6, -10.8], [0, -13], [2.6, -10.8]]); c.fill();
@@ -1747,7 +1815,8 @@ const throneRuin = () => spr("hf-throne", 28, 22, (c) => {
   c.fillStyle = "#56525c"; for (let k = 0; k < 6; k++) c.fillRect(6 + k * 3, 13 + (k % 2) * 1.6, 1.8, 1);
   // the back wall, broken, with the great arch and two windows
   c.fillStyle = st; poly(c, [[3.4, 12.4], [3.4, 5.4], [6, 4.4], [7, 6.6], [9, 3], [14, 1], [19, 3], [21, 6], [22.4, 4.6], [24.6, 5.8], [24.6, 12.4]]); c.fill();
-  c.fillStyle = dk; poly(c, [[19, 3], [21, 6], [22.4, 4.6], [24.6, 5.8], [24.6, 12.4], [19, 12.4]]); c.fill();
+  masonryIn(c, [[3.4, 12.4], [3.4, 5.4], [6, 4.4], [7, 6.6], [9, 3], [14, 1], [19, 3], [21, 6], [22.4, 4.6], [24.6, 5.8], [24.6, 12.4]], 0);
+  c.fillStyle = dk + "e0"; poly(c, [[19, 3], [21, 6], [22.4, 4.6], [24.6, 5.8], [24.6, 12.4], [19, 12.4]]); c.fill();
   c.fillStyle = lt; c.fillRect(3.4, 5.4, 0.8, 7); poly(c, [[9, 3], [14, 1], [14, 1.8], [9.4, 3.8]]); c.fill();
   c.fillStyle = dp; c.beginPath(); c.moveTo(10.8, 12.4); c.lineTo(10.8, 7); c.arc(14, 7, 3.2, Math.PI, 0); c.lineTo(17.2, 12.4); c.fill();
   for (const x of [5.6, 21.4]) { c.fillRect(x, 7.4, 1.2, 2.4); c.beginPath(); c.arc(x + 0.6, 7.4, 0.6, Math.PI, 0); c.fill(); }
@@ -1760,7 +1829,8 @@ const throneRuin = () => spr("hf-throne", 28, 22, (c) => {
   // broken towers at the corners
   for (const [x, top, w] of [[0.4, 2.4, 4], [23.6, 3.8, 4]]) {
     c.fillStyle = st; poly(c, [[x, 19.6], [x, top + 1], [x + w * 0.3, top], [x + w * 0.55, top + 1.8], [x + w, top + 0.6], [x + w, 19.6]]); c.fill();
-    c.fillStyle = dk; c.fillRect(x + w * 0.62, top + 1, w * 0.38, 18.6 - top);
+    masonry(c, x, top + 1, w, 18.6 - top, 1);
+    c.fillStyle = dk + "e0"; c.fillRect(x + w * 0.62, top + 1, w * 0.38, 18.6 - top);
     c.fillStyle = lt; c.fillRect(x, top + 1, 0.7, 18.6 - top);
     c.fillStyle = dp; c.fillRect(x + w * 0.3, top + 4, 1, 1.6); c.fillRect(x + w * 0.3, top + 9, 1, 1.6);
     c.fillStyle = HF.fire; c.fillRect(x + w * 0.3 + 0.2, top + 4.4, 0.6, 0.8);
@@ -1768,6 +1838,7 @@ const throneRuin = () => spr("hf-throne", 28, 22, (c) => {
   // the front wall: two stubs, the rest fallen into the court
   for (const [x0, x1, t0, t1] of [[4.4, 9.6, 15.6, 16.8], [18.4, 23.6, 16.6, 15.2]]) {
     c.fillStyle = st; poly(c, [[x0, 19.8], [x0, t0], [(x0 + x1) / 2, Math.min(t0, t1) - 0.8], [x1, t1], [x1, 19.8]]); c.fill();
+    masonry(c, x0, t0, x1 - x0, 19.8 - t0, 0);
     c.fillStyle = dk; c.fillRect(x0, 19, x1 - x0, 0.8); c.fillRect(x1 - 1.6, t1, 1.6, 19.8 - t1);
     c.fillStyle = lt; c.fillRect(x0, t0, 0.6, 19.8 - t0);
   }
@@ -1807,17 +1878,23 @@ const longRoof = (c, x, y, w, h, v) => {
   c.fillStyle = RK.woodLt; for (let k = 1; k < w - 0.5; k += 1.4) c.fillRect(x + k, y - h, 0.35, h);
   // the roof: a long low hull turned over, its ridge sagging to the ends
   const rh = h * 1.15 + 1, top = y - h - rh;
-  c.fillStyle = "#4a3c34"; poly(c, [[x - 0.7, y - h + 0.5], [x + 0.3, top + 0.7], [x + w * 0.5, top], [x + w - 0.3, top + 0.7], [x + w + 0.7, y - h + 0.5]]); c.fill();
+  const hull = [[x - 0.7, y - h + 0.5], [x + 0.3, top + 0.7], [x + w * 0.5, top], [x + w - 0.3, top + 0.7], [x + w + 0.7, y - h + 0.5]];
+  c.fillStyle = "#4a3c34"; poly(c, hull); c.fill();
+  c.fillStyle = "rgba(255,230,190,0.16)"; c.fillRect(x - 0.7, top + 0.6, w * 0.45, 0.5);
+  tileRows(c, hull, top, y - h + 0.5, 0.6);
   // snow lying on it, ragged along its lower edge
   c.fillStyle = RK.snow; const sn = [[x - 0.2, y - h - rh * 0.35], [x + 0.3, top + 0.7], [x + w * 0.5, top], [x + w - 0.3, top + 0.7], [x + w + 0.2, y - h - rh * 0.35]];
   for (let k = 8; k >= 0; k--) sn.push([x + (w * k) / 8, y - h - rh * (0.3 + ((k + v) % 3) * 0.12)]);
   poly(c, sn); c.fill();
   c.fillStyle = RK.snowDk; c.fillRect(x + w * 0.62, top + 0.6, w * 0.36, 0.5);
+  c.fillStyle = "rgba(120,150,180,0.35)"; for (let k = 0; k < 9; k++) c.fillRect(x + (w * k) / 8 - 0.2, y - h - rh * (0.3 + ((k + v) % 3) * 0.12) - 0.4, 0.8, 0.4);
   // the gable boards crossed above each end, carved into beast heads
   c.strokeStyle = RK.woodDk; c.lineWidth = 0.5;
   for (const gx of [x + 0.3, x + w - 0.3]) { poly(c, [[gx - 0.9, top - 0.6], [gx + 0.5, top + 1.4]]); c.stroke(); poly(c, [[gx + 0.9, top - 0.6], [gx - 0.5, top + 1.4]]); c.stroke(); }
   c.fillStyle = RK.door; c.fillRect(x + w * 0.38, y - 1.4, 1, 1.4);
+  c.fillStyle = "#f2b858"; c.fillRect(x + w * 0.38 + 0.2, y - 0.9, 0.6, 0.9);
   c.fillStyle = RK.fire; c.fillRect(x + w * 0.18, y - h + 0.4, 0.5, 0.5);
+  if (w > 5) { c.fillStyle = RK.fire; c.fillRect(x + w * 0.62, y - h + 0.4, 0.5, 0.5); }
 };
 // smoke going up from a roof hole, leaning with the wind
 const smoke = (c, x, y, n = 3) => {
@@ -1971,6 +2048,7 @@ const jarlHall = () => spr("rm-jarl", 38, 30, (c) => {
   c.fillStyle = RK.snow; poly(c, [[15.6, 20.9], [18.8, 18.2], [22, 20.9], [21, 20.9], [18.8, 19.2], [16.6, 20.9]]); c.fill();
   c.fillStyle = RK.door; c.fillRect(17.4, 21.6, 2.8, 4);
   c.fillStyle = RK.red; c.fillRect(17.4, 21.6, 0.5, 4); c.fillRect(19.7, 21.6, 0.5, 4);
+  c.fillStyle = "#f2b858"; c.fillRect(18.1, 23.2, 1.4, 2.4);
   c.fillStyle = RK.gold; c.fillRect(17.2, 21, 3.2, 0.6);
   // shields hung along its walls
   for (let k = 0; k < 8; k++) { if (k === 3 || k === 4) continue; c.fillStyle = k % 2 ? RK.gold : RK.blue; c.beginPath(); c.arc(9 + k * 2.6, 23.2, 0.65, 0, Math.PI * 2); c.fill(); }
