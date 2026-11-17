@@ -36,6 +36,7 @@
 // kept whole for the switch.
 
 import { getStats } from "../../engine/towers.js";
+import { pxArc, pxRing } from "./pixrings.js";
 import { rgba, soft, ball, glow, hash } from "../buildkit.js";
 import { mageTip } from "../folk.js";
 import { stormCloud, stormSpots, stormBolt } from "../stormcloud.js";
@@ -231,10 +232,7 @@ export const drawWizardSpire = (ctx, t, time) => {
     }
     if (t.anim > 0.05 && r4 !== "ab") {
       glow(ctx, orbX, orbY, rOut * (stormGone ? 2.2 : 1.2), "#fffaf0", t.anim);
-      ctx.strokeStyle = rgba(oc, t.anim * 0.7);
-      ctx.lineWidth = stormGone ? 1.8 : 1.2;
-      ctx.beginPath(); ctx.arc(orbX, orbY, rOut + (1 - t.anim) * (stormGone ? 22 : 12), 0, 7); ctx.stroke();
-      ctx.lineWidth = 1;
+      pxRing(ctx, orbX, orbY, rOut + (1 - t.anim) * (stormGone ? 22 : 12), rgba(oc, t.anim * 0.7), stormGone ? 3 : 2);
     }
   }
   for (const s of stars) if (s.front) star(s);
@@ -285,8 +283,7 @@ export const drawWizardSpire = (ctx, t, time) => {
       glow(ctx, orbX, orbY, 2.5 + on * 2, "#fff0a8", on * 0.9);
       // the ring, edge-on toward the foe: a tall thin ellipse with fire-runes
       const rx = 1.3 * on, ry = 5.2 * on;
-      ctx.strokeStyle = rgba("#ffd070", 0.9 * on); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.ellipse(m.x + jit, m.y, Math.max(0.5, rx), Math.max(0.5, ry), 0, 0, Math.PI * 2); ctx.stroke();
+      pxArc(ctx, m.x + jit, m.y, Math.max(0.5, rx), Math.max(0.5, ry), rgba("#ffd070", 0.9 * on), { th: 2 });
       ctx.fillStyle = rgba("#fff3d2", on);
       for (let i = 0; i < 4; i++) {
         const a = time * 7 * dir + (i / 4) * Math.PI * 2;

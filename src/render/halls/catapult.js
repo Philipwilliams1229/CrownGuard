@@ -19,6 +19,7 @@
 import { canBake } from "../buildkit.js";
 import { ROPE, readiness, rope, rgba, soft, shadow, ball, glow } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
+import { pxArc, pxRing } from "./pixrings.js";
 import * as engineerFig from "../pix/fig-engineer.js";
 import { crew, drawCrewPix, loopFrame, fracFrame, markOf, crewMark } from "../pix/crews.js";
 import * as catHall from "../pix/hall-catapult.js";
@@ -208,8 +209,8 @@ export const drawCatapult = (ctx, t, time) => {
       const a0 = a1 - f * sweep;
       ctx.lineCap = "round";
       for (const [rr, al, w] of [[s.L - 1, 0.5, 1.8], [s.L * 0.7, 0.3, 1.2]]) {
-        ctx.strokeStyle = `rgba(255,243,210,${al * (anim - 0.5) * 2})`; ctx.lineWidth = w;
-        ctx.beginPath(); ctx.arc(px, py, rr, f > 0 ? a0 : a1, f > 0 ? a1 - 0.12 : a0, false); ctx.stroke();
+        const lo = f > 0 ? a0 : a1, hi = f > 0 ? a1 - 0.12 : a0;
+        pxArc(ctx, px, py, rr, rr, `rgba(255,243,210,${al * (anim - 0.5) * 2})`, { a0: Math.min(lo, hi), a1: Math.max(lo, hi), th: w > 1.5 ? 3 : 2 });
       }
     }
     if (H) stampPix(ctx, pixSprite(catHall.armKey(fo, deg, flip), () => catHall.arm(fo, deg, flip)), px, py, f);

@@ -20,6 +20,7 @@
 
 import { rgba, ball, glow } from "../buildkit.js";
 import { getStats } from "../../engine/towers.js";
+import { pxArc, pxRing } from "./pixrings.js";
 import * as priestFig from "../pix/fig-priest.js";
 import { crew, drawCrewPix, loopFrame, markOf } from "../pix/crews.js";
 import * as supportHall from "../pix/hall-support.js";
@@ -59,10 +60,7 @@ export const drawSupportTower = (ctx, t, time) => {
   const live = t._auraLive || 0;
   if (live > 0) {
     const pr = (time * 34 + t.id * 40) % st.range;
-    ctx.strokeStyle = rgba(auraCol, (0.22 + Math.min(0.4, live * 0.07)) * (1 - pr / st.range));
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(x, y, pr, 0, 7); ctx.stroke();
-    ctx.lineWidth = 1;
+    pxArc(ctx, x, y, pr, pr * 0.7, rgba(auraCol, Math.min(0.8, (0.3 + Math.min(0.45, live * 0.08)) * (1.1 - pr / st.range))), { th: 3 });
   }
   // The building (pix/hall-support.js): its
   // BACK picture is the ground, the steps and everything tall behind the warden, its FRONT the

@@ -15,6 +15,7 @@
 // sparks and chains are painted live.
 
 import { canBake } from "../buildkit.js";
+import { pxArc, pxRing } from "./pixrings.js";
 import { readiness, glint, rgba, glow } from "./kitB.js";
 import * as engineerFig from "../pix/fig-engineer.js";
 import { crew, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
@@ -116,7 +117,7 @@ export const drawBladewheel = (ctx, t, time) => {
     for (let i = 0; i < n; i++) { const a = ph + i * step; pots.push([x + Math.cos(a) * (rr + 0.5), wy + Math.sin(a) * (rr + 0.5) * SQ - 0.8, i]); }
     pots.sort((a, b) => a[1] - b[1]);
     for (const [px, py, i] of pots) flame(ctx, px, py, 0.9 * swell, time, i + t.id, col, core);
-    if (anim > 0.4) { ctx.strokeStyle = `rgba(255,200,110,${anim * 0.8})`; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x, wy, rr + 4 + (1 - anim) * 14, (rr + 4 + (1 - anim) * 14) * SQ, 0, 0, Math.PI * 2); ctx.stroke(); }
+    if (anim > 0.4) pxArc(ctx, x, wy, rr + 4 + (1 - anim) * 14, (rr + 4 + (1 - anim) * 14) * SQ, `rgba(255,200,110,${anim * 0.8})`, { th: 2 });
   }
   if (r4 === "ba") {
     const sy = wy - 18 + Math.sin(time * 2 + t.id) * 0.6;

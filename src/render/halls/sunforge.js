@@ -19,6 +19,7 @@
 import { canBake } from "../buildkit.js";
 import { rgba, ball, glow } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
+import { pxArc, pxRing } from "./pixrings.js";
 import * as sunforgeHall from "../pix/hall-sunforge.js";
 import { hallPix, drawHallBack, stampPix, pixSprite } from "../pix/halls.js";
 
@@ -56,8 +57,7 @@ export const drawSunforge = (ctx, t, time) => {
     }
   };
   const ring = (front) => {
-    ctx.strokeStyle = front ? "rgba(42,26,58,0.85)" : "rgba(42,26,58,0.5)"; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.ellipse(x, sy, 14, 4.8, -0.14, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2); ctx.stroke();
+    pxArc(ctx, x, sy, 14, 4.8, front ? "rgba(42,26,58,0.85)" : "rgba(42,26,58,0.5)", { rot: -0.14, a0: front ? 0 : Math.PI, a1: front ? Math.PI : Math.PI * 2, th: 2 });
   };
   if (r4 === "ba") { glow(ctx, x, sy, 14, "#2a1a3a", 0.5); ring(false); orbit(false); }
   if (H) {
@@ -110,8 +110,7 @@ export const drawSunforge = (ctx, t, time) => {
   // the held beam pulses a ring of light out of the shard
   if (live) {
     const k = (time * 1.6 + t.id * 0.3) % 1;
-    ctx.strokeStyle = `rgba(${s.moon ? "200,224,255" : "255,236,170"},${0.7 * (1 - k)})`; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x, sy, 5 + k * 12, (5 + k * 12) * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    pxArc(ctx, x, sy, 5 + k * 12, (5 + k * 12) * 0.55, `rgba(${s.moon ? "200,224,255" : "255,236,170"},${0.7 * (1 - k)})`, { th: 2 });
   }
   // idle: a mote climbs off it
   if (t._idle) { const cyc = ((time / 4) + t.id * 0.29) % 1; if (cyc < 0.6) glow(ctx, x + Math.sin(time * 1.3 + t.id) * 3, sy - 8 - cyc * 18, 1.5, col, 0.8 * (1 - cyc / 0.6)); }

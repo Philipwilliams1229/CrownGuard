@@ -15,6 +15,7 @@
 // smoke and the watchman's habits are live.
 
 import { canBake } from "../buildkit.js";
+import { pxArc, pxRing } from "./pixrings.js";
 import { glint, rgba, soft, shadow } from "./kitB.js";
 import { clipToWater } from "../waterreach.js";
 import * as standerFig from "../pix/fig-stander.js";
@@ -53,9 +54,9 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   // board (no hall moors within 18 of its edge): no clip.
   ctx.save();
   if (clipToWater(ctx, x - hw - 12, y + 3, x + hw + 12, y + 13, x < 18 || y < 22)) {
-    ctx.strokeStyle = "rgba(226,240,246,0.45)"; ctx.lineWidth = 0.8;
-    for (const dx of [-hw + 2, 0, hw - 2]) { const r = 3 + ((((time * 6 + dx) % 5) + 5) % 5); ctx.beginPath(); ctx.ellipse(x + dx, y + 7.5, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
-    if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x + CAPSTAN, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
+    const RIP = "rgba(226,240,246,0.45)";
+    for (const dx of [-hw + 2, 0, hw - 2]) { const r = 3 + ((((time * 6 + dx) % 5) + 5) % 5); pxArc(ctx, x + dx, y + 7.5, r, r * 0.35, RIP); }
+    if (r4 === "bb") { const r = 2 + ((time * 4) % 4); pxArc(ctx, x + CAPSTAN, y + 10, r, r * 0.35, RIP); }
   }
   ctx.restore();
   // the new jetty (pix/hall-riverwatch.js): the building, its pennant, beacon flame and cauldron
