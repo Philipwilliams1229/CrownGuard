@@ -18,28 +18,43 @@ const COAT = mat("#ece6d2", { contrast: 1.5 }), WOOD = mat("#6a4a2e"), BLUE = ma
 const GEM = flat("#c8383a", { emis: true, line: "#7a1c24" }), SLIT = flat("#2a2430");
 const GLOW = flat("#fff0b8", { emis: true, line: "#e8c860" }), GLOW2 = flat("#ffe08a", { emis: true, line: "#d8b34a" });
 
-// the great helm and its crown: M ivory, W its glint, m a tone down, G gilt, R the gem, K the slit, c mail
+// the great helm and its crown (redrawn 13x12 for the scale pass, from 16x13): M ivory, W its glint, m a tone down, G gilt, R the gem, K the slit, c mail
 const HEAD = [
-  "...G..G.GG..G...",
-  "...GGGGGRGGGGG..",
-  "..MMMMMMMMMMMM..",
-  ".MMWWMMMMMMMMMG.",
-  ".MWWWMMMMMMMMMG.",
-  ".MWMMMMMMMMMMMG.",
-  ".mmmmmmmmmmmmmm.",
-  ".GGGGGGGGGGGGGGG",
-  ".MMKKKKKKKKKKGM.",
-  ".MMMMMMMMMMMMGM.",
-  ".MMMMMMMMMMMMGM.",
-  "..mMMMMMMMMMmG..",
-  "..cccccccccc....",
+  "..G..G.GG.G..",
+  "..GGGGRGGGG..",
+  ".MMMMMMMMMMM.",
+  ".MWWMMMMMMMMG",
+  ".MWMMMMMMMMMG",
+  ".mmmmmmmmmmmG",
+  ".GGGGGGGGGGGG",
+  ".MKKKKKKKKKGM",
+  ".MMMMMMMMMGM.",
+  ".MMMMMMMMMGM.",
+  "..mMMMMMMmG..",
+  "..cccccccc...",
 ];
 const LEG = { M: { m: IVORY }, W: { m: IVORY, bias: 1 }, m: { m: IVORY, bias: -1 }, G: { m: GOLD, fix: 3 }, R: { m: GEM }, K: { m: SLIT }, c: { m: IVMAIL } };
 
 // the near arm may pass in front of the helm, never behind it
 export const MUST = [["nearArm", "notOver", "eyes"], ["shield", "visible", 0.4]];
 const K = 1.6;                                  // the champion's build over a garrison knight's
-export const BOX = { w: 140, h: 112, ox: 54, oy: 98 };
+// The scale pass (2026-11-17): 69 -> 56 art px, to stand level with the other heroes. The skeleton and all the
+// hand-placed numbers stay in the old unit space (the joint maths, the poses and the hammer's GRIP are untouched);
+// `scl` wraps the sculptor and multiplies every coordinate and radius by KS as it is drawn, so the shapes rasterise
+// crisp at the new size. The stamped helm is redrawn smaller by hand; the returned points are scaled.
+const KS = 0.8116;
+export const BOX = { w: 96, h: 92, ox: 46, oy: 80 };
+const SC = {
+  capsule: (a) => { for (const i of [0, 1, 2, 3, 4, 5]) a[i] *= KS; },
+  ellipse: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= KS; },
+  line: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= KS; },
+  toneLine: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= KS; },
+  rect: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= KS; },
+  dot: (a) => { a[0] *= KS; a[1] *= KS; },
+  poly: (a) => { a[0] = a[0].map((q) => [q[0] * KS, q[1] * KS]); },
+  limb: (a) => { a[0] = a[0].map((q) => [q[0] * KS, q[1] * KS]); a[1] = a[1].map((r) => r * KS); },
+};
+const scl = (px) => new Proxy(px, { get(t, k) { const f = t[k]; if (typeof f !== "function") return f; const sc = SC[k]; return sc ? (...a) => { sc(a); return f.apply(t, a); } : f.bind(t); } });
 export const BONES = scaled(HUMAN, K, { shN: -4.8, shF: 4.8, hipN: -2.2, hipF: 2.5, neck: 2.1 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -62,7 +77,8 @@ const leg = (px, h, kn, an, z, b) => {
   px.body(0);
 };
 
-export const draw = (px, { sk, lag1, lag2 }) => {
+export const draw = (px0, { sk, lag1, lag2 }) => {
+  const px = scl(px0);
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.8, 2.8), vx2 = cl(lag1.C[0] - lag2.C[0], -2.8, 2.8), sway = p.sway || 0;
   const q = (b, x, y) => [b[0] + x * K, b[1] + y * K];
@@ -106,7 +122,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
   px.part();
   const Z = KZ({});
-  stampFace(px, HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 8, ay: 13, ball: [8.5, 7.5, 8.8, 8.6], cast: 2 }, "K", "K");
+  stampFace(px0, HEAD, Math.round(N[0] * KS), Math.round(N[1] * KS), LEG, Z.head, Z.head, { ax: 6, ay: 12, ball: [6.5, 6, 7, 6.8], cast: 2 }, "K", "K");
 
   // the war hammer: a long haft, a gilt block and a back-spike; sw its angle from upright (+ toward the foe)
   const a = maceAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
@@ -134,11 +150,12 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.line(sN[0] - 4.2, sN[1] + 3.1, sN[0] + 3.6, sN[1] + 3.1, GOLD, 8.12);
   px.body(1); px.ellipse(hdN[0], hdN[1], 2.6, 3.2, IVMAIL, az + 0.2, { weld: 1.5, rot: -a }); px.body(0); px.tag(null);
 
-  return { hand: hdN, sw: a, mace: B(20) };
+  return { hand: [hdN[0] * KS, hdN[1] * KS], sw: a, mace: B(20).map((v) => v * KS) };
 };
 
 // the blow's light: the gilt head throws a holy streak behind it on the fast frames
-export const fx = (px, F, info, clip) => {
+export const fx = (px0, F, info, clip) => {
+  const px = scl(px0);
   if (clip !== "attack") return;
   const a1 = maceAngle(F.sk), a0 = maceAngle(F.lag1);
   if (!(a1 - a0 > 0.5)) return;

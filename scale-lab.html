@@ -1,0 +1,64 @@
+<!doctype html>
+<!--
+  Dev tool: figures side by side at their true board size (idle frame 0), each
+  standing on one ground line, for size checks. /scale-lab.html?z=4
+  If src/render/pix/zzold-<name>.js copies exist (a before), a BEFORE row is drawn
+  above the AFTER row.
+-->
+<html><head><meta charset="utf-8" /><title>scale lab</title></head>
+<body style="background:#14171d;color:#e8e0c8;font:14px monospace;padding:12px">
+<canvas id="c"></canvas>
+<script type="module">
+import { Pix } from "/src/render/pix/pix.js";
+import { frameAt } from "/src/render/pix/rig.js";
+const Z = +(new URLSearchParams(location.search).get("z") || 3);
+const LINE = ["garrison", "knight", "archer", "friar", "captain", "storm", "champion", "ram"];
+const NAME = { garrison: "Garrison knight", knight: "Aldric", archer: "Wren", friar: "Osric", captain: "Hale", storm: "Ysolde", champion: "Champion", ram: "Siege ram" };
+const bake = (fig) => {
+  const clip = fig.CLIPS.idle || fig.CLIPS.walk, F = frameAt(clip, 0, fig.BONES);
+  const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
+  const info = fig.draw(px, F, {}) || {};
+  const img = px.resolve({ lights: (info.lights || (info.light ? [info.light] : [])).filter((l) => l && l.k > 0.02) });
+  let x0 = 1e9, x1 = -1, y0 = 1e9;
+  for (let j = 0; j < img.h; j++) for (let i = 0; i < img.w; i++) if (img.data[(j * img.w + i) * 4 + 3]) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); }
+  return { img, x0, x1, top: fig.BOX.oy - y0, oy: fig.BOX.oy };
+};
+const load = async (p) => { try { return await import(p); } catch { return null; } };
+const rows = [];
+const before = [], after = [];
+for (const n of LINE) {
+  const nw = await load(`/src/render/pix/fig-${n}.js`);
+  const od = await load(`/src/render/pix/zzold-${n}.js`);
+  after.push(nw && bake(nw));
+  before.push(od ? bake(od) : n === "garrison" && nw ? bake(nw) : null);
+}
+const hasBefore = before.some((b, i) => b && LINE[i] !== "garrison");
+if (hasBefore) rows.push(["BEFORE", before]);
+rows.push([hasBefore ? "AFTER" : "", after]);
+const GAP = 14, ROWH = 146, LBL = 20;
+const widths = LINE.map((_, i) => Math.max(...rows.map(([, r]) => (r[i] ? r[i].x1 - r[i].x0 + 1 : 0))));
+const W = widths.reduce((a, b) => a + b + GAP, GAP + 40);
+const cv = document.getElementById("c");
+cv.width = W * Z; cv.height = rows.length * (ROWH + LBL) * Z;
+const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+ctx.fillStyle = "#7fae58"; ctx.fillRect(0, 0, cv.width, cv.height);
+rows.forEach(([label, r], ri) => {
+  const base = ri * (ROWH + LBL) + LBL + ROWH - 12;
+  ctx.fillStyle = "#1c2016"; ctx.font = `${7 * Z}px monospace`; ctx.fillText(label, 3 * Z, (ri * (ROWH + LBL) + 10) * Z);
+  // reference lines: the garrison knight's height and the heroes' 56
+  for (const [h, c] of [[44, "#ffffff90"], [56, "#ffe08a"]]) { ctx.fillStyle = c; ctx.fillRect(40 * Z, (base - h) * Z, (W - 40) * Z, Math.max(1, Z / 2)); ctx.fillText(String(h), 26 * Z, (base - h + 2) * Z); }
+  let x = 40 + GAP;
+  LINE.forEach((n, i) => {
+    const f = r[i];
+    if (f) {
+      const tmp = document.createElement("canvas"); tmp.width = f.img.w; tmp.height = f.img.h;
+      const id = new ImageData(new Uint8ClampedArray(f.img.data), f.img.w, f.img.h); tmp.getContext("2d").putImageData(id, 0, 0);
+      ctx.drawImage(tmp, f.x0, 0, f.x1 - f.x0 + 1, f.img.h, x * Z, (base - f.oy) * Z, (f.x1 - f.x0 + 1) * Z, f.img.h * Z);
+      ctx.fillStyle = "#1c2016"; ctx.font = `${5 * Z}px monospace`; ctx.fillText(NAME[n], x * Z, (base + 7) * Z); ctx.fillText(`${f.top} px`, x * Z, (base + 13) * Z); ctx.font = `${7 * Z}px monospace`;
+    }
+    x += widths[i] + GAP;
+  });
+});
+await fetch("/__shot?name=scale_lineup", { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+document.title = "scale lab DONE";
+</script></body></html>

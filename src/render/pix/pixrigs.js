@@ -164,7 +164,7 @@ export const PIX = {
   unseated: { fig: mk("unhorsed", unhorsed), variant: "gryphon", atk: "attack", hit: 0.5, per: 3.6, legacy: [0, 3, 6, 9], fx: true },
   gryphon: { fig: mk("gryphon", gryphon), atk: "attack", hit: 0.5, legacy: [0, 2, 8, 11], fx: true },
   gryphonMount: { fig: mk("gryphon", gryphon), variant: "loose", atk: "attack", hit: 0.5, legacy: [0, 2, 8, 11], fx: true },
-  ram: { fig: mk("ram", ram), atk: "attack", hit: 0.5, per: 1.74, legacy: [0, 1, 6, 8], fx: true },
+  ram: { fig: mk("ram", ram), atk: "attack", hit: 0.5, per: 3.5, legacy: [0, 1, 6, 8], fx: true },
   // ---- the Hollow Court (owner's pick, 2026-11-14: Risen A, wraith B) ----
   skeleton: { fig: mk("risen", risen), atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 5, 7], fx: false },
   wraith: { fig: mk("wraith", wraith), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },

@@ -16,16 +16,19 @@ const HOLY = flat("#fff6c8", { emis: true, line: "#e8c860" }), HOLY2 = flat("#ff
 // the head, bare: a tonsure (skin crown, a ring of hair at the back and sides), the face at the front edge
 //   h hair, H hair darker, Q hair lit, S skin, s skin a tone down, b brow, E eye, N nose, m lips, B beard, g beard lit
 const HEAD = [
-  "....SSSS.....",
-  "..hQSSSSSs...",
-  ".hhhSSSSSSs..",
-  ".hhhsSSSSSSs.",
-  "hhhHhbbSbbs..",
-  "hhhHSSSESSSE.",
-  "hhHSSSSESSSEN",
-  ".hhSSSSSSSSS.",
-  "....sSSSSmm..",
-  "......SSSS...",
+  ".....SSSSSS......",
+  "...hhQSSSSSSs....",
+  "..hhhhSSSSSSSs...",
+  ".hhhhhsSSSSSSSSs.",
+  ".hhhhHSSSSSSSSSs.",
+  "hhhhHhSbbbSbbbSs.",
+  "hhhhHSSSESSSESSS.",
+  "hhhHSSSSESSSESSSN",
+  ".hhHSSSSSSSSSSSS.",
+  "..hhSSSSSSSSSSs..",
+  "....sSSSSSSSmmm..",
+  "......SSSSSSS....",
+  "........SSSS.....",
 ];
 const BLINK = HEAD.map((r, i) => (i === 5 ? r.replace(/E/g, "S") : i === 6 ? r.replace(/E/g, "e") : r));
 const LEG = {
@@ -33,10 +36,12 @@ const LEG = {
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, b: { m: HAIR, fix: 2 }, m: { m: LIP },
 };
 
+// SCALE PASS (2026-11-17): a hero stands 56 art px (was 40). K scales the skeleton, S the widths and the gear
+const K = 1.4, S = 1.36;
 // the near arm may pass in front of the head, but never over the eyes
 export const MUST = [["nearArm", "notOver", "eyes"]];
-export const BOX = { w: 92, h: 78, ox: 38, oy: 66 };
-export const BONES = scaled(HUMAN, 1, { shN: -3, shF: 3, hipN: -1.4, hipF: 1.6, neck: 1.5 });
+export const BOX = { w: 120, h: 104, ox: 50, oy: 90 };
+export const BONES = scaled(HUMAN, K, { shN: -3 * S, shF: 3 * S, hipN: -1.4 * S, hipF: 1.6 * S, neck: 1.5 * K });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // THE GRIP. The mace is held in a closed fist: its angle is DERIVED from the solved forearm, never posed on its
@@ -53,65 +58,66 @@ const FZ = layers(["head", "mace", "arm"], [], { z0: 5, step: 0.45 });
 
 export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
-  const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), sway = p.sway || 0;
+  const vx = cl(C[0] - lag1.C[0], -2.5, 2.5) * S, sway = (p.sway || 0) * S;
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
 
   // the far arm: a wide sleeve, the hand bare
   px.part(); px.tag("farArm");
-  px.capsule(sF[0], sF[1], 2.6, eF[0], eF[1], 2.5, HABIT, 1, { bias: -1 });
-  px.capsule(eF[0], eF[1], 2.5, hdF[0], hdF[1], 2.1, HABIT, 1, { bias: -1 });
-  px.part(); px.ellipse(hdF[0], hdF[1], 1.5, 1.5, SKIN, 1.2, { bias: -1 }); px.tag(null);
+  px.capsule(sF[0], sF[1], 2.6 * S, eF[0], eF[1], 2.5 * S, HABIT, 1, { bias: -1 });
+  px.capsule(eF[0], eF[1], 2.5 * S, hdF[0], hdF[1], 2.1 * S, HABIT, 1, { bias: -1 });
+  px.part(); px.ellipse(hdF[0], hdF[1], 1.5 * S, 1.5 * S, SKIN, 1.2, { bias: -1 }); px.tag(null);
 
   // the feet: bare toes in sandals under the hem (a raised foot slips behind the robe)
   px.part();
-  px.ellipse(anF[0] + 1.4, anF[1] + 0.4, 2.7, 1.3, SKIN, 3, { bias: -1 });
-  px.ellipse(anN[0] + 1.4, anN[1] + 0.4, 2.7, 1.3, SKIN, 3.1);
+  px.ellipse(anF[0] + 1.4 * S, anF[1] + 0.4, 2.7 * S, 1.3 * S, SKIN, 3, { bias: -1 });
+  px.ellipse(anN[0] + 1.4 * S, anN[1] + 0.4, 2.7 * S, 1.3 * S, SKIN, 3.1);
 
   // the habit: one robe from the shoulders to the ground, its hem cut from where the feet stand
-  const fc = (anN[0] + anF[0]) / 2, hemY = -1.3 - Math.min(1, Math.abs(anN[1] - anF[1]) * 0.25), hemF = fc + 7.8 - vx * 0.6, hemB = fc - 7.4 - vx * 1.5;
+  const fc = (anN[0] + anF[0]) / 2, hemY = -1.3 - Math.min(1, Math.abs(anN[1] - anF[1]) * 0.25), hemF = fc + 7.8 * S - vx * 0.6, hemB = fc - 7.4 * S - vx * 1.5;
   px.part(); const rb = px._pid;
-  px.poly([[C[0] - 4.9, C[1] - 1.8], [C[0] + 5, C[1] - 1.8], [C[0] + 6, C[1] + 3.5], [P[0] + 5.6, P[1] - 1], [hemF, hemY], [hemF - 2.6, hemY + 0.6], [fc + 0.4 - vx, hemY], [hemB + 3, hemY + 0.6], [hemB, hemY], [P[0] - 5.6, P[1] - 1], [C[0] - 6, C[1] + 3.5]], HABIT, 4, { round: 0.9, ny: -0.12, cast: 2 });
+  px.poly([[C[0] - 4.9 * S, C[1] - 1.8], [C[0] + 5 * S, C[1] - 1.8], [C[0] + 6 * S, C[1] + 3.5 * S], [P[0] + 5.6 * S, P[1] - 1], [hemF, hemY], [hemF - 2.6 * S, hemY + 0.6], [fc + 0.4 - vx, hemY], [hemB + 3 * S, hemY + 0.6], [hemB, hemY], [P[0] - 5.6 * S, P[1] - 1], [C[0] - 6 * S, C[1] + 3.5 * S]], HABIT, 4, { round: 0.9, ny: -0.12, cast: 2 });
   px.toneLine(P[0] + 1, P[1] + 1, fc + 1 - vx, hemY - 0.8, -1, rb);
-  px.toneLine(P[0] - 2.6, P[1] + 3, hemB + 3.4, hemY - 1, -1, rb);
-  px.line(C[0] - 2.8, C[1] - 1.3, C[0] + 3, C[1] - 1.3, CREAM, 4.3);
+  px.toneLine(P[0] - 2.6 * S, P[1] + 3, hemB + 3.4 * S, hemY - 1, -1, rb);
+  px.line(C[0] - 2.8 * S, C[1] - 1.3, C[0] + 3 * S, C[1] - 1.3, CREAM, 4.3);
   // the rope belt, its knotted end hanging
   px.part();
-  px.line(P[0] - 5.2, P[1] - 2.2, P[0] + 5.2, P[1] - 2.2, ROPE, 4.3);
-  px.line(P[0] + 2.6, P[1] - 2, P[0] + 3 - vx * 0.8 + sway * 0.4, P[1] + 5.4, ROPE, 4.32);
-  px.dot(P[0] + 3 - vx * 0.8 + sway * 0.4, P[1] + 6.2, ROPE, 4.34, { fix: 3 });
+  px.line(P[0] - 5.2 * S, P[1] - 2.2, P[0] + 5.2 * S, P[1] - 2.2, ROPE, 4.3);
+  px.line(P[0] + 2.6 * S, P[1] - 2, P[0] + 3 * S - vx * 0.8 + sway * 0.4, P[1] + 5.4 * S, ROPE, 4.32);
+  px.dot(P[0] + 3 * S - vx * 0.8 + sway * 0.4, P[1] + 6.2 * S, ROPE, 4.34, { fix: 3 });
 
   // the head
   px.part();
   const Z = FZ({});
-  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 7, ay: 10, ball: [6.5, 5, 6.5, 6], cast: 2, edge: true }, "SsNEem");
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 9, ay: 13, ball: [8.5, 6, 8.5, 7.3], cast: 2, edge: true }, "SsNEem");
 
   // the mace through the near fist; mc is its angle from upright (+ toward the foe)
   const a = maceAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
-  const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
+  const B = (t, s = 0) => [hdN[0] + d[0] * t * S + nrm[0] * s * S, hdN[1] + d[1] * t * S + nrm[1] * s * S];
   const hz = Z.mace;
   const hd = B(13);
   px.part(); px.tag("mace");
-  px.capsule(...B(-3), 1.15, ...B(11), 1, WOOD, hz, { edge: true });
-  px.capsule(...B(-0.5), 1.25, ...B(3.4), 1.25, ROPE, hz + 0.02);
+  px.capsule(...B(-3), 1.15 * S, ...B(11), 1 * S, WOOD, hz, { edge: true });
+  px.capsule(...B(-0.5), 1.25 * S, ...B(3.4), 1.25 * S, ROPE, hz + 0.02);
   px.part();
-  px.ellipse(...B(-3.6), 1.3, 1.3, GOLD, hz + 0.05);
+  px.ellipse(...B(-3.6), 1.3 * S, 1.3 * S, GOLD, hz + 0.05);
   // the head: a gold ball with a short iron collar and two small flanges
-  px.ellipse(hd[0], hd[1], 2.4, 2.6, GOLD, hz + 0.1, { vb: 0.2 });
-  px.capsule(...B(11.2), 1.5, ...B(11.8), 1.5, IRON, hz + 0.11);
-  for (const s of [-1, 1]) px.capsule(hd[0] + nrm[0] * 1.8 * s, hd[1] + nrm[1] * 1.8 * s, 0.9, hd[0] + nrm[0] * 3 * s, hd[1] + nrm[1] * 3 * s, 0.6, GOLD, hz + 0.12, { edge: true });
-  px.capsule(...B(15), 0.8, ...B(16.6), 0.3, IRON, hz + 0.12, { edge: true });
+  px.ellipse(hd[0], hd[1], 2.4 * S, 2.6 * S, GOLD, hz + 0.1, { vb: 0.2 });
+  px.capsule(...B(11.2), 1.5 * S, ...B(11.8), 1.5 * S, IRON, hz + 0.11);
+  for (const s of [-1, 1]) px.capsule(hd[0] + nrm[0] * 1.8 * S * s, hd[1] + nrm[1] * 1.8 * S * s, 0.9 * S, hd[0] + nrm[0] * 3 * S * s, hd[1] + nrm[1] * 3 * S * s, 0.6 * S, GOLD, hz + 0.12, { edge: true });
+  px.capsule(...B(15), 0.8 * S, ...B(16.6), 0.3 * S, IRON, hz + 0.12, { edge: true });
   px.tag(null);
 
   // the near arm over it all: a wide sleeve (raised, it passes BEHIND the head so the face stays open)
   const az = Z.arm;
   px.part(); px.tag("nearArm");
-  px.capsule(sN[0], sN[1] + 0.5, 2.7, eN[0], eN[1], 2.6, HABIT, az, { cast: 2 });
-  px.capsule(eN[0], eN[1], 2.6, hdN[0], hdN[1], 2.1, HABIT, az, { cast: 2 });
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.5, 2.1, SKIN, az + 0.2, { rot: -a });   // the fist wraps the haft: long axis along it px.tag(null);
+  px.capsule(sN[0], sN[1] + 0.5, 2.7 * S, eN[0], eN[1], 2.6 * S, HABIT, az, { cast: 2 });
+  px.capsule(eN[0], eN[1], 2.6 * S, hdN[0], hdN[1], 2.1 * S, HABIT, az, { cast: 2 });
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.5 * S, 2.1 * S, SKIN, az + 0.2, { rot: -a });   // the fist wraps the haft: long axis along it
+  px.tag(null);
 
   // holy light: a flash on the smash
   const k = p.flash || 0, lights = [];
-  if (k > 0.05) lights.push({ x: hd[0], y: hd[1], r: 16 + 26 * k, col: "#ffe8a0", k: 0.85 * k });
+  if (k > 0.05) lights.push({ x: hd[0], y: hd[1], r: (16 + 26 * k) * S, col: "#ffe8a0", k: 0.85 * k });
   return { head: hd, flash: k, lights };
 };
 
@@ -120,13 +126,16 @@ export const fx = (px, F, info) => {
   if (!info || !(info.flash > 0.15)) return;
   const k = info.flash, [x, y] = info.head, n = 8;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + 0.3, r0 = 3.8 + 2 * k, r1 = r0 + (i % 2 ? 4 : 7) * k;
+    const a = (i / n) * Math.PI * 2 + 0.3, r0 = (3.8 + 2 * k) * S, r1 = r0 + (i % 2 ? 4 : 7) * k * S;
     px.line(x + Math.cos(a) * r0, y + Math.sin(a) * r0 * 0.8, x + Math.cos(a) * r1, y + Math.sin(a) * r1 * 0.8, i % 2 ? HOLY2 : HOLY, 20, { noLine: true });
   }
 };
 
 const GUARD = { nb: 0, aN: [1.1, 0.95, 0], aF: [0.62, 0.9, 0], wrist: 0.35, fN: [-2, 0], fF: [2.4, 0], flash: 0 };
-export const CLIPS = {
+// poses were drawn for the 40 px Osric: lengths in them (drops, shifts, foot reach) grow with the skeleton
+const SK = ["rx", "drop", "rise", "hx", "hy"];
+const grow = (p) => { const o = { ...p }; for (const k of SK) if (typeof o[k] === "number") o[k] *= K; if (o.fN) o.fN = o.fN.map((v) => v * K); if (o.fF) o.fF = o.fF.map((v) => v * K); return o; };
+const RAW = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.1,
     pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, aF: [0.05, 0.95, 0], rise: 0.5 + 0.5 * b, wrist: 0.35 + 0.03 * b2, sway: b2 * 0.9, blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }; },
@@ -134,7 +143,7 @@ export const CLIPS = {
   // the march: short steps under the robe, the mace carried upright before his face
   walk: {
     n: 8, ms: 800, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 4.6, lift: 2.2, swing: 0.3, bob: 1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [1.1 + 0.05 * a, 0.9, 0], wrist: 0.3 + 0.05 * a, aF: [0.12 - 0.35 * a, 0.94, 0], sway: a * 1.2, flash: 0 }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 4.6 * K, lift: 2.2 * K, swing: 0.3, bob: 1 * K }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [1.1 + 0.05 * a, 0.9, 0], wrist: 0.3 + 0.05 * a, aF: [0.12 - 0.35 * a, 0.94, 0], sway: a * 1.2, flash: 0 }; },
   },
   attack: {
     n: 12, ms: 860, loop: false, lag: 0.07,
@@ -153,3 +162,5 @@ export const CLIPS = {
     ], ph),
   },
 };
+export const CLIPS = {};
+for (const k in RAW) CLIPS[k] = { ...RAW[k], pose: (ph) => grow(RAW[k].pose(ph)) };

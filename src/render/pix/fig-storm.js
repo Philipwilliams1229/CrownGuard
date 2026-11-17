@@ -15,16 +15,18 @@ const CRYS = flat("#bfe6ff", { emis: true, line: "#6aa8d8" }), CRYS_C = flat("#f
 
 // the head: R hair, r a darker strand, Q lit, S skin, s a tone down, E eye, N nose, m lips
 const HEAD = [
-  "....QQQRR....",
-  "..QQQQRRRRR..",
-  ".QQRRRRRRRRR.",
-  ".QRRRRRRrRRR.",
-  "RRRRRrRRRRss.",
-  "RRRRrRSSESSE.",
-  "RRRrrSSSESSEN",
-  ".RrrSSSSSSSS.",
-  "....sSSSSmm..",
-  "......SSSS...",
+  "....QQQQRRR.....",
+  "..QQQQQRRRRRR...",
+  ".QQQRRRRRRRRRR..",
+  ".QQRRRRRRrRRRR..",
+  "RRRRRrRRRRRRss..",
+  "RRRRRrRSSESSSE..",
+  "RRRRrrRSSESSSEN.",
+  ".RRrrSSSSSSSSS..",
+  "..RRrsSSSSSSmm..",
+  ".....sSSSSSSs...",
+  ".......SSSS.....",
+  "........SSS.....",
 ];
 const BLINK = HEAD.map((r, i) => (i === 5 ? r.replace(/E/g, "S") : i === 6 ? r.replace(/E/g, "e") : r));
 const LEG = {
@@ -34,7 +36,21 @@ const LEG = {
 
 // the near arm may pass in front of the head, but never over the eyes
 export const MUST = [["nearArm", "notOver", "eyes"]];
-export const BOX = { w: 96, h: 84, ox: 36, oy: 72 };
+// The scale pass (2026-11-17): 46 -> 56 art px. The skeleton and every hand-placed number below stay in the
+// old unit space (so the joint maths, the pose keys and the staff GRIP are untouched); `scl` wraps the sculptor and
+// multiplies every coordinate and radius by K as it is drawn, so the shapes rasterise crisp at the new size. Only
+// the stamped head (HEAD, redrawn 16x12) and the marks in the return value are placed in final pixels.
+const K = 1.22;
+export const BOX = { w: 120, h: 104, ox: 44, oy: 88 };
+const SC = {
+  capsule: (a) => { for (const i of [0, 1, 2, 3, 4, 5]) a[i] *= K; },
+  ellipse: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= K; },
+  line: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= K; },
+  toneLine: (a) => { for (const i of [0, 1, 2, 3]) a[i] *= K; },
+  dot: (a) => { a[0] *= K; a[1] *= K; },
+  poly: (a) => { a[0] = a[0].map((q) => [q[0] * K, q[1] * K]); },
+};
+const scl = (px) => new Proxy(px, { get(t, k) { const f = t[k]; if (typeof f !== "function") return f; const sc = SC[k]; return sc ? (...a) => { sc(a); return f.apply(t, a); } : f.bind(t); } });
 export const BONES = scaled(HUMAN, 1, { thigh: 8.6, shin: 8.1, shN: -2.5, shF: 2.5, hipN: -1.2, hipF: 1.3 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -52,7 +68,8 @@ const YZ = layers(["head", "staff", "arm"], [
 ], { z0: 5, step: 0.45 });
 const hash = (n) => { const s = Math.sin(n * 91.7 + 13.1) * 43758.5453; return s - Math.floor(s); };
 
-export const draw = (px, { sk, lag1, lag2 }) => {
+export const draw = (px0, { sk, lag1, lag2 }) => {
+  const px = scl(px0);
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
   const hx = Math.round(N[0]), hyy = Math.round(N[1]), g = p.glow || 0;
@@ -97,7 +114,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the head
   px.part();
-  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 7, ay: 10, cast: 2, edge: true }, "SsNEem");
+  stampFace(px0, p.blink ? BLINK : HEAD, Math.round(N[0] * K), Math.round(N[1] * K), LEG, Z.head, Z.head, { ax: 9, ay: 12, cast: 2, edge: true }, "SsNEem");
 
   // the staff: a plain shaft with silver collars, a claw of silver round the crystal
   const bz = Z.staff;
@@ -121,8 +138,9 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.line(eN[0] * 0.25 + hdN[0] * 0.75 - 1.5, eN[1] * 0.25 + hdN[1] * 0.75, eN[0] * 0.25 + hdN[0] * 0.75 + 1.5, eN[1] * 0.25 + hdN[1] * 0.75, SILVER, az + 0.02);
   px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, az + 0.2); px.tag(null);
 
-  const lights = [{ x: cx[0], y: cx[1], r: 16 + 26 * g, col: "#8ad8ff", k: cl(0.5 * g, 0, 0.7) }];
-  return { crystal: cx, crackle: p.crackle || 0, lights, marks: { tip: cx } };
+  const lights = [{ x: cx[0], y: cx[1], r: (16 + 26 * g) * K, col: "#8ad8ff", k: cl(0.5 * g, 0, 0.7) }];
+  const cxK = [cx[0] * K, cx[1] * K];
+  return { crystal: cxK, crackle: p.crackle || 0, lights, marks: { tip: cxK } };
 };
 
 // crackles about the crystal when she charges (the engine flies her bolts)

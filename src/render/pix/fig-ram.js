@@ -17,13 +17,31 @@ import { HUMAN, sampleKeys, ik } from "./rig.js";
 const OAK = mat("#6a4a2e"), OAKL = mat("#8a6238"), HIDE = mat("#7a2a2c", { contrast: 1.1 }), HIDE2 = mat("#561c20"), STEEL = mat("#8a90a0", { contrast: 1.3 });
 const IRON = mat("#6c7280", { contrast: 1.25 }), IRONK = mat("#3c4048", { contrast: 1.1 }), CAST = mat("#4a4e5a", { contrast: 1.3 }), BRASS = mat("#c8a040", { contrast: 1.2 });
 const GREY = mat("#8e94a2", { contrast: 1.2 }), ROPE = mat("#a88858"), HOSE = mat("#521a1e", { floor: 1 }), BOOT = mat("#3a2a20", { floor: 1 });
-const UNDER = flat("#2c2234"), EYEB = flat("#e8b84a", { emis: true }), DUST = flat("#cdb894", { line: "#a89674" }), DUST2 = flat("#b09c7c", { line: "#8a7a5c" });
+const UNDER0 = flat("#1c1624"), UNDER1 = flat("#241c2c"), UNDER2 = flat("#2e2438"), UNDER3 = flat("#3a2e40"), UNDER = UNDER0, EYEB = flat("#e8b84a", { emis: true }), DUST = flat("#cdb894", { line: "#a89674" }), DUST2 = flat("#b09c7c", { line: "#8a7a5c" });
 const SMEAR = flat("#fff3d2", { emis: true, line: "#c8ccd8" });
 
-export const BOX = { w: 120, h: 76, ox: 56, oy: 68 };
+// SCALE PASS (2026-11-17): the old ram stood ~100 x 66 board px; at 0.5 board px an art px this
+// figure (drawn 102 x 62 art px) came out half that. Every coordinate below is still the original
+// 1x geometry; `big(px)` doubles it on the way into the pixel kit (K), so the design is unchanged.
+const K = 2;
+export const BOX = { w: 252, h: 140, ox: 102, oy: 130 };
 export const BONES = HUMAN;                // unused: the machine poses itself
 
 const TAU = Math.PI * 2;
+const pt = (a) => a.map((q) => (Array.isArray(q) ? [q[0] * K, q[1] * K] : q));
+const big = (px) => ({
+  get _pid() { return px._pid; },
+  part() { px.part(); return this; },
+  capsule: (ax, ay, ra, bx, by, rb, m, z, o) => px.capsule(ax * K, ay * K, ra * K, bx * K, by * K, rb * K, m, z, o),
+  limb: (pts, r, m, z, o) => px.limb(pt(pts), Array.isArray(r) ? r.map((v) => v * K) : r * K, m, z, o),
+  ellipse: (cx, cy, rx, ry, m, z, o) => px.ellipse(cx * K, cy * K, rx * K, ry * K, m, z, o),
+  poly: (pts, m, z, o) => px.poly(pt(pts), m, z, o),
+  rect: (x, y, w, h, m, z, o) => px.rect(x * K, y * K, w * K, h * K, m, z, o),
+  line: (ax, ay, bx, by, m, z, o) => px.line(ax * K, ay * K, bx * K, by * K, m, z, o),
+  dot: (x, y, m, z, o) => px.dot(x * K, y * K, m, z, o),
+  toneLine: (ax, ay, bx, by, d, pid) => px.toneLine(ax * K, ay * K, bx * K, by * K, d, pid),
+  raw: px,
+});
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ---- the geometry, art px from the ground under the shed's middle ----
@@ -43,7 +61,8 @@ const wheel = (px, x, y, roll, z, dim) => {
   }
   px.ellipse(x, y, 1.9, 1.9, IRON, z + 0.04, { bias: dim ? -1 : 0, cast: 0 });
   px.dot(x - 0.4, y - 0.4, dim ? IRON : BRASS, z + 0.05, { fix: dim ? 2 : 3 });
-  for (let i = 0; i < 8; i++) { const a = roll * 0.9 + 0.2 + (i * TAU) / 8; px.dot(x + Math.cos(a) * (WR - 0.7), y + Math.sin(a) * (WR - 0.7), IRON, z + 0.03, { fix: dim ? 2 : 4, noLine: true }); }
+  for (let i = 0; i < 6; i++) { const a = roll + TAU / 12 + (i * TAU) / 6; px.dot(x + Math.cos(a) * 1.5, y + Math.sin(a) * 1.5, IRONK, z + 0.06, { fix: 0, noLine: true }); }   // hub bolts
+  for (let i = 0; i < 14; i++) { const a = roll * 0.9 + 0.2 + (i * TAU) / 14; px.dot(x + Math.cos(a) * (WR - 0.7), y + Math.sin(a) * (WR - 0.7), IRON, z + 0.03, { fix: dim ? 2 : 4, noLine: true }); }
 };
 
 // one of the crew's two legs, bent to the push: the hip under the wall, the foot on the ground
@@ -55,14 +74,26 @@ const crewLeg = (px, hx, foot, z, bias) => {
   px.capsule(lg.end[0] - 0.4, lg.end[1] + 0.4, 2, lg.end[0] + 3.4, foot[1] - 0.8, 1.5, BOOT, z + 0.03, { bias, floor: 1 });
 };
 
-export const draw = (px, F, o = {}) => {
+export const draw = (px0, F, o = {}) => {
+  const px = big(px0);
   const { sk, lag1, lag2 } = F, p = sk.p, p1 = lag1.p, p2 = lag2.p;
   const bob = p.bob ?? 0, sw = p.sw ?? 0, roll = p.roll ?? 0, by = Math.round(bob * 2) / 2;
   const tail = cl((p1.sw ?? 0) * 0.5 + (p2.sw ?? 0) * 0.5, -9, 9);       // what hangs on the shed lags it a beat
 
   // the dark under the shed
   px.part();
-  px.poly([[BX1 + 2, EAVE + 1], [FX1 - 1, EAVE + 1], [FX1 - 1, -2.4], [BX1 + 2, -2.4]], UNDER, 0.4, { noLine: true });
+  const bands = [[EAVE + 1, -19, UNDER0], [-19, -13, UNDER1], [-13, -7.5, UNDER2], [-7.5, -2.4, UNDER3]];
+  for (const [y0, y1, m] of bands) px.poly([[BX1 + 2, y0], [FX1 - 1, y0], [FX1 - 1, y1], [BX1 + 2, y1]], m, 0.4, { noLine: true });
+  // dither the band seams one pixel at a time
+  for (const [y] of bands.slice(1)) for (let x = BX1 + 2; x < FX1 - 1; x += 0.5) if ((Math.floor(x * 2) & 1) === 0) px.raw.dot(x * K, y * K - 1, UNDER2, 0.41, { noLine: true });
+  // the chassis in the dark: two long sills, cross beams, the axles through the wheel hubs
+  px.part();
+  px.line(BX1 + 3, -15.2, FX1 - 2, -15.2, OAK, 0.6, { fix: 0, noLine: true });
+  px.line(BX1 + 3, -14.4, FX1 - 2, -14.4, IRONK, 0.6, { fix: 0, noLine: true });
+  for (const x of [-38, -30, -12, 10, 31]) { px.rect(x, -15, 1.6, 7, OAK, 0.62, { fix: 1, noLine: true }); px.line(x + 0.4, -15, x + 0.4, -8.4, OAKL, 0.64, { fix: 2, noLine: true }); }
+  for (const x of WX) { px.line(x - 1, WY, x + 3.4, WY, IRON, 0.7, { fix: 1, noLine: true }); px.line(x - 1, WY + 0.5, x + 3.4, WY + 0.5, IRONK, 0.71, { fix: 0, noLine: true }); }
+  px.line(WX[0], WY, WX[2], WY, IRON, 0.7, { fix: 1, noLine: true });
+  px.line(WX[0], WY + 0.5, WX[2], WY + 0.5, IRONK, 0.71, { fix: 0, noLine: true });
 
   // the far wheels, a tone down, set a little ahead and up
   for (const x of WX) wheel(px, x + 2.4, WY - 1.2, roll, 1, true);
@@ -85,6 +116,8 @@ export const draw = (px, F, o = {}) => {
   px.part(); const wall = px._pid;
   px.poly([[BX1 + 3 + X, -26 + Y], [FX1 - 2 + X, -26 + Y], [FX1 - 2 + X, -15.6 + Y], [BX1 + 3 + X, -15.6 + Y]], OAK, 3.2, { round: 0.2, cast: 1 });
   for (let x = BX1 + 6; x < FX1 - 3; x += 9.2) px.toneLine(x + X, -26 + Y, x + X, -16.4 + Y, -1, wall);
+  for (let y = -24; y < -17; y += 2.1) for (let x = BX1 + 4; x < FX1 - 3; x += 9.2) px.toneLine(x + 1.2 + X, y + Y, x + 7.4 + X, y + 0.5 + Y, 1, wall);   // grain
+  for (let x = BX1 + 6; x < FX1 - 3; x += 9.2) for (const y of [-25, -21, -17.4]) { px.dot(x - 1 + X, y + Y, IRONK, 3.28, { fix: 0, noLine: true }); px.dot(x + 1 + X, y + Y, IRONK, 3.28, { fix: 0, noLine: true }); }
   px.line(BX1 + 3 + X, -16.4 + Y, FX1 - 2 + X, -16.4 + Y, IRONK, 3.25, { fix: 1, noLine: true });
   for (const x of [-26, 4]) { px.rect(x + X, -24.2 + Y, 2, 6, IRON, 3.3, { fix: 2 }); px.dot(x + 0.6 + X, -22 + Y, STEEL, 3.32, { fix: 4, noLine: true }); }
 
@@ -110,6 +143,7 @@ export const draw = (px, F, o = {}) => {
     const a0 = -3 + i * 0.5, a1 = a0 + 0.5, r0 = 4.4 - i * 0.12, r1 = 4.4 - (i + 1) * 0.12, cx = hx + 4, cy = ry - 0.4;
     px.capsule(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0, 1.9 - i * 0.08, cx + Math.cos(a1) * r1, cy + Math.sin(a1) * r1, 1.8 - i * 0.08, STEEL, 4.7, { cast: 1 });
   }
+  for (let i = 1; i < 9; i += 2) { const a = -3 + i * 0.5, cx = hx + 4, cy = ry - 0.4, rr = 4.4 - i * 0.12; px.dot(cx + Math.cos(a) * (rr + 1.1), cy + Math.sin(a) * (rr + 1.1), IRONK, 4.78, { fix: 0, noLine: true }); px.dot(cx + Math.cos(a) * (rr - 0.2), cy + Math.sin(a) * (rr - 0.2), IRONK, 4.78, { fix: 0, noLine: true }); }
   px.part();
   px.rect(hx - 2.6, ry - 5.6, 3, 11.6, BRASS, 4.75, { fix: 3 });   // the collar
   void head;
@@ -128,7 +162,11 @@ export const draw = (px, F, o = {}) => {
     px.toneLine(x + 1 + X, TOP + 1 + Y, x - 3 + X, EAVE - 0.6 + Y, -1, roof);
     for (let y = TOP + 3; y < EAVE - 2; y += 3.4) px.dot(x - 0.2 - (y - TOP) * 0.2 + X, y + Y, HIDE, 6.02, { fix: 3, noLine: true });
   }
-  px.toneLine(-39 + X, -33.6 + Y, 14 + X, -33.6 + Y, -1, roof);
+  for (const [yy, d] of [[-38.4, 1], [-33.6, -1], [-29, 1]]) {
+    px.toneLine(-41 + X, yy + Y, 20 + X, yy + Y, d, roof);
+    for (let x = -40; x < 18; x += 2.4) px.dot(x + X, yy + 0.8 + Y, HIDE2, 6.03, { fix: 1, noLine: true });   // stitching along the lap
+  }
+  for (const [x0, y0] of [[-33, -41], [-17, -37], [-3, -32], [-27, -30], [-11, -28]]) px.toneLine(x0 + X, y0 + Y, x0 + 4 + X, y0 + 1.4 + Y, 1, roof);
   px.line(BX0 + 2 + X, TOP + 1.6 + Y, FX0 - 3 + X, TOP + 1.6 + Y, HIDE, 6.05, { fix: 4, noLine: true });
   // rope lashings down the slope
   for (const x of [-34, -21, -7]) px.line(x + 5 + X, TOP + Y, x - 3 + X, EAVE - 0.6 + Y, ROPE, 6.1, { fix: 3, noLine: true });
@@ -146,6 +184,7 @@ export const draw = (px, F, o = {}) => {
     px.line(l1, y1 - 0.4, xe(y1 - Y) + 1 + X, y1 - 0.4, IRONK, 6.34 + r * 0.01, { fix: 0, noLine: true });
     px.line(l0 + 1, y0 + 0.4, xe(y0 - Y) + X, y0 + 0.4, STEEL, 6.36 + r * 0.01, { fix: 4, noLine: true });
     for (let x = l0 + 2.4; x < xe(y0 - Y) + X - 1; x += 3.8) px.dot(x + (r % 2 ? 1.4 : 0), y0 + 2.4, STEEL, 6.38 + r * 0.01, { fix: 4, noLine: true });
+    for (let x = l0 + 6; x < xe(y0 - Y) + X - 3; x += 9) px.line(x, y0 + 0.4, x - 0.6, y1 - 0.4, IRONK, 6.37 + r * 0.01, { fix: 0, noLine: true });   // iron straps
     void lm;
   }
   px.line(BX1 + X, EAVE - 0.4 + Y, FX1 + 1 + X, EAVE - 0.4 + Y, HIDE2, 6.4, { fix: 0, noLine: true });
@@ -174,19 +213,24 @@ export const draw = (px, F, o = {}) => {
 
   // the near wheels, turning, in front of it all
   for (const x of WX) wheel(px, x, WY, roll, 8, false);
-  return { head: [hx + 17.6, ry + 1.4], rx };
+  return { head: [(hx + 17.6) * K, (ry + 1.4) * K], rx };
 };
 
 // the dust kicked up under the wheels as the shed lurches, and a white flash where the head lands
 export const fx = (px, F, info, clip) => {
   const p = F.sk.p;
+  const pl = px.poly.bind(px);
+  const e = (cx, cy, rx, ry, m, z, o) => {   // a puff with a dithered rim
+    px.ellipse(cx, cy, rx - 1, ry - 1, m, z, o);
+    for (let a = 0; a < 40; a++) { const t = (a / 40) * TAU, w = (a * 7) % 3; if (w === 0) continue; px.dot(cx + Math.cos(t) * (rx - 0.2 + (w === 2 ? 1 : 0)), cy + Math.sin(t) * (ry - 0.2 + (w === 2 ? 1 : 0)), m, z + 0.01, { noLine: true }); }
+  };
   if (clip === "attack" && (p.puff ?? 0) > 0.05) {
     const u = p.puff;
-    for (const [dx, dy, r, m] of [[2, 0, 3 + u * 2, DUST], [-3, -3, 2.4 + u * 2.4, DUST2], [5, -5, 1.6 + u * 2, DUST2]]) px.ellipse(info.head[0] + dx + (1 - u) * 3, info.head[1] + 2 + dy - (1 - u) * 5, r, r * 0.8, m, 20, { noLine: true });
+    for (const [dx, dy, r, m] of [[2, 0, 3 + u * 2, DUST], [-3, -3, 2.4 + u * 2.4, DUST2], [5, -5, 1.6 + u * 2, DUST2]]) e(info.head[0] + (dx + (1 - u) * 3) * K, info.head[1] + (2 + dy - (1 - u) * 5) * K, r * K, r * 0.8 * K, m, 20, { noLine: true });
   }
   if (clip === "attack" && (p.flash ?? 0) > 0.5) {
     const [x, y] = info.head;
-    px.poly([[x + 1, y - 1], [x + 6, y - 7], [x + 3, y], [x + 8, y + 1], [x + 3, y + 2], [x + 5, y + 7], [x + 1, y + 2]], SMEAR, 20.1, { noLine: true });
+    pl([[x + 1, y - 1], [x + 6, y - 7], [x + 3, y], [x + 8, y + 1], [x + 3, y + 2], [x + 5, y + 7], [x + 1, y + 2]].map(([a, b]) => [x + (a - x) * K, y + (b - y) * K]), SMEAR, 20.1, { noLine: true });
   }
 };
 

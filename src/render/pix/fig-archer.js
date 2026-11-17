@@ -33,12 +33,35 @@ const HEAD = [
   "......SSSS...",
 ];
 const BLINK = HEAD.map((r, i) => (i === 5 ? r.replace(/E/g, "S") : i === 6 ? r.replace(/E/g, "e") : r));
+// ---- the scale pass (2026-11-17, owner: heroes bigger than soldiers: 48 -> 56 art px) ----
+// The figure is still posed on its own skeleton (BONES, unscaled) and drawn in those units; every shape goes through
+// `big(px)`, which lays it S times larger at the pixel grid (so the pixels stay crisp, nothing is resampled). Hand-pixelled
+// stamps (heads) are regrown by duplicating chosen rows and columns, so the face keeps its eyes one pixel wide.
+const SC = 7 / 6;
+const grow = (rows, dr, dc) => rows.map((r, i) => { const a = [...r].flatMap((ch, c) => (dc.includes(c) ? [ch, ch] : [ch])).join(""); return dr.includes(i) ? [a, a] : [a]; }).flat();
+const big = (px) => {
+  const P = (p) => [p[0] * SC, p[1] * SC], w = (o = {}) => (o.weld || o.weldRoot ? { ...o, weld: o.weld && o.weld * SC, weldRoot: o.weldRoot && o.weldRoot * SC } : o);
+  return {
+    get _pid() { return px._pid; },
+    part() { px.part(); return this; }, body(i) { return px.body(i); }, tag(n) { px.tag(n); return this; },
+    capsule(ax, ay, ra, bx, by, rb, m, z, o = {}) { px.capsule(ax * SC, ay * SC, ra * SC, bx * SC, by * SC, rb * SC, m, z, { ...w(o), limb: o.limb ?? Math.max(ra, rb) >= 1.8 }); return this; },
+    limb(pts, r, m, z, o = {}) { px.limb(pts.map(P), Array.isArray(r) ? r.map((v) => v * SC) : r * SC, m, z, w(o)); return this; },
+    ellipse(cx, cy, rx, ry, m, z, o = {}) { px.ellipse(cx * SC, cy * SC, rx * SC, ry * SC, m, z, w(o)); return this; },
+    poly(pts, m, z, o = {}) { px.poly(pts.map(P), m, z, o); return this; },
+    rect(x, y, ww, h, m, z, o = {}) { px.poly([[x, y], [x + ww, y], [x + ww, y + h], [x, y + h]].map(P), m, z, o); return this; },
+    line(ax, ay, bx, by, m, z, o = {}) { px.line(ax * SC, ay * SC, bx * SC, by * SC, m, z, o); return this; },
+    dot(x, y, m, z, o = {}) { px.dot(x * SC, y * SC, m, z, o); return this; },
+    tone(x, y, d, pid) { px.tone(x * SC, y * SC, d, pid); return this; },
+    toneLine(ax, ay, bx, by, d, pid) { px.toneLine(ax * SC, ay * SC, bx * SC, by * SC, d, pid); return this; },
+    stamp(rows, x, y, lg, z, o = {}) { px.stamp(rows, x * SC, y * SC, lg, z, o); return this; },
+  };
+};
 const LEG = {
   R: { m: HAIR, fix: 2 }, r: { m: HAIR, fix: 1 }, Q: { m: HAIR, fix: 3 }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 },
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, m: { m: LIP },
 };
 
-export const BOX = { w: 92, h: 72, ox: 30, oy: 62 };
+export const BOX = { w: 108, h: 86, ox: 35, oy: 73 };
 export const BONES = scaled(HUMAN, 1, { thigh: 8.8, shin: 8.3, shN: -2.6, shF: 2.6, hipN: -1.2, hipF: 1.3 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -60,7 +83,7 @@ const aimed = (sk, deg) => {
   return { ...sk, eF, hdF, sN, C, N, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
 };
 // the engine's muzzle at aim 0: the bow hand at the frame the shot is loosed on (the pivot is the bow shoulder)
-const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0], s.sF[1]], muzzle: [s.hdF[0], s.hdF[1]] }; };
+const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0] * SC, s.sF[1] * SC], muzzle: [s.hdF[0] * SC, s.hdF[1] * SC] }; };
 
 // a leg: ONE welded tube (thigh, knee, shin share radii), the boot a wrapped colour change, then the foot
 const leg = (px, h, k, an, z, b) => {
@@ -75,7 +98,8 @@ const arm = (px, sh, e, hd, z, o, cuff, bracer, r) => {
   px.capsule(e[0] * 0.5 + hd[0] * 0.5, e[1] * 0.5 + hd[1] * 0.5, r[1] - 0.15, e[0] * 0.15 + hd[0] * 0.85, e[1] * 0.15 + hd[1] * 0.85, r[2] - 0.05, LEATHER, z + 0.02, { ...o, weld: 0, weldRoot: 0, wrap: true });
 };
 
-export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
+export const draw = (px0, { sk: sk0, lag1, lag2 }, o = {}) => {
+  const px = big(px0);
   const aimDeg = Number((o.variant || "").split("@")[1]) || 0, sk = aimed(sk0, aimDeg);
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
@@ -133,7 +157,7 @@ export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
   px.capsule(hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, hx - 8.8 - tp, hyy + 1.8, 0.7, HAIR, Z.hoodTail);
   // her head (the face above the string, arrow and bow: nothing of the weapon crosses it)
   px.tag("head"); px.body(1);
-  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.hood, Z.face, { ax: 7, ay: 10, cast: 0 }, "SsNeEm", "E", Math.max(Z.face, Z.nearArm, Z.nearHand) + 0.75);
+  stampFace(px0, grow(p.blink ? BLINK : HEAD, [1, 7], [3, 9]), Math.round(N[0] * SC), Math.round(N[1] * SC), LEG, Z.hood, Z.face, { ax: 8, ay: 12, cast: 0 }, "SsNeEm", "E", Math.max(Z.face, Z.nearArm, Z.nearHand) + 0.75);
   px.tag("hood"); px.dot(hx - 5.4, hyy - 5.6, GOLD, Z.hood + 0.02, { fix: 3 });
   px.body(0);
   // the hunting cap: a feather raked back (it trails a beat behind), the crown, a long brim to a point over her brow
@@ -166,14 +190,15 @@ export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
   px.tag("nearHand"); px.part(); px.ellipse(hdN[0], hdN[1], 1.6, 1.6, SKIN, Z.nearHand);
   px.tag(null);
 
-  return { bowHand: hdF, marks: { muzzle: [hdF[0], hdF[1]] } };
+  return { bowHand: [hdF[0] * SC, hdF[1] * SC], marks: { muzzle: [hdF[0] * SC, hdF[1] * SC] } };
 };
 
 export const MUST = [["string", "notOver", "face"], ["arrow", "notOver", "face"], ["bowUpper", "notOver", "face"], ["bowLower", "notOver", "face"], ["bowGrip", "notOver", "face"], ["nearArm", "notOver", "eyes"], ["nearHand", "notOver", "eyes"]];
 
 // the arrow in flight, a short streak behind it
-export const fx = (px, { ph, sk }, info, clip) => {
+export const fx = (px0, { ph, sk }, info, clip) => {
   if (clip !== "attack" || ph < 0.6) return;
+  const px = big(px0);
   const t = (ph - 0.6) / 0.4, [bx, by] = sk.hdF, x = bx + 4 + t * 150, y = by - 0.8 + t * t * 3;
   if (x > 60) return;
   px.line(x - 9 - t * 16, y, x - 2, y, STREAK, 20, { noLine: true });

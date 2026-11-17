@@ -68,10 +68,34 @@ FACES.r1 = [
 ];
 const HEADS = {}, BLINKS = {};
 for (const k in FACES) {
-  HEADS[k] = [...TOP, ...FACES[k]];
-  BLINKS[k] = HEADS[k].map((r, i) => (i === 6 ? r.replace(/E/g, "S") : i === 7 ? r.replace(/E/g, "e") : r));
+  const h0 = [...TOP, ...FACES[k]], b0 = h0.map((r, i) => (i === 6 ? r.replace(/E/g, "S") : i === 7 ? r.replace(/E/g, "e") : r));
+  HEADS[k] = h0; BLINKS[k] = b0;
 }
 export const VARIANTS = { a: "Trimmed moustache", b: "Short beard", c: "Clean-shaven" };
+
+// ---- the scale pass (2026-11-17, owner: heroes bigger than soldiers: 48 -> 56 art px) ----
+// The figure is still posed on its own skeleton (BONES, unscaled) and drawn in those units; every shape goes through
+// `big(px)`, which lays it S times larger at the pixel grid (so the pixels stay crisp, nothing is resampled). Hand-pixelled
+// stamps (heads) are regrown by duplicating chosen rows and columns, so the face keeps its eyes one pixel wide.
+const SC = 7 / 6;
+const grow = (rows, dr, dc) => rows.map((r, i) => { const a = [...r].flatMap((ch, c) => (dc.includes(c) ? [ch, ch] : [ch])).join(""); return dr.includes(i) ? [a, a] : [a]; }).flat();
+const big = (px) => {
+  const P = (p) => [p[0] * SC, p[1] * SC], w = (o = {}) => (o.weld || o.weldRoot ? { ...o, weld: o.weld && o.weld * SC, weldRoot: o.weldRoot && o.weldRoot * SC } : o);
+  return {
+    get _pid() { return px._pid; },
+    part() { px.part(); return this; }, body(i) { return px.body(i); }, tag(n) { px.tag(n); return this; },
+    capsule(ax, ay, ra, bx, by, rb, m, z, o = {}) { px.capsule(ax * SC, ay * SC, ra * SC, bx * SC, by * SC, rb * SC, m, z, { ...w(o), limb: o.limb ?? Math.max(ra, rb) >= 1.8 }); return this; },
+    limb(pts, r, m, z, o = {}) { px.limb(pts.map(P), Array.isArray(r) ? r.map((v) => v * SC) : r * SC, m, z, w(o)); return this; },
+    ellipse(cx, cy, rx, ry, m, z, o = {}) { px.ellipse(cx * SC, cy * SC, rx * SC, ry * SC, m, z, w(o)); return this; },
+    poly(pts, m, z, o = {}) { px.poly(pts.map(P), m, z, o); return this; },
+    rect(x, y, ww, h, m, z, o = {}) { px.poly([[x, y], [x + ww, y], [x + ww, y + h], [x, y + h]].map(P), m, z, o); return this; },
+    line(ax, ay, bx, by, m, z, o = {}) { px.line(ax * SC, ay * SC, bx * SC, by * SC, m, z, o); return this; },
+    dot(x, y, m, z, o = {}) { px.dot(x * SC, y * SC, m, z, o); return this; },
+    tone(x, y, d, pid) { px.tone(x * SC, y * SC, d, pid); return this; },
+    toneLine(ax, ay, bx, by, d, pid) { px.toneLine(ax * SC, ay * SC, bx * SC, by * SC, d, pid); return this; },
+    stamp(rows, x, y, lg, z, o = {}) { px.stamp(rows, x * SC, y * SC, lg, z, o); return this; },
+  };
+};
 const LEG = {
   M: { m: STEEL }, m: { m: STEEL, bias: -1 }, G: { m: GOLD }, c: { m: MAIL }, S: { m: SKIN }, s: { m: SKIN, bias: -1 },
   N: { m: SKIN, bias: 1 }, e: { m: SKIN, fix: 0 }, E: { m: EYE }, B: { m: HAIR }, b: { m: HAIR, fix: 2 }, l: { m: SKIN, fix: 0 },
@@ -79,7 +103,7 @@ const LEG = {
 
 // the near arm may pass in front of the head, but never over the eyes
 export const MUST = [["nearArm", "notOver", "eyes"]];
-export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
+export const BOX = { w: 98, h: 86, ox: 40, oy: 73 };
 export const BONES = scaled(HUMAN, 1.08, { shN: -3.2, shF: 3.2, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const CROWN = ["G.G.G", "GGGGG", "GGGGG"];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -104,7 +128,8 @@ const leg = (px, h, k, an, z, b) => {
   px.ellipse(an[0] + 1.2, an[1] + 0.9, 2.8, 1.4, MAIL, z + 0.03, { bias: b });
 };
 
-export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
+export const draw = (px0, { sk, lag1, lag2 }, o = {}) => {
+  const px = big(px0);
   const face = FACES[o.variant] ? o.variant : "c";
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5);
@@ -149,7 +174,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the head
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
   const Z = KZ({});
-  stampFace(px, p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 0, edge: true }, "SsNEelBb");
+  stampFace(px0, grow(p.blink ? BLINKS[face] : HEADS[face], [2, 9], [6, 9]), Math.round(N[0] * SC), Math.round(N[1] * SC), LEG, Z.head, Z.head, { ax: 7, ay: 12, ball: [7.6, 6.4, 8.2, 8.2], cast: 0, edge: true }, "SsNEelBb");
   px.body(0);
   // the plume: red, rooted on the crown, streaming back a beat behind
   const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) - sway * 0.5, rx0 = hx + 0.5, ry0 = hyy - 10;
@@ -184,12 +209,13 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.line(sN[0] - 3, sN[1] + 2.2, sN[0] + 2.6, sN[1] + 2.2, GOLD, 8.12);
   px.body(0);
 
-  return { hand: hdN, sw: a };
+  return { hand: [hdN[0] * SC, hdN[1] * SC], sw: a };
 };
 
 // the cut's smear: on the fastest frames the blade leaves a fan of light behind it
-export const fx = (px, F, info, clip) => {
+export const fx = (px0, F, info, clip) => {
   if (clip !== "attack") return;
+  const px = big(px0);
   const a1 = swordAngle(F.sk), a0 = swordAngle(F.lag1);
   if (!(a1 - a0 > 0.5)) return;
   const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10;

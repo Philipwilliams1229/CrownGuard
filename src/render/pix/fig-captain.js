@@ -38,15 +38,17 @@ const LEG = {
 };
 
 // the near arm may pass in front of the head, but never over the eyes
+// SCALE PASS (2026-11-17): 51 -> 56 art px. K the skeleton (was 1.1), G the growth over the old figure
+const K = 1.2, G = K / 1.1;
 export const MUST = [["nearArm", "notOver", "eyes"]];
-export const BOX = { w: 96, h: 90, ox: 36, oy: 78 };
-export const BONES = scaled(HUMAN, 1.1, { shN: -3.4, shF: 3.4, hipN: -1.5, hipF: 1.7, neck: 1.6 });
+export const BOX = { w: 108, h: 98, ox: 40, oy: 86 };
+export const BONES = scaled(HUMAN, K, { shN: -3.4 * G, shF: 3.4 * G, hipN: -1.5 * G, hipF: 1.7 * G, neck: 1.6 * G });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // The halberd is ONE size in every pose: LEN from butt to tip (a head's height and a third taller than
 // him, grounded), its head a fixed small blade (K scales the old drawing). Only where the hands hold it
 // slides: GRIP behind the near hand when carried, the butt on the ground when planted.
-const LEN = 58, GRIP = 20, K = 0.72;
+const LEN = 58 * G, GRIP = 20 * G, HK = 0.72 * G;
 
 // THE GRIP. The haft's angle is DERIVED from the solved near forearm, never posed on its own: halberd angle
 // (from upright, + toward the foe) = forearm direction (elbow -> hand) + HAFT + wrist, where HAFT is the one fixed
@@ -84,7 +86,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   const plantedButt = cl(hdN[1] / Math.max(0.3, Math.cos(a)) + 0.6, -30, -8), pl0 = cl(p.plant || 0, 0, 1);
   const butt = -GRIP + (plantedButt + GRIP) * pl0, tipT = butt + LEN;
   const Z = CZ({}), bz = Z.halb;
-  const H = (t, s = 0) => B(tipT - (31 - t) * K, s * K);
+  const H = (t, s = 0) => B(tipT - (31 - t) * HK, s * HK);
 
   leg(px, hF, kF, anF, 2, -1);
   leg(px, hN, kN, anN, 3, 0);
@@ -188,7 +190,10 @@ const SWEEP = [
   { ...SW, rx: 3, drop: 2, lean: 0.25, twist: 0.9, aN: [0.6, 0.75, 1] },
   { ...SW, rx: 1.4, drop: 1.2, lean: 0.12, twist: 0.4, aN: [0.9, 0.95, 1] },
 ];
-export const CLIPS = {
+// poses were drawn for the 51 px Hale: their lengths grow with the skeleton
+const SKL = ["rx", "drop", "rise", "hx", "hy", "grip"];
+const grow = (p) => { const o = { ...p }; for (const k of SKL) if (typeof o[k] === "number") o[k] *= G; if (o.fN) o.fN = o.fN.map((v) => v * G); if (o.fF) o.fF = o.fF.map((v) => v * G); return o; };
+const RAW = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.1,
     pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, rise: 0.5 + 0.5 * b,  sway: b2 * 0.9, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }; },
@@ -196,7 +201,7 @@ export const CLIPS = {
   // the march: the halberd carried leaning forward, butt off the ground, the far hand on his hip
   walk: {
     n: 8, ms: 780, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 5.4, lift: 2.8, swing: 0.3, bob: 1.1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [0.8 + 0.05 * a, 0.8, 0], plant: 0, hip: 1, grip: 7, sway: a * 1.2 }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 5.4 * G, lift: 2.8 * G, swing: 0.3, bob: 1.1 * G }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [0.8 + 0.05 * a, 0.8, 0], plant: 0, hip: 1, grip: 7, sway: a * 1.2 }; },
   },
   // the basic blow is a rising SWEEP (owner, 2026-11-15: "more of a sweeping motion instead of a chop"): he sinks and
   // coils with the blade low before his feet, skims it forward through the foe's legs and carries it up and over to a
@@ -224,3 +229,5 @@ export const CLIPS = {
   // the Halberd Sweep's six poses (frame i is sheet frame i)
   sweep: { n: 6, ms: 600, loop: false, lag: 0.2, pose: (ph) => ({ ...SWEEP[Math.round(ph * 5)] }) },
 };
+export const CLIPS = {};
+for (const k in RAW) CLIPS[k] = { ...RAW[k], pose: (ph) => grow(RAW[k].pose(ph)) };

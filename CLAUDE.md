@@ -228,8 +228,17 @@ then the engineer stoops, lifts a stone from beside his feet and heaves it overh
 is bigger (hall-catapult.js `armInto`). `--endure` seed 1, better doctrine, old -> new: gw3 33 ->
 82, ir3 425 -> 557 castle damage (all held). The raise-dead ground (rings.js `graveS`) is turned
 earth now, not near-black, and fades in over the first 40% of the rise.
-Heights measured for the scale question (idle, art px): garrison 44, Aldric 48, Wren 48, Osric 40,
-Hale 51, Ysolde 46, Champion 69. Figures draw at one fixed 0.5 board px an art px.
+**Scale pass, same day** (owner: "Heroes should be bigger than the normal soldiers. Grand
+champion should be the same size as the heroes", and "Redraw them taller", not a blown-up sprite):
+every hero is 55-56 art px tall (was 40-51), the Champion 68 -> 55, a garrison knight stays 44.
+The figures were rebuilt at the bigger size through a scaling wrapper in each fig file (shapes
+rasterised at the new size, 1-px lines and dots kept 1 px, heads regrown); Aldric's and Osric's
+approved swings keep their keyframes. Wren's `AIM` scales with her (muzzles.js reads it live);
+Ysolde's `STORM_TIP` (rigs-crown.js) x1.22. The siege ram is back to the old rig's footprint
+(~102 x 61 board px, BOX 252 x 140; it had drawn at half that) with 1-px detail, `per` 1.74 -> 3.5.
+Brief `art/briefs/scale-pass.md`; `scale-lab.html` lines the figures up on one ground line (copy
+old versions to `src/render/pix/zzold-<name>.js` for a BEFORE row). Still small: the cavalier and
+the gryphon (not yet done). Figures draw at one fixed 0.5 board px an art px.
 
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
@@ -803,8 +812,8 @@ Bring these up with the owner; don't act on them unasked.
   novas"): the fire and frost novas (rings.js `firenova` / `frostnova`) were kept as they were in the
   effects pass; they now lie under the foes and flash them white. Ask what they want changed.
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
-  check them out later"):** the ram, cavalier and gryphon draw smaller than their old rigs
-  (the ram about half); bushes, the gate threshold and a few Rime props (longhouse, rack,
+  check them out later"):** the cavalier and gryphon draw smaller than their old rigs (the ram
+  was fixed 2026-11-17); bushes, the gate threshold and a few Rime props (longhouse, rack,
   whale bones, ship) still old style; the skald's chant clip never plays (no engine clock);
   Hale's crossbowmen wear the Iron crossbowman; at the steepest aims the siege bow stands
   almost upright and a shooter may turn fast if it switches mark just before a shot;
