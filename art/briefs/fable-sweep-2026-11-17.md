@@ -56,3 +56,24 @@ A1 was wrong: the Iron props were re-sculpted on 2026-11-15 (commit 472b9ed, the
 `irpan`, `irsluice`, `irwreck` were still old (now `src/render/pix/iron-works.js`). A2 (the tinted inner
 line in paint.js `part()`) is in, but changed little on screen. Before acting on A3-A10, check what
 each decor map / painter actually calls today, not how many old calls a file holds.
+
+## A3-A10 checked against what the game draws (2026-11-17, lead)
+
+- A3 Hollow props: DONE already (245fb2e, 2026-11-15, and the later sweep: shrine, bell-stones,
+  throne, weir). Every live `HOLLOW_ART.decor` key is a pix sculpt (`*S` painters, `pxSculpt`); the
+  `part()` count is the old painters left in the file. Only reed beds and bog pools are old (judged fine).
+- A4 frozen hall: DONE (Round 4, frozen hall B).
+- A5 halls' live bits: STILL OLD. Smooth canvas strokes on the pixel halls: catapult.js 212 (the
+  arm's arc), spiker.js 119 (the fire flash ring), riverwatch.js 57-58 (ripples), wizard.js 236 / 289
+  (the orb's ring, the storm marks), warden.js 64 (the pulse), sunforge.js 60 / 114 (the halo, the
+  pulse). Small job, one artist.
+- A6 bridges: DONE. bridge.js `inkData` is the tinted line, one pixel wide.
+- A7 campaign map towns, keeps, castle: STILL OLD (ui/mapArt.js has no pix sculpts; lines tinted).
+  Big job: a concept round first.
+- A8 title crowd: MOSTLY OLD. Four soft paint.js props in ui/titleCrowd.js (122-160: the pole,
+  cart, stall, awning beam), now with the tinted inner line; titleArt.js inks only the threshold.
+  Small job.
+- A9 vale pieces: STILL OLD bodies (scenery-vale.js: menhir, stone circle, watermill, cottage,
+  boat, net rack, creels, skeps, haywain): soft painters with the tinted line, never sculpted.
+  Rime: DONE except the longhouse body (baked painter, re-inked in the sweep) and the gate.
+- A10 coast: DONE (tinted). Storm cloud and range-ring fills: not checked on screen.
