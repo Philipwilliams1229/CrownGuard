@@ -27,14 +27,12 @@
 //   haywain     a hay cart, loaded, shafts down
 
 import {
-  lighten, darken, mix, rgba, soft, shadow as softShadow, blobPath, ball, cylinder, hash, ellipse, lin, bakeSprite, part as plainPart, PX,
+  lighten, darken, mix, rgba, soft, shadow as softShadow, blobPath, ball, hash, ellipse, bakeSprite, part as plainPart, PX,
 } from "./paint.js";
 import { REALM } from "../data/maps.js";
-import { vnoise } from "../data/gatecrag.js";
-import { rich } from "./look-c.js";
 import { tintRing, tintedPart, baking } from "./scenery-gwpix.js";
 import {
-  menhirPix, stonefallPix, trilithonPix, millBodyPix, cottageBodyPix, boatPix, netrackPix, creelsPix, skepsPix, haywainPix, pixBody, stampPixBody,
+  menhirPix, stonefallPix, trilithonPix, millBodyPix, cottageBodyPix, boatPix, netrackPix, creelsPix, skepsPix, haywainPix, marramPix, thistlePix, pixBody, stampPixBody,
 } from "./pix/vale-pix.js";
 
 // Look C cast shadow: a ragged, hard-edged blob thrown lower right (same
@@ -46,39 +44,10 @@ const shadow = (c, x, y, rx, ry, a = 0.28) => {
 };
 
 const ap = (v) => Math.round(v * PX) / PX;
-const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
-const poly = (c, pts) => { c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py))); c.closePath(); };
 
 // ---- the vale's materials ---------------------------------------------------
-const SARSEN = "#aaa496";                 // the kingstones: warm grey sandstone
-const LICHEN = ["#b8c494", "#d4bc52", "#c47e46", "#dcdcc0"];
-const RUBBLE = "#a39a88", LIME = "#ece4d0", LIME_DK = "#c4b8a0";
-const THATCH = "#c4a058", THATCH_LT = "#e2c67e", THATCH_DK = "#8e6c36";
-const TILE = "#a8505c";
 const WOOD = "#6a4a2e", WOOD_LT = "#8a6440", WOOD_DK = "#46301e", OAK = "#7a5334";
 const IRON = "#2e3038";
-const WICKER = "#9a7448", ROPE = "#c8ae7a";
-const SAND = "#e2cf98";
-const moss = () => mix("#5d8f3a", REALM.GRASS_DK, 0.35);
-
-// A still body baked once (inked), then stamped — for the live pieces, whose
-// wheel or smoke is painted over it every frame.
-const part = (ctx, fn, o) => tintedPart(plainPart)(ctx, fn, o);
-const BODIES = new Map();
-const body = (key, hw, top, bot, paint) => {
-  const k = `${key}|${REALM.GRASS}`;
-  let sp = BODIES.get(k);
-  if (!sp) {
-    const was = baking(true);
-    let cv;
-    try { cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top), false); } finally { baking(was); }
-    tintRing(cv);
-    sp = { cv, hw, top, bot };
-    BODIES.set(k, sp);
-  }
-  return sp;
-};
-const stampBody = (ctx, sp, x, y) => ctx.drawImage(sp.cv, x - sp.hw, y - sp.top, sp.hw * 2, sp.top + sp.bot);
 
 // ---- the mill ---------------------------------------------------------------
 const MILL = { hw: 17, wall: 10.5, frame: 7.5, apex: 12, D: 14, R: 13.5, rx: 0.55 };
@@ -88,7 +57,6 @@ const MILL = { hw: 17, wall: 10.5, frame: 7.5, apex: 12, D: 14, R: 13.5, rx: 0.5
 const wheelAt = (x, y, s, v) => [x + (v % 2 ? 1 : -1) * (MILL.hw + 4.5) * s, y + 11 * s];
 // the water's surface across the wheel: everything below it is in the race
 const waterAt = (y, s) => y + 11 * s + MILL.R * s * 0.46;
-const MASON = "#9c9482";
 // the sluice frame across the race upstream of the wheel (the race comes
 // down to the wheel from the north): its middle and its two posts
 const sluiceAt = (wx, wy, s, side) => {
@@ -207,88 +175,12 @@ const cottage = (ctx, x, y, s, o) => {
   smoke(ctx, x + flip * -3.5 * s, gy - (COT.wall + COT.apex + COT.D + 5.5) * s, o.time);
 };
 
-// Marram on a hummock of blown sand: long blue-green blades, rolled and
-// stiff, leaning with the sea wind; a pale sand cushion under them with its
-// own underline (baked flat, no ink ring).
-const MARRAM = ["#5a7a5c", "#7e9c78", "#a4bc90", "#c8d4a8"].map((c) => rich(c, 1.3));
-const marram = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 3, sd = o.seed;
-  const w = (7 + v * 1.5) * s;
-  // the hummock: sand, lit on its west side, a dark crumb line under it
-  ctx.fillStyle = rgba("#2a1c2c", 0.22); ellipse(ctx, x + 1.5, gy + 0.8, w + 1, 2.2 * s); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x - w, gy); ctx.quadraticCurveTo(x - w * 0.4, gy - 4.2 * s, x + w * 0.1, gy - 3.4 * s); ctx.quadraticCurveTo(x + w * 0.7, gy - 2.6 * s, x + w, gy); ctx.closePath();
-  ctx.fillStyle = SAND; ctx.fill();
-  ctx.save(); ctx.clip();
-  ctx.fillStyle = lighten(SAND, 0.2); ellipse(ctx, x - w * 0.35, gy - 3 * s, w * 0.5, 1.6 * s); ctx.fill();
-  ctx.fillStyle = darken(SAND, 0.16); ellipse(ctx, x + w * 0.6, gy - 0.4, w * 0.55, 1.6 * s); ctx.fill();
-  // wind ripples
-  ctx.fillStyle = darken(SAND, 0.1);
-  for (let k = 0; k < 4; k++) px1(ctx, x - w * 0.6 + hash(sd, k) * w * 1.2, gy - 0.5 - hash(sd, k + 9) * 2.5 * s, 1.5, 0.5);
-  ctx.restore();
-  ctx.fillStyle = darken(SAND, 0.42); ctx.fillRect(ap(x - w * 0.8), ap(gy), w * 1.6, 0.5);
-  // the blades, back ones darker, front ones lit; each a tapering run of art pixels
-  const n = 9 + v * 3;
-  for (let i = 0; i < n; i++) {
-    const back = i < n * 0.45;
-    const u = (hash(sd, i + 20) - 0.5) * 1.5, bx = x + u * w * 0.75, by = gy - 2.2 * s - (1 - Math.abs(u)) * 1.4 * s + (back ? -0.5 : 0.8);
-    const len = (7 + hash(sd, i + 40) * 7 + (1 - Math.abs(u)) * 4) * s * (back ? 0.92 : 1);
-    const lean = (u * 0.55 + 0.35 + (hash(sd, i + 60) - 0.5) * 0.4);
-    const col = back ? MARRAM[hash(sd, i + 80) < 0.5 ? 0 : 1] : MARRAM[1 + Math.floor(hash(sd, i + 80) * 3)];
-    for (let t = 0; t < len; t += 0.5) {
-      const f = t / len, X = bx + lean * t * (0.6 + f * 0.8), Y = by - t + f * f * len * 0.18;
-      ctx.fillStyle = f > 0.8 && !back ? mix(lighten(col, 0.22), "#e6f87c", 0.35) : col;
-      ctx.fillRect(ap(X), ap(Y), f < 0.45 ? 1 : 0.5, 0.5);
-    }
-  }
-  // a seed head or two, straw coloured
-  for (let i = 0; i < 2; i++) {
-    const u = (hash(sd, i + 90) - 0.5), bx = x + u * w * 0.6, len = 13 * s;
-    for (let t = 0; t < len; t += 0.5) { ctx.fillStyle = t > len - 3 * s ? "#d8c48a" : "#8a9a6a"; ctx.fillRect(ap(bx + 0.3 * t * 0.5), ap(gy - 3 * s - t), t > len - 3 * s ? 1 : 0.5, 0.5); }
-  }
-};
-
-// A thistle: a rosette of spiny blue-green leaves at the foot, three or four
-// stems, each crowned with a purple brush on a green bulb. Flat, underlined.
-const THISTLE_LEAF = ["#3e5a46", "#5a7a5e", "#7a9a76", "#a4bc96"].map((c) => rich(c, 1.3));
-const thistle = (ctx, x, y, s0, o) => {
-  // (drawn a size up: a thistle has to read at 1x among the crags)
-  const s = s0 * 1.5, gy = y + 8, v = o.v % 3, sd = o.seed;
-  const n = 3 + v;
-  ctx.fillStyle = rgba("#2a1c2c", 0.24); ellipse(ctx, x + 1.5, gy + 0.6, 6 * s, 1.8 * s); ctx.fill();
-  // the stems and their heads, back to front
-  for (let i = 0; i < n; i++) {
-    const u = (i / (n - 1 || 1) - 0.5) * 1.6 + (hash(sd, i) - 0.5) * 0.4;
-    const h = (9 + hash(sd, i + 10) * 6 - Math.abs(u) * 2) * s, lean = u * 0.25;
-    const bx = x + u * 2.2 * s, tx = bx + lean * h, ty = gy - h;
-    for (let t = 0; t < h; t += 0.5) { ctx.fillStyle = THISTLE_LEAF[1]; ctx.fillRect(ap(bx + lean * t), ap(gy - t), 0.5, 0.5); }
-    // a spiny leaf half way up
-    const ly = gy - h * 0.45, lx = bx + lean * h * 0.45, ls = i % 2 ? 1 : -1;
-    for (let t = 0; t < 3 * s; t += 0.5) { ctx.fillStyle = THISTLE_LEAF[2]; ctx.fillRect(ap(lx + ls * t), ap(ly - t * 0.4 + (t % 1.5 < 0.5 ? -0.5 : 0)), 0.5, 0.5); }
-    // the bulb and the brush
-    ctx.fillStyle = THISTLE_LEAF[0]; ctx.fillRect(ap(tx - 1), ap(ty), 2, 1.5);
-    ctx.fillStyle = THISTLE_LEAF[2]; ctx.fillRect(ap(tx - 1), ap(ty), 1, 0.5); ctx.fillRect(ap(tx - 1.5), ap(ty + 1), 0.5, 0.5); ctx.fillRect(ap(tx + 1), ap(ty + 1), 0.5, 0.5);
-    ctx.fillStyle = "#7a3a7a"; ctx.fillRect(ap(tx - 1), ap(ty - 1), 2, 1);
-    ctx.fillStyle = "#c066b8"; ctx.fillRect(ap(tx - 1), ap(ty - 1.5), 1.5, 0.5); ctx.fillRect(ap(tx - 1.5), ap(ty - 2), 0.5, 0.5); ctx.fillRect(ap(tx + 0.5), ap(ty - 2), 0.5, 0.5);
-    ctx.fillStyle = "#e09ad8"; ctx.fillRect(ap(tx - 0.5), ap(ty - 2), 0.5, 0.5);
-  }
-  // the rosette: spiny leaves fanned along the ground, lit on top
-  for (let i = 0; i < 6; i++) {
-    const a = Math.PI + (i / 5) * Math.PI + (hash(sd, i + 30) - 0.5) * 0.3, len = (4 + hash(sd, i + 40) * 2.5) * s;
-    for (let t = 0; t < len; t += 0.5) {
-      const X = x + Math.cos(a) * t, Y = gy - 0.5 + Math.sin(a) * t * 0.35 - 0.2 * t * (1 - t / len);
-      ctx.fillStyle = t < len * 0.5 ? THISTLE_LEAF[1] : THISTLE_LEAF[2]; ctx.fillRect(ap(X), ap(Y), 1, 0.5);
-      if (t > 1 && (t * 2) % 3 === 0) { ctx.fillStyle = THISTLE_LEAF[3]; ctx.fillRect(ap(X), ap(Y - 0.5), 0.5, 0.5); }
-    }
-  }
-  ctx.fillStyle = THISTLE_LEAF[0]; ctx.fillRect(ap(x - 4 * s), ap(gy), 8 * s, 0.5);
-};
-
 // ---- the registry ---------------------------------------------------------------
 export const VALE_ART = {
   flat: ["marram", "thistle", "menhir", "stonefall", "trilithon", "boat", "netrack", "creels", "skeps", "haywain"],
   decor: {
     menhir: menhirPix, stonefall: stonefallPix, trilithon: trilithonPix, watermill, cottage, boat: boatPix, netrack: netrackPix,
-    creels: creelsPix, marram, thistle, skeps: skepsPix, haywain: haywainPix,
+    creels: creelsPix, marram: marramPix, thistle: thistlePix, skeps: skepsPix, haywain: haywainPix,
   },
   live: ["watermill", "cottage"],
   box: {

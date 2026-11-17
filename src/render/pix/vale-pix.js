@@ -430,20 +430,19 @@ const BOAT_COLS = [
 export const boatPix = (ctx, x, y, s, o) => {
   const m = M(), v = o.v % 4, gy = y + 8 + 6 * s, sd = o.seed, k = U * s;
   if (v === 1) {
-    // a rowboat turned keel-up on two stones: a long tarred dome, its laps catching the light, the keel a lit ridge
-    const L = 13.5 * k, H = 4.2 * k, base = -0.8 * k;
+    // a rowboat turned keel-up on two small stones: a tarred dome, lapped strakes, the keel a lit ridge
+    const L = 13.5 * k, H = 5.8 * k, base = -1.2 * k, prof = (u) => base - H * (1 - u * u) * (1 + 0.15 * (1 - u * u));
     dapple(ctx, x + 4 * s, gy + 0.6, L / U * 1.3, 2.6 * s, 0.32, sd);
+    const BT = mat("#4a4044", { contrast: 1.15 }), BL = mat("#7a6e72", { contrast: 1.1 });
     sculpt(ctx, x, gy, Math.ceil(L * 2) + 40, Math.ceil(H * 2) + 40, 14, (b) => {
-      for (const sx of [-0.55, 0.5]) { b.part(); b.ellipse(sx * L, -1, 3.2 * k, 2 * k, m.mason, 0, { round: 0.95 }); }
-      const prof = (u) => base - H * (1 - u * u) * (1 + 0.15 * (1 - u * u));
+      for (const sx of [-0.6, 0.55]) { b.part(); b.ellipse(sx * L, -1, 2.2 * k, 1.3 * k, m.mason, 0, { round: 0.95 }); }
       const pts = [[-L, base]]; for (let i = 0; i <= 24; i++) { const u = -1 + i / 12; pts.push([u * L, prof(u)]); } pts.push([L, base]);
-      b.part(); b.poly(pts, m.tar, 0.4, { round: 0.85 });
-      for (let i = -22; i <= 22; i++) for (let yy = 0; yy < 2; yy++) b.dot(i * L / 24, base - yy, m.ochre, 0.5, { noLine: true, cast: 0 });
-      for (let q = 1; q <= 3; q++) for (let i = 0; i < 48; i++) {
-        const u = -1 + i / 24, top = prof(u), yy = top + (base - top) * (q / 4);
-        b.tone(u * L, yy, u < 0.35 ? 1 : 0); b.tone(u * L, yy + 1, -1);
+      b.part(); b.poly(pts, BT, 0.4, { round: 0.9, ny: -0.25 });
+      for (let q = 1; q <= 3; q++) {
+        for (let i = -23; i <= 23; i++) { const u = i / 24, top = prof(u), yy = top + (base - top) * (q / 4); b.tone(u * L, yy, -1); b.tone(u * L, yy - 1, 1); }
       }
-      for (let i = -18; i <= 18; i++) b.dot(i * L / 24, prof(i / 24) - 0.5, m.tarL, 0.8, { noLine: true, cast: 0 });
+      for (let i = -23; i <= 23; i++) { const u = i / 24; b.dot(u * L, prof(u) + 1, BL, 0.8, { wrap: true }); b.dot(u * L, prof(u) + 2, BL, 0.8, { wrap: true }); }
+      for (let i = -22; i <= 22; i++) b.dot(i * L / 24, base - 1, m.ochre, 0.5, { wrap: true });
     });
     return;
   }
@@ -592,11 +591,10 @@ export const haywainPix = (ctx, x, y, s, o) => {
   const m = M(), gy = y + 8, L = 13 * s * U, flip = o.v % 2 ? -1 : 1, k = U * s, sd = o.seed;
   dapple(ctx, x + 5 * s, gy + 0.2, 22 * s, 3 * s, 0.28, sd);
   const wheel = (b, wx, wy, r, z, far) => {
-    const mt = far ? m.woodD : m.wood;
-    b.part(); b.ellipse(wx, wy, r, r, mt, z, { round: 0.6 });
-    b.part(); b.ellipse(wx, wy, r - 1.6, r - 1.6, far ? m.hole : m.well, z + 0.1, { round: 0.1, noLine: true, cast: 0 });
-    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3; b.part(); b.line(wx, wy, wx + Math.cos(a) * (r - 1), wy + Math.sin(a) * (r - 1), far ? m.woodD : m.woodL, z + 0.2, { noLine: true, cast: 0 }); }
-    b.part(); b.ellipse(wx, wy, 1.8, 1.8, m.woodD, z + 0.3, { round: 0.9, noLine: true, cast: 0 });
+    b.part(); b.ellipse(wx, wy, r, r, far ? m.wood : m.woodL, z, { round: 0.5 });
+    b.part(); b.ellipse(wx, wy, r - 1.6, r - 1.6, far ? m.wellD : m.wood, z + 0.1, { round: 0.1, noLine: true, cast: 0 });
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.5; b.part(); b.line(wx, wy, wx + Math.cos(a) * (r - 1.5), wy + Math.sin(a) * (r - 1.5), m.woodL, z + 0.2, { noLine: true, cast: 0 }); }
+    b.part(); b.ellipse(wx, wy, 1.6, 1.6, m.woodL, z + 0.3, { round: 0.9, noLine: true, cast: 0 });
     if (!far) b.toneLine(wx - r + 1, wy - 2, wx - 2, wy - r + 1, 1);
   };
   sculpt(ctx, x, gy, Math.ceil(L * 2 + 70 * k * 0.5) + 100, Math.ceil(30 * k) + 40, 12, (b) => {
@@ -624,5 +622,51 @@ export const haywainPix = (ctx, x, y, s, o) => {
     for (const dx of [-2, 0, 2]) b.dot(fx + dx, -18 * k + 1, m.iron, 1.6, { noLine: true, cast: 0 });
     b.part(); b.rect(fx - 2, -18.5 * k, 5, 1, m.iron, 1.6, { n: [0, 0, 1], noLine: true, cast: 0 });
     wheel(b, wxL, -4 * k, 5 * k, 2, false); wheel(b, wxR, -4 * k, 5 * k, 2, false);
+  });
+};
+
+// ---- marram on its hummock; a thistle clump (flat, underlined) ----------------------------------------
+const MARRAM = ["#5a7a5c", "#7e9c78", "#a4bc90", "#c8d4a8"], THISTLE = ["#3e5a46", "#5a7a5e", "#7a9a76", "#a4bc96"];
+let MM_ = null;
+const MG = () => MM_ || (MM_ = { mar: MARRAM.map((c) => mat(c, { contrast: 1.1 })), thl: THISTLE.map((c) => mat(c, { contrast: 1.1 })),
+  sand: mat("#e2cf98", { contrast: 0.9 }), straw: mat("#d8c48a"), pur: mat("#9a4a9a", { contrast: 1.1 }), purL: mat("#d080c8", { contrast: 0.9 }) });
+const blade = (b, bx, by, lean, len, r, mt, z) => {                // a tapering curved blade: two capsules, bent over at the tip
+  const mx = bx + lean * len * 0.5, my = by - len * 0.55, tx = bx + lean * len * 1.15, ty = by - len + len * 0.12;
+  b.part(); b.capsule(bx, by, r, mx, my, r * 0.7, mt, z, { round: 0.8, limb: false, cast: 0 });
+  b.capsule(mx, my, r * 0.7, tx, ty, 0.25, mt, z, { round: 0.8, limb: false, cast: 0 });
+};
+export const marramPix = (ctx, x, y, s, o) => {
+  const g = MG(), gy = y + 8, v = o.v % 3, sd = o.seed, w = (7 + v * 1.5) * s * U, k = U * s;
+  sculpt(ctx, x, gy, Math.ceil(w * 2) + 60, Math.ceil(30 * k) + 40, 12, (b) => {
+    const pts = [[-w, 0]]; for (let i = 0; i <= 16; i++) { const u = -1 + i / 8; pts.push([u * w, -4 * k * (1 - Math.pow(Math.abs(u), 2.2)) * (u < 0 ? 1 : 0.8)]); } pts.push([w, 0]);
+    b.part(); b.poly(pts, g.sand, 0, { round: 0.9, ny: -0.2 });
+    for (let i = 0; i < 4; i++) b.toneLine(-w * 0.6 + hash(sd, i) * w * 1.2, -1 - hash(sd, i + 9) * 4, -w * 0.6 + hash(sd, i) * w * 1.2 + 3, -1 - hash(sd, i + 9) * 4, -1);
+    b.toneLine(-w * 0.8, -1, w * 0.8, -1, -1);
+    const n = 16 + v * 4;
+    for (let i = 0; i < n; i++) {
+      const back = i < n * 0.45, u = (hash(sd, i + 20) - 0.5) * 1.5, bx = u * w * 0.75, by = -3 * k + (1 - Math.abs(u)) * -2 * k;
+      const len = (7 + hash(sd, i + 40) * 7 + (1 - Math.abs(u)) * 4) * k * (back ? 0.92 : 1), lean = u * 0.35 + 0.28 + (hash(sd, i + 60) - 0.5) * 0.3;
+      blade(b, bx, by, lean, len, 1.35, g.mar[back ? (hash(sd, i + 80) < 0.5 ? 0 : 1) : 1 + Math.floor(hash(sd, i + 80) * 3)], back ? 0.2 : 0.4 + i * 0.001);
+    }
+    for (let i = 0; i < 2; i++) { const bx = (hash(sd, i + 90) - 0.5) * w * 0.6; b.part(); b.capsule(bx, -3 * k, 0.5, bx + 3, -3 * k - 13 * k * 0.8, 0.5, g.mar[1], 0.5, { limb: false }); b.capsule(bx + 3, -3 * k - 10 * k, 1, bx + 3.6, -3 * k - 13 * k, 0.8, g.straw, 0.6, { limb: false, cast: 0 }); }
+  });
+};
+export const thistlePix = (ctx, x, y, s0, o) => {
+  const g = MG(), s = s0 * 1.5, gy = y + 8, v = o.v % 3, sd = o.seed, n = 3 + v, k = U * s;
+  dapple(ctx, x + 1.5, gy + 0.5, 6 * s, 1.4 * s, 0.24, sd);
+  sculpt(ctx, x, gy, Math.ceil(24 * k) + 40, Math.ceil(24 * k) + 40, 10, (b) => {
+    for (let i = 0; i < 6; i++) {                                    // the rosette of spiny leaves
+      const a = Math.PI + (i / 5) * Math.PI + (hash(sd, i + 30) - 0.5) * 0.3, len = (4 + hash(sd, i + 40) * 2.5) * k;
+      b.part(); b.capsule(0, -1, 1.1, Math.cos(a) * len, -1 + Math.sin(a) * len * 0.45, 0.3, g.thl[i % 2 ? 2 : 1], 0.3, { round: 0.8, limb: false, cast: 0 });
+    }
+    for (let i = 0; i < n; i++) {
+      const u = (i / (n - 1 || 1) - 0.5) * 1.6 + (hash(sd, i) - 0.5) * 0.4, h = (9 + hash(sd, i + 10) * 6 - Math.abs(u) * 2) * k, lean = u * 0.25;
+      const bx = u * 2.2 * k, tx = bx + lean * h, ty = -h;
+      b.part(); b.capsule(bx, -1, 0.8, tx, ty, 0.6, g.thl[1], 0.5, { round: 0.8, limb: false });
+      const ls = i % 2 ? 1 : -1; b.capsule(bx + lean * h * 0.45, -h * 0.45, 0.6, bx + lean * h * 0.45 + ls * 3 * k, -h * 0.45 - 2, 0.2, g.thl[2], 0.6, { limb: false, cast: 0 });
+      b.part(); b.ellipse(tx, ty + 1, 2, 1.8, g.thl[0], 0.7, { round: 0.95 });
+      b.part(); b.ellipse(tx, ty - 1.5, 2.3, 2, g.pur, 0.8, { round: 0.95 });
+      b.dot(tx - 1, ty - 2.5, g.purL, 0.9, { wrap: true });
+    }
   });
 };
