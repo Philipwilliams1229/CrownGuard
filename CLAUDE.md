@@ -1998,7 +1998,7 @@ shoot: `castleCd.loosed` (update.js) holds each one's last shot, and
 render/castle.js stands them at ease (`rest`, now and then `reach`) after.
 
 The Levy (`militia` in `CASTLE_WORKS`, owner request 2026-09-30) drills the
-free militia horn: four tiers at 8000 / 12000 / 18000 / 25000. Each tier
+free militia horn: four tiers at 5000 / 10000 / 15000 / 25000 (8000 / 12000 / 18000 / 25000 until 2026-11-18). Each tier
 names the whole band (count 3 / 4 / 4 / 5, `men` health 105 / 125 / 170 /
 230, `dmg`, `rate`, `range`, `cooldown` 22 -> 16 s). **The men have no clock**
 (owner, 2026-10-05, the same as Hale's levy): they stand until they fall,
@@ -2059,14 +2059,14 @@ seed default, old circle -> road steps: Ironford 323 / 183 -> 287 / 232, ir5 189
 1970 / 1035, gw3 61 / 24 -> 51 / 22 (noise). `reach-lab.html?realm=` draws it (`&mode=ring`
 the old circles). Provisional, pending the owner's playtest.
 
-**Wall Archers have four tiers** (owner, same day): two bowmen 10k, three 12k (18 a shot, 850 ms,
-360 steps), four longbows 15k, heavy crossbows 25k (reach 340 / 360 / 380 / 400). Saved castles
+**Wall Archers have four tiers** (owner, same day): two bowmen, three (18 a shot, 850 ms,
+360 steps), four longbows, heavy crossbows (now 5k / 10k / 15k / 25k) (reach 340 / 360 / 380 / 400). Saved castles
 carry `_v` (campaign.js `WORKS_V` 2, `upgradeWorks` in loadCastle): a save without it moves an
 archers tier of 2+ up one, so nobody loses what they bought. Re-cutting any work's tiers again:
 bump WORKS_V and add its step there.
 
-**Every castle work re-cut to four tiers** (owner, same day; the Levy unchanged; provisional, pending
-the owner's playtest; costs 10k / 12k / 15k / 25k):
+**Every castle work re-cut to four tiers** (owner, same day; the Levy's tiers unchanged; provisional, pending
+the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
 - **Gate Ballista:** one, twin, **chain harpoon** (`pin` 2000: the bolt holds its foe where it
   stands, `e.pinUntil`, read as `held` in the movement; bosses and rams too, so the column waits),
   **shield-breaker** (`breaker` {amp 0.25, ms 5000}: every blue pip knocked off, then the falconer's

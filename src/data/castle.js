@@ -21,8 +21,8 @@ export const CASTLE_WORKS = {
     // final); `rate` is each man's, the wall looses every rate / count ms. Old saves move up one from
     // tier 2 so they keep what they bought (campaign.js loadCastle, WORKS_V).
     tiers: [
-      { cost: 10000, label: "Two bowmen", dmg: 16, rate: 900, range: 340, count: 2 },
-      { cost: 12000, label: "Three bowmen", dmg: 18, rate: 850, range: 360, count: 3 },
+      { cost: 5000, label: "Two bowmen", dmg: 16, rate: 900, range: 340, count: 2 },
+      { cost: 10000, label: "Three bowmen", dmg: 18, rate: 850, range: 360, count: 3 },
       { cost: 15000, label: "Four bowmen, longbows", dmg: 24, rate: 800, range: 380, count: 4 },
       { cost: 25000, label: "Heavy crossbows", dmg: 44, rate: 1100, range: 400, count: 4, pierce: true },
     ],
@@ -34,8 +34,8 @@ export const CASTLE_WORKS = {
     // where it stands (bosses and rams too, so the column behind waits); `breaker` knocks every blue
     // pip off and marks the foe (every blow `amp` harder for `ms`) before the bolt strikes (update.js)
     tiers: [
-      { cost: 10000, label: "One ballista", dmg: 220, rate: 3200, range: 420 },
-      { cost: 12000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 450, twin: true },
+      { cost: 5000, label: "One ballista", dmg: 220, rate: 3200, range: 420 },
+      { cost: 10000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 450, twin: true },
       { cost: 15000, label: "Chain harpoons: each bolt pins its foe 2 s", dmg: 260, rate: 2900, range: 475, twin: true, pin: 2000 },
       { cost: 25000, label: "Shield-breakers: strip every shield, foe takes +25% for 5 s", dmg: 280, rate: 2800, range: 500, twin: true, pin: 2000, breaker: { amp: 0.25, ms: 5000 } },
     ],
@@ -54,8 +54,8 @@ export const CASTLE_WORKS = {
     // `dmg` (physical, riders x`mounted`), dazing it `stun` ms (Captain Hale's arc,
     // engine/heroes/hale.js halberdSweep).
     tiers: [
-      { cost: 10000, label: "Two halberdiers", count: 2, men: 220, dmg: 22, rate: 850, range: 48 },
-      { cost: 12000, label: "Four halberdiers", count: 4, men: 250, dmg: 26, rate: 830, range: 52 },
+      { cost: 5000, label: "Two halberdiers", count: 2, men: 220, dmg: 22, rate: 850, range: 48 },
+      { cost: 10000, label: "Four halberdiers", count: 4, men: 250, dmg: 26, rate: 830, range: 52 },
       { cost: 15000, label: "Braced, in heavy plate (30% less harm)", count: 4, men: 290, dmg: 30, rate: 820, range: 52, armor: 0.3, brace: true },
       { cost: 25000, label: "Halberd sweeps", count: 4, men: 320, dmg: 34, rate: 800, range: 52, armor: 0.3, brace: true, sweep: { every: 6000, r: 46, dmg: 45, stun: 800, mounted: 2 } },
     ],
@@ -72,8 +72,8 @@ export const CASTLE_WORKS = {
     // tier bought, sets them up whole. `hp` is extra castle life (the thicker gate came from the
     // Gate Guard, same day).
     tiers: [
-      { cost: 10000, label: "Mend one life a wave, wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
-      { cost: 12000, label: "Mend two, a thicker gate, a second row of spikes", mend: 2, hp: 5, spikes: 2, spikeHp: 180, thorns: 6, mat: "wood", repair: 0.3 },
+      { cost: 5000, label: "Mend one life a wave, wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
+      { cost: 10000, label: "Mend two, a thicker gate, a second row of spikes", mend: 2, hp: 5, spikes: 2, spikeHp: 180, thorns: 6, mat: "wood", repair: 0.3 },
       { cost: 15000, label: "Iron-shod barricades", mend: 2, hp: 5, spikes: 2, spikeHp: 300, thorns: 11, mat: "iron", repair: 0.25 },
       { cost: 25000, label: "Steel barricades, the wall shored up", mend: 3, hp: 8, spikes: 2, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
     ],
@@ -89,8 +89,8 @@ export const CASTLE_WORKS = {
     // tier 4 (owner, 2026-11-18): `push` road steps the orb throws its first mark back (never a
     // boss, a ram or a swimmer; update.js), and more damage
     tiers: [
-      { cost: 10000, label: "A court wizard", count: 1, dmg: 45, rate: 1600, range: 270 },
-      { cost: 12000, label: "Two court wizards", count: 2, dmg: 52, rate: 1500, range: 280 },
+      { cost: 5000, label: "A court wizard", count: 1, dmg: 45, rate: 1600, range: 270 },
+      { cost: 10000, label: "Two court wizards", count: 2, dmg: 52, rate: 1500, range: 280 },
       { cost: 15000, label: "Arcane bounce: each orb bounces to two more", count: 2, dmg: 60, rate: 1400, range: 290, chain: 2, chainRange: 80 },
       { cost: 25000, label: "Force orbs: each hit throws its foe 25 steps back", count: 2, dmg: 72, rate: 1400, range: 300, chain: 2, chainRange: 80, push: 25 },
     ],
@@ -104,13 +104,13 @@ export const CASTLE_WORKS = {
     // bands.js militiaStats): `men` is each one's health, `cooldown` is ms; `noun` is what the horn raises; `rig` (the last
     // tier) puts them in the crown's squire's kit instead of a smock.
     tiers: [
-      { cost: 8000, label: "Three farmers, sharper forks", count: 3, men: 105, dmg: 10, rate: 700, range: 60, cooldown: 22000, noun: "farmers" },
-      { cost: 12000, label: "Four, and a stout hay-hook", count: 4, men: 125, dmg: 12, rate: 680, range: 60, cooldown: 20000, noun: "farmers" },
+      { cost: 5000, label: "Three farmers, sharper forks", count: 3, men: 105, dmg: 10, rate: 700, range: 60, cooldown: 22000, noun: "farmers" },
+      { cost: 10000, label: "Four, and a stout hay-hook", count: 4, men: 125, dmg: 12, rate: 680, range: 60, cooldown: 20000, noun: "farmers" },
       // from here the band is mixed (bands.js militiaStats, update.js): `bows`
       // of the `count` loose arrows instead (`bow`: their health, blow, rate
       // and reach, physical), the rest hold the road with `men` / `dmg`;
       // `rig` is the swordsmen's kit, `bowRig` the archers'.
-      { cost: 18000, label: "Swords and shortbows", count: 4, bows: 2, men: 170, dmg: 19, rate: 650, range: 62, cooldown: 18000, noun: "yeomen", rig: "yeoman", bowRig: "bowman", bow: { men: 90, dmg: 11, rate: 900, range: 120 } },
+      { cost: 15000, label: "Swords and shortbows", count: 4, bows: 2, men: 170, dmg: 19, rate: 650, range: 62, cooldown: 18000, noun: "yeomen", rig: "yeoman", bowRig: "bowman", bow: { men: 90, dmg: 11, rate: 900, range: 120 } },
       // the knights are plainer than a Paladin Order's (280 health, 36 magic
       // a blow): steel, physical, and less of both
       { cost: 25000, label: "The Crown's levy: three knights, two archers", count: 5, bows: 2, men: 210, dmg: 24, rate: 700, range: 64, cooldown: 16000, noun: "levymen", rig: "squire", bowRig: "bowman", bow: { men: 120, dmg: 14, rate: 850, range: 130 } },
