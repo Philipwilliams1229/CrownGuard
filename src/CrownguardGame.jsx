@@ -1129,12 +1129,13 @@ export default function Crownguard() {
   const militiaBtn = ui.result == null && !(mode === "free" && SANDBOX?.militia === false) && (
     <button aria-label="Call the militia" title={militiaBlurb(militiaSt)}
       className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
-      style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
+      style={{ flex: 1, minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
       disabled={ui.militiaSec > 0}
       onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {/* the cooldown drains down the plank like sand */}
       {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / militiaSt.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
-      {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
+      {/* the man the horn raises at the Levy's tier: a farmer, a yeoman, the crown's squire (castle.js militia `rig`) */}
+      {hasRig(militiaSt.rig || "farmer") ? <EnemyIcon type={militiaSt.rig || "farmer"} box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
       <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
     </button>
   );
@@ -1143,14 +1144,14 @@ export default function Crownguard() {
   // placeBarricade). Only while the Masons' Guild is built.
   const masonSt = ui.castle ? workTier(ui.castle, "masons", ui.castleRanks) : null;
   const barricadeBtn = ui.result == null && masonSt && (
-    <button aria-label="Set a barricade" title="The masons set a row of spiked barricades where you tap on the road"
+    <button aria-label="Call the masons: set a barricade" title="The masons set a row of spiked barricades where you tap on the road"
       className={cls("cg-btn", ui.rallyFor === "barricade" && "is-on")}
-      style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
+      style={{ flex: 1, minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
       disabled={ui.masonSec > 0}
       onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "barricade" ? null : "barricade"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {ui.masonSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.masonSec * 1000) / masonSt.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
-      <HammerIcon size={22} />
-      <span style={{ fontSize: 12, position: "relative" }}>{ui.masonSec > 0 ? `${ui.masonSec}s` : "Barricade"}</span>
+      {hasRig("mason") ? <EnemyIcon type="mason" box={28} /> : <HammerIcon size={22} />}
+      <span style={{ fontSize: 12, position: "relative" }}>{ui.masonSec > 0 ? `${ui.masonSec}s` : "Masons"}</span>
     </button>
   );
   // the hero stands in the tray's foot, where only his portrait and bars fit
@@ -2187,10 +2188,12 @@ export default function Crownguard() {
             </div>
             )}
 
-            {/* foot: the hero, his talents and the militia */}
+            {/* foot (owner, 2026-11-18): the hero on a row of his own, the Masons and the militia
+                sharing the row under him, each half of it */}
             {ui.result == null && (
-              <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR / 3 }}>
-                {heroBtn}{talentBtn}{barricadeBtn}{militiaBtn}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginRight: cornerR / 3 }}>
+                {(heroBtn || talentBtn) && <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>{heroBtn}{talentBtn}</div>}
+                {(barricadeBtn || militiaBtn) && <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>{barricadeBtn}{militiaBtn}</div>}
               </div>
             )}
           </div>
