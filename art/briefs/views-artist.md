@@ -38,14 +38,20 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
 - **Owner's rules (2026-11-17), checked on every figure:**
   1. FRONT: a shield never sits BEHIND the head or overlaps it. Carry it low and forward on
      its arm (its top below the chin), beside the body, so the head stays clear and in front.
-  2. BACK: a sword, axe, knife or spear held in front of him is mostly HIDDEN by his body
-     from behind. Show at most a little of it (the pommel / grip by the hip, the tip past
-     the hip or below the elbow, angled forward and DOWN). Never a blade standing up beside
-     the head or shoulder: that reads as holding it backwards. Staves, banners and bows
-     carried upright may show (they are carried that way), but keep their head forward.
+  2. BACK: every weapon is STILL THERE, in the same hand (owner, 2026-11-17: "i didnt mean take
+     them out completely ... be mindful of which body parts they would be hidden behind").
+     Draw it at its true depth: the hand is at his side, so the part of the weapon that runs
+     IN FRONT of him (toward where he faces, away from us) is hidden behind his torso, arm or
+     cloak; the parts that stick out PAST his outline still show (a spear's shaft above his
+     shoulder and below his fist, an axe head or blade past his hip, a pommel). Never delete
+     a weapon. Never stand a blade up beside the head as if held backwards.
   3. FEET STAY CONNECTED: in every frame of both views each foot joins its leg (no gap,
      no loose boot or dark blob below a hem); a lifted foot still hangs from its shin.
      Check every frame at zoom 4, not just frame 0.
+  4. THE WEAPON IS IN THE HAND (owner, same day): in every frame of both views the fist
+     closes AROUND the grip: the haft runs into the fist and out the other side (or ends in
+     a pommel just past it), the fingers drawn OVER the haft. Never a weapon floating beside,
+     above or behind a hand, and never a hand hanging empty under a weapon.
 - FRONT: the face is the read (eyes, brow, mouth, the figure's signature feature); the
   silhouette must say "this figure" at board size (an art pixel is half a board pixel).
 - BACK: no face; the back of the head / helmet / hood with a seam, patch or detail so it is

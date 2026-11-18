@@ -124,15 +124,16 @@ const make = (s) => (px, F, o = {}) => {
   // the halberd in his right hand: haft upright at his side, butt off the flags, the axe blade outward
   const hdx = rs * 8 + sx, hdy = sk.hdN[1] + (s > 0 ? 0 : 0), a = Math.cos(ph * TAU) * 0.035;
   const butt = [hdx - 32 * Math.sin(a) * -0, hdy + 32], top = [hdx + 64 * Math.sin(a) * 0, hdy + 32 - 64];
-  const at = (u, b) => [top[0] + rs * b, top[1] - u];
+  const kb = s > 0 ? 1 : 0.5, bz = s > 0 ? 7.06 : 6.9;     // from behind the blade runs forward, away from us: mostly hidden behind the haft
+  const at = (u, b) => [top[0] + rs * b * (b > 0 ? kb : 1), top[1] - u];
   px.part();
   px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, WOOD, 7, { edge: true });
   px.capsule(butt[0], butt[1], 1.1, butt[0], butt[1] - 1.6, 1.1, STEEL, 7.01);
   px.part();
   px.capsule(...at(-11.5, 0), 1.25, ...at(0, 0), 1.25, STEEL, 7.05);
   px.capsule(...at(0, 0), 1.0, ...at(6, 0), 0.35, BLADE, 7.05);
-  px.poly([at(-9.6, 0.6), at(-11.4, 5.4), at(-6.2, 6.6), at(-0.8, 5.2), at(-2.6, 0.6)], STEEL, 7.06, { n: [rs * 0.1, 0.2, 0.95] });
-  px.line(...at(-10.6, 5.6), ...at(-1.6, 5.4), BLADE, 7.07, { fix: 4 });
+  px.poly([at(-9.6, 0.6), at(-11.4, 5.4), at(-6.2, 6.6), at(-0.8, 5.2), at(-2.6, 0.6)], STEEL, bz, { n: [rs * 0.1, 0.2, 0.95] });
+  px.line(...at(-10.6, 5.6), ...at(-1.6, 5.4), BLADE, bz + 0.01, { fix: 4 });
   px.poly([at(-7.8, -0.6), at(-6.4, -4.4), at(-4.4, -0.6)], STEEL, 7.06, { n: [-rs * 0.3, -0.4, 0.86] });
 
   // the near arm (his right): mail sleeve to a leather cuff, his fist on the haft

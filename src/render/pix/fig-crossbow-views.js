@@ -68,8 +68,9 @@ const make = (s) => (px, F, o = {}) => {
   const rEl = [rs * 7.6 + sx, shY + 7.4], lEl = [ls * 7.6 + sx, shY + 6.2];
   if (s > 0) {
     // trigger hand at his right hip-chest, fore hand up under the tiller near the nose
-    const rh = [rs * 3.4 + sx, shY + 10.6 + vy * 0.3], lh = [ls * 2.6 + sx, shY + 4.4 + bw];
+    const rh = [rs * 3.4 + sx, shY + 10.6 + vy * 0.3];
     const nose = [hx + ls * 1.2, shY + 2.2], butt = [hx + rs * 4.6, hipY - 1.6];
+    const lh = [nose[0] + (rh[0] - nose[0]) * 0.3, nose[1] + (rh[1] - nose[1]) * 0.3 + 0.6];   // the fore hand closes round the tiller
     px.part(); px.tag("stock");
     px.capsule(butt[0], butt[1], 1.9, rh[0] + 0.4, rh[1] + 0.4, 1.6, WOOD, 6.5, { edge: true });
     px.capsule(rh[0] + 0.4, rh[1] + 0.4, 1.5, nose[0], nose[1], 1.1, WOOD, 6.5, { edge: true });
@@ -91,7 +92,7 @@ const make = (s) => (px, F, o = {}) => {
     px.part(); px.tag("farHand");
     px.capsule(...sh(ls), 2.0, lEl[0], lEl[1] + 1.4, 2.0, PAD, 6.2, { cast: 1 });
     px.capsule(lEl[0], lEl[1] + 1.4, 1.9, lh[0], lh[1] + 0.8, 1.7, PAD, 6.2, { cast: 1 });
-    px.part(); px.ellipse(lh[0], lh[1], 1.7, 1.7, LEATHER, 7);
+    px.part(); px.ellipse(lh[0], lh[1], 2.0, 1.8, LEATHER, 7);
     px.part(); px.tag("nearArm");
     px.capsule(...sh(rs), 2.1, rEl[0], rEl[1] + 1.2, 2.0, PAD, 6.2, { cast: 1 });
     px.capsule(rEl[0], rEl[1] + 1.2, 1.9, rh[0], rh[1] - 0.4, 1.7, PAD, 6.2, { cast: 1 });

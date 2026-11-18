@@ -182,7 +182,7 @@ const make = (s) => (px, F) => {
     px.dot(...mix(v0, v1, 0.2), IRON, 7.96, { fix: 0 }); px.dot(...mix(v0, v1, 0.85), IRON, 7.96, { fix: 0 });
     px.tag(null);
     // the falchion stands up by his side, point out and up: a leather grip, a cross-guard, the broad blade, belly outward
-    const t = rs * 0.2 + vx * 0.1, A = s > 0 ? (f, o = 0) => [hd[0] + t * f + rs * o, hd[1] - f] : (f, o = 0) => [hd[0] - rs * 0.1 * f + rs * o, hd[1] + f * 0.75], bz = s > 0 ? 8.1 : 3.9;   // from behind it hangs point down at his side, behind the hip
+    const t = rs * 0.2 + vx * 0.1, A = s > 0 ? (f, o = 0) => [hd[0] + t * f + rs * o, hd[1] - f] : (f, o = 0) => [hd[0] - rs * 0.1 * f + rs * o, hd[1] + f * 0.75], bz = 8.1;   // from behind it hangs point down at his side, behind the hip
     px.part(); px.tag("blade");
     px.poly([A(5, -1.1), A(19.8, -1.5), A(23, 0.3), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)].map(([x, y]) => [x, y]), BLADE, bz, { fix: 2, edge: true });
     px.poly([A(5, 0.6), A(15, 1.7), A(21.6, 1.4), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)], BLADE, bz + 0.01, { fix: 4 });

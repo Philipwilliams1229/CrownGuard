@@ -119,12 +119,13 @@ const make = (s) => (px, F) => {
   // ---- the arms. Hands rise and fall a little as the arms swing (forward is toward us in front).
   const angN = p.aN[0], angF = p.aF[0];
   const arm = (side, hy0, cuffM, z, tone, hold) => {
-    const sh = [sx + side * 6, shY], el = [sx + side * 7.7, shY + 5.2], hand = [sx + side * (hold ? 8.4 : 7.6), hy0], wr = [hand[0], hand[1] - 2.2];
+    const sh = [sx + side * 6, shY], el = [sx + side * 7.7, shY + 5.2], hand = [sx + side * (hold ? 8.6 : 7.6), hy0], wr = [hand[0], hand[1] - 2.2];
     px.part();
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.3, ROBE, z, { cast: 2, floor: 1, bias: tone });
     px.capsule(el[0], el[1], 2.3, wr[0], wr[1], 3, ROBE, z, { cast: 2, floor: 1, bias: tone });
     px.poly([[wr[0] - 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] + 1.4], [wr[0] - 3.2, wr[1] + 1.4]], cuffM, z + 0.02, { bias: 1 });
-    px.part(); px.ellipse(hand[0], hand[1] + 0.8, 1.9, hold ? 2.1 : 1.8, SKIN, z + 0.3, { cast: 1 });
+    px.part(); px.ellipse(hand[0], hand[1] + 0.8, hold ? 2.4 : 1.9, hold ? 2.2 : 1.8, SKIN, z + 0.3, { cast: 1 });
+    if (hold) { px.line(hand[0] - 1.8, hand[1] + 0.2, hand[0] + 1.8, hand[1] + 0.2, SKIN, z + 0.32, { fix: 1, noLine: true }); px.line(hand[0] - 1.8, hand[1] + 1.8, hand[0] + 1.8, hand[1] + 1.8, SKIN, z + 0.32, { fix: 1, noLine: true }); }
   };
   arm(ls, shY + 10.4 + s * (angF - 0.9) * 7, OXD, 8.5, -1, true);
   arm(rs, shY + 11.6 + s * (angN - 0.36) * 8, OX, 8.6, 0, false);

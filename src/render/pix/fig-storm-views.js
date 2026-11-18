@@ -116,7 +116,7 @@ const make = (s) => (px, F, o = {}) => {
   const sh = [tx + rs * 6.3, chestY + 0.4], elb = [tx + rs * 9.4, chestY + 6.8], hd = [tx + rs * 10.8, chestY + 12.2 - s * a * 0.4];
   const lean = rs * 0.05, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
   const at = (t, w = 0) => [hd[0] + d[0] * t * K + nr[0] * w * K, hd[1] + d[1] * t * K + nr[1] * w * K];
-  const bz = 5.4, cx = at(22.6);
+  const bz = 6.0, cx = at(22.6);
   px.part(); px.tag("staff");
   px.capsule(...at(-11), 0.95 * K, ...at(19), 0.9 * K, WOOD, bz, { edge: true });
   px.capsule(...at(-11), 1.2 * K, ...at(-9.8), 1.2 * K, SILVER, bz + 0.02);
@@ -133,7 +133,8 @@ const make = (s) => (px, F, o = {}) => {
   px.capsule(sh[0], sh[1] + 0.4, 2.7, elb[0], elb[1], 2.8, ROBE, 5.9, { cast: 2 });
   px.capsule(elb[0], elb[1], 3, hd[0], hd[1], 2.4, ROBE, 5.9, { cast: 2 });
   px.line(hd[0] - 2, hd[1] - 1.4, hd[0] + 2, hd[1] - 1.4, SILVER, 5.95);
-  px.part(); px.ellipse(hd[0], hd[1] + 0.4, 2.1, 2.1, SKIN, 6.1); px.tag(null);
+  px.part(); px.ellipse(hd[0], hd[1] + 0.2, 2.4, 2.2, SKIN, 6.3);
+  px.line(hd[0] - 2, hd[1] + 0.4, hd[0] + 2, hd[1] + 0.4, SKIN, 6.32, { fix: 1, noLine: true }); px.tag(null);
 
   // the head
   px.part();

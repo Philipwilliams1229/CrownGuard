@@ -59,7 +59,7 @@ const make = (s) => (px, F) => {
 
   // ---- the bow arm (his left): sleeve, shirt cuff and bracer, the fist on the grip; the yew bow upright beside it
   const lSh = [ls * 5.2 + sx, shY], lEl = [ls * 6.6 + sx, shY + 5], lHd = [ls * 7 + sx, shY + 10.4];
-  const bz = vv ? 7 : 3.3, gx = lHd[0] + ls * 0.4, gy = lHd[1];
+  const bz = 7, gx = lHd[0] + ls * 0.4, gy = lHd[1];
   px.part(); px.tag("bow");
   px.capsule(gx - ls * 0.6, gy - 12.5, 0.6, gx + ls * 0.2, gy - 6, 0.95, BOW, bz, { edge: true });
   px.capsule(gx + ls * 0.2, gy - 6, 0.95, gx + ls * 0.4, gy, 1.3, BOW, bz, { edge: true });

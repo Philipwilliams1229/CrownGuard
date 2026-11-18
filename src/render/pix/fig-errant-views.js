@@ -146,11 +146,10 @@ const make = (s) => (px, F) => {
     px.part();
     px.capsule(wx, sy + 0.8, 0.9, wx, sy - 2.2, 0.9, LEATHER, 7.22);
     px.capsule(wx - 2.8, sy - 2.4, 0.8, wx + 2.8, sy - 2.4, 0.8, BRASS, 7.25, { edge: true });
-  } else {   // from behind the blade is hidden by his body: only the tip shows past the hip, angled forward and down
-    px.capsule(wx + rs * 0.6, sy + 2, 1.0, wx + rs * 1.2, sy + 7, 0.3, BLADE, 3.9, { edge: true });
-    px.part();
+  } else {   // from behind: the blade runs forward past his hip hidden behind him; the grip's end and the brass pommel show below the fist
+    px.capsule(wx, sy + 0.5, 0.9, wx, sy + 3.2, 0.9, LEATHER, 8.2);
+    px.ellipse(wx, sy + 4, 1.2, 1.2, BRASS, 8.22);
   }
-  px.ellipse(wx, sy + 2, 1.15, 1.15, BRASS, 7.25);
   px.tag(null);
   px.part(); px.tag("nearArm");
   px.capsule(rSh[0], rSh[1] + 0.5, 2.2, rEl[0], rEl[1], 2.0, PLATE, 8, { cast: 2 });

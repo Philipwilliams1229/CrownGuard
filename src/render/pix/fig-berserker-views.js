@@ -115,8 +115,7 @@ const make = (s) => (px, F, o = {}) => {
     const c0 = mix(el, hd, 0.62);
     px.capsule(c0[0], c0[1], 2.3, hd[0], hd[1], 2.1, LEATHER, z + 0.05, { cast: 1 });
     px.tag(null);
-    if (s > 0) daneAxe(px, { ...K, rs: side }, hd, 17, 1.4, z + 0.2, IRON);
-    else backGrip(px, { ...K, rs: side }, hd, z + 0.2, 6);
+    daneAxe(px, { ...K, rs: side }, hd, 17, 1.4, z + 0.2, IRON, s < 0);
     px.part(); px.tag("nearHand");
     px.ellipse(hd[0], hd[1], 2.1, 2.5, skin, z + 0.4);
     px.tag(null);

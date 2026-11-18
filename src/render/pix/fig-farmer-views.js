@@ -133,8 +133,9 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(top[0] - 2.4, top[1] - 0.4, 0.7, top[0] - 2.4, top[1] - 7.6, 0.5, IRON, 7.26, { edge: true });
     px.capsule(top[0] + 2.4, top[1] - 0.4, 0.7, top[0] + 2.4, top[1] - 7.6, 0.5, IRON, 7.26, { edge: true });
     px.capsule(top[0], top[1] - 0.4, 0.8, top[0], top[1] - 9.4, 0.4, IRON, 7.27, { edge: true });
-  } else if (!vv) {   // from behind the sword is hidden by his body: only the tip shows past the hip, angled forward and down
-    px.capsule(wx + rs * 0.4, rHd[1] + 2, 1.0, wx + rs * 1.0, rHd[1] + 7, 0.3, BLADE, 3.9, { edge: true });
+  } else if (!vv) {   // from behind the blade runs forward, hidden by his body; the grip's end and the pommel show below the fist
+    px.capsule(wx, rHd[1] + 0.5, 0.9, wx, rHd[1] + 3, 0.9, LEATHER, 8.2);
+    px.ellipse(wx, rHd[1] + 3.8, 1.1, 1.1, IRONK, 8.22);
   } else {      // the short sword upright from the fist, a cross guard, a pommel
     const sy = rHd[1], tilt = rs * 0.1;
     px.capsule(wx, sy - 2, 1.15, wx + tilt * 14, sy - 15, 0.95, BLADE, 7.2, { edge: true });

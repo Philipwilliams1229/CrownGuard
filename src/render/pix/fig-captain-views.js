@@ -116,7 +116,7 @@ const make = (s) => (px, F, o = {}) => {
   const lean = rs * 0.07 + sw * 0.01, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
   const fk = s > 0 ? 1 : 0.38;   // from behind the pole leans away from us: foreshortened
   const Bh = (t, w = 0) => [hd[0] + d[0] * t * fk + nr[0] * w * fk, hd[1] + d[1] * t * fk + nr[1] * w * fk];   // t up the shaft from the fist, w across it
-  const bz = 5.4, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
+  const bz = 6.25, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
   px.part(); px.tag("halb");
   px.capsule(...Bh(-9), 1.1, ...Bh(36), 1.05, WOOD, bz, { edge: true });
   px.capsule(...Bh(-9), 1.5, ...Bh(-7.6), 1.5, STEEL_D, bz + 0.02);
@@ -139,8 +139,9 @@ const make = (s) => (px, F, o = {}) => {
   px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, 6.2, { cast: 0 });
   px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, 6.2, { cast: 0 });
   px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, 6.22, { vb: 0.25 });
-  px.ellipse(hd[0], hd[1], 1.9, 1.8, STEEL_D, 6.4);
-  px.line(hd[0] - 1.4, hd[1] + 0.8, hd[0] + 1.4, hd[1] - 1, GOLD, 6.5);
+  px.ellipse(hd[0], hd[1], 2.1, 2.0, STEEL_D, 6.5);
+  px.line(hd[0] - 1.8, hd[1] - 0.8, hd[0] + 1.8, hd[1] - 0.8, STEEL, 6.52, { fix: 1, noLine: true });   // the fingers over the haft
+  px.line(hd[0] - 1.4, hd[1] + 0.8, hd[0] + 1.4, hd[1] - 1, GOLD, 6.55);
   px.tag(null);
   px.part();
   px.ellipse(sh[0] - rs * 0.2, sh[1] - 0.4, 4.0, 3.3, STEEL, 8.1, { cast: 1 });

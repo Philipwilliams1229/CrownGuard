@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crownguard Front and Back Views</title>
+<style>
+  :root { --bg: #16191f; --card: #20242c; --line: #333946; --ink: #ebe3cc; --dim: #a39d8c; --gold: #e8c070; --grass: #6f9a4c; --ok: #7fbf6a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: rgba(22,25,31,.96); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  h1 { font-size: 18px; margin: 0; color: var(--gold); }
+  header label { color: var(--dim); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  select, button, textarea { font: inherit; color: var(--ink); background: #2a2f39; border: 1px solid var(--line); border-radius: 6px; }
+  select, button { padding: 4px 8px; }
+  button { cursor: pointer; }
+  button.primary { background: #6b5320; border-color: #8e7030; color: #fff4d6; }
+  .intro { max-width: 900px; margin: 14px 16px 0; color: var(--dim); }
+  .intro b { color: var(--ink); }
+  h2 { margin: 26px 16px 8px; font-size: 16px; color: var(--gold); border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 14px; padding: 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .card.has-notes { border-color: #7a6330; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+  .card h3 small { color: var(--dim); font-weight: 400; }
+  .anim { display: flex; gap: 10px; flex-wrap: wrap; }
+  .anim figure { margin: 0; text-align: center; }
+  .anim figcaption, .frames .lbl { color: var(--dim); font-size: 12px; }
+  canvas { image-rendering: pixelated; background: var(--grass); border-radius: 6px; display: block; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+  .frames { margin-top: 6px; overflow-x: auto; }
+  .frames img { image-rendering: pixelated; background: var(--grass); border-radius: 4px; display: block; }
+  .fb { margin-top: 10px; display: grid; gap: 6px; }
+  .fb .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 13px; background: #2a2f39; color: var(--dim); }
+  .chip.on { background: #6b5320; border-color: #8e7030; color: #fff4d6; }
+  textarea { width: 100%; min-height: 54px; padding: 6px 8px; resize: vertical; }
+  .notes { display: grid; gap: 6px; margin-top: 4px; }
+  .note { border-left: 3px solid #8e7030; padding: 4px 8px; background: #262a33; border-radius: 4px; font-size: 14px; }
+  .note.done { border-left-color: var(--ok); opacity: .75; }
+  .note .meta { color: var(--dim); font-size: 12px; }
+  .note .reply { color: var(--ok); font-size: 13px; margin-top: 3px; }
+  .status { color: var(--dim); font-size: 12px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Front and Back Views</h1>
+  <label>Size <select id="zoom"><option value="2">Small</option><option value="3" selected>Medium</option><option value="4">Large</option><option value="1">Board size</option></select></label>
+  <label>Speed <select id="speed"><option value="1" selected>Normal</option><option value="0.5">Half</option><option value="0.25">Slow</option></select></label>
+  <label>Show <select id="group"><option value="">Everyone</option></select></label>
+  <label><input type="checkbox" id="onlyNotes" /> Only with notes</label>
+  <span class="status" id="dbStatus">Connecting the notes…</span>
+</header>
+<p class="intro">Every character that walks the road, as the game shows it: <b>side</b> (walking across), <b>front</b> (walking down the screen, toward you) and <b>back</b> (walking up it). They switch views mid-stride, and turn side-on whenever they fight. Open <b>Frames</b> under a figure to see each step. Leave a note under any figure (pick what it's about, write, Send): Claude reads them and answers right on the note.</p>
+<main id="main"></main>
+<script>
+const figs = [], state = { zoom: 3, speed: 1, group: "", onlyNotes: false, notes: {} };
+const VIEWS = ["Side", "Front", "Back"];
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let db = null;
+
+const cards = [];
+const build = () => {
+  const main = $("#main"); main.innerHTML = "";
+  const groups = [...new Set(figs.map((f) => f.group))];
+  const gsel = $("#group");
+  if (gsel.options.length === 1) for (const g of groups) gsel.add(new Option(g, g));
+  for (const g of groups) {
+    const sec = document.createElement("section"); sec.dataset.group = g;
+    sec.innerHTML = `<h2>${esc(g)}</h2><div class="grid"></div>`;
+    main.appendChild(sec);
+    for (const f of figs.filter((x) => x.group === g)) {
+      const card = document.createElement("div"); card.className = "card"; card.dataset.type = f.type;
+      card.innerHTML = `<h3>${esc(f.name)} <small>${esc(f.type)}</small></h3>
+        <div class="anim">${VIEWS.map((v) => `<figure><canvas data-row="${VIEWS.indexOf(v)}"></canvas><figcaption>${v}</figcaption></figure>`).join("")}</div>
+        <details><summary>Frames</summary><div class="frames"><div class="lbl">Rows: side, front, back. ${f.n} steps each.</div><img alt="${esc(f.name)} frames" /></div></details>
+        <div class="fb">
+          <div class="notes"></div>
+          <div class="row" role="group" aria-label="About">${["General", ...VIEWS].map((v, i) => `<button type="button" class="chip${i ? "" : " on"}" data-about="${v}">${v}</button>`).join("")}</div>
+          <textarea placeholder="Note on ${esc(f.name)}…" aria-label="Note on ${esc(f.name)}"></textarea>
+          <div class="row"><button type="button" class="primary send">Send note</button><span class="status sendStatus"></span></div>
+        </div>`;
+      sec.querySelector(".grid").appendChild(card);
+      const img = new Image(); img.src = `sheets/${f.type}.png`;
+      card.querySelector(".frames img").src = img.src;
+      cards.push({ f, card, img, canvases: [...card.querySelectorAll("canvas")] });
+      card.querySelectorAll(".chip").forEach((b) => b.onclick = () => { card.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === b)); });
+      card.querySelector(".send").onclick = () => send(f, card);
+    }
+  }
+  sizeAll(); applyFilter(); renderNotes();
+};
+const sizeAll = () => {
+  for (const c of cards) {
+    const { cw, ch, n } = c.f, z = state.zoom;
+    for (const cv of c.canvases) { cv.width = cw; cv.height = ch; cv.style.width = cw * z + "px"; cv.style.height = ch * z + "px"; }
+    const im = c.card.querySelector(".frames img"); im.style.width = cw * n * Math.max(2, z - 1) + "px";
+  }
+};
+const applyFilter = () => {
+  for (const sec of document.querySelectorAll("section")) sec.classList.toggle("hidden", !!state.group && sec.dataset.group !== state.group);
+  for (const c of cards) c.card.classList.toggle("hidden", state.onlyNotes && !(state.notes[c.f.type] || []).length);
+};
+const tick = (now) => {
+  for (const c of cards) {
+    if (!c.img.complete || c.card.classList.contains("hidden")) continue;
+    const { cw, ch, n, ms } = c.f, f = Math.floor(((now * state.speed) / (ms / n)) % n);
+    c.canvases.forEach((cv) => {
+      const r = +cv.dataset.row, ctx = cv.getContext("2d");
+      ctx.clearRect(0, 0, cw, ch); ctx.drawImage(c.img, f * cw, r * ch, cw, ch, 0, 0, cw, ch);
+    });
+  }
+  requestAnimationFrame(tick);
+};
+
+// ---- the notes: db collection "feedback", one document a note ----
+const renderNotes = () => {
+  for (const c of cards) {
+    const list = (state.notes[c.f.type] || []).slice().sort((a, b) => a.at - b.at);
+    c.card.classList.toggle("has-notes", list.some((n) => !n.done));
+    c.card.querySelector(".notes").innerHTML = list.map((n) => `<div class="note${n.done ? " done" : ""}">
+      <div class="meta">${esc(n.about || "General")} · ${new Date(n.at).toLocaleString()}${n.done ? " · done" : ""}</div>${esc(n.text)}
+      ${n.reply ? `<div class="reply">Claude: ${esc(n.reply)}</div>` : ""}</div>`).join("");
+  }
+  applyFilter();
+};
+const send = async (f, card) => {
+  const ta = card.querySelector("textarea"), st = card.querySelector(".sendStatus"), text = ta.value.trim();
+  if (!text) { st.textContent = "Write a note first."; return; }
+  if (!db) { st.textContent = "Notes aren't connected on this view."; return; }
+  const about = card.querySelector(".chip.on").dataset.about, btn = card.querySelector(".send");
+  btn.disabled = true; st.textContent = "Sending…";
+  try {
+    await db.collection("feedback").add({ fig: f.type, figName: f.name, about, text, at: Date.now(), done: false });
+    ta.value = ""; st.textContent = "Sent.";
+  } catch (e) { st.textContent = e && e.code === "invalid_argument" ? "This view can't add notes." : "Couldn't send, try again."; }
+  btn.disabled = false;
+};
+const connect = async () => {
+  const s = $("#dbStatus");
+  try { db = await window.claude?.use?.("db"); } catch { db = null; }
+  if (!db) { s.textContent = "Notes need the page open on claude.ai."; return; }
+  const timer = setTimeout(() => (s.textContent = "Notes can't be reached yet."), 10000);
+  db.collection("feedback").onSnapshot((snap) => {
+    if (!snap.metadata.fromCache) { clearTimeout(timer); s.textContent = "Notes connected."; }
+    const by = {};
+    for (const d of snap.docs) { const v = d.data(); if (!v || !v.fig) continue; (by[v.fig] ||= []).push({ id: d.id, ...v }); }
+    state.notes = by; renderNotes();
+  }, () => { clearTimeout(timer); s.textContent = "Notes stopped updating; reload to reconnect."; });
+};
+
+$("#zoom").onchange = (e) => { state.zoom = +e.target.value; sizeAll(); };
+$("#speed").onchange = (e) => { state.speed = +e.target.value; };
+$("#group").onchange = (e) => { state.group = e.target.value; applyFilter(); };
+$("#onlyNotes").onchange = (e) => { state.onlyNotes = e.target.checked; applyFilter(); };
+fetch("figs.json").then((r) => r.json()).then((list) => { figs.push(...list); build(); requestAnimationFrame(tick); })
+  .catch(() => { $("#main").innerHTML = `<p class="intro">The figures couldn't load. Reload the page.</p>`; });
+connect();
+</script>
+</body></html>

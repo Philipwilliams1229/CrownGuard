@@ -149,8 +149,10 @@ const make = (s) => (px, F) => {
     const cu = mix(el, hd, 0.7); px.capsule(cu[0], cu[1], 2.6, hd[0], hd[1], 2.5, FURW, 7.95);
     px.tag(null);
     px.part(); px.tag("weapon");
-    px.capsule(hd[0], hd[1], 1.1, hd[0] + rs * 0.4, hd[1] + 5, 1.2, WOOD, 8.1, { edge: true });
+    px.capsule(hd[0], hd[1], 1.1, hd[0] + rs * 0.4, hd[1] + 5, 1.2, WOOD, 8.1, { edge: true });      // the butt below the fist
     px.dot(hd[0] + rs * 0.4, hd[1] + 5.6, IRON_D, 8.12, { fix: 1 });
+    // the haft runs on up past his hip, forward of the cape: behind the cape and mantle (z 3), only the sliver outside his outline shows
+    px.capsule(hd[0] - rs * 0.4, hd[1], 1.2, hd[0] - rs * 1.4, c0 + 3, 1.2, WOOD, 3, { edge: true });
     px.tag(null);
     px.part(); px.ellipse(hd[0], hd[1], 2.5, 2.5, SKIN, 8.3);
     // the far arm hangs at his left side, the hand turned in

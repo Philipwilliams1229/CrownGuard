@@ -130,7 +130,7 @@ const make = (s) => (px, F, o = {}) => {
   px.capsule(rs * 6.2 + sx, shY + 1.2, 2.5, rEl[0], rEl[1], 2.3, PAD, 5, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 2.3, hand[0], hand[1], 2.0, PLATE, 5, { cast: 2 });
   px.ellipse(rEl[0], rEl[1], 2.2, 2.2, PLATE, 5.05, { cast: 1 });
-  px.part(); px.ellipse(hand[0], hand[1], 1.9, 2.1, PLATEK, 7);
+  
   const lEl = [ls * 8.6 + sx, shY + 8], lh = [ls * 8.6 + sx, shY + 11.6];
   px.part();
   px.capsule(ls * 6.2 + sx, shY + 1.2, 2.5, lEl[0], lEl[1], 2.3, PAD, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
@@ -146,9 +146,18 @@ const make = (s) => (px, F, o = {}) => {
     px.poly([[gx - 1.5, gy - 3.6], [gx + 1.5, gy - 3.6], [top[0] + 1.2, top[1] + 4], [top[0], top[1]], [top[0] - 1.2, top[1] + 4]], BLADE, 7.25, { n: [0.1, 0.1, 0.95] });
     px.line(gx, gy - 5, top[0], top[1] + 4, IRON, 7.26, { fix: 1, noLine: true });
     px.tag(null);
+  } else {
+    // BACK: the sword is still in his right hand; its length runs forward, hidden behind his side and shoulder. Past his outline: the pommel under the fist and the crossguard's outer arm.
+    px.part(); px.tag("sword");
+    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 3.4, { edge: true });
+    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 6.95);
+    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 4.2, hand[1] - 2.4 + 0.4, 0.9, STEELB, 5.6, { edge: true });
+    px.tag(null);
   }
+  // the fist closes round the grip (over it in FRONT, round the haft from behind)
+  px.part(); px.ellipse(hand[0], hand[1], 2.0, 2.0, PLATEK, 7.6);
 
-  // ---- the head: the barbute (BACK: the dome and its ridge, brass studs)
+    // ---- the head: the barbute (BACK: the dome and its ridge, brass studs)
   px.part();
   if (s > 0) px.stamp(p.blink ? blinkOf(FRONT_H) : FRONT_H, hx, hy, LEG, 6, { ax: 6, ay: 14, ball: [6.5, 6, 7, 8], cast: 1 });
   else px.stamp(BACK_H, hx, hy, LEG, 6.4, { ax: 6, ay: 14, ball: [6.5, 6, 7, 8], cast: 1 });

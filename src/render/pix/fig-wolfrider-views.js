@@ -106,7 +106,13 @@ const rider = (px, F, s, b, sx) => {
     px.capsule(el[0], el[1] + 1.2, 1.9, hd[0], hd[1], 1.8, LEATHER, 9.25, { cast: 1, floor: 1 });
     px.tag(null);
     px.part(); px.tag("weapon");
-    px.capsule(hd[0], hd[1] + 0.6, 0.85, hd[0] - rs * 0.6, hd[1] + 4.2, 0.85, WOOD, 9.3, { cast: 1 });
+    // the haft runs through his fist: the butt below it, the rest forward (behind arm and jerkin) with the axe head showing past his hip
+    const tp = [hd[0] + rs * 3, hd[1] - 5.6];
+    px.capsule(hd[0] - rs * 0.3, hd[1] + 4.6, 0.85, hd[0], hd[1], 0.85, WOOD, 9.3, { cast: 1 });
+    px.capsule(hd[0], hd[1], 0.85, tp[0], tp[1], 0.85, WOOD, 8.4, { cast: 1 });
+    px.poly([[tp[0], tp[1] - 1], [tp[0] + rs * 5, tp[1] - 2.2], [tp[0] + rs * 5.4, tp[1] + 3.6], [tp[0] + rs * 3, tp[1] + 4.6], [tp[0], tp[1] + 2.4]], STEEL, 8.45, { fix: 2 });
+    px.poly([[tp[0] + rs * 3, tp[1] + 4.6], [tp[0] + rs * 5.4, tp[1] + 3.6], [tp[0] + rs * 4.6, tp[1] + 2.6]], STEEL, 8.5, { fix: 4 });
+    px.poly([[tp[0], tp[1] - 1.4], [tp[0] - rs * 1.2, tp[1] - 1.4], [tp[0] - rs * 1.2, tp[1] + 2], [tp[0], tp[1] + 2]], IRONK, 8.42, { fix: 1 });
     px.tag(null);
     px.part();
     px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 9.6);

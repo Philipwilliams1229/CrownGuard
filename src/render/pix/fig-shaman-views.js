@@ -115,7 +115,8 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(el[0], el[1], 2, fist[0] - ls * 0.4, fist[1] - 1.2, 2.4, SLEEVE, 4.5, { bias: -1 });
     px.poly([[fist[0] - 2.7, fist[1] - 2.6], [fist[0] + 2.7, fist[1] - 2.6], [fist[0] + 2.7, fist[1] - 0.9], [fist[0] - 2.7, fist[1] - 0.9]], GOLD, 4.6, { round: 0.8 });
     px.part();
-    px.ellipse(fist[0], fist[1] + 0.4, 1.8, 1.8, SKIN, 4.7, { bias: -1 });
+    px.ellipse(fist[0], fist[1] + 0.4, 2.4, 2.4, SKIN, 4.7, { bias: -1 });
+    px.dot(fist[0] - 1, fist[1] - 0.6, SKIN, 4.75, { fix: 0 }); px.dot(fist[0] - 1, fist[1] + 1.4, SKIN, 4.75, { fix: 0 });   // the fingers closed over the shaft
   }
 
   // ---- bare shins and big flat feet under the hem: forward is down the screen (front) or up it (back)

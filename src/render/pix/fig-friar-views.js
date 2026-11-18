@@ -111,14 +111,14 @@ const make = (s) => (px, F, o = {}) => {
 
   // the mace: carried upright in his right fist, a little out from the body. Haft, rope grip, gold ball, iron collar, flanges.
   const rise = -a * 0.5 * s, sh = [tx + rs * 6, chestY + 0.2];
-  const hd = [tx + rs * 9.2, chestY + 13.2 + s * rise * 0.4], elb = [tx + rs * 8.8, chestY + 7.4], zo = s > 0 ? 0 : -1.95;
-  const dn = s > 0 ? [rs * 0.2, 0.62] : [-rs * 0.3, 0.5], dl = Math.hypot(dn[0], dn[1]), d = dn, nr = [-d[1] / dl, d[0] / dl];   // hangs head DOWN and forward (front: by his thigh; back: foreshortened, tucked behind the robe)
+  const hd = [tx + rs * 9.2, chestY + 13.2 + s * rise * 0.4], elb = [tx + rs * 7.4, chestY + 6.8], zo = s > 0 ? 0 : -1.95;
+  const dn = [-rs * 0.45, 0.5], dl = Math.hypot(dn[0], dn[1]), d = dn, nr = [-d[1] / dl, d[0] / dl];   // hangs head DOWN and forward (front: by his thigh; back: foreshortened, tucked behind the robe)
   const Bm = (t, w = 0) => [hd[0] + d[0] * t * S + nr[0] * w * S, hd[1] + d[1] * t * S + nr[1] * w * S];
   px.part(); px.tag("mace");
-  px.capsule(...Bm(-3), 1.15 * S, ...Bm(11), 1 * S, WOOD, zo + 5.4, { edge: true });
+  px.capsule(...Bm(-6), 1.15 * S, ...Bm(11), 1 * S, WOOD, zo + 5.4, { edge: true });
   px.capsule(...Bm(-0.5), 1.25 * S, ...Bm(3.4), 1.25 * S, ROPE, zo + 5.42);
   px.part();
-  px.ellipse(...Bm(-3.6), 1.3 * S, 1.3 * S, GOLD, zo + 5.45);
+  px.ellipse(...Bm(-6.6), 1.3 * S, 1.3 * S, GOLD, zo + 5.45);
   const mh = Bm(13);
   px.ellipse(mh[0], mh[1], 2.4 * S, 2.6 * S, GOLD, zo + 5.5, { vb: 0.2 });
   px.capsule(...Bm(11.2), 1.5 * S, ...Bm(11.8), 1.5 * S, IRON, zo + 5.51);
@@ -129,7 +129,9 @@ const make = (s) => (px, F, o = {}) => {
   px.part(); px.tag("nearArm");
   px.capsule(sh[0], sh[1] + 0.5, 2.7 * S, elb[0], elb[1], 2.6 * S, HABIT, 5.9, { cast: 2 });
   px.capsule(elb[0], elb[1], 2.6 * S, hd[0], hd[1] + 1.2, 2.1 * S, HABIT, 5.9, { cast: 2 });
-  px.part(); px.ellipse(hd[0], hd[1] - 0.2, 1.7 * S, 1.8 * S, SKIN, 6.1);
+  px.part(); const ang = Math.atan2(d[0], -d[1]);
+  px.ellipse(hd[0], hd[1], 1.9 * S, 1.6 * S, SKIN, 6.1, { rot: -ang + Math.PI / 2 });       // the fist closes round the haft
+  px.toneLine(hd[0] - nr[0] * 1.6 + d[0] * 0.8, hd[1] - nr[1] * 1.6 + d[1] * 0.8, hd[0] + nr[0] * 1.6 + d[0] * 0.8, hd[1] + nr[1] * 1.6 + d[1] * 0.8, -1, px._pid);   // the fingers over it
   px.tag(null);
 
   // the head

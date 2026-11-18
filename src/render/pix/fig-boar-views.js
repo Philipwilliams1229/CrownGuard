@@ -163,7 +163,14 @@ const rider = (px, F, s, b, sx, hump) => {
     px.poly([[tx, ty - 4.2], [tx - 2.4, ty - 0.4], [tx - 1.4, ty + 3.8], [tx, ty + 6], [tx + 1.4, ty + 3.8], [tx + 2.4, ty - 0.4]], STEEL, 9.5, { fix: 3 });
     px.line(tx - 0.8, ty - 2, tx - 0.8, ty + 3.4, STEEL, 9.55, { fix: 4 });
     px.capsule(tx, ty - 4.4, 1.4, tx, ty - 2.8, 1.4, DARK, 9.45, { floor: 1 });
-  } else px.capsule(hd[0], hd[1] + 0.6, 0.85, hd[0] + rs * 0.3, hd[1] + 4.4, 0.9, WOOD, 9.3, { cast: 1 });
+  } else {
+    // the lance runs through his fist: the butt below it, the shaft forward (up the screen, behind his arm and jerkin), its head past the boar's shoulder
+    const tp = [hd[0] + rs * 2.6, hd[1] - 12.5];
+    px.capsule(hd[0] - rs * 0.3, hd[1] + 5, 0.9, hd[0], hd[1], 0.85, WOOD, 9.3, { cast: 1 });
+    px.capsule(hd[0], hd[1], 0.85, tp[0], tp[1], 0.75, WOOD, 8.4, { cast: 1 });
+    px.poly([[tp[0] - 1.3, tp[1] + 0.4], [tp[0] + 1.3, tp[1] + 0.4], [tp[0] + 0.2, tp[1] - 4.8]], STEEL, 8.45, { fix: 3 });
+    px.capsule(tp[0], tp[1] + 1, 0.9, tp[0], tp[1] + 0.2, 0.9, DARK, 8.44, { floor: 1 });
+  }
   px.tag(null);
   px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1], 1.7, el[0], el[1], 1.6, SKIN, 9.2, { cast: 1 });

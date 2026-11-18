@@ -125,14 +125,16 @@ const make = (s) => (px, F, o = {}) => {
     const l = len * 0.45;
     px.part();
     if (s > 0) {
-      px.capsule(hd[0], hd[1] + 0.6, 0.9, hd[0], hd[1] + 2.6, 0.9, GRIP, z);
-      px.line(hd[0] - 1.8, hd[1] + 2.2, hd[0] + 1.8, hd[1] + 2.2, K.TRIM, z + 0.03, { fix: 3 });
+      px.capsule(hd[0], hd[1] - 1.8, 0.9, hd[0], hd[1] + 2, 0.9, GRIP, z);
+      px.dot(hd[0], hd[1] - 2.2, K.TRIM, z + 0.03, { fix: 3 });
+      px.line(hd[0] - 1.8, hd[1] + 2.4, hd[0] + 1.8, hd[1] + 2.4, K.TRIM, z + 0.03, { fix: 3 });
       px.part();
-      px.poly([[hd[0] - 1.2, hd[1] + 2.8], [hd[0] + 1.2, hd[1] + 2.8], [hd[0] + side * 0.3 + 0.2, hd[1] + 2.6 + l]], K.STEEL, z + 0.02, { edge: true });
+      px.poly([[hd[0] - 1.2, hd[1] + 3], [hd[0] + 1.2, hd[1] + 3], [hd[0] + side * 0.3 + 0.2, hd[1] + 2.6 + l]], K.STEEL, z + 0.02, { edge: true });
       px.line(hd[0], hd[1] + 3, hd[0] + side * 0.2, hd[1] + 1.6 + l, K.STEEL, z + 0.04, { fix: 4 });
       if (K.VENOM) px.line(hd[0], hd[1] + 2.4 + l * 0.5, hd[0] + side * 0.2, hd[1] + 1.8 + l, K.VENOM, z + 0.05, { noLine: true });
     } else {
-      px.capsule(hd[0], hd[1] - 0.4, 0.9, hd[0] + side * 0.3, hd[1] + 1, 0.9, GRIP, z);
+      px.capsule(hd[0], hd[1] - 2, 0.9, hd[0] + side * 0.3, hd[1] + 1.2, 0.9, GRIP, z);
+      px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
       px.part();
       px.capsule(hd[0] + side * 0.6, hd[1] + 1.2, 0.9, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, 0.4, K.STEEL, z + 0.02, { edge: true });
       if (K.VENOM) px.line(hd[0] + side * 0.8, hd[1] + 2.2 + l * 0.3, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, K.VENOM, z + 0.05, { noLine: true });
@@ -147,7 +149,7 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.8, K.SLEEVE, armZ, { bias: -3, floor: 1 });
     px.capsule(el[0] * 0.35 + hd[0] * 0.65, el[1] * 0.35 + hd[1] * 0.65, 2.0, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.9, K.WRAP, armZ + 0.02, { bias: -1 });
     px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.7, 1.7, SKIN, armZ + 0.3, { bias: -1 });
-    if (L.twin) knifeFront(hd, 0, klen * 0.9, armZ + 0.35, ls);
+    if (L.twin) knifeFront(hd, 0, klen * 0.9, armZ + 0.2, ls);
     // the Plague Bearer's censer swings on its chain from this fist
     if (L.censer) {
       const swg = (p.cz || 0) * 1.4 + wob * 0.5, c0 = [hd[0] + ls * 0.6 + swg, hd[1] + 7.2];
@@ -259,7 +261,7 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, K.SLEEVE, 9.4, { cast: 2, bias: -2, floor: 1 });
     px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, K.SLEEVE, 9.4, { cast: 2, bias: -2, floor: 1 });
     { const a = mix(el, hd, 0.56), b = mix(el, hd, 0.84); px.capsule(a[0], a[1], 2.1, b[0], b[1], 1.9, K.WRAP, 9.42, { bias: -1 }); }
-    px.part(); px.ellipse(hd[0], hd[1], 1.7, 1.7, SKIN, 9.6, { cast: 1 }); px.tag(null);
+    px.part(); px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 9.8, { cast: 1 }); px.tag(null);
     px.tag("knife"); knifeFront(hd, 0, klen, 9.65, rs); px.tag(null);
   }
   return {};

@@ -59,16 +59,20 @@ export const horn = (px, x0, y0, dir, z, th = 1) => {
   for (let i = 0; i + 1 < pts.length; i++) px.capsule(pts[i][0], pts[i][1], pts[i][2], pts[i + 1][0], pts[i + 1][1], pts[i + 1][2], BONE, z, { cast: 1 });
 };
 
-// The Dane axe held upright by his right side (screen side rs), the head out to that side; hd = the fist
-export const daneAxe = (px, K, hd, L, k, z, IRON_M = IRON_D) => {
-  const { rs, vx } = K, t = rs * 0.2 + vx * 0.08, A = (f, o) => [hd[0] + t * f + rs * o, hd[1] - f];
+// The Dane axe held by his right side (screen side rs), the head out to that side; hd = the fist.
+// back = true (seen from behind): the axe is still in the fist, but it runs forward and inward in front of him, so the
+// haft above the fist and the whole head are drawn UNDER the body (z 3.2: his torso and mantle hide them) and only the
+// butt below the fist shows over it.
+export const daneAxe = (px, K, hd, L, k, z, IRON_M = IRON_D, back = false) => {
+  const { rs, vx } = K, t = back ? -rs * 0.36 : rs * 0.2 + vx * 0.08, A = (f, o) => [hd[0] + t * f + rs * o, hd[1] - f], zb = back ? 3.2 : z;
   px.part(); px.tag("weapon");
-  px.capsule(...A(-4, 0), 0.95, ...A(L + 1, 0), 0.95, WOOD, z, { edge: true });
+  px.capsule(...A(-4, 0), 0.95, ...A(3, 0), 0.95, WOOD, z, { edge: true });
+  px.capsule(...A(2, 0), 0.95, ...A(L + 1, 0), 0.95, WOOD, zb, { edge: true });
   px.part();
-  px.poly([A(L - 2.2 * k, 0.4), A(L - 3.8 * k, 3.4 * k), A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.6 * k, 0.4)], STEEL, z + 0.02, { fix: 2 });
-  px.poly([A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.2 * k, 3.6 * k), A(L - 0.6 * k, 5.2 * k)], STEEL, z + 0.03, { fix: 4 });
-  px.poly([A(L - 1.6, -0.4), A(L + 1.2, -0.4), A(L + 1.4, -4)], IRON_M, z + 0.01, { fix: 1 });
-  px.poly([A(L - 2.6, -0.8), A(L + 1.8, -0.8), A(L + 1.8, 0.9), A(L - 2.6, 0.9)], IRON_M, z + 0.04, { fix: 1 });
+  px.poly([A(L - 2.2 * k, 0.4), A(L - 3.8 * k, 3.4 * k), A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.6 * k, 0.4)], STEEL, zb + 0.02, { fix: 2 });
+  px.poly([A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.2 * k, 3.6 * k), A(L - 0.6 * k, 5.2 * k)], STEEL, zb + 0.03, { fix: 4 });
+  px.poly([A(L - 1.6, -0.4), A(L + 1.2, -0.4), A(L + 1.4, -4)], IRON_M, zb + 0.01, { fix: 1 });
+  px.poly([A(L - 2.6, -0.8), A(L + 1.8, -0.8), A(L + 1.8, 0.9), A(L - 2.6, 0.9)], IRON_M, zb + 0.04, { fix: 1 });
   px.tag(null);
   return A;
 };
@@ -187,8 +191,7 @@ const make = (s) => (px, F) => {
   const cf = mix(el, hd, 0.66);
   px.capsule(cf[0], cf[1], 1.9, hd[0], hd[1], 1.8, LEATHER, 7.95, { cast: 1 });
   px.tag(null);
-  if (s > 0) daneAxe(px, K, hd, 16, 1.45, 8.1);
-  else backGrip(px, K, hd, 8.1);
+  daneAxe(px, K, hd, 16, 1.45, 8.1, IRON_D, s < 0);
   px.part(); px.tag("nearHand");
   px.ellipse(hd[0], hd[1], 1.9, 2, SKIN, 8.3);
   px.tag(null);

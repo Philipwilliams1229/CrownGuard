@@ -129,22 +129,20 @@ const make = (s) => (px, F) => {
   };
   arm(ls, handF, 8, false);
   // the mace: upright in the right fist before him (front); from behind only its pommel shows at the hip
-  if (s > 0) {
-    const tilt = rs * 0.62 + (p.wrist || 0) * 0.3, d = [Math.sin(tilt), -Math.cos(tilt)], nr = [-d[1], d[0]];
+  {
+    // front: out at his side; behind: the same mace at true depth, its head leaning in behind the body (hidden), haft and pommel past the fist showing
+    const tilt = s > 0 ? rs * 0.62 + (p.wrist || 0) * 0.3 : -rs * 0.38, zo = s > 0 ? 0 : -3.6, d = [Math.sin(tilt), -Math.cos(tilt)], nr = [-d[1], d[0]];
     const B = (t, o = 0) => [handN[0] + d[0] * t + nr[0] * o, handN[1] + d[1] * t + nr[1] * o];
     const hd = B(15);
     px.part(); px.tag("mace");
-    px.capsule(...B(-4), 1.15, ...B(13), 1.05, IRONK, 7, { edge: true });
-    px.capsule(...B(-0.4), 1.3, ...B(3.6), 1.3, OX, 7.02);
+    px.capsule(...B(-4), 1.15, ...B(13), 1.05, IRONK, 7 + zo, { edge: true });
+    px.capsule(...B(-0.4), 1.3, ...B(3.6), 1.3, OX, 7.02 + zo);
     px.ellipse(...B(-4.6), 1.4, 1.4, BRASS, 7.05);
-    px.ellipse(hd[0], hd[1], 2.5, 2.8, IRON, 7.1, { vb: 0.2, cast: 1 });
-    for (const o of [-1, 1]) px.poly([[hd[0] + nr[0] * o * 2, hd[1] + nr[1] * o * 2], [hd[0] + nr[0] * o * 5 + d[0] * 1.5, hd[1] + nr[1] * o * 5 + d[1] * 1.5], [hd[0] + nr[0] * o * 2 + d[0] * 4, hd[1] + nr[1] * o * 2 + d[1] * 4]], IRONK, 7.12, { cast: 0 });
-    px.capsule(...B(17.6), 0.9, ...B(19.4), 0.3, IRON, 7.12, { edge: true });
-    px.dot(hd[0] + d[0], hd[1] + d[1], STEELB, 7.15, { fix: 4 });
+    px.ellipse(hd[0], hd[1], 2.5, 2.8, IRON, 7.1 + zo, { vb: 0.2, cast: 1 });
+    for (const o of [-1, 1]) px.poly([[hd[0] + nr[0] * o * 2, hd[1] + nr[1] * o * 2], [hd[0] + nr[0] * o * 5 + d[0] * 1.5, hd[1] + nr[1] * o * 5 + d[1] * 1.5], [hd[0] + nr[0] * o * 2 + d[0] * 4, hd[1] + nr[1] * o * 2 + d[1] * 4]], IRONK, 7.12 + zo, { cast: 0 });
+    px.capsule(...B(17.6), 0.9, ...B(19.4), 0.3, IRON, 7.12 + zo, { edge: true });
+    px.dot(hd[0] + d[0], hd[1] + d[1], STEELB, 7.15 + zo, { fix: 4 });
     px.tag(null);
-  } else {
-    px.part(); px.capsule(handN[0], handN[1] + 1, 1.15, handN[0] - rs * 0.6, handN[1] + 4.6, 1.15, IRONK, 7);
-    px.ellipse(handN[0] - rs * 0.7, handN[1] + 5.2, 1.4, 1.4, BRASS, 7.05);
   }
   arm(rs, handN, 8.1, true);
 

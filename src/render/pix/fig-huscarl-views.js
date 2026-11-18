@@ -109,8 +109,7 @@ const make = (s) => (px, F) => {
   const cf = mix(el, hd, 0.7);
   px.capsule(cf[0], cf[1], 2.1, hd[0], hd[1], 2, FURW, 7.95, { cast: 1 });
   px.tag(null);
-  if (s > 0) daneAxe(px, K, hd, 19, 1.5, 8.1);
-  else backGrip(px, K, hd, 8.1, 6);
+  daneAxe(px, K, hd, 19, 1.5, 8.1, undefined, s < 0);
   px.part(); px.tag("nearHand");
   px.ellipse(hd[0], hd[1], 1.9, 2.2, SKIN, 8.3);
   px.tag(null);

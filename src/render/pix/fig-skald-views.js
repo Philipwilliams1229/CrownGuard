@@ -9,7 +9,7 @@ import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-skald.js";
 
 const SKIN = mat("#e2b48c"), TEAL = mat("#2f5866"), OCHRE = mat("#d0943a"), TUNIC = mat("#7a6248"), TUNIC_L = mat("#8c8468"), WOOL = mat("#4a5a60"), LEATHER = mat("#5a3e2a");
-const FURW = mat("#e8e6e0"), HAIR = mat("#b87444"), BONE = mat("#ece0c4"), BRASS = mat("#c8a040"), HIDE = mat("#e8dcc0"), WOOD = mat("#7a5632"), RAVEN = mat("#2a3040", { contrast: 1.2 });
+const FURW = mat("#e8e6e0"), HAIR = mat("#b87444"), BONE = mat("#ece0c4"), BRASS = mat("#c8a040"), HIDE = mat("#e8dcc0"), WOOD = mat("#7a5632"), STICK = mat("#4a2e16"), RAVEN = mat("#2a3040", { contrast: 1.2 });
 const EYE = flat("#2a1c2c");
 const LEG = {
   H: { m: HAIR, fix: 2 }, B: { m: OCHRE, fix: 3 }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 }, E: { m: EYE }, R: { m: HAIR, fix: 1 }, G: { m: BRASS, fix: 3 }, T: { m: TEAL },
@@ -148,9 +148,14 @@ const make = (s) => (px, F) => {
     px.capsule(c1[0], c1[1], 2, hd[0], hd[1], 1.9, LEATHER, 7.95, { cast: 1 });
     px.tag(null);
     px.part(); px.tag("weapon");
-    const bl = s > 0 ? 7 : 2.4, tip = s > 0 ? [hd[0] + rs * 0.8, hd[1] - bl] : [hd[0] + rs * 1.6, hd[1] + 2.4];   // from behind only the knob shows, past the hip and down
-    px.capsule(hd[0], hd[1] + 1, 0.8, tip[0], tip[1], 0.8, WOOD, 8.1, { edge: true });
-    px.ellipse(tip[0], tip[1] - 0.6, 1.9, 1.9, BONE, 8.12);
+    if (s > 0) {
+      const tip = [hd[0] + rs * 0.8, hd[1] - 7];
+      px.capsule(hd[0], hd[1] + 1.4, 1.1, tip[0], tip[1], 1.1, STICK, 8.1, { edge: true });
+      px.ellipse(tip[0], tip[1] - 0.6, 2.2, 2.2, BONE, 8.12);
+    } else {
+      // from behind the beater runs forward, away from us: its butt below the fist and a stretch of stick above it show; the knob is hidden ahead of him
+      px.capsule(hd[0] - rs * 0.4, hd[1] + 2.6, 0.8, hd[0] - rs * 1.2, hd[1] - 3.4, 0.8, STICK, 3, { edge: true });
+    }
     px.part(); px.tag(null);
     px.ellipse(hd[0], hd[1], 1.8, 2, SKIN, 8.3);
   }

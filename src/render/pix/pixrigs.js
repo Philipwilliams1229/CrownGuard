@@ -215,7 +215,7 @@ export const PIX = {
 // lead has checked it and added <name> to VIEWS_ON, gives each PIX entry drawn from that figure
 // its `views` (the board then shows its back walking up the screen, its face walking down).
 const VIEW_FILES = import.meta.glob("./fig-*-views.js", { eager: true });
-export const VIEWS_ON = new Set(["goblin", "shaman", "orc", "ironclad", "troll", "warchief", "necro", "halberdier", "blade", "knight", "archer", "captain", "storm", "friar", "thrall", "huscarl", "berserker", "rafter", "garrison", "squire", "paladin", "champion", "risen", "bonearcher", "ghoul", "ghast", "levy", "crossbow", "sergeant", "unhorsed", "boar", "wolfrider", "rimerider", "gravecaller", "hollowking", "amalgam", "crypt", "farmer", "errant", "errantbow", "fieldbow", "cavalier", "wolf", "rimeseer", "skald", "rimejarl", "frostgiant", "magister", "marshal", "chaplain"]);
+export const VIEWS_ON = new Set(["goblin", "shaman", "orc", "ironclad", "troll", "warchief", "necro", "halberdier", "blade", "knight", "archer", "captain", "storm", "friar", "thrall", "huscarl", "berserker", "rafter", "garrison", "squire", "paladin", "champion", "risen", "bonearcher", "ghoul", "ghast", "levy", "crossbow", "sergeant", "unhorsed", "boar", "wolfrider", "rimerider", "gravecaller", "hollowking", "amalgam", "crypt", "farmer", "errant", "errantbow", "fieldbow", "cavalier", "wolf", "rimeseer", "skald", "rimejarl", "frostgiant", "magister", "marshal", "chaplain", "mammoth"]);
 for (const d of Object.values(PIX)) {
   const name = d.fig.NAME, m = VIEWS_ON.has(name) && VIEW_FILES[`./fig-${name}-views.js`];
   if (m && m.FRONT && m.BACK) d.views = { front: m.FRONT, back: m.BACK };

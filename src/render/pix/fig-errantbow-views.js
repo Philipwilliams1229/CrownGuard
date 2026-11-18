@@ -79,6 +79,7 @@ const make = (s) => (px, F) => {
   px.capsule(...at(len - 3, -4.2), 1.2, ...pe[0], 0.8, IRON, gz + 0.05, { edge: true });
   px.dot(...pe[0], STEELB, gz + 0.07, { fix: 3 }); px.dot(...pe[1], STEELB, gz + 0.07, { fix: 3 });
   px.tag(null);
+  if (!vv) { px.part(); px.capsule(...at(-1, 0), 1.9, ...at(len * 0.22, 0), 1.5, WOOD, 8.4, { edge: true }); }
 
   // ---- legs: hose, boots with the turned cuff. Forward is down the screen in front, up it behind.
   for (const [f, side, z] of [[p.fF, ls, 2], [p.fN, rs, 3]]) {
@@ -144,13 +145,14 @@ const make = (s) => (px, F) => {
 
   // ---- the arms: right on the grip, left under the fore-end (in front); from behind they hang forward round the body
   const gR = at(len * 0.3, 0), gL = at(len * 0.7, 0);
-  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6.2], vv ? gR : [rs * 6.8 + sx, shY + 10]];
-  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? gL : [ls * 6.4 + sx, shY + 10.4]];
+  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6.2], vv ? gR : at(len * 0.1, 0)];
+  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? gL : gL];
   for (const [arm, z] of [[aL, 8], [aR, 8.1]]) {
     px.part(); px.tag("arm");
     px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, z, { cast: 2 });
-    px.capsule(arm[1][0], arm[1][1], 1.9, arm[2][0], arm[2][1], 1.6, PADK, z, { cast: 2 });
-    px.part(); px.ellipse(arm[2][0], arm[2][1], 1.7, 1.7, SKIN, z + 0.3); px.tag(null);
+    const fz = vv || arm === aR ? z : 3.3;   // from behind the left forearm and hand go round in front of him: behind the torso
+    px.capsule(arm[1][0], arm[1][1], 1.9, arm[2][0], arm[2][1], 1.6, PADK, arm === aR && !vv ? 8.5 : fz, { cast: 2 });
+    px.part(); px.ellipse(arm[2][0], arm[2][1], 1.7, 1.7, SKIN, (arm === aR && !vv ? 8.5 : fz) + 0.3); px.tag(null);
   }
   return {};
 };

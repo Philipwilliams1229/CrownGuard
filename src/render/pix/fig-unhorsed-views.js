@@ -122,7 +122,7 @@ const make = (s) => (px, F, o = {}) => {
   px.part();
   px.capsule(rs * 6.2 + sx, shY + 1.2, 2.4, rEl[0], rEl[1], 2.1, IRON, 5, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 2.1, hand[0], hand[1], 1.8, IRON, 5, { cast: 2 });
-  px.part(); px.ellipse(hand[0], hand[1], 1.9, 2, IRONK, 7);
+  
   const lEl = [ls * 8.4 + sx, shY + 8], lh = [ls * 8.4 + sx, shY + 11.2];
   px.part();
   px.capsule(ls * 6.2 + sx, shY + 1.2, 2.4, lEl[0], lEl[1], 2.1, IRON, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
@@ -138,9 +138,18 @@ const make = (s) => (px, F, o = {}) => {
     px.poly([[gx - 1.4, gy - 3.4], [gx + 1.4, gy - 3.4], [tx + 1.1, ty + 3.6], [tx, ty], [tx - 1.1, ty + 3.6]], BLADE, 7.25, { n: [0.1, 0.1, 0.95] });
     px.line(gx, gy - 4.6, tx, ty + 3.6, IRON, 7.26, { fix: 1, noLine: true });
     px.tag(null);
+  } else {
+    // BACK: the sword is still in his right hand; its length runs forward, hidden behind his side and shoulder. Past his outline: the pommel under the fist and the crossguard's outer arm.
+    px.part(); px.tag("sword");
+    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 3.4, { edge: true });
+    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 6.95);
+    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 3.8, hand[1] - 2.4 + 0.4, 0.9, STEELB, 5.6, { edge: true });
+    px.tag(null);
   }
+  // the fist closes round the grip (over it in FRONT, round the haft from behind)
+  px.part(); px.ellipse(hand[0], hand[1], 2.0, 2.0, IRONK, 7.6);
 
-  // ---- the crest and (the gryphon's rider) the feather, behind the head
+    // ---- the crest and (the gryphon's rider) the feather, behind the head
   const tuft = cl(-vx * 1.4 - vx2 * 1.0, -2, 2), bob = cl(vy * 1.2 + vy2 * 0.8, -1.5, 1.5);
   px.part();
   px.poly([[hx - 2, hy - 11], [hx + 2, hy - 11], [hx + 2 + tuft * 0.2, hy - 14 - bob * 0.5], [hx + 0.6 + tuft * 0.8, hy - 16.6 - bob], [hx - 2.2 + tuft * 1.2, hy - 15 - bob * 0.7], [hx - 2.4, hy - 13]], CAPE, 5.4, { round: 0.8, cast: 1 });

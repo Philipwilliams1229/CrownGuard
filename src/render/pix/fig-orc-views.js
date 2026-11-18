@@ -159,15 +159,15 @@ const make = (s) => (px, F) => {
     px.dot(...mix(b0, b1, 0.25), IRON, 7.96, { fix: 4 }); px.dot(...mix(b0, b1, 0.8), IRON, 7.96, { fix: 4 });
     px.tag(null);
     // the axe stands up by his side, beard out: an oak haft through the fist, a bearded steel head above it
-    const t = -rs * 0.12 + vx * 0.05, A = (f, o) => [hd[0] + t * f + rs * o, hd[1] + f * 0.8], H = 7;   // hangs at his side, head down by the thigh
+    const t = -rs * 0.12 + vx * 0.05, A = (f, o) => [hd[0] + t * f + rs * o, hd[1] + f * 0.8], H = 9;   // hangs at his side, head down by the thigh
     px.part(); px.tag("weapon");
-    px.capsule(...A(-3, 0), 1.05, ...A(H + 3.4, 0), 1.05, WOOD, s > 0 ? 8.1 : 3.9, { edge: true });
+    px.capsule(...A(-3, 0), 1.05, ...A(H + 3.4, 0), 1.05, WOOD, 8.1, { edge: true });
     px.part();
-    px.poly([A(H - 2.4, 0.6), A(H - 3.6, 4.4), A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.6, 3.4), A(H + 2.8, 0.6)], STEEL, s > 0 ? 8.12 : 3.92, { fix: 2 });
-    px.poly([A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.9, 5.6), A(H + 1.8, 7.4), A(H - 1.4, 7.9), A(H - 4.2, 7)], STEEL, s > 0 ? 8.13 : 3.92, { fix: 4 });
-    px.poly([A(H - 2.4, 0.6), A(H - 3.3, 3.4), A(H + 3.3, 3), A(H + 2.8, 0.6)], STEEL, s > 0 ? 8.13 : 3.92, { fix: 1 });
-    px.poly([A(H - 1.8, -0.8), A(H + 2.2, -0.8), A(H + 1.8, -3), A(H - 1.4, -3)], IRON, s > 0 ? 8.12 : 3.93, { fix: 2 });
-    px.poly([A(H - 2.4, -1.2), A(H + 2.8, -1.2), A(H + 2.8, 1.2), A(H - 2.4, 1.2)], IRON, s > 0 ? 8.14 : 3.93, { fix: 1 });
+    px.poly([A(H - 2.4, 0.6), A(H - 3.6, 4.4), A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.6, 3.4), A(H + 2.8, 0.6)], STEEL, 8.12, { fix: 2 });
+    px.poly([A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.9, 5.6), A(H + 1.8, 7.4), A(H - 1.4, 7.9), A(H - 4.2, 7)], STEEL, 8.13, { fix: 4 });
+    px.poly([A(H - 2.4, 0.6), A(H - 3.3, 3.4), A(H + 3.3, 3), A(H + 2.8, 0.6)], STEEL, 8.13, { fix: 1 });
+    px.poly([A(H - 1.8, -0.8), A(H + 2.2, -0.8), A(H + 1.8, -3), A(H - 1.4, -3)], IRON, 8.12, { fix: 2 });
+    px.poly([A(H - 2.4, -1.2), A(H + 2.8, -1.2), A(H + 2.8, 1.2), A(H - 2.4, 1.2)], IRON, 8.14, { fix: 1 });
     px.tag(null);
     px.part();
     px.ellipse(hd[0], hd[1], 3.2, 3.2, SKIN, 8.3);

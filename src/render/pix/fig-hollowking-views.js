@@ -150,22 +150,22 @@ const make = (s) => (px, F, o = {}) => {
     px.ellipse(hd[0], hd[1], 1.7, 1.6, BONE, z + 0.2, { weld: 1.5, bias });
     px.body(0);
   };
-  if (s > 0) {
-    const k = 0.5, dirx = rs * k, tipv = [grip[0] + rs * (BL * k + 1), grip[1] - BL - 4];
+  {
+    const k = s > 0 ? 0.5 : 0.17, bz = s > 0 ? 0 : -6.6, dirx = rs * k, tipv = [grip[0] + rs * (BL * k + 1), grip[1] - BL - 4];
     const ln = Math.hypot(tipv[0] - grip[0], tipv[1] - grip[1]), u = [(tipv[0] - grip[0]) / ln, (tipv[1] - grip[1]) / ln], nrm = [-u[1], u[0]];
     const at2 = (f, q) => [grip[0] + u[0] * f + nrm[0] * q, grip[1] + u[1] * f + nrm[1] * q];
     px.part();
-    px.capsule(...at2(-4.4, 0), 0.9, ...at2(1.6, 0), 0.9, HAFT, 8.1);
-    px.ellipse(...at2(-5, 0), 1.3, 1.3, GOLD, 8.12, { fix: 2 });
-    px.line(...at2(1.8, -2.8), ...at2(1.8, 2.8), GOLD, 8.14, { fix: 2 });
-    px.dot(...at2(1.8, -3.1), CROWN, 8.15, { fix: 2 }); px.dot(...at2(1.8, 3.2), CROWN, 8.15, { fix: 2 });
+    px.capsule(...at2(-4.4, 0), 0.9, ...at2(1.6, 0), 0.9, HAFT, 8.1 + bz);
+    px.ellipse(...at2(-5, 0), 1.3, 1.3, GOLD, 8.12 + bz, { fix: 2 });
+    px.line(...at2(1.8, -2.8), ...at2(1.8, 2.8), GOLD, 8.14 + bz, { fix: 2 });
+    px.dot(...at2(1.8, -3.1), CROWN, 8.15 + bz, { fix: 2 }); px.dot(...at2(1.8, 3.2), CROWN, 8.15 + bz, { fix: 2 });
     px.part();
-    px.poly([at2(2.4, -1.6), at2(2.4, 1.6), at2(BL - 2.4, 1.4), at2(BL, 0.1), at2(BL - 2.4, -1.2)], STEEL, 8.2, { fix: 3 });
-    px.line(...at2(3, 0.3), ...at2(BL - 3, 0.2), STEEL, 8.22, { fix: 1 });
-    px.line(...at2(2.6, -1.5), ...at2(BL - 1.6, -0.9), F_TEAL, 8.3, { noLine: true });
-    px.dot(...at2(BL - 1.2, -0.3), F_PALE, 8.35, { noLine: true });
+    px.poly([at2(2.4, -1.6), at2(2.4, 1.6), at2(BL - 2.4, 1.4), at2(BL, 0.1), at2(BL - 2.4, -1.2)], STEEL, 8.2 + bz, { fix: 3 });
+    px.line(...at2(3, 0.3), ...at2(BL - 3, 0.2), STEEL, 8.22 + bz, { fix: 1 });
+    px.line(...at2(2.6, -1.5), ...at2(BL - 1.6, -0.9), F_TEAL, 8.3 + bz, { noLine: true });
+    px.dot(...at2(BL - 1.2, -0.3), F_PALE, 8.35 + bz, { noLine: true });
     // flames lick along the edge, a beat each frame
-    for (let i = 0; i < 4; i++) { const t = 4 + i * 5, hh = (i + Math.floor(ph * 8)) % 2, pt = at2(t, -1.8); px.dot(pt[0], pt[1] - hh, i % 2 ? F_TEAL : F_PALE, 8.4, { noLine: true }); }
+    for (let i = 0; i < 4; i++) { const t = 4 + i * 5, hh = (i + Math.floor(ph * 8)) % 2, pt = at2(t, -1.8); px.dot(pt[0], pt[1] - hh, i % 2 ? F_TEAL : F_PALE, 8.4 + bz, { noLine: true }); }
   }
   // both arms reach the grip: from behind only the sleeves show at his sides, the hands before him unseen
   if (s > 0) {

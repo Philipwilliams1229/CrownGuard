@@ -135,9 +135,12 @@ const make = (s) => (px, F, o = {}) => {
     px.line(hand[0] - 2.2, hand[1] - 1.8, hand[0] + 2.2, hand[1] - 1.8, BONE, 8.13, { fix: 1 });             // the guard
     px.capsule(hand[0], hand[1] + 0.2, 0.8, hand[0], hand[1] + 2.4, 0.8, DARKM, 8.1);
   } else {
-    // from behind the blade is hidden by him: only its tip shows past the hip, angled forward and down
-    px.poly([[hand[0] - 0.9, hand[1] + 1], [hand[0] + 1, hand[1] + 1], [hand[0] + rs * 1.4, hand[1] + 6.6], [hand[0] + rs * 0.6, hand[1] + 7.6]], IRON, 3.0, { fix: 3 });
-    px.capsule(hand[0], hand[1] - 0.4, 0.8, hand[0], hand[1] + 1.4, 0.8, DARKM, 8.1);
+    // from behind the sword is in the same fist: the blade runs forward and up, inward over his ribs (hidden there);
+    // the grip and its pommel below the fist still show, and the blade's root just above it
+    px.poly([[hand[0] - 1.2, hand[1] - 1], [hand[0] + 1.2, hand[1] - 1], [hand[0] - rs * 1.6, hand[1] - 7], [hand[0] - rs * 3, hand[1] - 7]], IRON, 8.05, { fix: 3 });
+    px.line(hand[0] - 2.2, hand[1] - 1.6, hand[0] + 2.2, hand[1] - 1.6, BONE, 8.13, { fix: 1 });
+    px.capsule(hand[0], hand[1] - 0.6, 0.8, hand[0], hand[1] + 2.4, 0.8, DARKM, 8.1);
+    px.ellipse(hand[0], hand[1] + 3, 1, 0.9, BONE, 8.12, { fix: 1 });
   }
   px.tag(null);
   px.part();

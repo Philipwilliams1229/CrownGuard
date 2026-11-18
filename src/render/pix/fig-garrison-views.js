@@ -134,9 +134,25 @@ export const knightViews = (C) => {
     const B = (t, off = 0) => [H1[0] + d[0] * t * wk + nrm[0] * off * (wk > 1 ? 1.15 : 1), H1[1] + d[1] * t * wk + nrm[1] * off * (wk > 1 ? 1.15 : 1)];
     px.part(); px.tag("weapon");
     if (s < 0) {
-      // from behind the weapon is held in front: only its butt shows at the fist, the haft running forward and down
-      px.capsule(...B(-3.4), 0.9, ...B(0.5), 0.9, L.weapon === "sword" ? LEATHER : L.wood, 5.2);
-      px.ellipse(...B(-3.8), 1.1, 1.1, L.weapon === "sword" ? BRASS : L.trim, 5.25);
+      // from behind it is the same weapon in the same fist, at true depth: it points forward and up, away from us, so what
+      // runs in front of him is foreshortened and sunk behind his arm (z 3.9, under the torso and the arm); the grip, the
+      // guard and the pommel are at the fist, and the far end pokes out past the arm's outline, canted outward
+      const t2 = rs * 0.7, d2 = [Math.sin(t2), -Math.cos(t2)], n2 = [-d2[1], d2[0]], FS = 0.42;
+      const B2 = (t, off = 0) => [H1[0] + d2[0] * t * FS * wk + n2[0] * off, H1[1] + d2[1] * t * FS * wk + n2[1] * off];
+      const hw = L.weapon === "sword";
+      px.capsule(...B(-3.4), 0.9, ...B(2), 0.9, hw ? LEATHER : L.wood, 5.2);
+      px.ellipse(...B(-3.8), 1.1, 1.1, hw ? BRASS : L.trim, 5.22);
+      px.part();
+      if (hw) {
+        px.capsule(...B(1.8, -2.4), 0.8, ...B(1.8, 2.4), 0.8, STEEL, 5.22, { edge: true });
+        px.capsule(...B2(2.5), 1.2, ...B2(16), 1, BLADE, 3.9, { edge: true });
+      } else if (L.weapon === "mace") {
+        px.capsule(...B2(0), 0.9, ...B2(11), 0.9, L.wood, 3.9, { edge: true });
+        px.ellipse(...B2(15), 3.2, 3.2, L.trim, 3.92, { edge: true });
+      } else {
+        px.capsule(...B2(0), 1.2, ...B2(17), 1.2, L.wood, 3.9, { edge: true });
+        px.ellipse(...B2(20), 3.7, 3.4, L.trim, 3.92, { edge: true });
+      }
     } else if (L.weapon === "sword") {
       px.capsule(...B(2.5), 1.2, ...B(14.5), 1, BLADE, 5.2, { edge: true });
       px.capsule(...B(14.5), 1, ...B(16.6), 0.3, BLADE, 5.2, { edge: true });

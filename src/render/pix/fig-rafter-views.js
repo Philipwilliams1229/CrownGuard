@@ -78,27 +78,23 @@ const make = (s) => (px, F) => {
   }
 
   // the spear: carried slanted up across him (front); a ferrule stub behind him (back)
-  const hdR = s > 0 ? [rs * 4.6 + sx, chY + 9.4 + s * ang * 1.8] : [rs * 5.6 + sx, hipY - 0.6 + ang * 1.2];
-  const hdL = s > 0 ? [ls * 6.8 + sx, chY + 1.6 + tilt * 0.6] : [ls * 5.6 + sx, hipY - 0.6 - ang * 1.2];
+  const hdR = [rs * 4.6 + sx, chY + 9.4 + s * ang * 1.8], hdL = s > 0 ? [ls * 6.8 + sx, chY + 1.6 + tilt * 0.6] : [ls * 4 + sx, chY - 3 + tilt * 0.6];
   const dx = hdL[0] - hdR[0], dy = hdL[1] - hdR[1], dl = Math.hypot(dx, dy), d = [dx / dl, dy / dl], nn = [-d[1], d[0]];
   const at = (f, o = 0) => [hdR[0] + d[0] * f + nn[0] * o, hdR[1] + d[1] * f + nn[1] * o];
   const fl = cl(-vx * 1.2 + (p.flut || 0), -2, 2);
-  if (s > 0) {
-    px.part();
-    px.capsule(...at(-2.5), 0.8, ...at(dl + 14), 0.8, WOOD, 8, { cast: 1 });
-    px.capsule(...at(-2.9), 1.1, ...at(-1.6), 1.1, DARK, 8.02, { floor: 1 });
-    px.part();
-    px.poly([at(dl + 12, -1.2), at(dl + 14.4, -2.3), at(dl + 21, 0), at(dl + 14.4, 2.3), at(dl + 12, 1.2)], STEEL, 8.1, { fix: 3 });
-    px.line(...at(dl + 13, 0.1), ...at(dl + 19.6, 0), RUST, 8.12, { fix: 1, noLine: true });
-    px.line(...at(dl + 13.8, -1.6), ...at(dl + 18, -0.6), STEEL, 8.13, { fix: 4, noLine: true });
-    px.capsule(...at(dl + 11.2), 1.1, ...at(dl + 12.4), 1.1, DARK, 8.1, { floor: 1 });
-    px.part();
-    px.poly([at(dl + 10.4, 0.6), at(dl + 7, 1.8 + fl * 0.4), at(dl + 2.4, 3 + fl), at(dl + 4.6, 0.8 + fl * 0.4)], CLOTH, 8.2, { round: 0.6, cast: 1 });
-  } else {
-    px.part();
-    px.capsule(hdR[0] + rs * 0.2, hdR[1], 0.8, hdR[0] + rs * 0.6, hdR[1] + 5.4, 0.8, WOOD, 8, { cast: 1 });
-    px.capsule(hdR[0] + rs * 0.6, hdR[1] + 5.2, 1.1, hdR[0] + rs * 0.65, hdR[1] + 6.4, 1.1, DARK, 8.02, { floor: 1 });
-  }
+  // FRONT it lies over him (z 8); from BEHIND it runs in front of him, so the torso and head hide the middle of it and
+  // the butt below the rear fist and the head above his left shoulder still show (z 3.3, under the body)
+  const zs = s > 0 ? 8 : 3.3;
+  px.part();
+  px.capsule(...at(-2.5), 0.8, ...at(dl + 14), 0.8, WOOD, zs, { cast: 1 });
+  px.capsule(...at(-2.9), 1.1, ...at(-1.6), 1.1, DARK, zs + 0.02, { floor: 1 });
+  px.part();
+  px.poly([at(dl + 12, -1.2), at(dl + 14.4, -2.3), at(dl + 21, 0), at(dl + 14.4, 2.3), at(dl + 12, 1.2)], STEEL, zs + 0.1, { fix: 3 });
+  px.line(...at(dl + 13, 0.1), ...at(dl + 19.6, 0), RUST, zs + 0.12, { fix: 1, noLine: true });
+  px.line(...at(dl + 13.8, -1.6), ...at(dl + 18, -0.6), STEEL, zs + 0.13, { fix: 4, noLine: true });
+  px.capsule(...at(dl + 11.2), 1.1, ...at(dl + 12.4), 1.1, DARK, zs + 0.1, { floor: 1 });
+  px.part();
+  px.poly([at(dl + 10.4, 0.6), at(dl + 7, 1.8 + fl * 0.4), at(dl + 2.4, 3 + fl), at(dl + 4.6, 0.8 + fl * 0.4)], CLOTH, zs + 0.2, { round: 0.6, cast: 1 });
 
   // far-side parts: legs (bandy, bare, big flat feet)
   const feet = [[p.fF, ls, 2], [p.fN, rs, 3]];
@@ -142,7 +138,7 @@ const make = (s) => (px, F) => {
     px.part();
     px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, zA + 0.3);
   };
-  arm(ls, hdL, 8.4); arm(rs, hdR, 8.5);
+  arm(ls, hdL, s > 0 ? 8.4 : 3.4); arm(rs, hdR, 8.5);
 
   // the head
   px.part();

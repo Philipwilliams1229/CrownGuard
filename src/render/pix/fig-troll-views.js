@@ -124,9 +124,14 @@ const make = (s) => (px, F) => {
   // ---- the club trails by his right hand, its head dragging on the ground behind him (so seen end-on):
   // from the front only the butt shows over the fist and the head peeks out by his foot; from behind its head is near us
   px.part(); const cid = px._pid;
+  // the haft runs INTO the fist and out the other side: a butt end over his forearm above the fist, drawn under the fingers
+  px.part();
+  px.capsule(fist[0], fist[1] - 1, 2.2, fist[0] + rs * 0.3, fist[1] - 6, 2, WOOD, 8.2, { edge: true });
+  px.ellipse(fist[0] + rs * 0.3, fist[1] - 6.4, 2, 1.4, CUT, 8.22, { fix: 3 });
+  px.part(); const cid2 = px._pid;
   if (s > 0) {
-    px.capsule(fist[0] + rs * 1.2, fist[1] + 2, 3.4, fist[0] + rs * 3, fist[1] + 12, 4.6, BARK, 2.4, { edge: true });
-    px.ellipse(fist[0] + rs * 3.4, -3.6, 5.6, 4.6, BARK, 2.45, { edge: true });
+    px.capsule(fist[0], fist[1] + 1, 2.6, fist[0] + rs * 3, -3.6, 4.4, WOOD, 8.25, { edge: true });
+    px.ellipse(fist[0] + rs * 3.4, -3.6, 5.6, 4.6, BARK, 8.24, { edge: true });
     px.toneLine(fist[0] + rs * 2, fist[1] + 4, fist[0] + rs * 3, fist[1] + 9, -1, cid);
   } else {
     // dragged ahead of him, away from us: the handle runs from the fist in behind his leg; only the end of its head peeks past the foot

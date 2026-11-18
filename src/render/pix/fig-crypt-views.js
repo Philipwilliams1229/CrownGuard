@@ -82,9 +82,9 @@ const make = (s) => (px, F, o = {}) => {
   {
     const sh = [hx + ls * 7.2, chestY + 1.4], hd = [ls * 8.4 + cx, handY], el = [ls * 9.4 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
     px.body(1);
-    px.limb([sh, el, hd], [1.7, 1.8, 1.6], BONE, s > 0 ? 6.9 : 2, { bias: -1 });
-    px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.6, STEEL_D, s > 0 ? 6.95 : 2.01, { bias: -1, wrap: true });
-    px.ellipse(hd[0], hd[1], 1.7, 1.6, STEEL_D, s > 0 ? 7.0 : 2.05, { bias: -1, weld: 1.5 });
+    px.limb([sh, el, hd], [1.7, 1.8, 1.6], BONE, s > 0 ? 7.7 : 2, { bias: -1 });
+    px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.6, STEEL_D, s > 0 ? 7.75 : 2.01, { bias: -1, wrap: true });
+    px.ellipse(hd[0], hd[1], 1.7, 1.6, STEEL_D, s > 0 ? 7.8 : 2.05, { bias: -1, weld: 1.5 });
     px.body(0);
   }
 
@@ -163,22 +163,20 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the mace: out of his right fist, up over the shoulder, its flanged head standing above it
   {
-    const hd = [rs * 8.6 + cx, handY], sh = [hx + rs * 7.4, chestY];
+    const hd = [rs * 8.4 + cx, handY], sh = [hx + rs * 7.4, chestY];
     const el = [rs * 10 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
     px.part();
-    if (s > 0) {
-      const top = [rs * 12.2 + cx, chestY - 12], bot = [rs * 7.8 + cx, handY + 4];
+    {
+      // the mace rides his right shoulder: its haft runs UP through the fist and over the shoulder, the head standing past it
+      // (from behind it is the same, the head coming toward us over the shoulder)
+      const top = s > 0 ? [rs * 12.2 + cx, chestY - 12] : [rs * 12.6 + cx, handY + 9], bot = s > 0 ? [rs * 7.8 + cx, handY + 4] : [rs * 8 + cx, handY - 3];
       px.capsule(bot[0], bot[1], 0.9, top[0], top[1], 0.9, HAFT, 8.1);
       px.ellipse(bot[0], bot[1], 1.2, 1.2, BRONZE, 8.12, { fix: 2 });
-      const hc = [top[0] + rs * 0.6, top[1] - 2.6];
+      const hc = s > 0 ? [top[0] + rs * 0.6, top[1] - 2.6] : [top[0] + rs * 1, top[1] + 2.6];
       px.part();
       px.ellipse(hc[0], hc[1], 2.7, 2.7, IRON, 8.2);
       for (const an of [0, 1.05, 2.1, 3.15, 4.2, 5.25]) px.line(hc[0] + Math.cos(an) * 2.2, hc[1] + Math.sin(an) * 2.2, hc[0] + Math.cos(an) * 4.4, hc[1] + Math.sin(an) * 4.4, IRON, 8.25, { fix: an === 0 ? 4 : 2 });
       px.dot(hc[0] - 0.6, hc[1] - 0.6, STEEL, 8.3, { fix: 4 });
-    } else {
-      // from behind the mace lies forward of him: only its butt shows past the hip, angled down
-      px.capsule(hd[0], hd[1] + 1, 0.9, hd[0] + rs * 1.2, hd[1] + 6.5, 0.9, HAFT, 8.1);
-      px.ellipse(hd[0] + rs * 1.2, hd[1] + 7, 1.2, 1.2, BRONZE, 8.12, { fix: 2 });
     }
     // the arm: bone, vambrace, gauntlet closed on the haft
     px.body(1); px.tag("nearArm");

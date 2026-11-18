@@ -378,22 +378,26 @@ const make = (s) => (px, F, o = {}) => {
     px.poly([[tp[0] + nn[0] * 1.6, tp[1] + nn[1] * 1.6], [hd[0] + nn[0] * 0.3, hd[1] + nn[1] * 0.3], [hd[0] + u[0] * 1.6, hd[1] + u[1] * 1.6], [hd[0] - nn[0] * 0.3, hd[1] - nn[1] * 0.3], [tp[0] - nn[0] * 1.6, tp[1] - nn[1] * 1.6]], STEELB, 13.4, { fix: 3 });
     px.line(tp[0], tp[1] + 0.5, hd[0], hd[1], STEELB, 13.42, { fix: 4, noLine: true });
   } else {
-    // from behind the couched lance is mostly hidden by him: only its butt cap by the hip and a stub of banded shaft angling in under his arm
+    // from behind the lance stays in the same fist at its true depth: the butt and the shaft below the fist stick out past his hip and show; the shaft running forward goes up behind his body and the horse's neck (low z, hidden)
+    const bt = [hand[0] + nS * 1.8, hand[1] + 7.4], fw2 = [hand[0] - nS * 3.6, hand[1] - 12];
     px.part();
-    const bt = [nS * 7.4, Hp[1] + 1.4], tp = [nS * 5.2, Hp[1] - 4.4];
     for (let i = 0; i < 2; i++) {
-      const a = mix(bt, tp, i / 2), c = mix(bt, tp, (i + 1) / 2);
-      px.capsule(a[0], a[1], 1.6, c[0], c[1], 1.4, i % 2 ? CREAM : L.OX, 10.4, { cast: 1 });
+      const a = mix(bt, hand, i / 2), c = mix(bt, hand, (i + 1) / 2);
+      px.capsule(a[0], a[1], 1.5, c[0], c[1], 1.4, i % 2 ? CREAM : L.OX, 10.4, { cast: 1 });
     }
     px.part();
-    px.ellipse(bt[0], bt[1] + 0.8, 2.3, 1.9, IRONK, 10.6, { floor: 1 });
-    px.dot(bt[0] - 0.4, bt[1] + 0.4, STEELB, 10.7, { fix: 4 });
+    px.capsule(hand[0], hand[1], 1.3, fw2[0], fw2[1], 1.1, CREAM, 7.4, { cast: 1 });
+    px.part();
+    px.ellipse(bt[0], bt[1] + 0.6, 2.3, 1.9, IRONK, 10.6, { floor: 1 });
+    px.dot(bt[0] - 0.4, bt[1] + 0.2, STEELB, 10.7, { fix: 4 });
   }
   px.part();
   px.limb([[sNs[0], sNs[1] + 0.6], el, hand], [2.4, 2.1, 1.7], L.IRON, 10.5, { cast: 1 });
   px.ellipse(el[0], el[1], 2, 1.9, L.IRON, 10.55, { cast: 1 });
   px.part();
-  px.ellipse(hand[0], hand[1], 1.9, 1.9, LEATHER, 10.7);
+  px.ellipse(hand[0], hand[1], 2.5, 2.3, L.IRON, 13.6, { cast: 1 });
+  px.ellipse(hand[0], hand[1] + 0.2, 1.7, 1.5, LEATHER, 13.7);
+  px.line(hand[0] - 1.8, hand[1] - 0.6, hand[0] + 1.8, hand[1] - 0.6, IRONK, 13.75, { noLine: true });
   void arm;
 
   // the helm: FRONT the sallet's face, the plume's crest over the dome; BACK the dome, the tail plate and the plume streaming down it

@@ -134,7 +134,8 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, COWL, 4.6, { bias: -1 });
     px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.8, COWL, 4.6, { bias: -1 });
     px.poly([[wr[0] - 3, wr[1] - 0.2], [wr[0] + 3, wr[1] - 0.2], [wr[0] + 3, wr[1] + 1.5], [wr[0] - 3, wr[1] + 1.5]], TRIM, 4.65, { bias: -1 });
-    px.part(); px.ellipse(fist[0], fist[1] + 0.8, 1.8, 2, SKIN, 4.7, { bias: -1 });
+    px.part(); px.ellipse(fist[0], fist[1] + 0.8, 2.4, 2.6, SKIN, 4.7, { bias: -1 });
+    px.dot(fist[0] - 1, fist[1] - 0.2, SKIN, 4.75, { fix: 0 }); px.dot(fist[0] - 1, fist[1] + 1.8, SKIN, 4.75, { fix: 0 });   // fingers closed over the shaft
     px.dot(fist[0] + ls * 0.6, fist[1] - 0.2, SKIN, 4.72);
   }
 

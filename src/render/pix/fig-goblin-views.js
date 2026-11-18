@@ -188,16 +188,22 @@ const make = (s) => (px, F, o = {}) => {
   px.capsule(elb[0], elb[1], 1.6, hand[0], hand[1], 1.5, SKIN, 4.5, { cast: 1 });
   const b0m = [(elb[0] * 0.38 + hand[0] * 0.62), (elb[1] * 0.38 + hand[1] * 0.62)];
   px.capsule(b0m[0], b0m[1], 1.65, hand[0] - rs * 0.1, hand[1] - 0.8, 1.6, DARK, 4.55, { cast: 1 });
-  px.part();
-  px.ellipse(hand[0], hand[1], hr, hr, SKIN, 8.3);
-  // the knife, a crude blade held up and a little out; from behind only its tip clears the fist
+  // the knife is IN the fist: a grip runs through it (pommel past the heel of the hand), the blade leaves the top,
+  // the fist and its fingers drawn over it. From behind the blade runs forward and inboard, hidden behind his torso
+  // (z under the jerkin's), so the grip and pommel by his hip are what shows.
   px.part(); px.tag("weapon");
   const kl = s > 0 ? 8 : 5.4, tip = [hand[0] + rs * (s > 0 ? 3.4 : 2.4), hand[1] - kl - Math.max(0, -ang) * 0.6];
-  if (s < 0) { const dt = [hand[0] - rs * 0.4, hand[1] + 4.2]; px.poly([[hand[0] - 0.8, hand[1] + 0.6], [hand[0] + 0.8, hand[1] + 0.6], [dt[0] + 0.2, dt[1]], [dt[0] - 0.4, dt[1] - 0.2]], STEEL, 4.4, { fix: 3 }); }
+  const zg = s > 0 ? 8.0 : 4.7;
+  px.capsule(hand[0], hand[1] - 1, 0.8, hand[0] - rs * 0.3, hand[1] + 2.6, 0.8, DARK, zg, { cast: 0 });
+  px.dot(hand[0] - rs * 0.3, hand[1] + 3.1, STEEL, zg + 0.02);
+  if (s < 0) { const bt = [hand[0] - rs * 3.2, hand[1] - 5.4]; px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 0.9, hand[1] - 1], [bt[0] + 0.5, bt[1] + 2], [bt[0], bt[1]]], STEEL, 3.9, { fix: 3 }); }
   else {
   px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 1, hand[1] - 1], [tip[0] + 0.5, tip[1] + 2], [tip[0], tip[1]]], STEEL, 8.1, { fix: 3 });
   px.line(hand[0] - 0.2, hand[1] - 1.2, tip[0], tip[1] + 1.4, STEEL, 8.12, { fix: 4 });
   }
+  px.part();
+  px.ellipse(hand[0], hand[1], hr, hr, SKIN, s > 0 ? 8.3 : 4.8);
+  px.line(hand[0] - hr * 0.7, hand[1] - 0.2, hand[0] + hr * 0.7, hand[1] - 0.2, DARK, s > 0 ? 8.4 : 4.9, { cast: 0 });   // the fingers over the grip
   px.tag(null);
 
   // the head
