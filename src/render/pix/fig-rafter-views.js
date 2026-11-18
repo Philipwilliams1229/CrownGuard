@@ -8,6 +8,7 @@
 // Unflipped on the board; one sun, upper left.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-rafter.js";
+import { carry, damp } from "./carry.js";
 
 const SKIN = mat("#6aa04f"), JERK = mat("#6e4c28"), DARK = mat("#3c2a18"), WOOD = mat("#8a6238");
 const STEEL = mat("#b8bcc4", { contrast: 1.25 }), RUST = mat("#8a6a52", { contrast: 1.1 }), BONE = mat("#ece0c4"), HAIR = mat("#3a2a1c"), CLOTH = mat("#a05a3a"), PATCH = mat("#7a6240");
@@ -78,23 +79,27 @@ const make = (s) => (px, F) => {
   }
 
   // the spear: carried slanted up across him (front); a ferrule stub behind him (back)
-  const hdR = s > 0 ? [rs * 4.6 + sx, chY + 9.4 + s * ang * 1.8] : [rs * 5.8 + sx, hipY - 1.4 + cl(ang, -1, 1) * 1.1], hdL = s > 0 ? [ls * 6.8 + sx, chY + 1.6 + tilt * 0.6] : [ls * 3.2 + sx, chY - 3.5];
-  const dx = hdL[0] - hdR[0], dy = hdL[1] - hdR[1], dl = Math.hypot(dx, dy), d = [dx / dl, dy / dl], nn = [-d[1], d[0]];
-  const at = (f, o = 0) => [hdR[0] + d[0] * f + nn[0] * o, hdR[1] + d[1] * f + nn[1] * o];
-  const fl = cl(-vx * 1.2 + (p.flut || 0), -2, 2);
-  // FRONT it lies over him (z 8); from BEHIND it runs in front of him, so the torso and head hide the middle of it and
-  // the butt below the rear fist and the head above his left shoulder still show (z 3.3, under the body)
-  const zs = s > 0 ? 8 : 1.0;
+  // ONE spear pose (carry.js, "One weapon pose"): the side trot's own shaft angle (sa from +x, + down; from upright a = PI/2 + sa),
+  // damped, the rear fist at the side view's hand height. Forward is up and toward us in FRONT (the shaft is seen short, the
+  // head full size, yawed a little across his belly so the forward fist lands near his middle), in BACK it rises behind and past
+  // his left shoulder at z 1.0 under his body.
+  const sa = p.sa ?? -0.62, hdR = [rs * 5.4 + sx, sk.hdN[1]];
+  const C = carry(damp(Math.PI / 2 + sa, 0.95), s, { rs, hand: hdR, len: 29, butt: 10, K: 0.5, zTop: 8, maxSplay: 0.5 });
+  const H = 29, tipAt = C.at(H, 0), pr = [-C.dir[1], C.dir[0]];
+  const at = (f, o = 0) => (f < H - 12 ? C.at(f, o) : [tipAt[0] + C.dir[0] * (f - H) + pr[0] * o, tipAt[1] + C.dir[1] * (f - H) + pr[1] * o]);
+  const hdL = s > 0 ? C.at(9, 0) : [ls * 3.2 + sx, chY - 3.5];
+  const fl = cl(-vx * 1.2 + (p.flut || 0), -2, 2), zs = s > 0 ? 8 : C.zTip, zb = s > 0 ? 8 : C.zButt;
   px.part();
-  px.capsule(...at(-2.5), 0.8, ...at(dl + 14), 0.8, WOOD, zs, { cast: 1 });
-  px.capsule(...at(-2.9), 1.1, ...at(-1.6), 1.1, DARK, zs + 0.02, { floor: 1 });
+  px.capsule(...at(-10), 0.8, ...at(0), 0.8, WOOD, zb, { cast: s > 0 ? 1 : 0 });
+  px.capsule(...at(0), 0.8, ...at(21), 0.8, WOOD, zs, { cast: s > 0 ? 1 : 0 });
+  px.capsule(...at(-10.4), 1.1, ...at(-9), 1.1, DARK, zb + 0.02, { floor: 1 });
   px.part();
-  px.poly([at(dl + 12, -1.2), at(dl + 14.4, -2.3), at(dl + 21, 0), at(dl + 14.4, 2.3), at(dl + 12, 1.2)], STEEL, zs + 0.1, { fix: 3 });
-  px.line(...at(dl + 13, 0.1), ...at(dl + 19.6, 0), RUST, zs + 0.12, { fix: 1, noLine: true });
-  px.line(...at(dl + 13.8, -1.6), ...at(dl + 18, -0.6), STEEL, zs + 0.13, { fix: 4, noLine: true });
-  px.capsule(...at(dl + 11.2), 1.1, ...at(dl + 12.4), 1.1, DARK, zs + 0.1, { floor: 1 });
+  px.poly([at(20, -1.2), at(22.4, -2.3), at(29, 0), at(22.4, 2.3), at(20, 1.2)], STEEL, zs + 0.1, { fix: 3 });
+  px.line(...at(21, 0.1), ...at(27.6, 0), RUST, zs + 0.12, { fix: 1, noLine: true });
+  px.line(...at(21.8, -1.6), ...at(26, -0.6), STEEL, zs + 0.13, { fix: 4, noLine: true });
+  px.capsule(...at(19.2), 1.1, ...at(20.4), 1.1, DARK, zs + 0.1, { floor: 1 });
   px.part();
-  px.poly([at(dl + 10.4, 0.6), at(dl + 7, 1.8 + fl * 0.4), at(dl + 2.4, 3 + fl), at(dl + 4.6, 0.8 + fl * 0.4)], CLOTH, zs + 0.2, { round: 0.6, cast: 1 });
+  px.poly([at(18.4, 0.6), at(15, 1.8 + fl * 0.4), at(10.4, 3 + fl), at(12.6, 0.8 + fl * 0.4)], CLOTH, zs + 0.2, { round: 0.6, cast: s > 0 ? 1 : 0 });
 
   // far-side parts: legs (bandy, bare, big flat feet)
   const feet = [[p.fF, ls, 2], [p.fN, rs, 3]];

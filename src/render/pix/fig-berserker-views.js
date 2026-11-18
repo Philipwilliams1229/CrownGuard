@@ -6,7 +6,7 @@
 // in FRONT they stand up out of his fists, blades out to both sides. His RIGHT hand is screen LEFT in front.
 // Shares `kit`, `legs`, `daneAxe`, `backGrip` with fig-thrall-views.js. Unflipped; one sun, upper left.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-berserker.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, axeAngle, axeAngleF } from "./fig-berserker.js";
 import { kit, legs, daneAxe, backArms, mix } from "./fig-thrall-views.js";
 
 const SKIN = mat("#dca584"), SKINR = mat("#e48a6a"), PELT = mat("#4a4048"), PELT_D = mat("#2e2830"), PELTF = mat("#4a5a70"), WRAP = mat("#b09468"), TIP = mat("#a8a8b0"), LEATHER = mat("#4a382c");
@@ -104,8 +104,8 @@ const make = (s) => (px, F, o = {}) => {
   else { px.dot(hx - 3.4, hipY - 2.2, BRASS, 4.3, { fix: 3 }); px.dot(hx + 3.4, hipY - 2.2, BRASS, 4.3, { fix: 3 }); }
 
   // both arms, bare with a brass band: the axe stands up out of each fist (from behind: fist and haft butt only)
-  const arm = (side, ang, z) => {
-    const hd = [side * 10.4 + sx, shY + 10.6 + s * ang * 1.8], el = [side * 11 + sx, shY + 5.4];
+  const arm = (side, hy0, z) => {
+    const hd = [side * 10.4 + sx, hy0], el = [side * 11 + sx, (shY + hy0) / 2 + 0.4];
     px.part(); px.tag(side === rs ? "nearArm" : "farArm");
     px.capsule(sx + side * 6.2, shY + 0.8, 2.7, el[0], el[1], 2.3, skin, z, { cast: 1 });
     px.capsule(el[0], el[1], 2.3, hd[0], hd[1], 2.0, skin, z, { cast: 1 });
@@ -114,20 +114,20 @@ const make = (s) => (px, F, o = {}) => {
     const c0 = mix(el, hd, 0.62);
     px.capsule(c0[0], c0[1], 2.3, hd[0], hd[1], 2.1, LEATHER, z + 0.05, { cast: 1 });
     px.tag(null);
-    daneAxe(px, { ...K, rs: side }, hd, 17, 1.4, z + 0.2, IRON);
+    daneAxe(px, K, hd, side === rs ? axeAngle(K.sk) : axeAngleF(K.sk), side === rs ? 0.33 : 0.22, 17, 1.4, IRON, side);
     px.part(); px.tag("nearHand");
     px.ellipse(hd[0], hd[1], 2.1, 2.5, skin, z + 0.4);
     px.tag(null);
   };
-  if (s > 0) { arm(ls, p.aF[0], 7.6); arm(rs, p.aN[0], 7.9); }
+  if (s > 0) { arm(ls, K.sk.hdF[1], 7.6); arm(rs, K.sk.hdN[1], 7.9); }
   else {
     // BACK stack: both bare arms hang at his sides (z 4.3), a brass band, the fists under at 3.6, an axe upright in each
-    const o = { sh: 6.4, el: 8.4, hx: 9, up: skin, cuff: LEATHER, w: [2.7, 2.3, 2.0], fist: skin };
+    const o = { handY: K.sk.hdN[1], handYL: K.sk.hdF[1], sh: 6.4, el: 8.4, hx: 9, up: skin, cuff: LEATHER, w: [2.7, 2.3, 2.0], fist: skin };
     const hr = backArms(px, K, o);
     for (const [side, hd] of [[rs, hr], [ls, o.handL]]) {
       const m = [sx + side * 7.6, (shY + hd[1]) / 2 - 1];
       px.part(); px.capsule(m[0], m[1], 2.35, m[0], m[1] + 0.5, 2.35, BRASS, 4.33, { fix: 3, cast: 0 });
-      daneAxe(px, { ...K, rs: side }, [hd[0], hd[1] + 1], 17, 1.4, 1.0, IRON, true);
+      daneAxe(px, K, hd, side === rs ? axeAngle(K.sk) : axeAngleF(K.sk), side === rs ? 0.33 : 0.22, 17, 1.4, IRON, side);
     }
   }
 

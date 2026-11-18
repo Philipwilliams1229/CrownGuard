@@ -112,8 +112,10 @@ const make = (s) => (px, F, o = {}) => {
 
   // the mace: carried upright in his right fist, a little out from the body. Haft, rope grip, gold ball, iron collar, flanges.
   const rise = -a * 0.5 * s, sh = [tx + rs * (s < 0 ? 7.0 : 5.8), chestY + 1.4];
-  const hd = [tx + rs * (s < 0 ? 8.0 : 8.4), chestY + 14 + s * rise * 0.4], elb = [tx + rs * (s < 0 ? 7.8 : 7.2), chestY + 8], zo = s > 0 ? 0 : -4.4;   // BACK: carried things sit at z ~1
-  const dn = [-rs * 0.45, 0.5], dl = Math.hypot(dn[0], dn[1]), d = dn, nr = [-d[1] / dl, d[0] / dl];   // hangs head DOWN and forward (front: by his thigh; back: foreshortened, tucked behind the robe)
+  // ONE weapon pose (carry.js rule): the side walk holds the mace ~10 degrees off upright with the fist at chest + 7 (read from
+  // maceAngle / hdN), which is upright in every view: the fist sits there, the mace rises straight past the shoulder beside his head.
+  const hd = [tx + rs * 11.2, sk.hdN[1] + 0.2], elb = [tx + rs * (s < 0 ? 9.4 : 8.6), chestY + 8.6], zo = s > 0 ? 0 : -4.4;   // BACK: carried things sit at z ~1
+  const d = [0, -1], dl = 1, nr = [1, 0];
   const Bm = (t, w = 0) => [hd[0] + d[0] * t * S + nr[0] * w * S, hd[1] + d[1] * t * S + nr[1] * w * S];
   px.part(); px.tag("mace");
   px.capsule(...Bm(-6), 1.15 * S, ...Bm(11), 1 * S, WOOD, zo + 5.4, { edge: s > 0 });

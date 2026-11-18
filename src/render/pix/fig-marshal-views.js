@@ -146,8 +146,8 @@ const make = (s) => (px, F) => {
   }
 
   // ---- the war-banner lance, upright across the body just to his right; the banner hangs outward
-  const nearY = shY + 5.2 + (hipY - P[1]) + (p.hy || 0) * 0 + s * (p.aN[0] - 0.9) * 0.3;
-  const lx = sx + rs * 5.6, buttY = nearY + 28, topY = buttY - 66, farY = nearY + 10;
+  const nearY = sk.hdN[1];   // the side walk's own fist height
+  const lx = sx + rs * 5.6, buttY = nearY + 29, topY = buttY - 66, farY = nearY + 10;
   px.part();
   px.capsule(lx, buttY, 1.2, lx, topY, 1.2, WOOD, 9.30, { edge: true });
   px.capsule(lx, buttY, 1.5, lx, buttY - 2.4, 1.5, IRON, 9.31);
@@ -216,8 +216,8 @@ const back = (px, F) => {
   const vx = cl((sx - sx1) * 1.4, -2.4, 2.4), vx2 = cl((sx1 - sx2) * 1.4, -2.4, 2.4), vy = cl(C[1] - F.lag1.C[1], -2, 2);
   const hipY = P[1], chY = C[1], shY = chY + 0.9, hy = Math.round(N[1]) - 1, hx = Math.round(sx * 0.7), fl = p.flut || 0;
   const sw1 = (v) => cl(v, -1.2, 1.2);
-  const nearY = shY + 11 + sw1(-(p.aN[0] - 0.9) * 3);
-  const lx = sx + 11.6, buttY = nearY + 24, topY = buttY - 66;
+  const nearY = sk.hdN[1];
+  const lx = sx + 11.6, buttY = nearY + 29, topY = buttY - 66;
   // the lance and its banner, lowest of all
   px.part();
   px.capsule(lx, buttY, 1.2, lx, topY, 1.2, WOOD, 1.0);

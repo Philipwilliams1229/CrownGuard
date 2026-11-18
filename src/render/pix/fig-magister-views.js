@@ -127,7 +127,7 @@ const make = (s) => (px, F) => {
     px.part(); px.ellipse(hand[0], hand[1] + 0.8, hold ? 2.4 : 1.9, hold ? 2.2 : 1.8, SKIN, z + 0.3, { cast: 1 });
     if (hold) { px.line(hand[0] - 1.8, hand[1] + 0.2, hand[0] + 1.8, hand[1] + 0.2, SKIN, z + 0.32, { fix: 1, noLine: true }); px.line(hand[0] - 1.8, hand[1] + 1.8, hand[0] + 1.8, hand[1] + 1.8, SKIN, z + 0.32, { fix: 1, noLine: true }); }
   };
-  arm(ls, shY + 10.4 + s * (angF - 0.9) * 7, OXD, 8.5, -1, true);
+  arm(ls, sk.hdF[1] + 0.4, OXD, 8.5, -1, true);
   arm(rs, shY + 11.6 + s * (angN - 0.36) * 8, OX, 8.6, 0, false);
   // the pauldron: a steel cap on the near (his right) shoulder, brass-edged
   px.part();
@@ -189,7 +189,7 @@ const back = (px, F) => {
   px.poly([[hx + 1, hipY - 1.9], [hx + 3, hipY - 1.9], [hx + 3.4 + fl * 0.4, hipY + 6], [hx + 1.2 + fl * 0.4, hipY + 6]], IRON, 4.04, { bias: -1 });
 
   // both arms hang at his sides at z 4.3: elbow at or outboard of the shoulder, the hand outboard of the elbow; y-only swing
-  const handN = shY + 11.6 + sw1(-(p.aN[0] - 0.36) * 8), handF = shY + 10.4 + sw1(-(p.aF[0] - 0.9) * 7);
+  const handN = shY + 11.6 + sw1(-(p.aN[0] - 0.36) * 8), handF = sk.hdF[1] + 0.4;   // the staff fist at the side walk's hand height
   const arm = (side, hand, cuffM, fistX) => {
     const sh = [sx + side * 6.4, shY], el = [sx + side * 8.2, shY + 5.4], wr = [sx + side * fistX, hand - 2];
     px.part();

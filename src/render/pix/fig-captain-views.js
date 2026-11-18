@@ -7,7 +7,8 @@
 // blade shows, not edge-on) and the hook inboard; the red tassel swings. Unflipped on the board; one sun, upper left.
 // Same clip n / ms / pose as the side walk; feet, bob and sway read the same solved walk.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-captain.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, haftAngle } from "./fig-captain.js";
+import { carry, damp } from "./carry.js";
 
 const STEEL = mat("#98a2b6", { contrast: 1.05 }), STEEL_D = mat("#7a8296", { contrast: 1.05 }), MAIL = mat("#6c7488", { contrast: 1.05 }), GOLD = mat("#e0b84a", { contrast: 1.15 });
 const NAVY = mat("#2e4a7a"), NAVY_D = mat("#24365c"), RED = mat("#c8383a"), RED_D = mat("#8a2630"), SKIN = mat("#e2b08a"), HAIR = mat("#b0aca4");
@@ -113,38 +114,42 @@ const make = (s) => (px, F, o = {}) => {
   px.line(pL[0] - 3, pL[1] + 2, pL[0] + 3, pL[1] + 2, GOLD, s > 0 ? 6.02 : 5.22);
   px.poly([[pL[0] - 1.2, pL[1] - 2], [pL[0] + 1.2, pL[1] - 2], [pL[0] + ls * 0.8, pL[1] - 6.8]], STEEL_D, s > 0 ? 6.04 : 5.24, { edge: true });
 
-  // the halberd in his right hand: carried upright, a touch outboard, the butt below the fist; the crescent turned outboard
-  const sh = [tx + rs * 7.4, chestY + 0.8], elb = [tx + rs * (s > 0 ? 9.8 : 10.4), chestY + 6.6], sw = a * 0.5 * s;
-  const hd = [tx + rs * (s > 0 ? 10.4 : 11), chestY + (s > 0 ? 11.6 + sw * 0.5 : 12.6 - a * 0.6)];
-  const lean = s > 0 ? rs * 0.07 + sw * 0.01 : 0, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
-  const fk = 1;   // as tall from behind as in front; its lower part is behind him   // from behind the pole leans away from us: foreshortened
-  const Bh = (t, w = 0) => [hd[0] + d[0] * t * fk + nr[0] * w * fk, hd[1] + d[1] * t * fk + nr[1] * w * fk];   // t up the shaft from the fist, w across it
-  const bz = s > 0 ? 6.25 : 1.0, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
+  // ONE weapon pose (carry.js): the side walk reads the haft ~0.42..0.52 rad forward (haftAngle), the fist at hdN (chest + 8.5);
+  // damped to the mean and projected: from the front it points at us (shorter), from behind it leans away and shows past the
+  // shoulder. The head is drawn at its full side-view size from the tip; only the haft shortens. LEN / GRIP are fig-captain's.
+  const G = 1.2 / 1.1, LENT = 58 * G - 20 * G, BUTT = 20 * G, HK = 0.72 * G;
+  const sh = [tx + rs * 7.4, chestY + 0.8];
+  const hd = [tx + rs * 10.8, sk.hdN[1] + 0.2], elb = [tx + rs * 9.4, hd[1] + 1.6];
+  const am = haftAngle(F.sk), C = carry(damp(am, 0.47), s, { rs, hand: hd, len: LENT, butt: BUTT });
+  const Hh = (tt, w = 0) => C.head(LENT, (tt - 31) * HK, rs * w * HK);
+  const zT = C.zTip, zB = C.zButt, bz = zT, e = s > 0;
   px.part(); px.tag("halb");
-  px.capsule(...Bh(-9), 1.1, ...Bh(36), 1.05, WOOD, bz, { edge: s > 0 });
-  px.capsule(...Bh(-9), 1.5, ...Bh(-7.6), 1.5, STEEL_D, bz + 0.02);
+  px.capsule(...C.at(-BUTT), 1.1, ...hd, 1.1, WOOD, zB, { edge: e });
+  px.capsule(...C.at(-BUTT), 1.5, ...C.at(-BUTT + 1.4), 1.5, STEEL_D, zB + 0.02);
+  px.capsule(...hd, 1.1, ...Hh(22), 1.05, WOOD, zT, { edge: e });
   px.part();
-  px.capsule(...Bh(30), 1.5, ...Bh(33.6), 1.4, STEEL_D, bz + 0.05);
-  px.capsule(...Bh(33), 1.2, ...Bh(42), 0.2, STEEL, bz + 0.06, { edge: s > 0 });                // the spike
-  px.poly([Bh(34.6, o1 * 0.8), Bh(36.2, o1 * 4.4), Bh(34.6, o1 * 8), Bh(30.6, o1 * 9.2), Bh(27, o1 * 7.4), Bh(29.4, o1 * 6), Bh(31, o1 * 5.2), Bh(31, o1 * 3.4), Bh(29, o1 * 1)], STEEL, bz + 0.07, { round: 0.5, edge: s > 0 });   // the crescent
-  px.line(...Bh(34.8, o1 * 2.4), ...Bh(34.4, o1 * 7), STEEL, bz + 0.1, { fix: 4, noLine: true });
-  px.line(...Bh(30.4, o1 * 8.4), ...Bh(27.8, o1 * 7), STEEL, bz + 0.1, { fix: 1, noLine: true });
-  px.poly([Bh(30.2, -o1 * 0.8), Bh(32.6, -o1 * 0.8), Bh(32.2, -o1 * 4.4), Bh(30.4, -o1 * 5.6), Bh(30.4, -o1 * 3)], STEEL, bz + 0.07, { round: 0.5, edge: s > 0 });   // the back hook, inboard
+  px.capsule(...Hh(18), 1.5, ...Hh(21.4), 1.4, STEEL_D, bz + 0.05);
+  px.capsule(...Hh(21), 1.2, ...Hh(31), 0.2, STEEL, bz + 0.06, { edge: e });                      // the spike
+  px.poly([Hh(23.6, 0.8), Hh(25.4, 4), Hh(24.4, 7.6), Hh(20.8, 9), Hh(16.6, 7.4), Hh(18.8, 6), Hh(20.6, 5.2), Hh(20.6, 3.4), Hh(18.6, 1)], STEEL, bz + 0.07, { round: 0.5, edge: e });   // the crescent, turned outboard so it shows
+  px.line(...Hh(23.8, 2.4), ...Hh(23.6, 6.6), STEEL, bz + 0.1, { fix: 4, noLine: true });
+  px.line(...Hh(21, 8.2), ...Hh(17.6, 6.9), STEEL, bz + 0.1, { fix: 1, noLine: true });
+  px.poly([Hh(19.4, -0.8), Hh(21.8, -0.8), Hh(21.4, -4.6), Hh(19.6, -6), Hh(19.6, -3.2)], STEEL, bz + 0.07, { round: 0.5, edge: e });   // the back hook, inboard
   {
-    const w = cl(-vx * 1.4, -3, 3), t0 = Bh(25, 0.4);
+    const w = cl(-vx * 1.4, -3, 3), t0 = Hh(14.4, 0.4);
     px.part();
     px.capsule(...t0, 0.9, t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, RED, bz + 0.1);
     px.capsule(t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, t0[0] + w * 1.1, t0[1] + 7, 0.7, RED_D, bz + 0.1);
   }
   px.tag(null);
-  // the right arm over it: vambrace, gauntlet round the haft, the great spiked pauldron
+  // the right arm: vambrace, gauntlet closed over the haft (FRONT: over the shaft; BACK: the fist sits just above the butt side)
+  const fz = Math.max(zT, zB) + 0.1, az = s > 0 ? 6.2 : 4.3;
   px.part(); px.tag("nearArm");
-  px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, s > 0 ? 6.2 : 4.3, { cast: 0 });
-  px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, s > 0 ? 6.2 : 4.3, { cast: 0 });
-  px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, s > 0 ? 6.22 : 4.32, { vb: 0.25 });
-  px.ellipse(hd[0], hd[1] + (s < 0 ? 1 : 0), s > 0 ? 2.1 : 1.5, s > 0 ? 2.0 : 1.4, STEEL_D, s > 0 ? 6.5 : 3.6);
-  if (s > 0) px.line(hd[0] - 1.8, hd[1] - 0.8, hd[0] + 1.8, hd[1] - 0.8, STEEL, 6.52, { fix: 1, noLine: true });   // the fingers over the haft
-  px.line(hd[0] - 1.4, hd[1] + 0.8, hd[0] + 1.4, hd[1] - 1, GOLD, 6.55);
+  px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, az, { cast: 0 });
+  px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, az, { cast: 0 });
+  px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, az + 0.02, { vb: 0.25 });
+  px.ellipse(hd[0], hd[1] + (s < 0 ? 0.6 : 0), s > 0 ? 2.1 : 1.6, s > 0 ? 2.0 : 1.5, STEEL_D, fz);
+  if (s > 0) px.line(hd[0] - 1.8, hd[1] - 0.8, hd[0] + 1.8, hd[1] - 0.8, STEEL, fz + 0.02, { fix: 1, noLine: true });   // the fingers over the haft
+  px.line(hd[0] - 1.4, hd[1] + 0.8, hd[0] + 1.4, hd[1] - 1, GOLD, fz + 0.05);
   px.tag(null);
   px.part();
   const pR = [tx + rs * PX, PY];

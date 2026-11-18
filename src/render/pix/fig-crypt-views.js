@@ -175,12 +175,12 @@ const make = (s) => (px0, F, o = {}) => {
   px.part();
   px0.stamp(s > 0 ? FRONT_H : BACK_H, hx, hy - 1, p.eye > 0.5 ? LEG_HOT : LEG, 6, { ax: 6, ay: 8, ball: [6.5, 5.2, 6.5, 5.8], cast: 1 });
 
-  // ---- the mace: out of his right fist. FRONT up over the shoulder; BACK z 1.0, the haft past the fist and the head past the hip
+  // ---- the mace: ONE pose (views-artist.md "One weapon pose"): the side walk's angle is 0.12-0.24 rad, i.e. UPRIGHT in all
+  // three views (carry.js snaps below 0.35); the fist at the side view's own hand height (sk.hdN[1]); haft from the butt
+  // (3.8 below the fist) to the flanged head (13.4 above it). BACK: z 1.0, behind the arm and pauldron, rising past the shoulder.
   {
-    const hd = [rs * 8.4 + cx, handY], sh = [hx + rs * 7.4, chestY];
-    const el = [rs * 10 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
-    const Z = s > 0 ? 8.8 : 1.0, top = s > 0 ? [rs * 12.2 + cx, chestY - 12] : [rs * 11.4 + cx, handY + 10], bot = s > 0 ? [rs * 7.8 + cx, handY + 4] : [rs * 8.6 + cx, handY - 2];
-    const hc = s > 0 ? [top[0] + rs * 0.6, top[1] - 2.6] : [top[0] + rs * 0.8, top[1] + 2.6];
+    const mhY = sk.hdN[1] + 0.2, mx = rs * 11.8 + cx, sh = [hx + rs * 7.4, chestY];
+    const Z = s > 0 ? 8.8 : 1.0, bot = [mx, mhY + 3.8], top = [mx, mhY - 11.4], hc = [mx, mhY - 14.4];
     px0.part();
     px0.capsule(bot[0], bot[1], 0.9, top[0], top[1], 0.9, HAFT, Z);
     px0.ellipse(bot[0], bot[1], 1.2, 1.2, BRONZE, Z + 0.02, { fix: 2 });
@@ -190,11 +190,12 @@ const make = (s) => (px0, F, o = {}) => {
     px0.dot(hc[0] - 0.6, hc[1] - 0.6, STEEL, Z + 0.2, { fix: 4 });
     px0.body(1); px0.tag("nearArm");
     if (s > 0) {
+      const hd = [mx, mhY], el = [rs * 12 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
       px0.limb([[sh[0], sh[1] + 1], el, hd], [1.9, 1.9, 1.7], BONE, 7.9, { weld: 1.5, weldRoot: 3 });
       px0.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.7, STEEL, 7.95, { wrap: true });
       px0.ellipse(hd[0], hd[1], 1.9, 1.8, STEEL, 9.4, { weld: 1.5 });
     } else {
-      const shb = [hx + rs * 7.6, chestY + 1.4], elb = [hx + rs * 8.8, chestY + 7.4], hdb = [hx + rs * 8.8, chestY + 12.4 - rs * Math.cos(ph * TAU) * 0 + -rs * Math.cos(ph * TAU) * 1.0];
+      const shb = [hx + rs * 7.6, chestY + 1.4], elb = [mx, (shb[1] + mhY) / 2], hdb = [mx, mhY + 0.4 - rs * Math.cos(ph * TAU) * 0.6];
       px0.limb([shb, elb, [hdb[0], hdb[1] - 1]], [1.8, 1.9, 1.8], BONE, 4.3, { cast: 0 });
       px0.capsule(elb[0], elb[1], 2.0, hdb[0], hdb[1] - 1.2, 1.8, STEEL, 4.35, { cast: 0, wrap: true });
       px0.ellipse(hdb[0], hdb[1], 1.7, 1.6, STEEL, 3.6);

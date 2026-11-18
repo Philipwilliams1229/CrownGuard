@@ -62,7 +62,7 @@ const make = (s) => (px, F, o = {}) => {
   const y = (t) => chestY + L * t;
   const vx = cl((Math.sin(ph * TAU) - Math.sin((ph - 0.09) * TAU)) * 1.2, -2, 2), vx2 = cl((Math.sin((ph - 0.09) * TAU) - Math.sin((ph - 0.18) * TAU)) * 1.2, -2, 2);
   const pulse = 0.5 + 0.5 * Math.sin(ph * 2 * TAU), rw = 5.4, bob = 0.5 * Math.cos(ph * TAU);
-  const gripY = chestY + 15 + bob * 0.5, grip = [rs * 2.6 + hx, gripY];
+  const gripY = sk.hdN[1] + 0.2, grip = [rs * 8.4 + hx, gripY];   // the grip at the side view's own hand height, outboard beside him
 
   // ---- the cape. FRONT: behind him, a violet wing out past each shoulder and flank. BACK: all of his back, over everything.
   {
@@ -151,9 +151,10 @@ const make = (s) => (px, F, o = {}) => {
     px.body(0);
   };
   {
-    const k = s > 0 ? 0.5 : 0.17, bz = s > 0 ? 0 : -6.6, dirx = rs * k, tipv = [grip[0] + rs * (BL * k + 1), grip[1] - BL - 4];
-    const ln = Math.hypot(tipv[0] - grip[0], tipv[1] - grip[1]), u = [(tipv[0] - grip[0]) / ln, (tipv[1] - grip[1]) / ln], nrm = [-u[1], u[0]];
-    const at2 = (f, q) => [grip[0] + u[0] * f + nrm[0] * q, grip[1] + u[1] * f + nrm[1] * q];
+    // ONE pose: the side walk's sword angle is 0.20-0.30 rad, UPRIGHT in all three views (carry.js snaps below 0.35). FRONT: on top
+    // of his arm; BACK: z 1.0, behind the arm and mantle, the blade rising past his shoulder beside the helm.
+    const bz = s > 0 ? 0 : -7.1;
+    const at2 = (f, q) => [grip[0] + q, grip[1] - f];
     px.part();
     px.capsule(...at2(-4.4, 0), 0.9, ...at2(1.6, 0), 0.9, HAFT, 8.1 + bz);
     px.ellipse(...at2(-5, 0), 1.3, 1.3, GOLD, 8.12 + bz, { fix: 2 });
@@ -164,12 +165,11 @@ const make = (s) => (px, F, o = {}) => {
     px.line(...at2(3, 0.3), ...at2(BL - 3, 0.2), STEEL, 8.22 + bz, { fix: 1 });
     px.line(...at2(2.6, -1.5), ...at2(BL - 1.6, -0.9), F_TEAL, 8.3 + bz, { noLine: true });
     px.dot(...at2(BL - 1.2, -0.3), F_PALE, 8.35 + bz, { noLine: true });
-    // flames lick along the edge, a beat each frame
     for (let i = 0; i < 4; i++) { const t = 4 + i * 5, hh = (i + Math.floor(ph * 8)) % 2, pt = at2(t, -1.8); px.dot(pt[0], pt[1] - hh, i % 2 ? F_TEAL : F_PALE, 8.4 + bz, { noLine: true }); }
   }
   // both arms reach the grip: from behind only the sleeves show at his sides, the hands before him unseen
   if (s > 0) {
-    sleeveHand([hx + ls * 5.4, chestY + 1.2], [grip[0] - rs * 0.4, grip[1] + 0.6], 8.3, -1);
+    sleeveHand([hx + ls * 5.4, chestY + 1.2], [grip[0] - rs * 0.4, grip[1] + 0.8], 8.3, -1);
     sleeveHand([hx + rs * 5.4, chestY + 1.2], grip, 8.4, 0);
   } else {
     // BACK stack: fists 3.6, both sleeves 4.3 at his sides hanging and swinging in y only (cast 0), under the cape

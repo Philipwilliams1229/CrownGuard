@@ -8,7 +8,9 @@
 // ochre-and-teal shield fills his back, the braid hangs under the helm, the axe is carried forward and
 // only its butt shows by the hip. `variant: "loose"`: the wolf alone (saddle cloth, rein), no rider.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES, Q as RQ } from "./fig-rimerider.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, Q as RQ, rideOf, axeAngleR } from "./fig-rimerider.js";
+import { solveBeast } from "./beast.js";
+import { carry, damp } from "./carry.js";
 import { wolfView, mkKit, cl } from "./fig-wolf-views.js";
 
 const FUR = mat("#d6dde6"), PALE = mat("#f2f5f8"), MANE = mat("#8294ae"), FROST = flat("#eaf6ff");
@@ -69,6 +71,25 @@ const harness = (px, c) => {
   }
 };
 
+// ---- ONE axe pose (views-artist.md, "One weapon pose"): the side file's Dane axe, angle and fist height read per frame
+// from the side file's own rideOf / axeAngleR, damped, projected by carry().
+const AX_L = 17, AX_K = 1.5, AX_B = 4;
+const sideAx = (p, p1, p2) => { const b = solveBeast(p, RQ), r = rideOf(b, solveBeast(p1, RQ), solveBeast(p2, RQ)); return { a: axeAngleR(r.na, p.wrist), rel: r.na.end[1] - r.C[1] }; };
+const AMEAN = (() => { let t = 0; for (let k = 0; k < 8; k++) { const lg = SIDE.walk.lag ?? 0.09, P = (x) => SIDE.walk.pose(((x % 1) + 1) % 1); t += sideAx(P(k / 8), P(k / 8 - lg), P(k / 8 - 2 * lg)).a; } return t / 8; })();
+const axPose = (F) => { const r = sideAx(F.sk.p, F.lag1.p, F.lag2.p); return { a: damp(r.a, AMEAN), rel: r.rel }; };
+const drawAx = (px, cr, hd, zT, zB) => {
+  const k = AX_K, L = AX_L, T = cr.at(L + 1), bu = cr.at(-AX_B), hp = (f, sd) => cr.head(L, f - L, sd);
+  px.part(); px.tag("axe");
+  px.capsule(bu[0], bu[1], 0.85, hd[0], hd[1], 0.85, WOODM, zB, { cast: 0 });
+  px.capsule(hd[0], hd[1], 0.85, T[0], T[1], 0.85, WOODM, zT, { cast: 0 });
+  px.part();
+  px.poly([hp(L - 2.2 * k, 0.4), hp(L - 3.6 * k, 3.4 * k), hp(L - 1 * k, 4.6 * k), hp(L + 1.6 * k, 3.2 * k), hp(L + 1.6 * k, 0.4)], STEEL, zT + 0.05, { fix: 2, cast: 0 });
+  px.poly([hp(L - 3.6 * k, 3.4 * k), hp(L - 1 * k, 4.6 * k), hp(L + 1.6 * k, 3.2 * k), hp(L + 1 * k, 2.6 * k), hp(L - 1 * k, 3.4 * k)], STEEL, zT + 0.08, { fix: 4, cast: 0 });
+  px.poly([hp(L - 1.6, -0.4), hp(L + 1.2, -0.4), hp(L + 1.4, -4.2)], IRON_D, zT + 0.04, { fix: 1, cast: 0 });
+  px.poly([hp(L - 2.6, -0.8), hp(L + 1.8, -0.8), hp(L + 1.8, 0.9), hp(L - 2.6, 0.9)], IRON_D, zT + 0.1, { fix: 1, cast: 0 });
+  px.tag(null);
+};
+
 const rider = (px, F, s, b, sx) => {
   const rs = -s, ls = s, ph = F.ph, TAU = Math.PI * 2;
   const seat = b.at(0.06, 0, -1.8);
@@ -118,14 +139,9 @@ const rider = (px, F, s, b, sx) => {
     px.capsule(ls * 7.8, C[1] + 5, 1.8, h[0], h[1], 1.6, TEAL, 9, { cast: 1 });
     px.ellipse(h[0], h[1] + 0.4, 1.7, 1.6, SKIN, 9.1);
     // the near arm and the Dane axe stood up beside him, the bearded blade turned out
-    const hd = [rs * 9, C[1] + 5.6], el = [rs * 8.8, C[1] + 3];
-    const tx = hd[0] + rs * 0.5, ty = hd[1] - 17.5;
-    px.part(); px.tag("axe");
-    px.capsule(hd[0], hd[1] + 5, 0.85, tx, ty, 0.85, WOODM, 9.4, { cast: 1 });
-    px.poly([[tx, ty + 0.4], [tx + rs * 7.6, ty - 1.6], [tx + rs * 8, ty + 5.6], [tx + rs * 5, ty + 7], [tx, ty + 4]], STEEL, 9.5, { fix: 2 });
-    px.poly([[tx + rs * 4.4, ty + 5.8], [tx + rs * 8, ty + 5.6], [tx + rs * 5, ty + 7]], STEEL, 9.55, { fix: 4 });
-    px.poly([[tx, ty - 2], [tx - rs * 0.4, ty - 2], [tx - rs * 1.8, ty + 4.4], [tx, ty + 4.4]], IRON_D, 9.45, { fix: 1 });
-    px.tag(null);
+    const ap = axPose(F), hd = [rs * 9, C[1] + ap.rel], el = [rs * 8.8, (sN[1] + hd[1]) / 2];
+    const cr = carry(ap.a, s, { rs, hand: hd, len: AX_L, butt: AX_B, zTop: 9.4, zUnder: 7.8 });
+    drawAx(px, cr, hd, cr.zTip, cr.zButt);
     px.part(); px.tag("nearArm");
     px.capsule(sN[0], sN[1], 2.1, el[0], el[1], 1.9, TEAL, 9.2, { cast: 1 });
     px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.7, TEAL, 9.2, { cast: 1 });
@@ -167,14 +183,11 @@ const riderBack = (px, F, b, sx) => {
   const H = [sx * 0.6, seat[1] + 1.5], C = [H[0], H[1] - 7.7];
   const hx = Math.round(C[0]), hy = Math.round(C[1] - 5), sw = 0.5 * Math.sin(ph * TAU * 2), S = 5.2;
   const hN = [C[0] + 6.4, C[1] + 7.4], hF = [C[0] - 6.4, C[1] + 7.4 + sw * 0.8];
-  const tp = [hN[0] + 3, hN[1] - 6];
-  px.part(); px.tag("axe");
-  px.capsule(hN[0] - 0.3, hN[1] + 4.8, 0.85, hN[0], hN[1], 0.85, WOODM, 9, { cast: 0 });
-  px.capsule(hN[0], hN[1], 0.85, tp[0], tp[1], 0.85, WOODM, 9, { cast: 0 });
-  px.poly([[tp[0], tp[1] - 1], [tp[0] + 5.4, tp[1] - 2.6], [tp[0] + 6, tp[1] + 4], [tp[0] + 3.2, tp[1] + 5.2], [tp[0], tp[1] + 2.6]], STEEL, 9.05, { fix: 2, cast: 0 });
-  px.poly([[tp[0] + 3.2, tp[1] + 5.2], [tp[0] + 6, tp[1] + 4], [tp[0] + 5, tp[1] + 2.8]], STEEL, 9.1, { fix: 4, cast: 0 });
-  px.poly([[tp[0], tp[1] - 1.6], [tp[0] - 1.2, tp[1] - 1.6], [tp[0] - 1.2, tp[1] + 2.2], [tp[0], tp[1] + 2.2]], IRON_D, 9.02, { fix: 1, cast: 0 });
-  px.tag(null);
+  // the Dane axe, one pose: forward (behind him, z 9) with its head past his hip, the butt stub below the fist
+  const ap = axPose(F);
+  hN[1] = C[1] + ap.rel;
+  const cr = carry(ap.a, -1, { rs: 1, hand: hN, len: AX_L, butt: AX_B, splay: -0.5 });
+  drawAx(px, cr, hN, Math.min(12.2, 8 + cr.zTip), Math.min(12.2, 8 + cr.zButt));
   for (const side of [-1, 1]) {
     px.part();
     const k = [side * 8.2, H[1] + 2.4], f = [side * 8.6, H[1] + 10.2];

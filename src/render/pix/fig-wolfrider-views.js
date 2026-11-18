@@ -9,6 +9,9 @@
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-wolfrider.js";
 import { wolfView, WOLF, cl } from "./fig-wolf-views.js";
+import { solveBeast } from "./beast.js";
+import { ik } from "./rig.js";
+import { carry, damp } from "./carry.js";
 
 const SKIN = mat("#e8b990"), HAIR = mat("#b0503a"), BROWN = mat("#6a3a2a"), BROWN2 = mat("#3a2018"), FUR = mat("#b4aa9a"), LEATHER = mat("#4a382c");
 const STEEL = mat("#b8bcc4", { contrast: 1.3 }), IRONK = mat("#585c66"), WOOD = mat("#7a5632"), BRASS = mat("#c8a040");
@@ -40,6 +43,39 @@ const HAIRB = [
   "...rrRRRrr...",
   "....rrrrr....",
 ];
+
+// ---- ONE axe pose (views-artist.md, "One weapon pose"): the side file's hatchet angle, read per frame from the same
+// formulas (the rider's seat, lean, near-arm ik, GRIP -0.8 + the wrist), damped, projected by carry(): FRONT it
+// comes at us, BACK it rises past his hip with only the head showing past the body. a = la + PI/2 (the side file
+// measures from +x).
+const AXE_L = 17, AXE_B = 4, GRIPW = -0.8, RB = { spine: 7.6, upper: 5.2, fore: 5.2 };
+const rideA = (p, p1, p2) => {
+  const Q = WOLF.Q, b = solveBeast(p, Q), b1 = solveBeast(p1, Q), b2 = solveBeast(p2, Q);
+  const s0 = b.at(0.2, 0, -0.4), s1 = b1.at(0.2, 0, -0.4), s2 = b2.at(0.2, 0, -0.4);
+  const late = s1[1] * 0.65 + s2[1] * 0.35, air = cl(s0[1] - late, 0, 2.2), press = cl(late - s0[1], 0, 1.8);
+  const H = [s0[0], s0[1] - air], lean = (p.rLean ?? 0.3) + press * 0.05 - air * 0.04, sp = RB.spine - press * 0.5;
+  const C = [H[0] + Math.sin(lean) * sp, H[1] - Math.cos(lean) * sp];
+  const tw = p.rTwist ?? 0, sN = [C[0] - 2.8 + tw * 1.4, C[1] + 0.9];
+  const [ang, reach] = p.rArm ?? [1.0, 0.7], len = RB.upper + RB.fore;
+  const na = ik(sN[0], sN[1], sN[0] + Math.sin(ang) * reach * len, sN[1] + Math.cos(ang) * reach * len, RB.upper, RB.fore, 1);
+  const hd = na.end, la = Math.atan2(hd[1] - na.mid[1], hd[0] - na.mid[0]) + GRIPW + cl(p.wrist || 0, -0.35, 0.35);
+  return { a: la + Math.PI / 2, rel: hd[1] - C[1] };
+};
+const MEAN = (() => { let t = 0, r = 0; for (let k = 0; k < 8; k++) { const ph = k / 8, lg = SIDE.walk.lag ?? 0.09, P = (x) => SIDE.walk.pose(((x % 1) + 1) % 1); t += rideA(P(ph), P(ph - lg), P(ph - 2 * lg)).a; r += rideA(P(ph), P(ph - lg), P(ph - 2 * lg)).rel; } return { a: t / 8, rel: r / 8 }; })();
+const axePose = (F) => { const r = rideA(F.sk.p, F.lag1.p, F.lag2.p); return { a: damp(r.a, MEAN.a), rel: r.rel }; };
+// the haft in two segments split at the fist, and the bearded head at FULL size
+const drawAxe = (px, cr, hd, zT, zB) => {
+  const T = cr.at(AXE_L), bu = cr.at(-AXE_B), hp = (f, sd) => cr.head(AXE_L, f - AXE_L, sd);
+  px.part(); px.tag("weapon");
+  px.capsule(bu[0], bu[1], 0.8, hd[0], hd[1], 0.85, WOOD, zB, { cast: 0 });
+  px.capsule(hd[0], hd[1], 0.85, T[0], T[1], 0.8, WOOD, zT, { cast: 0 });
+  px.part();
+  px.poly([hp(14.4, 0.4), hp(13, 4.6), hp(16.2, 6), hp(19.6, 4.2), hp(19.2, 0.4)], STEEL, zT + 0.05, { fix: 2, cast: 0 });
+  px.poly([hp(13, 4.6), hp(16.2, 6), hp(19.6, 4.2), hp(18.6, 3.4), hp(15.8, 4.8)], STEEL, zT + 0.08, { fix: 4, cast: 0 });
+  px.poly([hp(15.4, -0.4), hp(18.8, -0.4), hp(18.2, -2.4)], IRONK, zT + 0.04, { fix: 1, cast: 0 });
+  px.poly([hp(13.6, -0.8), hp(19.6, -0.8), hp(19.6, 1), hp(13.6, 1)], IRONK, zT + 0.1, { fix: 1, cast: 0 });
+  px.tag(null);
+};
 
 const rider = (px, F, s, b, sx) => {
   const rs = -s, ls = s, p = b.p, ph = F.ph, TAU = Math.PI * 2;
@@ -78,15 +114,9 @@ const rider = (px, F, s, b, sx) => {
     px.capsule(ls * 7.2, C[1] + 4.2, 1.7, h[0], h[1], 1.6, SKIN, 9, { cast: 1 });
     px.capsule(ls * 6.2, C[1] + 5, 1.8, h[0], h[1], 1.75, LEATHER, 9.05, { cast: 1, floor: 1 });
     px.ellipse(h[0], h[1] + 0.4, 1.8, 1.7, SKIN, 9.1);
-    // the near arm (his right, screen left): the axe stood up beside him, its bearded blade turned out
-    const hd = [rs * 8.6, C[1] + 5.2], el = [rs * 8.4, C[1] + 2.6];
-    px.part(); px.tag("weapon");
-    px.capsule(hd[0], hd[1] + 5, 0.85, hd[0] + rs * 0.6, hd[1] - 17, 0.85, WOOD, 9.4, { cast: 1 });
-    const ty = hd[1] - 16.6, tx = hd[0] + rs * 0.6;
-    px.poly([[tx, ty + 0.6], [tx + rs * 7.4, ty - 1.2], [tx + rs * 7.6, ty + 5.4], [tx + rs * 5, ty + 6.4], [tx, ty + 3.6]], STEEL, 9.5, { fix: 2 });
-    px.poly([[tx + rs * 4.4, ty + 5.4], [tx + rs * 7.6, ty + 5.4], [tx + rs * 5, ty + 6.4]], STEEL, 9.55, { fix: 4 });
-    px.poly([[tx, ty - 1.6], [tx - rs * 0.4, ty - 1.6], [tx - rs * 1.8, ty + 4.4], [tx, ty + 4.4]], IRONK, 9.45, { fix: 1 });
-    px.tag(null);
+    // the near arm (his right, screen left): the hatchet in his fist, raised forward and coming at us
+    const ap = axePose(F), hd = [rs * 8.6, C[1] + ap.rel], el = [rs * 8.4, (sN[1] + hd[1]) / 2];
+    drawAxe(px, carry(ap.a, s, { rs, hand: hd, len: AXE_L, butt: AXE_B, zTop: 9.4, zUnder: 7.8 }), hd, 9.4, 9.4);
     px.part(); px.tag("nearArm");
     px.capsule(sN[0], sN[1], 2, el[0], el[1], 1.8, SKIN, 9.2, { cast: 1 });
     px.capsule(el[0], el[1], 1.8, hd[0], hd[1], 1.7, SKIN, 9.2, { cast: 1 });
@@ -134,15 +164,10 @@ const riderBack = (px, F, b, sx) => {
   const H = [sx * 0.6, seat[1] + 1.5], C = [H[0], H[1] - 6.3];
   const hx = Math.round(C[0]), hy = Math.round(C[1] - 3.8), sw = 0.5 * Math.sin(ph * TAU * 2), S = 5.2;
   const hN = [C[0] + 6.3, C[1] + 7.4], hF = [C[0] - 6.3, C[1] + 7.4 + sw * 0.8];
-  // the axe: the butt below his right fist, the haft forward behind arm and jerkin, the head past his hip
-  const tp = [hN[0] + 3, hN[1] - 5.6];
-  px.part(); px.tag("weapon");
-  px.capsule(hN[0] - 0.3, hN[1] + 4.6, 0.85, hN[0], hN[1], 0.85, WOOD, 9, { cast: 0 });
-  px.capsule(hN[0], hN[1], 0.85, tp[0], tp[1], 0.85, WOOD, 9, { cast: 0 });
-  px.poly([[tp[0], tp[1] - 1], [tp[0] + 5, tp[1] - 2.2], [tp[0] + 5.4, tp[1] + 3.6], [tp[0] + 3, tp[1] + 4.6], [tp[0], tp[1] + 2.4]], STEEL, 9.05, { fix: 2, cast: 0 });
-  px.poly([[tp[0] + 3, tp[1] + 4.6], [tp[0] + 5.4, tp[1] + 3.6], [tp[0] + 4.6, tp[1] + 2.6]], STEEL, 9.1, { fix: 4, cast: 0 });
-  px.poly([[tp[0], tp[1] - 1.4], [tp[0] - 1.2, tp[1] - 1.4], [tp[0] - 1.2, tp[1] + 2], [tp[0], tp[1] + 2]], IRONK, 9.02, { fix: 1, cast: 0 });
-  px.tag(null);
+  // the hatchet, one pose: tip side forward (away from us, behind him, z 9), the butt stub below the fist
+  const ap = axePose(F);
+  hN[1] = C[1] + ap.rel;
+  drawAxe(px, carry(ap.a, -1, { rs: 1, hand: hN, len: AXE_L, butt: AXE_B }), hN, 9, 11);
   // the legs, boots down the flanks
   for (const side of [-1, 1]) {
     px.part();

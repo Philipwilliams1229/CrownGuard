@@ -6,6 +6,7 @@
 // the right hand at the grip, the left under the fore-end. From behind the stock is hidden by his body: only the
 // prod's end shows past the shoulder. Same walk as the side (n, ms, pose); feet / bob read from the solved pose.
 import { mat, flat } from "./pix.js";
+import { carry, damp } from "./carry.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-errantbow.js";
 
 const SKIN = mat("#e0b088"), EYE = flat("#2a1c2c"), LIP = flat("#a8685a"), BROW = mat("#4a3426");
@@ -67,9 +68,11 @@ const make = (s) => (px, F) => {
   // is hidden by his body except the prod's ends past his sides.)
   // carried angled DOWN and across the body: butt at the right hip, the nose and prod pointing down and out toward the ground ahead of him
   const gz = vv ? 7 : 1.0, pz = vv ? 8.3 : 1.0;
-  const B = [rs * 5.6 + sx, chestY + 11 + bob], T = [ls * 3.6 + sx, hipY + 4.5 + bob];
-  const len = Math.hypot(T[0] - B[0], T[1] - B[1]), u = [(T[0] - B[0]) / len, (T[1] - B[1]) / len], w = [u[1], -u[0]];
-  const at = (a, b) => [B[0] + u[0] * a + w[0] * b, B[1] + u[1] * a + w[1] * b];
+  // ONE pose (carry.js): the side's own stock angle (ca, the stock raised ca above level), the fist at the side's hand height, the stock
+  // running 8 behind the fist to 17 before it (the arbalest's 25). FRONT: its nose toward us at chest height; BACK: in front of him, hidden.
+  const a0 = Math.PI / 2 - damp(p.ca ?? -0.52, -0.52), H = [rs * 7.2 + sx, sk.hdN[1]], len = 25;
+  const C = carry(a0, s, { rs, hand: H, len: 17, butt: 8, K: 0.5, minShow: 0.12, floorY: -8 });
+  const at = (f, b) => C.at(f - 8, b);   // f counted from the butt, as before
   px.part(); px.tag("stock");
   px.capsule(...at(-1, 0), 1.9, ...at(len * 0.4, 0), 1.5, WOOD, gz, { edge: true });
   px.capsule(...at(len * 0.4, 0), 1.4, ...at(len, 0), 1.1, WOOD, gz, { edge: true });
@@ -151,8 +154,8 @@ const make = (s) => (px, F) => {
   // ---- the arms. FRONT: both hands on the arbalest (right on the stock below the prod, left under the prod). BEHIND: both
   // hang at his sides, swinging forward (the back of each arm, the hand low and a little in).
   const sw = Math.cos(ph * TAU) * 0.45;
-  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? at(len * 0.16, 0) : [rs * 7.3 + sx, shY + 11 - sw * 1.2]];
-  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? at(len * 0.62, 0) : [ls * 7.3 + sx, shY + 11 + sw * 1.2]];
+  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? at(8, 0) : [rs * 7.3 + sx, H[1]]];
+  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? [at(16, 0)[0] - rs * 2.4, at(16, 0)[1]] : [ls * 7.3 + sx, shY + 11 + sw * 1.2]];
   for (const arm of [aL, aR]) {
     px.part(); px.tag("arm");
     px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, vv ? 8 : 4.3, { cast: vv ? 2 : 0 });

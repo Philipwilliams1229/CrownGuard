@@ -7,7 +7,8 @@
 // in front, UP behind (FWD 0.4 a px of stride). One sun, upper left, both views unmirrored.
 // `kit` and `legs` are exported for the huscarl and the berserker (fig-huscarl-views.js, fig-berserker-views.js).
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-thrall.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, axeAngle } from "./fig-thrall.js";
+import { carry, damp } from "./carry.js";
 
 const SKIN = mat("#e2b48c"), TEAL = mat("#4e6a6e"), TEAL_D = mat("#2f5866"), WOOL = mat("#8a7a5a"), LEATHER = mat("#6a4a30"), DARK = mat("#3a2a20");
 const FURW = mat("#e8e6e0"), OCHRE = mat("#d0943a"), IRON = mat("#9aa0ac", { contrast: 1.2 }), IRON_D = mat("#5e646e");
@@ -59,19 +60,24 @@ export const horn = (px, x0, y0, dir, z, th = 1) => {
   for (let i = 0; i + 1 < pts.length; i++) px.capsule(pts[i][0], pts[i][1], pts[i][2], pts[i + 1][0], pts[i + 1][1], pts[i + 1][2], BONE, z, { cast: 1 });
 };
 
-// The Dane axe, in the fist hd (screen side rs). FRONT: upright by his side, the head out to that side.
-// back = true (the BACK stack, z 1.0 = carried, in front of him): the haft stands upright at the fist's x, the beard and
-// head tucked INWARD behind his head and mantle, so below the fist the butt shows, the sleeve hides the haft up to the
-// shoulder and the top of the haft shows above it.
-export const daneAxe = (px, K, hd, L, k, z, IRON_M = IRON_D, back = false) => {
-  const { rs, vx } = K, t = back ? 0 : rs * 0.2 + vx * 0.08, bs = back ? -rs : rs, A = (f, o) => [hd[0] + t * f + bs * o, hd[1] - f], zb = back ? 1.0 : z;
+// ONE axe pose (carry.js, art/briefs/views-artist.md "One weapon pose"): the side walk's own angle aFrame (damped about aMean),
+// the fist at the side view's hand height, the same pose in FRONT and BACK. These carries are near upright (the forearm
+// + grip gives 0 to 0.7 rad), so the haft stands upright at the fist's x in both views, the head outboard at its top:
+// FRONT over his arm and shoulder (z 8.1), BACK at z 1.0 behind arm and fur (the haft under the sleeve up to the shoulder,
+// then rising past it). The head is full size (never foreshortened). `side` = the fist's screen side.
+export const daneAxe = (px, K, hd, aFrame, aMean, L, k, IRON_M = IRON_D, side = K.rs) => {
+  const s = K.s, C = carry(damp(aFrame, aMean), s, { rs: side, hand: hd, len: L + 1, butt: 4, K: 0.5, zTop: 8.1 });
+  const H = L, tipAt = C.at(H, 0), pr = [-C.dir[1], C.dir[0]];
+  const zT = s > 0 ? 8.1 : C.zTip, zB = s > 0 ? 8.1 : C.zButt;
+  const A = (f, o) => (f < H - 6.5 ? C.at(f, side * o) : [tipAt[0] + C.dir[0] * (f - H) + pr[0] * side * o, tipAt[1] + C.dir[1] * (f - H) + pr[1] * side * o]);
   px.part(); px.tag("weapon");
-  px.capsule(...A(-4, 0), 0.95, ...A(L + 1, 0), 0.95, WOOD, zb, { edge: !back, cast: back ? 0 : 1 });
+  px.capsule(...A(-4, 0), 0.95, ...A(0, 0), 0.95, WOOD, zB, { edge: s > 0, cast: s > 0 ? 1 : 0 });
+  px.capsule(...A(0, 0), 0.95, ...A(L + 1, 0), 0.95, WOOD, zT, { edge: s > 0, cast: s > 0 ? 1 : 0 });
   px.part();
-  px.poly([A(L - 2.2 * k, 0.4), A(L - 3.8 * k, 3.4 * k), A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.6 * k, 0.4)], STEEL, zb + 0.02, { fix: 2 });
-  px.poly([A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.2 * k, 3.6 * k), A(L - 0.6 * k, 5.2 * k)], STEEL, zb + 0.03, { fix: 4 });
-  px.poly([A(L - 1.6, -0.4), A(L + 1.2, -0.4), A(L + 1.4, -4)], IRON_M, zb + 0.01, { fix: 1 });
-  px.poly([A(L - 2.6, -0.8), A(L + 1.8, -0.8), A(L + 1.8, 0.9), A(L - 2.6, 0.9)], IRON_M, zb + 0.04, { fix: 1 });
+  px.poly([A(L - 2.2 * k, 0.4), A(L - 3.8 * k, 3.4 * k), A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.6 * k, 0.4)], STEEL, zT + 0.02, { fix: 2 });
+  px.poly([A(L - 3.4 * k, 6.2 * k), A(L - 0.4 * k, 6.6 * k), A(L + 1.8 * k, 4.2 * k), A(L + 1.2 * k, 3.6 * k), A(L - 0.6 * k, 5.2 * k)], STEEL, zT + 0.03, { fix: 4 });
+  px.poly([A(L - 1.6, -0.4), A(L + 1.2, -0.4), A(L + 1.4, -4)], IRON_M, zT + 0.01, { fix: 1 });
+  px.poly([A(L - 2.6, -0.8), A(L + 1.8, -0.8), A(L + 1.8, 0.9), A(L - 2.6, 0.9)], IRON_M, zT + 0.04, { fix: 1 });
   px.tag(null);
   return A;
 };
@@ -81,7 +87,7 @@ export const daneAxe = (px, K, hd, L, k, z, IRON_M = IRON_D, back = false) => {
 export const backArms = (px, K, o) => {
   const { rs, ls, p, sx, chY, hipY } = K, sY = chY + 0.4 + 0.8;
   for (const [side, ang] of [[ls, p.aF[0]], [rs, p.aN[0]]]) {
-    const hand = [sx + side * o.hx, (o.handY ?? hipY - 2) + cl(ang, -1, 1) * 1.2], el = [sx + side * o.el, (sY + hand[1]) / 2 + 0.4], sh = [sx + side * o.sh, sY];
+    const hand = [sx + side * o.hx, o.handY != null ? (side === rs ? o.handY : o.handYL ?? o.handY) : hipY - 2 + cl(ang, -1, 1) * 1.2], el = [sx + side * o.el, (sY + hand[1]) / 2 + 0.4], sh = [sx + side * o.sh, sY];
     px.part();
     px.capsule(sh[0], sh[1], o.w[0], el[0], el[1], o.w[1], o.up, 4.3, { cast: 0 });
     px.capsule(el[0], el[1], o.w[1], hand[0], hand[1], o.w[2], o.up, 4.3, { cast: 0 });
@@ -143,7 +149,7 @@ const LEG = {
 };
 
 const make = (s) => (px, F) => {
-  const K = kit(s, F), { rs, ls, p, sx, hx, hy, hipY, chY, vx, vx2, vy, tilt, ph } = K;
+  const K = kit(s, F), sk = F.sk, { rs, ls, p, sx, hx, hy, hipY, chY, vx, vx2, vy, tilt, ph } = K;
   const shY = chY + 0.4;
 
   // the braid down his back (seen from behind; hidden by him in front), swinging a beat behind
@@ -199,21 +205,21 @@ const make = (s) => (px, F) => {
   // the axe arm (his right, screen side rs): teal sleeve, leather cuff, the fist on the haft; the swing lifts the hand
   const ang = p.aN[0];
   if (s > 0) {
-    const hd = [rs * 8 + sx, shY + 9.8 + s * ang * 2], el = [rs * 8.4 + sx, shY + 5];
+    const hd = [rs * 8 + sx, sk.hdN[1]], el = [rs * 8.4 + sx, (shY + sk.hdN[1]) / 2 + 0.4];
     px.part(); px.tag("nearArm");
     px.capsule(sx + rs * 4.8, shY + 0.4, 2.1, el[0], el[1], 1.9, TEAL, 7.9, { cast: 1 });
     px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.7, TEAL, 7.9, { cast: 1 });
     const cf = mix(el, hd, 0.66);
     px.capsule(cf[0], cf[1], 1.9, hd[0], hd[1], 1.8, LEATHER, 7.95, { cast: 1 });
     px.tag(null);
-    daneAxe(px, K, hd, 16, 1.45, 8.1);
+    daneAxe(px, K, hd, axeAngle(sk), 0.31, 16, 1.45);
     px.part(); px.tag("nearHand");
     px.ellipse(hd[0], hd[1], 1.9, 2, SKIN, 8.3);
     px.tag(null);
   } else {
-    const o = { sh: 5.4, el: 7.4, hx: 7.6, up: TEAL, cuff: LEATHER, w: [2.1, 1.9, 1.7] };
+    const o = { handY: sk.hdN[1], sh: 5.4, el: 7.4, hx: 7.6, up: TEAL, cuff: LEATHER, w: [2.1, 1.9, 1.7] };
     const hd = backArms(px, K, o);
-    daneAxe(px, K, [hd[0], hd[1] + 1], 16, 1.45, 1.0, IRON_D, true);
+    daneAxe(px, K, hd, axeAngle(sk), 0.31, 16, 1.45);
   }
   px.part();
   px.ellipse(sx + rs * 8, shY + 0.4, 3.6, 3.4, FURW, s > 0 ? 8 : 5, { cast: 1, edge: s < 0 });

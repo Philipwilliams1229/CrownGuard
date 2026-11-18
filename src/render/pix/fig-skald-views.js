@@ -143,7 +143,7 @@ const make = (s) => (px, F) => {
   // ---- the near arm (his right): a sleeve and a leather cuff, the beater held up in the fist, falling on the beat
   {
     const back = s < 0, az = back ? 4.3 : 7.9, o = { cast: back ? 0 : 1 };
-    const lift = cl((p.aN[0] - 1.0) * 8, 0, 4), sh = [sx + rs * 8.2, c0 + 3], hd = [sx + rs * (back ? 10.4 : 9.4), hipY - 1 - (back ? lift * 0.5 : lift) + (back ? 0 : s * 0.6)], el = [sx + rs * (back ? 10.6 : 9.8), (sh[1] + hd[1]) / 2 - 0.4];
+    const lift = cl((p.aN[0] - 1.0) * 8, 0, 4), sh = [sx + rs * 8.2, c0 + 3], hd = [sx + rs * (back ? 10.4 : 9.4), sk.hdN[1] + 0.8], el = [sx + rs * (back ? 10.6 : 9.8), (sh[1] + hd[1]) / 2 - 0.4];
     px.part(); px.tag("nearArm");
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, TUNIC_L, az, o);
     px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, TUNIC_L, az, o);
@@ -151,14 +151,12 @@ const make = (s) => (px, F) => {
     px.capsule(c1[0], c1[1], 2, hd[0], hd[1], 1.9, LEATHER, az + 0.05, o);
     px.tag(null);
     px.part(); px.tag("weapon");
-    if (s > 0) {
-      const tip = [hd[0] + rs * 0.8, hd[1] - 7];
-      px.capsule(hd[0], hd[1] + 1.4, 1.1, tip[0], tip[1], 1.1, STICK, 8.1, { edge: true });
-      px.ellipse(tip[0], tip[1] - 0.6, 2.2, 2.2, BONE, 8.12);
-    } else {
-      // the beater runs forward, away from us, behind the fist and sleeve: only its butt shows below the fist
-      px.capsule(hd[0], hd[1] + 3.4, 0.9, hd[0], hd[1] - 1, 0.9, STICK, 1.0);
-    }
+    // ONE pose (carry.js idea): the side walk holds the beater ~12 degrees off upright (|a| < 0.35, damped), so it stands upright in
+    // all three views at the side view's hand height: butt 2 below the fist, stick 8.4 above it, the bone knob on top.
+    // From behind it is at z 1.0: the sleeve and the collar hide it up to the shoulder, the knob shows past it.
+    const bz = back ? 1.0 : 8.1;
+    px.capsule(hd[0], hd[1] + 2, 1.1, hd[0], hd[1] - 8.4, 1.1, STICK, bz, { edge: !back });
+    px.ellipse(hd[0], hd[1] - 9.2, 2.2, 2.2, BONE, bz + 0.02);
     px.part(); px.tag(null);
     if (s > 0) px.ellipse(hd[0], hd[1], 1.8, 2, SKIN, 8.3); else px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6);
   }

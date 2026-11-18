@@ -8,7 +8,23 @@
 // From behind the mace is mostly hidden by the body (owner's rule): only its pommel shows below the
 // fist at the hip. The walk is the side clip's own; hands, feet and bob are read from the solved pose.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-chaplain.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, maceAngle } from "./fig-chaplain.js";
+import { carry, damp } from "./carry.js";
+
+const MACE_MEAN = 0.44;   // the side walk holds the mace ~25 degrees forward of upright (measured: 0.43-0.45)
+// the mace: ONE pose read from the side walk (carry.js), drawn in two segments split at the fist
+const drawMace = (px, C, a_, fistY) => {
+  const T = C.zTip, Bz = C.zButt, L = 19.4, hd = C.head(15), hs = (d, s2) => C.head(15, d, s2);
+  px.part(); px.tag("mace");
+  px.capsule(...C.at(-4), 1.15, ...C.at(13), 1.05, IRONK, T, { edge: T > 2 });
+  px.capsule(...C.at(-0.4), 1.3, ...C.at(3.6), 1.3, OX, T + 0.02);
+  px.ellipse(...C.at(-4.6), 1.4, 1.4, BRASS, Bz + 0.05);
+  px.ellipse(hd[0], hd[1], 2.5, 2.8, IRON, T + 0.1, { vb: 0.2, cast: T > 2 ? 1 : 0 });
+  for (const o of [-1, 1]) px.poly([hs(0, o * 2), hs(1.5, o * 5), hs(4, o * 2)], IRONK, T + 0.12, { cast: 0 });
+  px.capsule(...C.at(17.6), 0.9, ...C.at(L), 0.3, IRON, T + 0.12, { edge: T > 2 });
+  px.dot(hd[0], hd[1] - 1, STEELB, T + 0.15, { fix: 4 });
+  px.tag(null);
+};
 
 const CREAM = mat("#e0d8c4", { contrast: 1.0 }), CREAMK = mat("#b8ae94"), OX = mat("#7a2a2c", { contrast: 1.1 }), OXK = mat("#561c20", { floor: 1 });
 const MAIL = mat("#7e8490", { contrast: 1.3 }), MAILK = mat("#545a66"), IRON = mat("#6c7280", { contrast: 1.25 }), IRONK = mat("#2e3038", { contrast: 1.1 }), STEELB = mat("#c4c8d0", { contrast: 1.3 });
@@ -68,7 +84,7 @@ const make = (s) => (px, F) => {
 
   // ---- the hands first (the arms are drawn after the body)
   const angN = p.aN[0], angF = p.aF[0];
-  const handN = [sx + rs * 7.6, shY + 9 + s * (angN - 0.62) * 8], handF = [sx + ls * 7.4, shY + 11.4 + s * (angF - 0.3) * 8];
+  const handN = [sx + rs * 7.6, sk.hdN[1] + 0.4], handF = [sx + ls * 7.4, shY + 11.4 + s * (angF - 0.3) * 8];
   // the reliquary and its chain from the far (left) fist
   const rel = [handF[0] + sway * 1.2, handF[1] + 8.4 + vy * 0.4];
   px.part();
@@ -129,22 +145,7 @@ const make = (s) => (px, F) => {
     if (hold) { px.line(hand[0] - 2, hand[1] - 0.2, hand[0] + 2, hand[1] - 0.2, SKIN, z + 1.0, { fix: 1, noLine: true }); px.line(hand[0] - 2, hand[1] + 1.4, hand[0] + 2, hand[1] + 1.4, SKIN, z + 1.0, { fix: 1, noLine: true }); }
   };
   arm(ls, handF, 8, false);
-  // the mace: upright in the right fist before him (front); from behind only its pommel shows at the hip
-  {
-    // front: out at his side; behind: the same mace at true depth, its head leaning in behind the body (hidden), haft and pommel past the fist showing
-    const tilt = s > 0 ? rs * 0.62 + (p.wrist || 0) * 0.3 : -rs * 0.38, zo = s > 0 ? 1.5 : -3.6, d = [Math.sin(tilt), -Math.cos(tilt)], nr = [-d[1], d[0]];
-    const B = (t, o = 0) => [handN[0] + d[0] * t + nr[0] * o, handN[1] + d[1] * t + nr[1] * o];
-    const hd = B(15);
-    px.part(); px.tag("mace");
-    px.capsule(...B(-4), 1.15, ...B(13), 1.05, IRONK, 7 + zo, { edge: true });
-    px.capsule(...B(-0.4), 1.3, ...B(3.6), 1.3, OX, 7.02 + zo);
-    px.ellipse(...B(-4.6), 1.4, 1.4, BRASS, 7.05);
-    px.ellipse(hd[0], hd[1], 2.5, 2.8, IRON, 7.1 + zo, { vb: 0.2, cast: 1 });
-    for (const o of [-1, 1]) px.poly([[hd[0] + nr[0] * o * 2, hd[1] + nr[1] * o * 2], [hd[0] + nr[0] * o * 5 + d[0] * 1.5, hd[1] + nr[1] * o * 5 + d[1] * 1.5], [hd[0] + nr[0] * o * 2 + d[0] * 4, hd[1] + nr[1] * o * 2 + d[1] * 4]], IRONK, 7.12 + zo, { cast: 0 });
-    px.capsule(...B(17.6), 0.9, ...B(19.4), 0.3, IRON, 7.12 + zo, { edge: true });
-    px.dot(hd[0] + d[0], hd[1] + d[1], STEELB, 7.15 + zo, { fix: 4 });
-    px.tag(null);
-  }
+  drawMace(px, carry(damp(maceAngle(sk), MACE_MEAN), 1, { rs, hand: handN, len: 19.4, butt: 4.6, splay: 0.5, zTop: 8.5 }));
   arm(rs, handN, 8.1, true);
 
   // ---- the head: the lappets trail down the back of the coif
@@ -170,7 +171,7 @@ const back = (px, F) => {
   const vx = cl((sx - sx1) * 1.4, -2.4, 2.4), vx2 = cl((sx1 - sx2) * 1.4, -2.4, 2.4), vy = cl(C[1] - F.lag1.C[1], -2, 2);
   const hipY = P[1], chY = C[1], shY = chY + 0.9, hy = Math.round(N[1]), hx = Math.round(sx * 0.7);
   const sway = p.sway || 0, fl = -vx * 0.9 - vx2 * 0.6, sw1 = (v) => cl(v, -1.2, 1.2);
-  const handN = [sx + 7.6, shY + 10.4 + sw1(-(p.aN[0] - 0.62) * 8)], handF = [sx - 7.8, shY + 11.2 + sw1(-(p.aF[0] - 0.3) * 8)];
+  const handN = [sx + 7.6, sk.hdN[1] + 0.4], handF = [sx - 7.8, shY + 11.2 + sw1(-(p.aF[0] - 0.3) * 8)];
   // carried: the reliquary on its chain, the mace
   const rel = [handF[0] - 0.6 + sway * 1.2, handF[1] + 8.4 + vy * 0.4];
   px.part(); px.line(handF[0], handF[1] + 0.6, rel[0], rel[1] - 3.2, BRASS, 1.0, { noLine: true });
@@ -178,17 +179,7 @@ const back = (px, F) => {
   const [rx, ry] = rel;
   px.poly([[rx - 3.2, ry - 1.6], [rx, ry - 4.6], [rx + 3.2, ry - 1.6], [rx + 3.2, ry + 3.6], [rx - 3.2, ry + 3.6]], BRASS, 1.0, { cast: 0 });
   px.line(rx, ry - 3.6, rx, ry + 3, CREAMK, 1.02, { noLine: true }); px.dot(rx, ry - 5.4, BRASS, 1.0, { fix: 3 });
-  {
-    const tilt = -0.38, d = [Math.sin(tilt), -Math.cos(tilt)], nr = [-d[1], d[0]];
-    const B = (t, o = 0) => [handN[0] + d[0] * t + nr[0] * o, handN[1] + d[1] * t + nr[1] * o];
-    const hd = B(15);
-    px.part();
-    px.capsule(...B(-4), 1.15, ...B(13), 1.05, IRONK, 1.0);
-    px.capsule(...B(-0.4), 1.3, ...B(3.6), 1.3, OX, 1.02);
-    px.ellipse(...B(-4.6), 1.4, 1.4, BRASS, 1.05);
-    px.ellipse(hd[0], hd[1], 2.5, 2.8, IRON, 1.1, { vb: 0.2, cast: 0 });
-    for (const o of [-1, 1]) px.poly([[hd[0] + nr[0] * o * 2, hd[1] + nr[1] * o * 2], [hd[0] + nr[0] * o * 5 + d[0] * 1.5, hd[1] + nr[1] * o * 5 + d[1] * 1.5], [hd[0] + nr[0] * o * 2 + d[0] * 4, hd[1] + nr[1] * o * 2 + d[1] * 4]], IRONK, 1.12, { cast: 0 });
-  }
+  drawMace(px, carry(damp(maceAngle(sk), MACE_MEAN), -1, { rs, hand: handN, len: 19.4, butt: 4.6, splay: 0.5 }));
   // boots, the alb
   const fy = [0, 0];
   [[p.fF, ls, 2], [p.fN, rs, 3]].forEach(([f, side, z], i) => {

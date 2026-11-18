@@ -6,7 +6,7 @@
 // axe is hidden by him (fist and haft butt only). Hands: axe in his RIGHT (screen LEFT in front), shield on his LEFT.
 // Shares `kit`, `legs`, `horn`, `daneAxe`, `backGrip` with fig-thrall-views.js. Unflipped; one sun, upper left.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-huscarl.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, axeAngle } from "./fig-huscarl.js";
 import { kit, legs, horn, daneAxe, backArms, mix } from "./fig-thrall-views.js";
 
 const SKIN = mat("#e2b48c"), TEAL = mat("#3a5a66"), TEAL_D = mat("#2a5260"), WOOL = mat("#6e5a44"), LEATHER = mat("#5a3e2a");
@@ -99,21 +99,21 @@ const make = (s) => (px, F) => {
   // the axe arm: mail sleeve, fur cuff, fist on the haft (BACK: both arms hang at his sides, the axe upright in the fist)
   const ang = p.aN[0];
   if (s > 0) {
-    const hd = [rs * 9 + sx, shY + 10 + s * ang * 1.6], el = [rs * 9.4 + sx, shY + 5];
+    const hd = [rs * 9 + sx, K.sk.hdN[1]], el = [rs * 9.4 + sx, (shY + K.sk.hdN[1]) / 2 + 0.4];
     px.part(); px.tag("nearArm");
     px.capsule(sx + rs * 5.4, shY + 0.4, 2.4, el[0], el[1], 2.1, MAIL, 7.9, { cast: 1 });
     px.capsule(el[0], el[1], 2.1, hd[0], hd[1], 1.9, MAIL, 7.9, { cast: 1 });
     const cf = mix(el, hd, 0.7);
     px.capsule(cf[0], cf[1], 2.1, hd[0], hd[1], 2, FURW, 7.95, { cast: 1 });
     px.tag(null);
-    daneAxe(px, K, hd, 19, 1.5, 8.1);
+    daneAxe(px, K, hd, axeAngle(K.sk), 0.26, 19, 1.5);
     px.part(); px.tag("nearHand");
     px.ellipse(hd[0], hd[1], 1.9, 2.2, SKIN, 8.3);
     px.tag(null);
   } else {
-    const o = { sh: 5.8, el: 8, hx: 8.2, up: MAIL, cuff: FURW, w: [2.4, 2.1, 1.9] };
+    const o = { handY: K.sk.hdN[1], sh: 5.8, el: 8, hx: 8.2, up: MAIL, cuff: FURW, w: [2.4, 2.1, 1.9] };
     const hd = backArms(px, K, o);
-    daneAxe(px, K, [hd[0], hd[1] + 1], 19, 1.5, 1.0, undefined, true);
+    daneAxe(px, K, hd, axeAngle(K.sk), 0.26, 19, 1.5);
   }
   px.part();
   px.ellipse(sx + rs * 9, shY + 0.6, 4, 3.8, FURW, s > 0 ? 8 : 5, { cast: 1, edge: s < 0 });

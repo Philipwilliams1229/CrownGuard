@@ -7,6 +7,7 @@
 // A plod: a wide, heavy side-to-side roll over the planted foot, the long arms swinging a little.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-troll.js";
+import { carry, damp } from "./carry.js";
 
 const SKIN = mat("#7a8a5a"), BELLY = mat("#8f9a6a"), HIDE = mat("#5a4a3a"), HIDE_D = mat("#40342a"), HAIR = mat("#3a3a2a"), MOSS = mat("#5c7c34");
 const WOOD = mat("#6e5234"), BARK = mat("#54402a"), CUT = mat("#b09460"), BONE = mat("#ece0c4"), NAIL = mat("#c8c2a0");
@@ -130,25 +131,28 @@ const make = (s) => (px, F) => {
   armOf(ls, p.aF[0], false);
   const fist = armOf(rs, p.aN[0], true);
 
-  // ---- the club trails by his right hand, its head dragging on the ground behind him (so seen end-on):
-  // from the front only the butt shows over the fist and the head peeks out by his foot; from behind its head is near us
+  // ---- the club: ONE pose (carry.js). The side walk points it FORWARD and low (about 95-106 degrees from straight up,
+  // fig-troll.js clubOf: forearm direction + GRIP -1.2 + wrist), not dragged. FRONT: it comes toward us, its round head on the
+  // ground in front of his right foot, drawn over the shin. BACK: it runs away from us behind his arm and leg (z 1.0), the head
+  // splayed out past his hip so it clears the leg. The head (full size) is never foreshortened; only the haft is.
+  const CLUB_L = 27, CLUB_B = 3.6, GRIP = -1.2;
+  const aSide = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])) + GRIP + cl(p.wrist || 0, -0.35, 0.35);
+  const C = carry(damp(aSide, 1.75), s, { rs, hand: fist, len: CLUB_L + 3.4, butt: CLUB_B, K: 0.5, splay: s > 0 ? -0.5 : 0.4, floorY: 0, zTop: 8.2, minShow: 0.3 });
+  const Z = s > 0 ? 8.2 : 1.0, o = s > 0 ? { edge: true } : { cast: 0 };
   px.part(); const cid = px._pid;
-  // the haft runs INTO the fist and out the other side: a butt end over his forearm above the fist, drawn under the fingers
+  if (s > 0) { const bt = C.at(-CLUB_B); px.capsule(bt[0], bt[1], 1.8, fist[0], fist[1], 2.2, WOOD, 8.2, o); }
+  const h0 = C.at(11), hs = C.at(0);
+  px.capsule(hs[0], hs[1], 2.4, h0[0], h0[1], 2.5, WOOD, Z, o);
   px.part();
-  if (s > 0) { px.capsule(fist[0], fist[1] - 1, 2.2, fist[0] + rs * 0.3, fist[1] - 6, 2, WOOD, 8.2, { edge: true });
-  px.ellipse(fist[0] + rs * 0.3, fist[1] - 6.4, 2, 1.4, CUT, 8.22, { fix: 3 }); }
-  px.part(); const cid2 = px._pid;
-  if (s > 0) {
-    px.capsule(fist[0], fist[1] + 1, 2.6, fist[0] + rs * 3, -3.6, 4.4, WOOD, 8.25, { edge: true });
-    px.ellipse(fist[0] + rs * 3.4, -3.6, 5.6, 4.6, BARK, 8.24, { edge: true });
-    px.toneLine(fist[0] + rs * 2, fist[1] + 4, fist[0] + rs * 3, fist[1] + 9, -1, cid);
-  } else {
-    // dragged ahead of him, away from us: the handle runs from the fist in behind his leg; only the end of its head peeks past the foot
-    const hc = [fist[0] - rs * 6.5, -3.4];
-    px.capsule(fist[0], fist[1] + 1, 2.6, hc[0], hc[1], 4.4, WOOD, 1, { cast: 0 });
-    px.ellipse(hc[0] + rs * 0.6, hc[1], 5.4, 4.6, BARK, 1.05, { cast: 0 });
-    px.toneLine(fist[0] - rs * 1.6, fist[1] + 3, hc[0], hc[1] - 3, -1, cid);
-  }
+  // the head at full size: from the end of the shortened haft, CL - 11 px along the screen direction, widening to 5
+  let he = C.head(11, CLUB_L - 11), ce = C.head(11, CLUB_L - 11 + 3.4);
+  const sink = Math.max(0, he[1] - 0.5);          // lies ON the ground, never under it
+  he = [he[0], he[1] - sink]; ce = [ce[0], ce[1] - sink];
+  px.capsule(h0[0], h0[1], 2.6, he[0], he[1], 5, BARK, Z, o);
+  px.ellipse(ce[0], ce[1], 2.6, 2.6, CUT, Z + 0.02, { fix: 3, cast: s > 0 ? 1 : 0 });
+  const st = C.head(11, 6, 3.4), st2 = C.head(11, 8.4, 6);
+  px.capsule(st[0], st[1] - sink * 0.5, 1.5, st2[0], st2[1] - sink * 0.5, 1.2, BARK, Z - 0.01, o);
+  px.toneLine(...C.head(11, 4, -1.4), ...C.head(11, 12, -2.6), -1, cid);
 
   // ---- the head, sunk between the shoulders; ears out to the sides, flapping a beat behind
   const ey = cl(-vy * 1.3 - vy2 * 0.9, -2.5, 2.5);

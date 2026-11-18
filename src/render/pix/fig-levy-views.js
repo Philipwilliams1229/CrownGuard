@@ -6,6 +6,7 @@
 // figures' views share (`base`, `legsView`, `dag`, `mk`), so the four files stay one family.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-levy.js";
+import { carry, damp } from "./carry.js";
 
 export const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 export const FWD = 0.4, TAU = Math.PI * 2;
@@ -111,22 +112,26 @@ const make = (s) => (px, F, o = {}) => {
     for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.3; px.dot(scb[0] - 0.8 + Math.cos(a) * (rx - 0.5), scb[1] - 0.4 + Math.sin(a) * (ry - 0.5), STEELB, 1.08, { fix: 4 }); }
   }
 
-  // ---- the spear: ash shaft, a leaf head, the pennon streaming; at his right side, held at the chest
-  const sw1 = 1.2 * Math.sin(ph * TAU), zb = s > 0 ? 0 : -3.9;
-  const hdY = s > 0 ? shY + 7.6 + s * 0.4 * (SIDE_ARM - 1) + vy * 0.4 : shY + 10.8 - sw1, hdX = rs * (s > 0 ? 7.4 : 8) + sx;
+  // ---- the spear: ONE pose read from the side walk (angle ha ~0.38 rad forward, fist at the side's hand height), projected
+  // by carry.js: FRONT it points toward us (haft shortened, head full size), BACK it rises past his shoulder, the butt below the fist
+  const sw1 = 1.2 * Math.sin(ph * TAU);
+  const hdY = sk.hdN[1] + 0.4, hdX = rs * (s > 0 ? 7.4 : 8) + sx;
   const lean = cl(vx * 0.8 + vx2 * 0.5, -1.5, 1.5);
-  const topY = hdY - 40, topX = hdX + rs * 1.2 + lean * 0.4, buY = -3, buX = hdX - rs * 0.8;
+  const C = carry(damp(p.ha ?? 0.38, 0.38), s, { rs, hand: [hdX, hdY], len: 41, butt: 25, floorY: -3 });
+  const H = (d, w) => C.head(41, d, rs * w);
+  const T = C.at(41), Bt = C.at(-25), edgeOn = s > 0;
   px.part(); px.tag("weapon");
-  px.capsule(buX, buY, 1.0, topX, topY, 1.0, WOOD, 5.0 + zb, { edge: s > 0 });
-  px.capsule(buX, buY, 1.2, buX, buY - 1.8, 1.2, IRON, 5.01 + zb);
+  px.capsule(Bt[0], Bt[1], 1.0, hdX, hdY + (s < 0 ? 1.6 : 0), 1.0, WOOD, C.zButt, { edge: edgeOn });
+  px.capsule(hdX, hdY, 1.0, T[0], T[1], 1.0, WOOD, C.zTip, { edge: edgeOn });
+  px.capsule(Bt[0], Bt[1], 1.2, ...C.at(-23.2), 1.2, IRON, C.zButt + 0.01);
   px.part();
-  px.capsule(topX, topY + 2.8, 1.25, topX, topY - 0.4, 1.25, IRON, 5.05 + zb);
-  px.poly([[topX, topY - 0.2], [topX + 2.1, topY - 2], [topX + 0.1, topY - 8.4], [topX - 2.1, topY - 2]], STEELB, 5.06 + zb, { n: [0.1, 0.1, 0.95] });
-  px.line(topX, topY - 1, topX, topY - 7, IRON, 5.07 + zb, { fix: 1, noLine: true });
+  px.capsule(...H(-3, 0), 1.25, ...H(0.4, 0), 1.25, IRON, C.zTip + 0.05);
+  px.poly([H(0, 0), H(1.4, 2), H(3.4, 2.2), H(7.6, 0), H(3.4, -2.2), H(1.4, -2)], STEELB, C.zTip + 0.06, { n: [0.1, 0.1, 0.95] });
+  px.line(...H(1, 0), ...H(6.6, 0), IRON, C.zTip + 0.07, { fix: 1, noLine: true });
   px.part();
   {   // a pennon of oxblood under the head, streaming out to the spear side and flapping with the stride
-    const f = cl(lean * 1.2 + 0.9 * Math.sin(ph * TAU * 2), -2, 2), dir = rs;
-    px.poly([[topX, topY + 1.4], [topX + dir * 2, topY + 1.4 + f * 0.2], [topX + dir * 7.2, topY + 2.6 + f], [topX + dir * 10.4, topY + 1.6 + f * 1.3], [topX + dir * 8.4, topY + 4.6 + f * 1.2], [topX + dir * 2, topY + 5], [topX, topY + 4.6]], OX, 5.1 + zb, { round: 0.6, cast: 1 });
+    const f = cl(lean * 1.2 + 0.9 * Math.sin(ph * TAU * 2), -2, 2);
+    px.poly([H(-3.6, 0.4), H(-4, 3.4 + f * 0.4), H(-8.6, 4.6 + f), H(-12.4, 3.2 + f * 1.3), H(-10, 1.2 + f * 0.7), H(-7, 0.4)], OX, C.zTip + 0.1, { round: 0.6, cast: s > 0 ? 1 : 0 });
   }
   px.tag(null);
 
@@ -186,7 +191,7 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(rs * 5.4 + sx, shY + 0.6, 2.0, el[0], el[1], 2.0, PAD, 4.5, { cast: 1 });
     px.capsule(el[0], el[1], 1.9, hand[0], hand[1] - 0.4, 1.7, PAD, 4.5, { cast: 1 });
     px.capsule(el[0] * 0.3 + hand[0] * 0.7, el[1] * 0.3 + hand[1] * 0.7, 1.8, hand[0], hand[1], 1.8, LEATHER, 4.55);
-    px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0.3 : -0.3), s > 0 ? 1.9 : 1.6, s > 0 ? 1.9 : 1.6, LEATHER, 8.3);
+    px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0.3 : -0.3), s > 0 ? 1.9 : 1.6, s > 0 ? 1.9 : 1.6, LEATHER, 8.5);
   }
 
   // ---- the head
@@ -220,3 +225,18 @@ const make = (s) => (px, F, o = {}) => {
 const walk = { ...SIDE.walk };
 export const FRONT = { NAME: "levy-front", BOX: { w: 52, h: 84, ox: 26, oy: 80 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
 export const BACK = { NAME: "levy-back", BOX: { w: 52, h: 84, ox: 26, oy: 80 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+
+// a straight sword in the fist along a carry() pose: the butt side (grip to pommel) and the tip side (grip stub, crossguard, blade)
+// shape: [[along, across], ...] the blade outline from the fist; guard: [along, half-width]; pommel: how far behind the fist
+export const drawSword = (px, C, M, o) => {
+  const at = C.at;
+  px.part(); px.tag("sword");
+  px.capsule(...at(0), 1.0, ...at(-o.pommel + 1), 1.0, M.GRIP, C.zButt);
+  px.ellipse(...at(-o.pommel), 1.7, 1.2, M.BRASS, C.zButt + 0.02);
+  px.capsule(...at(0), 1.0, ...at(o.guard[0]), 1.0, M.GRIP, C.zTip);
+  px.part();
+  px.capsule(...at(o.guard[0], -o.guard[1]), 0.9, ...at(o.guard[0], o.guard[1]), 0.9, M.STEELB, C.zTip + 0.04);
+  px.poly(o.shape.map(([a, b]) => at(a, b)), M.BLADE, C.zTip + 0.05, { n: [0.1, 0.1, 0.95] });
+  px.line(...at(o.shape[0][0] + 2.2, 0), ...at(o.shape[o.shape.length >> 1][0] - 2, 0), M.IRON, C.zTip + 0.07, { fix: 1, noLine: true });
+  px.tag(null);
+};

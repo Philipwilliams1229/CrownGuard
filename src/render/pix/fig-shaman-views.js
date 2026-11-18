@@ -8,6 +8,7 @@
 // screen in FRONT and UP in BACK, foreshortened (FWD). Returns the same `light` the side draw does
 // (the orb's glow) and `orb`, so the lit walk is the same.
 import { mat, flat } from "./pix.js";
+import { carry, damp } from "./carry.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-shaman.js";
 
 const SKIN = mat("#6aa04f"), ROBE = mat("#8a4a3a"), SLEEVE = mat("#9a5844"), GOLD = mat("#e8c14a", { contrast: 1.15 }), DARK = mat("#3c2a18");
@@ -61,6 +62,10 @@ const BACK_H = [
 const FWD = 0.4, cl = (v, a, b) => Math.max(a, Math.min(b, v)), TAU = Math.PI * 2;
 const STAFF = 36;
 
+// the staff's own angle from straight up (+ forward), read from the side file's walk: planted, it leans from its foot (p.sx) to the fist
+const aOf = (q) => { const h = q.hdF, hg = Math.max(2, -h[1] - (q.p.lift || 0)); return Math.atan2(h[0] - (q.p.sx ?? h[0]), hg); };
+const aMean = (F) => { let m = 0; for (let i = 0; i < 8; i++) m += aOf(F.at(i / 8)); return m / 8; };
+
 const make = (s) => (px, F, o = {}) => {
   const rs = -s, ls = s;                                   // screen side of his right / left
   const { sk, ph } = F, p = sk.p;
@@ -76,13 +81,15 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the staff, in his left fist, standing a little out from the body. Planted while he passes it
   // (the foot slides from ahead of him to behind, foreshortened), then swung on ahead and lifted.
-  const SX = ls * 10.4 + sx * 0.6, hgY = chestY + 6.2;
-  const fY = s * ((p.sx ?? 9) - 9) * 0.3 - lift * 0.9 - 0.4;
-  const tipY = fY - STAFF, tipX = SX + (p.lift ? ls * 0.0 : 0);
-  const at = (a, b) => [tipX + b, tipY - a];
+  // ONE pose (carry.js): the staff's angle and the fist's height come from the side walk; FRONT and BACK project it
+  const SX = ls * 10.4 + sx * 0.6, hgY = sk.hdF[1], hgt = Math.max(2, -hgY - lift);
+  const aS = damp(aOf(sk), aMean(F)), lo = cl(hgt / Math.max(0.3, Math.cos(aOf(sk))), 5, STAFF - 5);
+  const C = carry(aS, s, { rs: ls, hand: [SX, hgY], len: STAFF - lo, butt: lo, upright: 0.35 });
+  const L = STAFF - lo, at = (a, b) => (a < 0 ? C.at(L + a, b) : C.head(L, a, b));
+  const foot = C.at(-lo), fY = foot[1], tipX = at(0, 0)[0], tipY = at(0, 0)[1];
   const orb = at(4.2, 0);
   px.part();
-  px.capsule(SX, fY, 0.9, tipX, tipY, 0.9, WOOD, zs(1.5), { edge: s > 0 });
+  px.capsule(foot[0], foot[1], 0.9, tipX, tipY, 0.9, WOOD, zs(1.5), { edge: s > 0 });
   { const k = at(-9, 0.6); px.dot(k[0], k[1], WOOD, zs(1.51), { fix: 3 }); const k2 = at(-17, -0.6); px.dot(k2[0], k2[1], WOOD, zs(1.51), { fix: 1 }); }
   px.part();
   px.capsule(...at(-1.4, 0), 1.3, ...at(0, 0), 1.5, GOLD, zs(1.55));

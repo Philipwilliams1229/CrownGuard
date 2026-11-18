@@ -137,8 +137,8 @@ const make = (s) => (px, F) => {
   px.stamp(vv ? (p.blink ? BLINK : FRONT_H) : BACK_H, hx, hy, LEG, vv ? 8.7 : 6, { ax: 6, ay: 10, ball: [6.5, 6, 7, 7], cast: 2 });
 
   // ---- the near arm (his right, screen side rs): pauldron, vambrace, the fist on the sword grip; the blade upright
-  const rSh = [rs * 5.8 + sx, shY], rEl = [rs * 7.4 + sx, shY + 4.8], rHd = [rs * 7.8 + sx, shY + 9.6 + s * (p.aN[0] - 1.1) * 0.8];
-  const wx = rHd[0], sy = rHd[1], tl = rs * 0.07;
+  const rSh = [rs * 5.8 + sx, shY], rEl = [rs * 7.4 + sx, shY + 4.8], rHd = [rs * 7.8 + sx, sk.hdN[1]];   // the fist at the side view's hand height
+  const wx = rHd[0], sy = rHd[1], tl = 0;   // the side walk's sword angle (garrison swordAngle) is 0.17 rad, inside carry.js's upright band: exactly upright in all three views
   px.part(); px.tag("sword");
   if (vv) {
     px.capsule(wx, sy - 2.5, 1.25, wx + tl * 14, sy - 17, 1.05, BLADE, 8.25, { edge: true });

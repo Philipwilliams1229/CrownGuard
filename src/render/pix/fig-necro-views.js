@@ -8,6 +8,7 @@
 // Same clip as the side walk (n, ms, phase), the staff planted in time as there; the `light` the side
 // returns for the shard's glow is returned here too.
 import { mat, flat } from "./pix.js";
+import { carry, damp } from "./carry.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-necro.js";
 
 const ROBE = mat("#2c2850", { contrast: 0.9 }), COWL = mat("#4a4074"), CAPE = mat("#2c2538", { contrast: 0.9 }), TRIM = mat("#5a4a8c"), SKIN = mat("#c8c0b0"), BONE = mat("#d8d0b8");
@@ -73,6 +74,10 @@ const FWD = 0.4, STAFF = 43, TAU = Math.PI * 2;
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
+// the staff's own angle from straight up (+ forward), read from the side file's walk: planted, it leans from its foot (p.sx) to the fist
+const aOf = (q) => { const h = q.hdF, hg = Math.max(2, -h[1] - (q.p.lift || 0)); return Math.atan2(h[0] - (q.p.sx ?? h[0]), hg); };
+const aMean = (F) => { let m = 0; for (let i = 0; i < 8; i++) m += aOf(F.at(i / 8)); return m / 8; };
+
 const make = (s) => (px, F, o = {}) => {
   const rs = -s, ls = s;                                    // screen side of his right / left
   const { sk, ph } = F, p = sk.p;
@@ -109,13 +114,15 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // ---- the staff, in his left fist, standing out from his side: planted as the body passes it, then swung on ahead
-  const SX = ls * 10.6 + sx * 0.6, hgY = hipY - 4;
-  const fY = s * ((p.sx ?? 9) - 9) * 0.25 - lift * 0.9 - 0.4;
-  const tipY = fY - STAFF, tipX = SX;
-  const at = (a, b) => [tipX + b, tipY - a];
+  // ONE pose (carry.js): the staff's angle and the fist's height come from the side walk; FRONT and BACK project it
+  const SX = ls * 10.6 + sx * 0.6, hgY = sk.hdF[1], hgt = -hgY - lift;
+  const aS = damp(aOf(sk), aMean(F)), lo = hgt / Math.max(0.3, Math.cos(aOf(sk)));
+  const C = carry(aS, s, { rs: ls, hand: [SX, hgY], len: STAFF - lo, butt: lo, upright: 0.35 });
+  const L = STAFF - lo, at = (a, b) => C.head(L, a, b);
+  const foot = C.at(-lo), fY = foot[1], tipX = at(0, 0)[0], tipY = at(0, 0)[1];
   const orb = at(8.6, 0), T = at(13.4, 0), Bm = at(4.4, 0), Lf = at(8, -2.6), Rt = at(8, 2.6), Md = at(8, 0);
   px.part();
-  px.capsule(SX, fY, 0.95, tipX, tipY, 0.95, WOOD, zs(1.5), { edge: s > 0 });
+  px.capsule(foot[0], foot[1], 0.95, tipX, tipY, 0.95, WOOD, zs(1.5), { edge: s > 0 });
   px.part();
   px.capsule(...at(-1.8, 0), 1.4, ...at(-0.4, 0), 1.6, BRONZE, zs(1.55));
   px.part();
@@ -203,7 +210,7 @@ const make = (s) => (px, F, o = {}) => {
   const k = cl(g, 0, 1.4);
   return {
     light: k > 0.05 ? { x: orb[0], y: orb[1], r: 22 + 34 * cl(k, 0, 1), col: p.flare > 0.5 ? "#a8f4d0" : "#b388ff", k } : null,
-    orb, tip: [tipX, tipY], foot: [SX, fY], d: [0, -1], nn: [1, 0], hemB: hemL, hemF: hemR, feet: [hx, 0],
+    orb, tip: [tipX, tipY], foot, d: [0, -1], nn: [1, 0], hemB: hemL, hemF: hemR, feet: [hx, 0],
   };
 };
 

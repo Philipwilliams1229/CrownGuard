@@ -6,7 +6,8 @@
 // still show; the side view's slant is foreshortened away). Same walk clip as the side (n, ms, pose) and
 // the same feet / bob / swing, read from the solved pose. Unflipped on the board; one sun, upper left.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-farmer.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, GRIP, WRIST } from "./fig-farmer.js";
+import { carry, damp } from "./carry.js";
 
 const SKIN = mat("#e8b990"), EYE = flat("#2a1c2c"), STUB = mat("#b88c6a"), BROW = mat("#6a4a2e");
 const STRAW = mat("#d8b860", { contrast: 1.2 }), STRAWD = mat("#a8883c"), BAND = mat("#6a3e2c"), HAIRN = mat("#8a6234");
@@ -124,7 +125,7 @@ const make = (s) => (px, F, o = {}) => {
   px.poly([[sx - 3.4, chestY - 2.8], [sx + 3.4, chestY - 2.8], [sx + 3.8, chestY - 0.6], [sx - 3.8, chestY - 0.6]], SHIRT, 5, { round: 0.9, cast: 1 });
 
   // ---- the right (near) arm and the weapon: sleeve, bare forearm, the fist on it. The forward swing = hand lower and bigger in front.
-  const ang = p.aN[0] * 0.5, rSh = [rs * 5.4 + sx, shY], rEl = [rs * 7.2 + sx, shY + 4.6], rHd = [rs * (vv ? 8 : 8.6) + sx, shY + 8 + s * ang * 1.4 + (yeo ? 0 : 0.6)];
+  const ang = p.aN[0] * 0.5, rSh = [rs * 5.4 + sx, shY], rEl = [rs * 7.2 + sx, shY + 4.6], rHd = [rs * (vv ? 8 : 8.6) + sx, yeo ? sk.hdN[1] : shY + 8.6 + s * ang * 1.4];   // the yeoman's fist at the side view's hand height (One weapon pose)
   const wx = rHd[0] + rs * 0.4;
   px.part(); px.tag("weapon");
   const WZ = vv ? 8.2 : 1.0, WE = vv;   // the held weapon: in front over the arm; from behind at 1.0, no edge
@@ -143,23 +144,18 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(...at(0.4, -3), 0.7, ...at(8.4, -3), 0.5, IRON, WZ + 0.06, { edge: WE });
     px.capsule(...at(0.4, 3), 0.7, ...at(8.4, 3), 0.5, IRON, WZ + 0.06, { edge: WE });
     px.capsule(...at(0.4, 0), 0.8, ...at(10.2, 0), 0.4, IRON, WZ + 0.07, { edge: WE });
-  } else if (!vv) {   // from behind: the grip's end and the pommel below the fist; the blade stands up in front of him, so the
-    // torso and arm hide its lower part and only its upper blade peeks above / behind his right shoulder (z 1.0)
-    px.capsule(wx, rHd[1] + 1, 0.9, wx, rHd[1] + 3.6, 0.9, LEATHER, 1.0, { cast: 0 });
-    px.ellipse(wx, rHd[1] + 4.4, 1.1, 1.1, IRONK, 1.02, { cast: 0 });
+  } else {   // the yeoman's short sword: ONE pose, the side walk's (fig-farmer.js swordAngle: forearm + GRIP + wrist, ~24 deg
+    // forward), projected by carry.js: in FRONT the blade leans at us (shorter, on top); from BEHIND it rises past his
+    // right shoulder at z 1.0, the arm and torso hiding what they cover, the grip and pommel under the fist
+    const fa = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])), aF = fa + GRIP + cl(p.wrist || 0, -WRIST, WRIST);
+    const c = carry(damp(aF, 0.42), s, { rs, hand: [wx, rHd[1]], len: 16.2, butt: 3.4 });
+    const zt = vv ? 8.2 : c.zTip, zb = vv ? 8.22 : c.zButt, eo = vv ? { edge: true } : { cast: 0 };
+    px.capsule(...c.at(2.4), 1.15, ...c.at(14), 0.95, BLADE, zt, eo);
+    px.capsule(...c.at(14), 0.95, ...c.head(14, 2.2), 0.3, BLADE, zt, eo);
     px.part();
-    const b0 = [wx - rs * 1.2, rHd[1] - 1.5], b1 = [rs * 7.6 + sx, shY - 9.5];   // from the fist's thumb side up behind the shoulder
-    const d3 = [b1[0] - b0[0], b1[1] - b0[1]], L3 = Math.hypot(...d3), B3 = (t) => [b0[0] + d3[0] * t / L3, b0[1] + d3[1] * t / L3];
-    px.capsule(...B3(0), 1.15, ...B3(L3 - 2.2), 0.95, BLADE, 1.0, { cast: 0 });
-    px.capsule(...B3(L3 - 2.2), 0.95, ...B3(L3), 0.3, BLADE, 1.0, { cast: 0 });
-  } else {      // the short sword upright from the fist, a cross guard, a pommel
-    const sy = rHd[1], tilt = rs * 0.1;
-    px.capsule(wx, sy - 2, 1.15, wx + tilt * 14, sy - 15, 0.95, BLADE, 8.2, { edge: true });
-    px.capsule(wx + tilt * 14, sy - 15, 0.95, wx + tilt * 16, sy - 17.4, 0.3, BLADE, 8.2, { edge: true });
-    px.part();
-    px.capsule(wx, sy + 0.4, 0.9, wx, sy - 2, 0.9, LEATHER, 8.22);
-    px.capsule(wx - 2.4, sy - 2.2, 0.75, wx + 2.4, sy - 2.2, 0.75, IRONK, 8.25, { edge: true });
-    px.ellipse(wx, sy + 1.6, 1.0, 1.0, IRONK, 8.25);
+    px.capsule(...c.at(-3), 0.9, ...c.at(1.4), 0.9, LEATHER, zb, vv ? {} : { cast: 0 });
+    px.capsule(...c.at(1.8, -2.4), 0.75, ...c.at(1.8, 2.4), 0.75, IRONK, vv ? 8.25 : zt + 0.02, eo);
+    px.ellipse(...c.at(-3.4), 1.0, 1.0, IRONK, zb + 0.03, vv ? {} : { cast: 0 });
   }
   px.tag(null);
   px.part(); px.tag("nearArm");

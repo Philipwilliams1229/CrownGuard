@@ -170,13 +170,13 @@ const make = (s) => (px, F, o = {}) => {
     // and the crook (z 1.0) show only past his outline, the shaft passing through the left fist
     const sh1 = Math.cos(ph * TAU);
     for (const side of [rs, ls]) {
-      const k = side === rs ? -1 : 1, hy2 = chestY + 12.6 + k * sh1 * 1.1;
+      const k = side === rs ? -1 : 1, hy2 = side === ls ? cl(sk.hdF[1], chestY + 5, hipY) : sk.hdN[1] + 1 + k * sh1 * 0.8;
       const shd = [hx + side * 6.6, chestY + 0.6], el = [hx + side * 8, chestY + 6.6], hd = [side === ls ? cx : hx + side * 8.2, hy2];
       px.part();
       px.limb([shd, el, [hd[0], hd[1] - 1.2]], [2.1, 2, 2.3], COWL, 4.3, { cast: 0 });
       px.part(); px.ellipse(hd[0], hd[1] + 0.2, 1.5, 1.4, BONE, 3.6);
     }
-    const hdN = [hx + rs * 8.2, chestY + 12.6 - sh1 * 1.1];
+    const hdN = [hx + rs * 8.2, sk.hdN[1] + 1 + sh1 * 0.8];
     const lsw = (lag1.p.sway || 0) * 0.4 + vx * -0.5, flick = p.flick || 0;
     lx = hdN[0] + rs * 1.6 + lsw; ly = hdN[1] + 5.4;
     px.part();

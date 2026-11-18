@@ -9,6 +9,7 @@
 // FRONT, up in BACK, foreshortened (FWD).
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-archer.js";
+import { carry, damp } from "./carry.js";
 
 const RANGER = mat("#3d7448"), TUNIC = mat("#5a8c44"), CLOAK = mat("#335a30"), SKIN = mat("#eccaa4"), HAIR = mat("#b5623a");
 const LEG_C = mat("#6a4c34"), BOOT = mat("#4a3224"), LEATHER = mat("#7a5232"), BOW = mat("#6a4424", { contrast: 1.15 }), GOLD = mat("#d8b34a");
@@ -58,15 +59,16 @@ const drawBack = (px0, F) => {
   const hx = Math.round(sx * 0.6), hyr = Math.round(N[1] - 0.8);
   const tp = cl(vx * 2 + vx2 * 1.4, -2, 3), t2 = vx * 2 + vx2 * 1.6;
 
-  // the bow: upright, 1.5 outboard of her left hand (screen left), belly a thin curve outside the arm, string inboard
-  const lh = [sx + ls * 6.4, chY + 8.2 + swF], bx = lh[0] + ls * 1.5, bt = 0.06 * ls;
-  const R = (x, y) => [bx + x * Math.cos(bt) - y * Math.sin(bt), lh[1] + x * Math.sin(bt) + y * Math.cos(bt)];
-  const top = R(ls * 0.2, -12.5), bot = R(ls * 0.2, 12.5), tm = R(ls * 0.9, -6.5), bm = R(ls * 0.9, 6.5);
+  // the bow: ONE pose (carry.js): the side walk tilts it ~30 degrees forward at her hand's height, so from behind its top
+  // rises and leans away from us, its lower limb swings toward us (over the arm), 1.5 outboard of the hand
+  const lh = [sx + ls * 6.4, chY + (sk.hdF[1] - C[1])], bx = lh[0] + ls * 1.5;
+  const BW = carry(damp(p.bow, 0.5), -1, { rs: ls, hand: [bx, lh[1]], len: 12.5, butt: 12.5 });
+  const top = BW.at(12.5, -ls * 0.2), bot = BW.at(-12.5, -ls * 0.2), tm = BW.at(6.5, ls * 0.9), bm = BW.at(-6.5, ls * 0.9);
   px.part();
-  px.line(top[0], top[1], bot[0], bot[1], STRING, 0.9, { unlit: true });
-  px.capsule(bx, lh[1] - 1.8, 1.0, tm[0], tm[1], 0.95, BOW, 1.0); px.capsule(tm[0], tm[1], 0.95, top[0], top[1], 0.6, BOW, 1.0);
-  px.capsule(bx, lh[1] + 1.8, 1.0, bm[0], bm[1], 0.95, BOW, 1.0); px.capsule(bm[0], bm[1], 0.95, bot[0], bot[1], 0.6, BOW, 1.0);
-  px.capsule(bx, lh[1] - 1.8, 1.2, bx, lh[1] + 1.8, 1.2, LEATHER, 1.05);
+  px.line(top[0], top[1], bot[0], bot[1], STRING, BW.zTip - 0.1, { unlit: true });
+  px.capsule(...BW.at(1.8), 1.0, ...tm, 0.95, BOW, BW.zTip); px.capsule(...tm, 0.95, ...top, 0.6, BOW, BW.zTip);
+  px.capsule(...BW.at(-1.8), 1.0, ...bm, 0.95, BOW, BW.zButt); px.capsule(...bm, 0.95, ...bot, 0.6, BOW, BW.zButt);
+  px.capsule(...BW.at(1.8), 1.2, ...BW.at(-1.8), 1.2, LEATHER, 1.05);
 
   // legs
   for (const [f, side] of [[p.fF, ls], [p.fN, rs]]) {
@@ -166,21 +168,22 @@ const make = (s) => (px0, F, o = {}) => {
   for (const dx of [-0.9, 1.1]) px.capsule(q1[0] + dx, q1[1] - 1.2, 0.8, q1[0] + dx + rs * 0.4, q1[1] - 4.2, 0.7, dx > 0 ? FLETCH_R : FLETCH, qz - 0.02 + (s > 0 ? 3.6 : 0));
   if (s < 0) { px.part(); px.toneLine(sx + rs * 3.8, chY - 1, sx + ls * 3.6, hipY - 3.4, -1, px._pid); }
 
-  // ---- the bow in her left hand, carried upright at her side ----
-  const bh = [sx + ls * 8.2, chY + 8 + swF], bt = 0.1 * ls;
-  const R = (x, y) => [bh[0] + x * Math.cos(bt) - y * Math.sin(bt), bh[1] + x * Math.sin(bt) + y * Math.cos(bt)];
-  const top = R(-ls * 0.6, -12.5), bot = R(-ls * 0.6, 12.5), tm = R(ls * 0.5, -6.5), bm = R(ls * 0.5, 6.5), bz = s > 0 ? 6.6 : 3.4;
+  // ---- the bow in her left hand: ONE pose (carry.js) as the side walk carries it, tilted ~30 degrees forward, so its top
+  // leans toward us (the upper limb is nearest, over her arm) and its lower limb swings back under her ----
+  const bh = [sx + ls * 8.2, chY + (sk.hdF[1] - C[1])];
+  const BW = carry(damp(p.bow, 0.5), 1, { rs: ls, hand: bh, len: 12.5, butt: 12.5, zTop: 7.2, zUnder: 1.5 });
+  const top = BW.at(12.5, -ls * 0.2), bot = BW.at(-12.5, -ls * 0.2), tm = BW.at(6.5, ls * 0.9), bm = BW.at(-6.5, ls * 0.9);
   px.part();
-  px.line(top[0], top[1], bot[0], bot[1], STRING, bz - 0.4, { unlit: true });
-  px.capsule(bh[0], bh[1] - 1.8, 1.0, tm[0], tm[1], 0.95, BOW, bz); px.capsule(tm[0], tm[1], 0.95, top[0], top[1], 0.6, BOW, bz);
-  px.capsule(bh[0], bh[1] + 1.8, 1.0, bm[0], bm[1], 0.95, BOW, bz); px.capsule(bm[0], bm[1], 0.95, bot[0], bot[1], 0.6, BOW, bz);
-  px.capsule(bh[0], bh[1] - 1.8, 1.2, bh[0], bh[1] + 1.8, 1.2, LEATHER, bz + 0.05);
+  px.line(top[0], top[1], bot[0], bot[1], STRING, BW.zButt + 0.1, { unlit: true });
+  px.capsule(...BW.at(1.8), 1.0, ...tm, 0.95, BOW, BW.zTip); px.capsule(...tm, 0.95, ...top, 0.6, BOW, BW.zTip);
+  px.capsule(...BW.at(-1.8), 1.0, ...bm, 0.95, BOW, BW.zButt); px.capsule(...bm, 0.95, ...bot, 0.6, BOW, BW.zButt);
+  px.capsule(...BW.at(1.8), 1.2, ...BW.at(-1.8), 1.2, LEATHER, 7.0);
   // her left arm to it
   px.body(1);
-  px.limb([[sx + ls * 5.6, chY + 0.4], [sx + ls * 7, chY + 4.2], bh], [1.9, 1.8, 1.6], TUNIC, bz + 0.1, { bias: -1 });
-  px.capsule((sx + ls * 7 + bh[0]) / 2, chY + 6, 1.7, bh[0], bh[1] - 0.4, 1.6, SHIRT, bz + 0.12, { wrap: true });
+  px.limb([[sx + ls * 5.6, chY + 0.4], [sx + ls * 7, chY + 4.2], bh], [1.9, 1.8, 1.6], TUNIC, 6.9, { bias: -1 });
+  px.capsule((sx + ls * 7 + bh[0]) / 2, chY + 6, 1.7, bh[0], bh[1] - 0.4, 1.6, SHIRT, 6.92, { wrap: true });
   px.body(0);
-  px.part(); px.ellipse(bh[0], bh[1], 1.6, 1.7, SKIN, bz + 0.3);
+  px.part(); px.ellipse(bh[0], bh[1], 1.6, 1.7, SKIN, 7.4);
 
   // ---- legs: brown breeches, tall boots ----
   for (const [f, side] of [[p.fF, ls], [p.fN, rs]]) {

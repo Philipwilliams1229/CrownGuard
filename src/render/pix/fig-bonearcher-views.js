@@ -8,6 +8,7 @@
 // Unflipped, sun upper left. Walk = the side walk's n / ms / pose; feet and bob from the solved skeleton.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-bonearcher.js";
+import { carry, damp } from "./carry.js";
 
 const BONE = mat("#e0d8c4"), RAG = mat("#4a5a50", { contrast: 0.9 }), RAG2 = mat("#3a4640", { contrast: 0.9 });
 const YEW = mat("#4a3018", { contrast: 1.2 }), GRIP = mat("#6a4c34"), DARKM = mat("#3a3228"), IRON = mat("#9a968a", { contrast: 1.2 });
@@ -65,15 +66,21 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the bow, upright in his left fist (screen side ls): limbs sprung from the grip, a frayed string
   const hand = [ls * 7.2 + sx, chestY + 9 - a * 0.5 * s];
   const B = s < 0, bz = B ? 1.0 : 7.2, ZA = B ? 4.3 : bz - 0.2, ZF = B ? 3.6 : bz + 0.1, bxo = B ? ls * 1.5 : 0;     // BACK: the bow behind him at z 1.0, 1.5 px outboard of the fist
-  const limb = (dir) => {
-    px.capsule(hand[0] + bxo, hand[1] + dir * 1.8, 1.2, hand[0] + bxo + ls * 0.5, hand[1] + dir * 6.4, 0.95, YEW, bz, B ? { cast: 0 } : {});
-    px.capsule(hand[0] + bxo + ls * 0.5, hand[1] + dir * 6.4, 0.95, hand[0] + bxo - ls * 0.8, hand[1] + dir * 12, 0.6, YEW, bz, B ? { cast: 0 } : {});
+  // ONE pose (carry.js): the side walk's bow tilt (p.bow ~0.42-0.58 rad, top toward the foe, damped round 0.5) with the fist at the
+  // side view's bow-hand height; FRONT leans the top toward us, BACK away from us. Limbs 12 each side of the grip.
+  const C = carry(damp(p.bow ?? 0.5, 0.5), s, { rs: ls, hand: [hand[0] + bxo, sk.hdF[1] + (B ? 0.4 : 0)], len: 12, butt: 12 });
+  const gx = C.at(0);
+  const bp = (f, sc = 0) => C.at(f, ls * sc);
+  const limb = (sg) => {
+    const g = bp(sg * 1.8), m = bp(sg * 6.4, 0.5), e = bp(sg * 12, -0.8);
+    px.capsule(g[0], g[1], 1.2, m[0], m[1], 0.95, YEW, bz, B ? { cast: 0 } : {});
+    px.capsule(m[0], m[1], 0.95, e[0], e[1], 0.6, YEW, bz, B ? { cast: 0 } : {});
   };
-  px.part(); limb(-1); px.part(); limb(1);
+  px.part(); limb(1); px.part(); limb(-1);
   px.part();
-  px.line(hand[0] + bxo - ls * 0.8, hand[1] - 12, hand[0] + bxo - ls * 0.8, hand[1] + 12, STRING, bz - 0.05, { unlit: true });
+  { const t0 = bp(12, -0.8), t1 = bp(-12, -0.8); px.line(t0[0], t0[1], t1[0], t1[1], STRING, bz - 0.05, { unlit: true }); }
   px.part();
-  px.capsule(hand[0] + bxo * 0.5, hand[1] - 1.8, 1.3, hand[0] + bxo * 0.5, hand[1] + 1.8, 1.3, GRIP, bz + 0.05, B ? { cast: 0 } : {});
+  { const g0 = bp(-1.8), g1 = bp(1.8); px.capsule(g0[0], g0[1], 1.3, g1[0], g1[1], 1.3, GRIP, bz + 0.05, B ? { cast: 0 } : {}); }
   // the bow arm
   const elb = [ls * 6.8 + sx, chestY + 4.6];
   px.part();

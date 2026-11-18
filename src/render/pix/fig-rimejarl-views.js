@@ -6,7 +6,8 @@
 // above the shoulder. BACK: the axe is hidden by his body; only the butt of the haft shows below the right fist
 // at the hip, angled forward and down. The teal cape fills his back. A slow lord's plod, a heavy roll.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-rimejarl.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, axeAngle } from "./fig-rimejarl.js";
+import { carry, damp } from "./carry.js";
 
 const SKIN = mat("#e4ae8a"), TEAL = mat("#2c4e5a"), WOOL = mat("#4a5a60"), LEATHER = mat("#4a3426");
 const MAIL = mat("#8a929c", { contrast: 1.25 }), MAIL_D = mat("#5a626e"), FURW = mat("#ece8e0"), IRON = mat("#7e8692", { contrast: 1.3 }), IRON_D = mat("#4e5560");
@@ -117,43 +118,42 @@ const make = (s) => (px, F) => {
     px.capsule(sh[0], sh[1], 3, el[0], el[1], 2.8, m, z, { cast });
     px.capsule(el[0], el[1], 2.8, hd[0], hd[1], 2.4, m, z, { cast });
   };
-  if (s > 0) {
-    const ax = sx + rs * 12.5, butt = -19 + s * 0, top = butt - 36;
-    // the haft, the blade above his right shoulder, its back-spike inward, rime along the edge
+  // ONE axe pose (carry.js): the side walk's angle (axeAngle: forearm + GRIP), damped to its mean, raised ~30 degrees forward at the
+  // side view's chest-high hand; FRONT and BACK are projections of it. The head is never foreshortened (orc pilot's A()).
+  const hd0 = [sx + rs * 12.4, sk.hdN[1] + 0.6], L = 26;
+  const C = carry(damp(axeAngle(sk), 0.53), s, { rs, hand: hd0, len: L, butt: 6, K: 0.5, splay: 0.3, zTop: 8.2 });
+  const zT = C.zTip, zB = C.zButt, tipAt = C.at(L, 0), pr = [-C.dir[1], C.dir[0]];
+  const A = (f, o) => (f < L - 6.5 ? C.at(f, rs * o) : [tipAt[0] + C.dir[0] * (f - L) + pr[0] * rs * o, tipAt[1] + C.dir[1] * (f - L) + pr[1] * rs * o]);
+  const drawAxe = () => {
+    const k = 1.55;
     px.part(); px.tag("weapon");
-    px.capsule(ax, butt, 1, ax, top + 4, 1, WOOD, 8.1, { edge: true });
+    px.capsule(...A(-6, 0), 1, ...A(0, 0), 1, WOOD, zB, { edge: s > 0 });
+    px.capsule(...A(0, 0), 1, ...A(L + 1, 0), 1, WOOD, zT, { edge: s > 0 });
     px.part();
-    px.poly([[ax, top + 5], [ax + rs * 3, top + 1], [ax + rs * 7.4, top - 3], [ax + rs * 8, top + 4], [ax + rs * 5, top + 9], [ax, top + 8]], STEEL, 8.12, { fix: 2 });
-    px.poly([[ax + rs * 4, top - 1], [ax + rs * 8, top - 3], [ax + rs * 8, top + 4], [ax + rs * 6.4, top + 2]], STEEL, 8.13, { fix: 4 });
-    px.poly([[ax, top + 4], [ax - rs * 3, top + 5.6], [ax, top + 7.6]], IRON_D, 8.11, { fix: 1 });
-    px.poly([[ax - 1.2, top + 3.6], [ax + 1.2, top + 3.6], [ax + 1.2, top + 9], [ax - 1.2, top + 9]], IRON_D, 8.14, { fix: 1 });
-    for (const [x, y] of [[4, -2], [6.4, 2], [7, 5], [3, 8.2]]) px.dot(ax + rs * x, top + y, RIME, 8.16, { noLine: true });
-    px.dot(ax, top + 10.4, STONE, 8.17, { fix: 3 });
+    px.poly([A(L - 2.2 * k, 0.4), A(L - 3.6 * k, 3.4 * k), A(L - 1 * k, 4.8 * k), A(L + 1.8 * k, 3.4 * k), A(L + 1.8 * k, 0.4)], STEEL, zT + 0.02, { fix: 2 });
+    px.poly([A(L - 3.6 * k, 3.4 * k), A(L - 1 * k, 4.8 * k), A(L + 1.8 * k, 3.4 * k), A(L + 1 * k, 2.6 * k), A(L - 1 * k, 3.4 * k)], STEEL, zT + 0.03, { fix: 4 });
+    px.poly([A(L - 1.6, -0.4), A(L + 1.2, -0.4), A(L + 1.6, -4.6)], IRON_D, zT + 0.01, { fix: 1 });
+    px.poly([A(L - 2.8, -0.8), A(L + 2, -0.8), A(L + 2, 1), A(L - 2.8, 1)], IRON_D, zT + 0.04, { fix: 1 });
+    if (s > 0) for (const [f, o] of [[L - 4, 4.6], [L - 1.6, 5.4], [L + 1.4, 4.2]]) px.dot(...A(f, o), RIME, zT + 0.06, { noLine: true });
     px.tag(null);
-    // the near arm (his right): shoulder to the low fist on the haft
-    const hr = [ax, -22], hl = [ax, -31];
+  };
+  if (s > 0) {
+    drawAxe();
+    const hr = hd0, hl = A(-8.5, 0);
     px.part(); px.tag("nearArm");
-    armTo(rs, [sx + rs * 8.6, c0 + 4], hr, [sx + rs * 12.4, c0 + 12], 7.9, MAIL, 2);
+    armTo(rs, [sx + rs * 8.6, c0 + 4], hr, [sx + rs * 13, c0 + 12], 7.9, MAIL, 2);
     px.tag(null);
     px.part(); px.ellipse(hr[0], hr[1], 2.6, 2.6, SKIN, 8.3);
-    // the far arm (his left) crosses the chest, the fist higher up the haft
     px.part();
     armTo(ls, [sx + ls * 8.6, c0 + 4], hl, [sx + ls * 3.4, c0 + 15], 7.9, MAIL, 2);
     const cu = mix([sx + ls * 3.4, c0 + 15], hl, 0.7); px.capsule(cu[0], cu[1], 2.6, hl[0], hl[1], 2.5, FURW, 7.95);
     px.part(); px.ellipse(hl[0], hl[1], 2.4, 2.4, SKIN, 8.3);
     handR = hr;
   } else {
-    // from behind (the BACK stack): both arms hang at his sides, over the mail and under the mantle and cape; the axe stands
-    // upright at the right fist's x behind it (z 1.0): the haft shows below the fist and above the shoulder, the blade runs
-    // forward, away from us, so only its edge shows by the haft
-    const hd = [sx + rs * 12.4, hipY - 1.4 - Math.max(0, p.aN[0] - 0.7) * 2], el = [sx + rs * 12.6, c0 + 12], shd = [sx + rs * 9, c0 + 4];
-    const ax = hd[0], butt = hd[1] + 5, top = butt - 40;
-    px.part(); px.tag("weapon");
-    px.capsule(ax, butt, 1.1, ax, top + 4, 1.1, WOOD, 1.0);
-    px.dot(ax, butt + 0.6, IRON_D, 1.02, { fix: 1 });
-    px.poly([[ax, top + 4], [ax + rs * 2.2, top + 3], [ax + rs * 2.6, top + 9], [ax, top + 9]], STEEL, 0.9, { fix: 2 });
-    px.poly([[ax - 1.2, top + 3.6], [ax + 1.2, top + 3.6], [ax + 1.2, top + 9], [ax - 1.2, top + 9]], IRON_D, 1.04, { fix: 1 });
-    px.tag(null);
+    // from behind (the BACK stack): both arms hang at his sides, over the mail and under the mantle and cape; the axe is the same
+    // pose, forward of him: the haft rises past his shoulder at z 1.0 (the arm and cape hide it to the shoulder)
+    const hd = hd0, el = [sx + rs * 12.8, c0 + 12], shd = [sx + rs * 9, c0 + 4];
+    drawAxe();
     px.part(); px.tag("nearArm");
     armTo(rs, shd, hd, el, 4.3, MAIL, 0);
     const cu = mix(el, hd, 0.7); px.capsule(cu[0], cu[1], 2.6, hd[0], hd[1], 2.5, FURW, 4.35);

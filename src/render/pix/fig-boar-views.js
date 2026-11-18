@@ -13,6 +13,8 @@
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-boar.js";
 import { QUAD, solveBeast } from "./beast.js";
+import { ik } from "./rig.js";
+import { carry, damp } from "./carry.js";
 
 const HIDE = mat("#6e4a38"), BELLY = mat("#96725c"), CREST = mat("#3a2620"), TUSK = mat("#ece0c4"), HOOF = mat("#2e2422");
 const SNOUT = mat("#b98e78"), BEYE = flat("#e05248"), BGLINT = flat("#ffb0a0"), NOSTRIL = flat("#2c1a22"), BMOUTH = flat("#2c1a22");
@@ -129,6 +131,35 @@ const boarView = (px, F, s) => {
   return { b, sx, hump, S: -1 };
 };
 
+// ---- ONE lance pose (views-artist.md, "One weapon pose"): the side file's couched lance (a = la + PI/2, near level), its
+// angle and fist height read per frame from the same seat / lean / near-arm ik as fig-boar.js, damped, projected by
+// carry(): FRONT it comes at us, shaft down-and-out, head full size; BACK it runs forward past his hip.
+const RB = { spine: 7.5, upper: 5.2, fore: 5.2 }, LANCE_L = 25, LANCE_B = 11;
+const sideLance = (p, p1, p2) => {
+  const b = solveBeast(p, Q), b1 = solveBeast(p1, Q), b2 = solveBeast(p2, Q);
+  const s0 = b.at(0.14, 0, -3.6), s1 = b1.at(0.14, 0, -3.6), s2 = b2.at(0.14, 0, -3.6);
+  const late = s1[1] * 0.65 + s2[1] * 0.35, air = cl(s0[1] - late, 0, 2.5), press = cl(late - s0[1], 0, 2);
+  const H = [s0[0], s0[1] - air], lean = (p.rLean ?? 0.3) + press * 0.05 - air * 0.04, sp = RB.spine - press * 0.6;
+  const C = [H[0] + Math.sin(lean) * sp, H[1] - Math.cos(lean) * sp], tw = p.rTwist ?? 0, sN = [C[0] - 2.8 + tw * 1.6, C[1] + 0.9];
+  const [ang, reach] = p.rArm ?? [0.9, 0.62], len = RB.upper + RB.fore;
+  const na = ik(sN[0], sN[1], sN[0] + Math.sin(ang) * reach * len, sN[1] + Math.cos(ang) * reach * len, RB.upper, RB.fore, 1);
+  const hd = na.end, la = Math.atan2(hd[1] - na.mid[1], hd[0] - na.mid[0]) + cl(p.wrist || 0, -0.35, 0.35);
+  return { a: la + Math.PI / 2, rel: hd[1] - C[1] };
+};
+const LMEAN = (() => { let t = 0; for (let k = 0; k < 8; k++) { const lg = SIDE.walk.lag ?? 0.1, P = (x) => SIDE.walk.pose(((x % 1) + 1) % 1); t += sideLance(P(k / 8), P(k / 8 - lg), P(k / 8 - 2 * lg)).a; } return t / 8; })();
+const lancePose = (F) => { const r = sideLance(F.sk.p, F.lag1.p, F.lag2.p); return { a: damp(r.a, LMEAN), rel: r.rel }; };
+const drawLance = (px, cr, hd, zT, zB) => {
+  const T = cr.at(LANCE_L), bu = cr.at(-LANCE_B), hp = (f, sd) => cr.head(LANCE_L, f - LANCE_L, sd);
+  px.part(); px.tag("weapon");
+  px.capsule(bu[0], bu[1], 0.9, hd[0], hd[1], 0.85, WOOD, zB, { cast: 0 });
+  px.capsule(hd[0], hd[1], 0.85, T[0], T[1], 0.75, WOOD, zT, { cast: 0 });
+  px.part();
+  px.poly([hp(24, -1.1), hp(26.5, -1.9), hp(32.5, 0), hp(26.5, 1.9), hp(24, 1.1)], STEEL, zT + 0.05, { fix: 3, cast: 0 });
+  px.line(...hp(25, -1), ...hp(31.5, -0.2), STEEL, zT + 0.07, { fix: 4, noLine: true });
+  px.capsule(...hp(22.6, 0), 1.1, ...hp(24, 0), 1.1, DARK, zT + 0.04, { floor: 1, cast: 0 });
+  px.tag(null);
+};
+
 const rider = (px, F, s, b, sx, hump) => {
   const rs = -s, ls = s, ph = F.ph;
   const seat = b.at(0.14, 0, -3.6);
@@ -154,24 +185,8 @@ const rider = (px, F, s, b, sx, hump) => {
   px.capsule(ls * 6.8, C[1] + 4, 1.5, fh[0], fh[1], 1.4, SKIN, 9, { cast: 1 });
   px.ellipse(fh[0], fh[1], 1.6, 1.6, SKIN, 9.1);
   // the near arm and the lance
-  const hd = [rs * 7.4, C[1] + 6.6], el = [rs * 7.8, C[1] + 3.4];
-  px.part(); px.tag("weapon");
-  if (s > 0) {
-    // coming at us: the haft behind the fist running up, the steel head big and low before it
-    px.capsule(hd[0] - rs * 0.4, hd[1] - 6, 0.8, hd[0], hd[1] + 3.4, 0.9, WOOD, 9.4, { cast: 1 });
-    const tx = hd[0], ty = hd[1] + 6.6;
-    px.poly([[tx, ty - 4.2], [tx - 2.4, ty - 0.4], [tx - 1.4, ty + 3.8], [tx, ty + 6], [tx + 1.4, ty + 3.8], [tx + 2.4, ty - 0.4]], STEEL, 9.5, { fix: 3 });
-    px.line(tx - 0.8, ty - 2, tx - 0.8, ty + 3.4, STEEL, 9.55, { fix: 4 });
-    px.capsule(tx, ty - 4.4, 1.4, tx, ty - 2.8, 1.4, DARK, 9.45, { floor: 1 });
-  } else {
-    // the lance runs through his fist: the butt below it, the shaft forward (up the screen, behind his arm and jerkin), its head past the boar's shoulder
-    const tp = [hd[0] + rs * 2.6, hd[1] - 12.5];
-    px.capsule(hd[0] - rs * 0.3, hd[1] + 5, 0.9, hd[0], hd[1], 0.85, WOOD, 9.3, { cast: 1 });
-    px.capsule(hd[0], hd[1], 0.85, tp[0], tp[1], 0.75, WOOD, 8.4, { cast: 1 });
-    px.poly([[tp[0] - 1.3, tp[1] + 0.4], [tp[0] + 1.3, tp[1] + 0.4], [tp[0] + 0.2, tp[1] - 4.8]], STEEL, 8.45, { fix: 3 });
-    px.capsule(tp[0], tp[1] + 1, 0.9, tp[0], tp[1] + 0.2, 0.9, DARK, 8.44, { floor: 1 });
-  }
-  px.tag(null);
+  const lp = lancePose(F), hd = [rs * 7.4, C[1] + lp.rel], el = [rs * 7.8, (sN[1] + hd[1]) / 2];
+  drawLance(px, carry(lp.a, s, { rs, hand: hd, len: LANCE_L, butt: LANCE_B, splay: 0.26, zTop: 9.4, zUnder: 7.8 }), hd, 9.4, 9.4);
   px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1], 1.7, el[0], el[1], 1.6, SKIN, 9.2, { cast: 1 });
   px.capsule(el[0], el[1], 1.6, hd[0], hd[1], 1.5, SKIN, 9.2, { cast: 1 });
@@ -196,13 +211,10 @@ const riderBack = (px, F, b, sx) => {
   const H = [sx * 0.6, seat[1] + 1], C = [H[0], H[1] - 6.8];
   const hx = Math.round(C[0]), hy = Math.round(C[1] - 4.8), sw = 0.5 * Math.sin(ph * TAU * 2), S = 5;
   const hN = [C[0] + 6, C[1] + 7], hF = [C[0] - 6, C[1] + 7 + sw * 0.8];
-  const tp = [hN[0] + 2.6, hN[1] - 12.5];
-  px.part(); px.tag("weapon");
-  px.capsule(hN[0] - 0.3, hN[1] + 5, 0.9, hN[0], hN[1], 0.85, WOOD, 9, { cast: 0 });
-  px.capsule(hN[0], hN[1], 0.85, tp[0], tp[1], 0.75, WOOD, 9, { cast: 0 });
-  px.poly([[tp[0] - 1.3, tp[1] + 0.4], [tp[0] + 1.3, tp[1] + 0.4], [tp[0] + 0.2, tp[1] - 4.8]], STEEL, 9.05, { fix: 3, cast: 0 });
-  px.capsule(tp[0], tp[1] + 1, 0.9, tp[0], tp[1] + 0.2, 0.9, DARK, 9.04, { floor: 1 });
-  px.tag(null);
+  // the lance, one pose: couched forward (up the screen, behind him, z 9) rising past his shoulder with its head clear, the butt stub below the fist
+  const lp = lancePose(F);
+  hN[1] = C[1] + lp.rel;
+  drawLance(px, carry(lp.a, -1, { rs: 1, hand: hN, len: LANCE_L, butt: LANCE_B, splay: 0.26 }), hN, 9, 11);
   for (const side of [-1, 1]) {
     px.part();
     const k = [side * 8, H[1] + 2.2], f = [side * 8.8, H[1] + 8.4];

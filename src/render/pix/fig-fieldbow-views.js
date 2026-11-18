@@ -6,6 +6,7 @@
 // The quiver hangs across his back: its fletchings show over the right shoulder in front, the whole
 // quiver and its strap from behind. Same walk clip as the side; feet / bob read from the solved pose.
 import { mat, flat } from "./pix.js";
+import { carry, damp } from "./carry.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-fieldbow.js";
 
 const TUNIC = mat("#80703f", { contrast: 1.1 }), HOOD = mat("#6c5634", { contrast: 1.15 }), SKIN = mat("#eccaa4"), HAIR = mat("#5a4430");
@@ -58,14 +59,17 @@ const make = (s) => (px, F) => {
   const a = Math.cos(ph * TAU), shY = chestY - 0.4, hem = hipY + 3.4;
 
   // ---- the bow arm (his left): sleeve, shirt cuff and bracer, the fist on the grip; the yew bow upright beside it
-  const lSh = [ls * 5.2 + sx, shY], lEl = [ls * 6.6 + sx, shY + 5], lHd = [ls * 7 + sx, shY + 10.4]; const BK = !vv;
+  const lSh = [ls * 5.2 + sx, shY], lEl = [ls * 6.6 + sx, shY + 5], lHd = [ls * 7 + sx, sk.hdF[1]]; const BK = !vv;
   const bz = vv ? 7 : 1, gx = lHd[0] + ls * (vv ? 0.4 : 1.6), gy = lHd[1];
   px.part(); px.tag("bow");
-  px.capsule(gx - ls * 0.6, gy - 12.5, 0.6, gx + ls * 0.2, gy - 6, 0.95, BOW, bz, { edge: vv });
-  px.capsule(gx + ls * 0.2, gy - 6, 0.95, gx + ls * 0.4, gy, 1.3, BOW, bz, { edge: vv });
-  px.capsule(gx + ls * 0.4, gy, 1.3, gx + ls * 0.2, gy + 6, 0.95, BOW, bz, { edge: vv });
-  px.capsule(gx + ls * 0.2, gy + 6, 0.95, gx - ls * 0.6, gy + 12.5, 0.6, BOW, bz, { edge: vv });
-  px.line(gx - ls * 0.6, gy - 12.5, gx - ls * 1.4, gy + 12.5, STRING, bz - 0.2, { unlit: true });
+  // ONE pose (carry.js): the side walk's own bow tilt (p.bow, the top toward the foe), the fist at the side's hand height; the limbs are 12.5 either side
+  const C = carry(damp(p.bow ?? 0.5, 0.5), s, { rs: ls, hand: [gx, gy], len: 12.5, butt: 12.5, K: 0.5 });
+  const pt = (f, o = 0) => C.at(f, ls * o), zt = vv ? bz : C.zTip, zb = vv ? bz : C.zButt;
+  px.capsule(...pt(12.5, -0.6), 0.6, ...pt(6, 0.2), 0.95, BOW, zt, { edge: vv });
+  px.capsule(...pt(6, 0.2), 0.95, ...pt(0, 0.4), 1.3, BOW, zt, { edge: vv });
+  px.capsule(...pt(0, 0.4), 1.3, ...pt(-6, 0.2), 0.95, BOW, zb, { edge: vv });
+  px.capsule(...pt(-6, 0.2), 0.95, ...pt(-12.5, -0.6), 0.6, BOW, zb, { edge: vv });
+  px.line(...pt(12.5, -0.6), ...pt(-12.5, -1.4), STRING, Math.min(zt, zb) - 0.2, { unlit: true });
   px.part(); px.capsule(gx + ls * 0.4, gy - 1.8, 1.25, gx + ls * 0.4, gy + 1.8, 1.25, LEATHER, bz + 0.05);   // the grip wrap
   px.tag(null);
   px.part(); px.tag("farArm");

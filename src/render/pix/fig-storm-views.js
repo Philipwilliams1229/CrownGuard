@@ -8,7 +8,8 @@
 // Same clip n / ms / pose as the side walk. FRONT: the hair falls in two locks over the mantle in front; BACK: one
 // white curtain down the back, parted seam, a beat behind the bob.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-storm.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, staffAngle } from "./fig-storm.js";
+import { carry, damp } from "./carry.js";
 
 const K = 1.22;
 const ROBE = mat("#3c3a7e"), SILVER = mat("#c8d0e4", { contrast: 1.15 }), SKIN = mat("#ecd0b4"), HAIR = mat("#dfe4f2", { contrast: 1.25 }), HAIR_D = mat("#aeb4cc");
@@ -115,13 +116,17 @@ const make = (s) => (px, F, o = {}) => {
   px.part(); px.ellipse(hdL[0], hdL[1] + (s > 0 ? 1.8 : 2.4), s > 0 ? 1.8 : 1.4, s > 0 ? 1.8 : 1.3, SKIN, s > 0 ? 4.7 : 3.6, s > 0 ? { bias: -1 } : {});
 
   // the staff in her right hand, upright and a little outboard; the claw and crystal clear her head
-  const sh = [tx + rs * (s > 0 ? 6.3 : 8.4), chestY + 0.4], elb = [tx + rs * (s > 0 ? 9.4 : 10.0), chestY + 6.8], hd = [tx + rs * (s > 0 ? 10.8 : 10.6), chestY + (s > 0 ? 12.2 - s * a * 0.4 : 13.4 - a * 0.6)];
-  const lean = s > 0 ? rs * 0.05 : 0, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
-  const at = (t, w = 0) => [hd[0] + d[0] * t * K + nr[0] * w * K, hd[1] + d[1] * t * K + nr[1] * w * K];
-  const bz = s > 0 ? 6.0 : 1.0, cx = at(22.6);
+  // ONE weapon pose (carry.js): the side walk reads the staff ~0.54..0.64 rad forward (staffAngle) with the fist at hdN (chest + 7);
+  // damped and projected: toward us in FRONT (shorter shaft), leaning away and rising past the shoulder in BACK. The claw and
+  // crystal keep their full side-view size; only the shaft shortens. The staff's old-unit numbers (at(t)) are times K.
+  const sh = [tx + rs * (s > 0 ? 6.3 : 8.4), chestY + 0.4], hd = [tx + rs * 10.6, sk.hdN[1] * K + 0.2], elb = [tx + rs * (s > 0 ? 9.4 : 10.0), hd[1] + 1.8];
+  const C = carry(damp(staffAngle(sk), 0.58), s, { rs, hand: hd, len: 24 * K, butt: 11 * K });
+  const at = (tt, w = 0) => (tt < 0 ? C.at(tt * K, w * K) : C.head(24 * K, (tt - 24) * K, w * K));
+  const zT = C.zTip, zB = C.zButt, bz = zT, cx = at(22.6);
   px.part(); px.tag("staff");
-  px.capsule(...at(-11), 0.95 * K, ...at(19), 0.9 * K, WOOD, bz, { edge: s > 0 });
-  px.capsule(...at(-11), 1.2 * K, ...at(-9.8), 1.2 * K, SILVER, bz + 0.02);
+  px.capsule(...at(-11), 0.95 * K, ...hd, 0.95 * K, WOOD, zB, { edge: s > 0 });
+  px.capsule(...hd, 0.95 * K, ...at(19), 0.9 * K, WOOD, zT, { edge: s > 0 });
+  px.capsule(...at(-11), 1.2 * K, ...at(-9.8), 1.2 * K, SILVER, zB + 0.02);
   px.capsule(...at(15.4), 1.4 * K, ...at(17), 1.3 * K, SILVER, bz + 0.03);
   px.part();
   for (const q of [-1, 1]) { px.line(...at(17, 0.4 * q), ...at(20, 2.6 * q), SILVER, bz + 0.05, { fix: 3 }); px.line(...at(20, 2.6 * q), ...at(24, 2 * q), SILVER, bz + 0.05, { fix: 3 }); }
@@ -132,12 +137,12 @@ const make = (s) => (px, F, o = {}) => {
   px.tag(null);
   // the sleeve to the fist
   px.part(); px.tag("nearArm");
-  const zA = s > 0 ? 5.9 : 4.3, oN = s > 0 ? { cast: 2 } : { cast: 0 };
+  const zA = s > 0 ? 5.9 : 4.3, fz = Math.max(zT, zB) + 0.1, oN = s > 0 ? { cast: 2 } : { cast: 0 };
   px.capsule(sh[0], sh[1] + 0.4, 2.7 * ar, elb[0], elb[1], 2.8 * ar, ROBE, zA, oN);
   px.capsule(elb[0], elb[1], 3 * ar, hd[0], hd[1], 2.4 * ar, ROBE, zA, oN);
   px.line(hd[0] - 2, hd[1] - 1.4, hd[0] + 2, hd[1] - 1.4, SILVER, zA + 0.05);
-  px.part(); px.ellipse(hd[0], hd[1] + (s > 0 ? 0.2 : 2.2), s > 0 ? 2.4 : 1.5, s > 0 ? 2.2 : 1.4, SKIN, s > 0 ? 6.3 : 3.6);
-  if (s > 0) px.line(hd[0] - 2, hd[1] + 0.4, hd[0] + 2, hd[1] + 0.4, SKIN, 6.32, { fix: 1, noLine: true }); px.tag(null);
+  px.part(); px.ellipse(hd[0], hd[1] + (s > 0 ? 0.2 : 2.2), s > 0 ? 2.4 : 1.5, s > 0 ? 2.2 : 1.4, SKIN, fz);
+  if (s > 0) px.line(hd[0] - 2, hd[1] + 0.4, hd[0] + 2, hd[1] + 0.4, SKIN, fz + 0.02, { fix: 1, noLine: true }); px.tag(null);
 
   // the head
   px.part();

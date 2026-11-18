@@ -76,7 +76,7 @@ const make = (s) => (px, F) => {
   // ---- the far arm (her left), a tone down: a wide sleeve out to the staff, a fur cuff, the fist on it
   {
     const back = s < 0, az = back ? 4.3 : 3.2, o = back ? { cast: 0 } : { bias: -1 };
-    const sh = [sx + ls * 7.8, c0 + 3], hd = [stx - ls * 0.2, hipY + 1.5], el = [sx + ls * (back ? 10 : 9.4), (sh[1] + hd[1]) / 2 - 0.5], wr = [(el[0] + hd[0]) / 2 + ls * 0.4, (el[1] + hd[1]) / 2 + 2.6];
+    const sh = [sx + ls * 7.8, c0 + 3], hd = [stx - ls * 0.2, sk.hdF[1] + 0.5], el = [sx + ls * (back ? 10 : 9.4), (sh[1] + hd[1]) / 2 - 0.5], wr = [(el[0] + hd[0]) / 2 + ls * 0.4, (el[1] + hd[1]) / 2 + 2.6];
     px.part();
     px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, SLEEVE, az, o);
     px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.7, SLEEVE, az, o);

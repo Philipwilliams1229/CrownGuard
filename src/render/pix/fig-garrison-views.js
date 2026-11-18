@@ -132,7 +132,7 @@ export const knightViews = (C) => {
     px.line(tx - 2.6 * W, yC - 1.2 * W, tx + 2.6 * W, yC - 1.2 * W, L.plate, 4.3);
 
     // ---- the sword arm (his right, screen side rs): pauldron, vambrace, the fist on the grip
-    const sh1 = [tx + rs * 5.4 * W, sk.sN[1] + 0.4 * W], el1 = [tx + rs * (s > 0 ? 6.2 : 6.6) * W, sk.eN[1]], H1 = [tx + rs * (s > 0 ? 5.6 : 6.2) * W, sk.hdN[1] + (s > 0 ? 0.5 : 1.3)];
+    const sh1 = [tx + rs * 5.4 * W, sk.sN[1] + 0.4 * W], el1 = [tx + rs * 7.8 * W, sk.eN[1]], H1 = [tx + rs * 7.6 * W, sk.hdN[1]];   // the fist at the side view's hand height, the same x in both views
     px.part();
     if (s > 0) {
       px.capsule(sh1[0], sh1[1], 2.1 * RW, el1[0], el1[1], 2 * RW, L.plate, 4.6, { cast: 2 });
@@ -143,7 +143,9 @@ export const knightViews = (C) => {
       px.capsule(el1[0], el1[1], 2 * RW, H1[0], H1[1], 1.8 * RW, L.plate, 4.3, { cast: 0 });
     }
     // the weapon, held upright and canted a little outward; flat face toward us
-    const tilt = rs * (s > 0 ? 0.2 : 0.17), d = [Math.sin(tilt), -Math.cos(tilt)], nrm = [-d[1], d[0]], wk = C.wk || 1;
+    // ONE weapon pose (carry.js): the side walk holds sword / mace / hammer at 0.17 rad in every frame (swordAngle / maceAngle),
+    // under carry's 0.35 upright limit, so it stands exactly upright in FRONT, BACK and side alike
+    const tilt = 0, d = [Math.sin(tilt), -Math.cos(tilt)], nrm = [-d[1], d[0]], wk = C.wk || 1;
     const B = (t, off = 0) => [H1[0] + d[0] * t * wk + nrm[0] * off * (wk > 1 ? 1.15 : 1), H1[1] + d[1] * t * wk + nrm[1] * off * (wk > 1 ? 1.15 : 1)];
     px.part(); px.tag("weapon");
     if (s < 0) {

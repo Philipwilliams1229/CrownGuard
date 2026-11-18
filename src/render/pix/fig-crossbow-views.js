@@ -7,6 +7,7 @@
 // fletchings is the read (plus the hood's back and the hat).
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-crossbow.js";
+import { carry, damp } from "./carry.js";
 import { cl, TAU, base, dag, legsView, HAT, FRONT_H, BACK_H, blinkOf, LEG as LLEG } from "./fig-levy-views.js";
 
 const IRON = mat("#6c7280", { contrast: 1.25 }), IRONK = mat("#3c4048", { contrast: 1.1 }), STEELB = mat("#c4c8d0", { contrast: 1.3 });
@@ -29,13 +30,24 @@ const make = (s) => (px, F, o = {}) => {
   const shY = sk.sN[1] + 0.4, c0 = chestY - 3, b0 = hipY, hemY = hipY + 6;
   const bw = Math.sin(ph * TAU * 2) * 0.3;
 
-  // ---- BACK: the arbalest's two prongs show past his sides, nothing else of it
+  // ---- ONE arbalest pose (carry.js): the side walk's stock rise `ca` (~0.6 rad above level, forward), the trigger fist at the side's
+  // hand height; FRONT it points at us (short stock, the prod across), BACK it runs forward-and-up past his side: the stock behind him at z 1.0,
+  // only the butt stub below the fist and the prod above/beside the shoulder show
+  const aA = Math.PI / 2 - damp(p.ca ?? 0.62, 0.62), trigY = sk.hdN[1] + 0.4;
+  const CB = carry(aA, s, { rs, hand: [rs * (s > 0 ? 0.6 : 7.6) + sx, trigY], len: 17, butt: 8, maxSplay: s > 0 ? 0.1 : 0.3, minShow: s > 0 ? 0.22 : 0.3, zTop: 6.5, zUnder: 1.5 });
   if (s < 0) {
+    const nose = CB.at(16), bt = CB.at(-8), hnd = [rs * 7.6 + sx, trigY], z = CB.zTip;
+    px.part(); px.tag("stock");
+    px.capsule(hnd[0], hnd[1], 1.7, nose[0], nose[1], 1.6, WOOD, z);
+    px.capsule(hnd[0], hnd[1] + 1.4, 1.8, bt[0], bt[1], 1.9, WOOD, CB.zButt);
+    px.part(); px.tag("prod");
     for (const side of [-1, 1]) {
-      px.part();
-      px.capsule(hx + side * 4.6, chestY + 2.2, 1.1, hx + side * 9.4, chestY + 0.2 + bw, 0.8, IRON, 1.0);
-      px.dot(hx + side * 9.4, chestY + 0.2 + bw, STEELB, 1.05, { fix: 3 });
+      px.capsule(nose[0], nose[1] + 0.2, 1.8, nose[0] + side * 4.8, nose[1] + 1.0, 1.5, IRON, z + 0.05);
+      px.capsule(nose[0] + side * 4.8, nose[1] + 1.0, 1.5, nose[0] + side * 8.4, nose[1] - 0.6, 1.0, IRON, z + 0.05);
+      px.dot(nose[0] + side * 8.4, nose[1] - 0.6, STEELB, z + 0.07, { fix: 3 });
     }
+    px.line(nose[0] - 8.4, nose[1] - 0.6, nose[0] + 8.4, nose[1] - 0.6, CORD, z + 0.08, { unlit: true });
+    px.tag(null);
   }
   // the bolt box on his back hip, fletchings standing out of it
   if (s < 0) {
@@ -76,16 +88,16 @@ const make = (s) => (px, F, o = {}) => {
   const rEl = [rs * 7.6 + sx, shY + 7.4], lEl = [ls * 7.6 + sx, shY + 6.2];
   if (s > 0) {
     // trigger hand at his right hip-chest, fore hand up under the tiller near the nose
-    const rh = [rs * 3.4 + sx, shY + 10.6 + vy * 0.3];
-    const nose = [hx + ls * 0.8, shY + 3.4], butt = [hx + rs * 4.6, hipY - 1.6];
-    const lh = [nose[0] + (rh[0] - nose[0]) * 0.42, nose[1] + (rh[1] - nose[1]) * 0.42 + 0.4];   // the fore hand closes round the tiller
+    const rh = [rs * 0.6 + sx, trigY];
+    const nose = CB.at(16), butt = CB.at(-8);
+    const lh = CB.at(8.6);   // the fore hand closes round the tiller
     px.part(); px.tag("stock");
     px.capsule(butt[0], butt[1], 1.9, rh[0] + 0.4, rh[1] + 0.4, 1.6, WOOD, 6.5, { edge: true });
     px.capsule(rh[0] + 0.4, rh[1] + 0.4, 1.7, nose[0], nose[1], 1.9, WOOD, 6.5, { edge: true });
     px.capsule(hx + (nose[0] - hx) * 0.3 + (rh[0] - hx) * 0.1 + 0.2, nose[1] + 4.6, 1.4, hx + (nose[0] - hx) * 0.3 + (rh[0] - hx) * 0.1 + 0.2, nose[1] + 6.4, 1.4, IRON, 6.53);   // the band
     px.part(); px.tag("prod");
     // the prod, a bowed steel lath across the nose: ends bowed back toward him and down
-    const e0 = [nose[0] - 9.6, nose[1] - 0.6], e1 = [nose[0] + 9.6, nose[1] - 0.6], mid0 = [nose[0] - 4.8, nose[1] + 1.2], mid1 = [nose[0] + 4.8, nose[1] + 1.2];
+    const e0 = [nose[0] - 8.4, nose[1] - 0.6], e1 = [nose[0] + 8.4, nose[1] - 0.6], mid0 = [nose[0] - 4.8, nose[1] + 1.2], mid1 = [nose[0] + 4.8, nose[1] + 1.2];
     px.capsule(nose[0], nose[1] + 0.4, 1.9, mid0[0], mid0[1], 1.6, IRON, 6.6, { edge: true }); px.capsule(mid0[0], mid0[1], 1.6, e0[0], e0[1], 1.0, IRON, 6.6, { edge: true });
     px.capsule(nose[0], nose[1] + 0.4, 1.9, mid1[0], mid1[1], 1.6, IRON, 6.6, { edge: true }); px.capsule(mid1[0], mid1[1], 1.6, e1[0], e1[1], 1.0, IRON, 6.6, { edge: true });
     px.dot(e0[0], e0[1], STEELB, 6.7, { fix: 3 }); px.dot(e1[0], e1[1], STEELB, 6.7, { fix: 3 });
@@ -111,10 +123,10 @@ const make = (s) => (px, F, o = {}) => {
     // BACK stack: both arms hang at his sides (z 4.3, cast 0), the fists under the cuff (3.6); the arbalest is in front of him (prongs at z 1.0)
     const sw1 = 1.2 * Math.sin(ph * TAU);
     for (const [side, k] of [[rs, 1], [ls, -1]]) {
-      const hY = shY + 10.8 - k * sw1, hX = side * 7.6 + sx;
+      const hY = side === rs ? trigY : shY + 10.8 - k * sw1, hX = side * 7.6 + sx;
       px.part();
-      px.capsule(...sh(side), 2.1, side * 7.4 + sx, shY + 6.4, 2.0, PAD, 4.3, { cast: 0 });
-      px.capsule(side * 7.4 + sx, shY + 6.4, 2.0, hX, hY - 0.6, 1.9, PAD, 4.3, { cast: 0 });
+      px.capsule(...sh(side), 2.1, side * 7.4 + sx, side === rs ? hY + 2.4 : shY + 6.4, 2.0, PAD, 4.3, { cast: 0 });
+      px.capsule(side * 7.4 + sx, side === rs ? hY + 2.4 : shY + 6.4, 2.0, hX, hY - 0.6, 1.9, PAD, 4.3, { cast: 0 });
       px.part(); px.ellipse(hX, hY + 0.2, 1.5, 1.5, LEATHER, 3.6);
     }
   }

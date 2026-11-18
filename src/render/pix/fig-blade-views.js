@@ -10,7 +10,13 @@
 // half-mask, estoc), ab (wide hat, plume, pauldron, purse, scroll), ba (lace veil, long coat, needle),
 // bb (beak mask, swinging censer). Walk: the side clip's n, ms, pose, so views switch mid-stride.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES, BOX as SIDE_BOX } from "./fig-blade.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, BOX as SIDE_BOX, GRIP_K, WRIST } from "./fig-blade.js";
+import { carry, damp } from "./carry.js";
+
+// the side file's knife angle (fig-blade.js bladeAt, from +x) turned to carry()'s "from straight up, + forward"
+const KBUTT = 2.2;
+const sideA = (hand, elbow, thr, wrist) => Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0]) + GRIP_K * (1 - Math.max(0, Math.min(1, thr || 0))) + Math.max(-WRIST, Math.min(WRIST, wrist || 0)) + Math.PI / 2;
+const A_NEAR = (77 * Math.PI) / 180, A_FAR = (63 * Math.PI) / 180;   // the walk's mean angles (measured: near 77, far 57-68)
 
 // ---- the side file's palettes, kit (copy) ----
 const LOOKS = {
@@ -124,54 +130,40 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- far arm: (his left, screen ls) a sleeve, the empty fist (or the second knife)
   const armZ = s > 0 ? 3.2 : 4.3, wz = s > 0 ? 0 : 1;   // BACK stack: arms 4.3 (both), fists 3.6, weapon 1.0, the cloak 5.2
-  const knifeFront = (hd, ang, len, z, side) => {
-    // the blade points the way he walks: toward us (FRONT), foreshortened to a wedge below the fist; away (BACK) a tip peeking out
-    const dirk = L.blade === "dirk", l = len * (dirk ? 0.72 : 0.45);
+  // ONE WEAPON POSE (owner, 2026-11-18: "weapons always stay in the same positions throughout the three"): each knife's
+  // angle is read per frame from the side walk (fig-blade.js bladeAt: forearm + GRIP_K + wrist, measured from +x, so
+  // a = la + PI/2 from straight up), damped round its mean, and projected by carry(); the blade itself is full size
+  // (never foreshortened), only its direction and depth come from the projection; the fist closes over the grip.
+  // FRONT: the least splay that reads (minShow 0.3: point down-and-out at us); BACK: 0.3 rad outboard so the
+  // blade rising in front of him clears the arm instead of hiding whole behind it.
+  const knifeAt = (hd, aRaw, aMean, len, side, zTop, w) => {
+    const c = carry(damp(aRaw, aMean), s, { rs: side, hand: hd, len, butt: KBUTT, zTop, zUnder: 1.5, minShow: 0.3, splay: s < 0 ? 0.3 : 0 });
+    const d = c.dir, at = (f, q = 0) => [hd[0] + d[0] * f - d[1] * q, hd[1] + d[1] * f + d[0] * q];
+    const back = s < 0, zt = c.zTip, zb = c.zButt, eo = back ? { edge: false } : { edge: true };
+    // the grip through the fist: the butt side (pommel) and the tip side up to the guard
     px.part();
-    if (s > 0 && dirk) {
-      // the dirk held low, its point out and down past the fist: long bright steel, the grip running through the fist
-      px.capsule(hd[0], hd[1] - 2, 0.9, hd[0], hd[1] + 1.8, 0.9, GRIP, z);
-      px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
-      px.line(hd[0] - 2, hd[1] + 2.2, hd[0] + 2, hd[1] + 2.2, K.TRIM, z + 0.03, { fix: 3 });
-      const tp = [hd[0] + side * 1.6, hd[1] + 2.6 + l];
-      px.part();
-      px.capsule(hd[0], hd[1] + 2.8, 1.4, tp[0], tp[1], 0.45, K.STEEL, z + 0.02, { edge: true });
-      px.line(hd[0] - 0.4, hd[1] + 3, tp[0] - 0.3, tp[1] - 1, K.STEEL, z + 0.04, { fix: 4 });
-      if (K.VENOM) px.line(hd[0] + side * 1.0, hd[1] + 2.6 + l * 0.62, tp[0], tp[1], K.VENOM, z + 0.05, { noLine: true });
-    } else if (s < 0 && dirk) {
-      px.capsule(hd[0], hd[1] - 2, 0.9, hd[0] + side * 0.3, hd[1] + 1.2, 0.9, GRIP, z);
-      px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
-      px.part();
-      const tp = [hd[0] + side * 2.4, hd[1] + 2 + l * 0.85];
-      px.capsule(hd[0] + side * 0.9, hd[1] + 1.4, 1.1, tp[0], tp[1], 0.45, K.STEEL, z + 0.02, { edge: false });
-      if (K.VENOM) px.line(hd[0] + side * 1.8, hd[1] + 2 + l * 0.55, tp[0], tp[1], K.VENOM, z + 0.05, { noLine: true });
-    } else if (s > 0) {
-      px.capsule(hd[0], hd[1] - 1.8, 0.9, hd[0], hd[1] + 2, 0.9, GRIP, z);
-      px.dot(hd[0], hd[1] - 2.2, K.TRIM, z + 0.03, { fix: 3 });
-      px.line(hd[0] - 1.8, hd[1] + 2.4, hd[0] + 1.8, hd[1] + 2.4, K.TRIM, z + 0.03, { fix: 3 });
-      px.part();
-      px.poly([[hd[0] - 1.2, hd[1] + 3], [hd[0] + 1.2, hd[1] + 3], [hd[0] + side * 0.3 + 0.2, hd[1] + 2.6 + l]], K.STEEL, z + 0.02, { edge: true });
-      px.line(hd[0], hd[1] + 3, hd[0] + side * 0.2, hd[1] + 1.6 + l, K.STEEL, z + 0.04, { fix: 4 });
-      if (K.VENOM) px.line(hd[0], hd[1] + 2.4 + l * 0.5, hd[0] + side * 0.2, hd[1] + 1.8 + l, K.VENOM, z + 0.05, { noLine: true });
-    } else {
-      px.capsule(hd[0], hd[1] - 2, 0.9, hd[0] + side * 0.3, hd[1] + 1.2, 0.9, GRIP, z);
-      px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
-      px.part();
-      px.capsule(hd[0] + side * 0.6, hd[1] + 1.2, 0.9, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, 0.4, K.STEEL, z + 0.02, { edge: false });
-      if (K.VENOM) px.line(hd[0] + side * 0.8, hd[1] + 2.2 + l * 0.3, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, K.VENOM, z + 0.05, { noLine: true });
-    }
+    { const b0 = at(-KBUTT), b1 = at(0); px.capsule(b0[0], b0[1], 0.9, b1[0], b1[1], 0.9, GRIP, zb); px.dot(b0[0], b0[1], K.TRIM, zb + 0.03, { fix: 3 }); }
+    { const g0 = at(0), g1 = at(1.1); px.capsule(g0[0], g0[1], 0.9, g1[0], g1[1], 0.9, GRIP, zt); }
+    { const q0 = at(1.3, -1.7), q1 = at(1.3, 1.7); px.line(q0[0], q0[1], q1[0], q1[1], K.TRIM, zt + 0.03, { fix: 3 }); }
+    // the blade, full length
+    px.part();
+    const b0 = at(1.6), tp = at(len);
+    px.capsule(b0[0], b0[1], w, tp[0], tp[1], 0.45, K.STEEL, zt + 0.02, eo);
+    if (!back) { const h0 = at(2.2), h1 = at(len - 0.8); px.line(h0[0], h0[1], h1[0], h1[1], K.STEEL, zt + 0.03, { fix: 4 }); }
+    if (K.VENOM) { const v0 = at(len * (L.blade === "dirk" ? 0.62 : 0.45)); px.line(v0[0], v0[1], tp[0], tp[1], K.VENOM, zt + 0.05, { noLine: true }); }
+    return c;
   };
   const klen = L.blade === "long" ? 12 : L.blade === "needle" ? 11 : L.blade === "hanger" ? 9.6 : L.blade === "dirk" ? 10.6 : 8.2;
   {
     const aF = (p.aF || [0.8, 0.8, 0])[0];
     const back = s < 0, ao = back ? { cast: 0 } : { bias: -3, floor: 1 };
-    const sh = [ls * (back ? 5.6 : 5.2) + sx, chestY + 0.8], hd = back ? [ls * 7.1 + sx, sh[1] + 9.4 + (aF - 0.7) * 1.6] : [ls * 6.8 + sx, sh[1] + 8.4 + (aF - 0.7) * 2.4], el = [ls * (back ? 7.4 : 7.6) + sx, sh[1] + 4.4];
+    const sh = [ls * (back ? 5.6 : 5.2) + sx, chestY + 0.8], hd = [ls * (back ? 7.1 : 6.8) + sx, sk.hdF[1] + (back ? 0.4 : 0)], el = [ls * (back ? 7.4 : 7.6) + sx, sh[1] + 4.4];
     px.part();
     px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.1, K.SLEEVE, armZ, ao);
     px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.8, K.SLEEVE, armZ, ao);
     px.capsule(el[0] * 0.35 + hd[0] * 0.65, el[1] * 0.35 + hd[1] * 0.65, 2.0, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.9, K.WRAP, armZ + 0.02, back ? { cast: 0 } : { bias: -1 });
     px.part(); if (back) px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6, { cast: 0 }); else px.ellipse(hd[0], hd[1] + 0.4, 1.7, 1.7, SKIN, armZ + 0.3, { bias: -1 });
-    if (L.twin) knifeFront(hd, 0, klen * 0.9, back ? 1.0 : armZ + 0.2, ls);
+    if (L.twin) knifeAt(hd, sideA(sk.hdF, sk.eF, p.thrF, p.wristF), A_FAR, p.kfl ?? 6.4, ls, 8.2, 1.1);
     // the Plague Bearer's censer swings on its chain from this fist
     if (L.censer) {
       const swg = (p.cz || 0) * 1.4 + wob * 0.5, c0 = [hd[0] + ls * 0.6 + swg, hd[1] + 7.2], cz = back ? 1.0 : armZ + 0.4;
@@ -307,7 +299,7 @@ const make = (s) => (px, F, o = {}) => {
   {
     const aN = (p.aN || [0.7, 0.8, 0])[0], back = s < 0;
     const sh = [rs * (back ? 5.6 : 5.2) + sx, chestY + 0.8], el = [rs * (back ? 7.4 : 7.8) + sx, sh[1] + 4.4];
-    const hd = back ? [rs * 7.1 + sx, sh[1] + 9.4 + (aN - 0.7) * 1.6] : [rs * 6.8 + sx, sh[1] + 8.4 + s * (aN - 0.7) * 2.4];
+    const hd = [rs * (back ? 7.1 : 6.8) + sx, sk.hdN[1] + (back ? 0.4 : 0)];   // the fist at the side view's hand height
     const z = back ? 4.3 : 9.4, ao = back ? { cast: 0 } : { cast: 2, bias: -2, floor: 1 };
     px.part(); px.tag("nearArm");
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, K.SLEEVE, z, ao);
@@ -315,7 +307,7 @@ const make = (s) => (px, F, o = {}) => {
     { const a = mix(el, hd, 0.56), b = mix(el, hd, 0.84); px.capsule(a[0], a[1], 2.1, b[0], b[1], 1.9, K.WRAP, z + 0.02, back ? { cast: 0 } : { bias: -1 }); }
     px.part(); if (back) px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6, { cast: 0 }); else px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 9.8, { cast: 1 });
     px.tag(null);
-    px.tag("knife"); knifeFront(hd, 0, klen, back ? 1.0 : 9.65, rs); px.tag(null);
+    px.tag("knife"); knifeAt(hd, sideA(sk.hdN, sk.eN, p.thr, p.wrist), A_NEAR, klen, rs, 9.65, L.blade === "needle" ? 0.8 : L.blade === "dirk" ? 1.3 : 1.1); px.tag(null);
   }
   return {};
 };

@@ -6,8 +6,9 @@
 // The longsword is in his RIGHT hand (screen left in FRONT): carried upright before the shoulder, shown in FRONT only;
 // from BEHIND the body hides it (owner rule: no blade standing up beside the head).
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-sergeant.js";
-import { cl, TAU, base, dag, legsView } from "./fig-levy-views.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, swordAngle } from "./fig-sergeant.js";
+import { carry, damp } from "./carry.js";
+import { cl, TAU, base, dag, legsView, drawSword } from "./fig-levy-views.js";
 
 const SKIN = mat("#e0b088"), EYE = flat("#c8d4e8"), LIP = flat("#a8685a");
 const PLATE = mat("#646a78", { contrast: 1.3 }), PLATEK = mat("#3a3e4a", { contrast: 1.15 }), STEELB = mat("#c4c8d0", { contrast: 1.3 }), IRON = mat("#6c7280", { contrast: 1.25 });
@@ -125,7 +126,7 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // ---- the arms: plate vambraces over padded sleeves; the sword hand in FRONT
-  const rEl = [rs * 8 + sx, shY + 7.2], hdY = shY + 8.2 + vy * 0.3, hand = s > 0 ? [rs * 6.4 + sx, hdY - 1.2] : [rs * 7.8 + sx, shY + 10.8 - sw1];
+  const rEl = [rs * 9 + sx, shY + 6], hdY = sk.hdN[1] + 0.4, hand = [rs * 8.4 + sx, hdY];   // the fist at the side walk's hand height, both views
   px.part();
   px.capsule(rs * 7 + sx, shY + 1.8, 2.5, rEl[0], rEl[1], 2.3, PAD, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0 });
   px.capsule(rEl[0], rEl[1], 2.3, hand[0], hand[1], 2.0, PLATE, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0 });
@@ -136,25 +137,10 @@ const make = (s) => (px, F, o = {}) => {
   px.capsule(ls * 7 + sx, shY + 1.8, 2.5, lEl[0], lEl[1], 2.3, PAD, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0, bias: s > 0 ? -1 : 0 });
   px.capsule(lEl[0], lEl[1], 2.3, lh[0], lh[1], 2.0, PLATE, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0, bias: s > 0 ? -1 : 0 });
 
-  // ---- the longsword, FRONT only: the blade stands up before his right shoulder, the point toward us a little
-  if (s > 0) {
-    const gx = hand[0], gy = hand[1], top = [gx - rs * 0.4 + 0 - 0.4, gy - 32 + vy * 0.5];
-    px.part(); px.tag("sword");
-    px.capsule(gx, gy + 3.2, 1.0, gx, gy - 2.6, 1.0, GRIP, 7.2, { edge: true });
-    px.ellipse(gx, gy + 3.6, 1.7, 1.2, BRASS, 7.22);
-    px.capsule(gx - 4.2, gy - 3.2, 0.9, gx + 4.2, gy - 3.2, 0.9, STEELB, 7.24, { edge: true });                // the crossguard
-    px.poly([[gx - 1.5, gy - 3.6], [gx + 1.5, gy - 3.6], [top[0] + 1.2, top[1] + 4], [top[0], top[1]], [top[0] - 1.2, top[1] + 4]], BLADE, 7.25, { n: [0.1, 0.1, 0.95] });
-    px.line(gx, gy - 5, top[0], top[1] + 4, IRON, 7.26, { fix: 1, noLine: true });
-    px.tag(null);
-  } else {
-    // BACK: the sword is still in his right hand; its length runs forward, hidden behind his side and shoulder. Past his outline: the pommel under the fist and the crossguard's outer arm.
-    px.part(); px.tag("sword");
-    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 1.0);
-    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 1.02);
-    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 4.2, hand[1] - 2.2, 0.9, STEELB, 1.04);
-    px.poly([[hand[0] + rs * 0.6 - 1.2, hand[1] - 15], [hand[0] + rs * 0.6 + 1.2, hand[1] - 15], [hand[0] + rs * 0.6 + 0.4, hand[1] - 24], [hand[0] + rs * 0.6 - 0.8, hand[1] - 23]], BLADE, 1.06, { n: [0.1, 0.1, 0.95] });   // the upper blade peeks over his right shoulder
-    px.tag(null);
-  }
+  // ---- the longsword: ONE pose from the side walk (angle -0.7 rad: the blade rides up and BACK over the shoulder), projected by carry.js:
+  // FRONT the blade is behind his shoulder (z under the head and pauldron: it shows past them), BACK it comes toward us over the right shoulder
+  const CS = carry(damp(swordAngle(sk), -0.73), s, { rs, hand, len: 29, butt: 5, zTop: 8.2, zUnder: 1.5 });
+  drawSword(px, CS, { GRIP, BRASS, STEELB, BLADE, IRON }, { pommel: 5, guard: [1.2, 4.2], shape: [[1.8, -1.5], [1.8, 1.5], [25, 1.3], [29, 0], [25, -1.3]] });
   // the fist closes round the grip (over it in FRONT, round the haft from behind)
   px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0 : 0.4), s > 0 ? 2.0 : 1.5, s > 0 ? 2.0 : 1.5, PLATEK, s > 0 ? 7.6 : 3.6);
   if (s < 0) { px.part(); px.ellipse(lh[0], lh[1] + 0.4, 1.5, 1.5, PLATEK, 3.6); }

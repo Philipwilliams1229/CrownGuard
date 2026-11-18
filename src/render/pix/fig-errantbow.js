@@ -181,19 +181,20 @@ const aim = (s, t) => { const dx = t[0] - s[0], dy = t[1] - s[1]; return [Math.a
 const STAND = { fN: [-2.8, 0], fF: [3.4, 0] };
 // b.n: the trigger hand, b.f: the fore hand, b.ca: the stock's rise (rad), b.str: the string, b.bolt
 const hold = (b) => { const p = { ...STAND, ...b }, s = solve(p, BONES); p.aN = aim(s.sN, b.n); p.aF = aim(s.sF, b.f); return p; };
-const READY = { aimW: 0, n: [9.4, -26.5], f: [16.5, -30.5], ca: 0.66, gb: 8, str: 1, bolt: 1, twist: 0.3, lean: 0.03, flash: 0, blink: 0 };
+// the carry (owner, 2026-11-18: keep it angled away from his face): the stock points DOWN and forward, the nose ~30 deg below level, the butt at the right hip, the prod low in front of the thighs
+const READY = { aimW: 0, n: [8.5, -19.5], f: [15.5, -15.5], ca: -0.52, gb: 8, str: 1, bolt: 1, twist: 0.3, lean: 0.03, flash: 0, blink: 0 };
 const AIMPOSE = { aimW: 1, n: [10, -33.5], f: [20, -35.2], ca: 0.03, gb: 8.5, str: 1, bolt: 1, twist: 0.55, lean: 0.02, hx: 1.2, hy: 0.4, rx: -0.2, flash: 0 };
 
 export const CLIPS = {
   idle: {
     n: 8, ms: 2200, loop: true, lag: 0.1,
-    pose: (ph) => { const b = 0.5 - 0.5 * Math.cos(ph * TAU); return hold({ ...READY, rise: 0.8 * b, n: [9.4, -26.5 + 0.4 * b], f: [16.5, -30.5 + 0.3 * b], ca: 0.66 + 0.03 * b, blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }); },
+    pose: (ph) => { const b = 0.5 - 0.5 * Math.cos(ph * TAU); return hold({ ...READY, rise: 0.8 * b, n: [8.5, -19.5 + 0.4 * b], f: [15.5, -15.5 + 0.3 * b], ca: -0.52 + 0.03 * b, blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }); },
   },
   walk: {
     n: 8, ms: 760, loop: true, lag: 0.08,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5.4, lift: 3, swing: 0.3, bob: 1.2, lean: 0.06 }), a = Math.cos(ph * TAU), d = w.drop;
-      return hold({ ...w, ...READY, twist: 0.3 + w.twist * 0.25, n: [9.4, -26.5 + d * 0.8], f: [16.5, -30.5 + d * 0.8 + 0.4 * Math.cos(ph * TAU * 2)], ca: 0.62 + 0.04 * a, lean: 0.06 });
+      return hold({ ...w, ...READY, twist: 0.3 + w.twist * 0.25, n: [8.5, -19.5 + d * 0.8], f: [15.5, -15.5 + d * 0.8 + 0.4 * Math.cos(ph * TAU * 2)], ca: -0.52 + 0.04 * a, lean: 0.06 });
     },
   },
   // raise it to the cheek, settle, LOOSE (hit), the prod snaps and the stock kicks up; lower the nose,

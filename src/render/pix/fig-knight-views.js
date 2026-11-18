@@ -85,8 +85,8 @@ const drawBack = (px0, F, o = {}) => {
   px.line(shC[0] - 3, shC[1] + 2.2, shC[0] + 3, shC[1] + 2.2, GOLD, 1.06, { fix: 3 });
 
   // the sword in his right fist (screen right): the sword stands upright in the fist
-  const sh = [rs * 7.2 + sx, chY + 0.6], el = [rs * 9 + sx, chY + 4.2], hd = [rs * 9.6 + sx, chY + 7.2 + swing];
-  const ang = 0.05 * rs, d = [Math.sin(ang), -Math.cos(ang)], nrm = [-d[1], d[0]];
+  const sh = [rs * 7.2 + sx, chY + 0.6], el = [rs * 9 + sx, chY + 4.2], hd = [rs * 9.6 + sx, chY + (sk.hdN[1] - C[1])];
+  const ang = 0, d = [Math.sin(ang), -Math.cos(ang)], nrm = [-d[1], d[0]];
   const B = (q, w = 0) => [hd[0] + d[0] * q + nrm[0] * w, hd[1] + d[1] * q + nrm[1] * w];
   px.part(); px.tag("sword");   // upright at the fist's x, outside the head: the upper blade peeks out from behind the right pauldron, the rest is hidden
   px.capsule(...B(3.4), 1.05, ...B(17.5), 0.9, BLADE, 1.0);
@@ -258,8 +258,9 @@ const make = (s) => (px0, F, o = {}) => {
   }
 
   // ---- the sword in his right fist and the arm over it: the blade stands up beside the head ----
-  const sh = [rs * 7.2 + sx, chY + 0.6], el = [rs * 9.2 + sx, chY + 4 + swing * 0.3], hd = [rs * 9.8 + sx, chY + 7 + swing];
-  const ang = s > 0 ? rs * 0.1 : rs * 2.7, d = [Math.sin(ang), -Math.cos(ang)], nrm = [-d[1], d[0]];
+  const sh = [rs * 7.2 + sx, chY + 0.6], el = [rs * 9.2 + sx, chY + 4 + swing * 0.3], hd = [rs * 9.8 + sx, chY + (sk.hdN[1] - C[1])];
+  const ang = 0, d =   // ONE pose (carry.js): the side walk holds the sword ~10 degrees forward, which snaps to upright in all three views, at the side's hand height
+     [Math.sin(ang), -Math.cos(ang)], nrm = [-d[1], d[0]];
   const B = (t, q = 0) => [hd[0] + d[0] * t + nrm[0] * q, hd[1] + d[1] * t + nrm[1] * q];
   const bz = s > 0 ? 8.4 : 3.0, kb = s > 0 ? 1 : 0.7;   // from behind the blade lies down and forward, mostly hidden: grip and a tip past the hip
   px.part(); px.tag("sword");

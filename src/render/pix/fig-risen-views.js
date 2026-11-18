@@ -7,7 +7,8 @@
 // LEFT, the shield face-on on screen RIGHT. BACK: the skull's back with its sutures, the spine and shoulder
 // blades, a cleft in the rag, the shield's back (planks, strap) on screen LEFT, sword hand on screen RIGHT.
 import { mat, flat } from "./pix.js";
-import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-risen.js";
+import { CLIPS as SIDE, BONES as SIDE_BONES, swordAngle } from "./fig-risen.js";
+import { carry, damp } from "./carry.js";
 
 const BONE = mat("#e0d8c4"), RAG = mat("#4a3a5e", { contrast: 0.9 });
 const WOOD = mat("#7a5c3c"), IRON = mat("#9a968a", { contrast: 1.2 }), DARKM = mat("#3a3228");
@@ -120,7 +121,7 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the arms. FRONT: the sword arm over all. BACK: both arms hang at his sides (z 4.3), swinging in y only
   const ar = B ? -0.6 * a * rs : 0.6 * a * s * rs * -1 * -1;
-  const hand = [rs * 6.8 + sx, chestY + 8.4 + ar], elb = [rs * 7 + sx, chestY + 4];
+  const hand = [rs * 6.8 + sx, sk.hdN[1] + 0.5 + ar * 0.5], elb = [rs * 7 + sx, chestY + 4];
   if (B) {
     const lh = [ls * 6.8 + sx, chestY + 8.4 + 0.6 * a * rs];
     px.part();
@@ -133,21 +134,16 @@ const make = (s) => (px, F, o = {}) => {
   px.capsule(elb[0], elb[1], 1.05, hand[0], hand[1], 0.95, BONE, ZARM, { cast: B ? 0 : 1 });
   px.ellipse(elb[0], elb[1], 1.4, 1.3, BONE, ZARM + 0.05, { cast: 0 });
   px.part(); px.tag("sword");
-  if (!B) {
-    const lean = rs * 0.1, bl = 15, tipx = hand[0] + lean * bl, tipy = hand[1] - bl;
-    px.poly([[hand[0] - 1.3, hand[1] - 1.8], [hand[0] + 1.4, hand[1] - 1.8], [tipx + 1.2, tipy + 2.4], [tipx, tipy - 1.2], [tipx - 1.2, tipy + 2.4]], IRON, 8.1, { fix: 3 });
-    px.line(hand[0] - 0.2, hand[1] - 2, tipx, tipy + 1, IRON, 8.12, { fix: 4 });
-    px.line(hand[0] - 2.2, hand[1] - 1.8, hand[0] + 2.2, hand[1] - 1.8, BONE, 8.13, { fix: 1 });
-    px.capsule(hand[0], hand[1] + 0.2, 0.8, hand[0], hand[1] + 2.4, 0.8, DARKM, 8.1);
-  } else {
-    // behind him at z 1.0: the pommel below the fist, the grip through it, the blade hidden by the arm and shoulder,
-    // its upper part showing past the shoulder (1 px outboard of the head)
-    const bx = hand[0] + rs * 0.5, tipy = hand[1] - 15;
-    px.poly([[bx - 1.3, hand[1] - 1.8], [bx + 1.3, hand[1] - 1.8], [bx + 1.2, tipy + 2.4], [bx, tipy - 1.2], [bx - 1.2, tipy + 2.4]], IRON, 1.0, { fix: 3, cast: 0 });
-    px.line(bx - 2.2, hand[1] - 1.8, bx + 2.2, hand[1] - 1.8, BONE, 1.02, { fix: 1, cast: 0 });
-    px.capsule(bx, hand[1] - 0.6, 0.8, bx, hand[1] + 2.6, 0.8, DARKM, 1.0, { cast: 0 });
-    px.ellipse(bx, hand[1] + 3.2, 1, 0.9, BONE, 1.02, { fix: 1, cast: 0 });
-  }
+  // ONE pose (carry.js): the side walk's blade angle (fig-risen.js swordAngle, ~0.35-0.59 rad forward, damped round its
+  // mean), the fist at the side view's hand height; FRONT / BACK are projections of it. 13 fist to tip, 2.4 to the pommel.
+  const C = carry(damp(swordAngle(sk), 0.47), s, { rs, hand, len: 13, butt: 2.4, splay: 0.4 });
+  const A = (f, o2 = 0) => C.at(f, rs * o2);
+  const zT = C.zTip, zB = C.zButt;
+  // the haft end (fist to 5) is foreshortened; the blade's upper part is the HEAD of the weapon: full side-view size
+  px.poly([A(1.8, -0.9), A(1.8, 1.1), C.head(5, 0, 1.3), C.head(5, 5.4, 1.3), C.head(5, 8, 0.1), C.head(5, 5.4, -0.7), C.head(5, 0, -0.9)], IRON, zT, { fix: 3, cast: B ? 0 : 1, edge: !B });
+  { const t0 = A(2), t1 = C.head(5, 5.6, 0.2); px.line(t0[0], t0[1], t1[0], t1[1], IRON, zT + 0.02, { fix: 4 }); }
+  { const g0 = A(1.8, -2.2), g1 = A(1.8, 2.2); px.line(g0[0], g0[1], g1[0], g1[1], BONE, zB + 0.03, { fix: 1 }); }
+  { const g0 = A(-2.4), g1 = A(1.2); px.capsule(g0[0], g0[1], 0.8, g1[0], g1[1], 0.8, DARKM, zB); }
   px.tag(null);
   px.part();
   px.ellipse(hand[0], hand[1] + (B ? 0.4 : 0), B ? 1.4 : 1.5, B ? 1.3 : 1.4, BONE, ZFIST, B ? { cast: 0 } : {});

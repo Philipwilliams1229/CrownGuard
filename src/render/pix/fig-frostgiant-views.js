@@ -8,6 +8,7 @@
 // A slow heavy tread: a wide roll over the planted foot, the long arms swinging a little.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-frostgiant.js";
+import { carry } from "./carry.js";
 
 const SKIN = mat("#7f93ab"), BELLY = mat("#93a7be"), KILT = mat("#5e4a3a"), KILT_D = mat("#43362c"), FUR = mat("#c6c6bc"), FURB = mat("#8a7860"), HAIR = mat("#e6eef2");
 const IRON = mat("#6a727e", { contrast: 1.2 }), BONE = mat("#e6dcc4"), BONE_D = mat("#b4a888"), ICE = mat("#cfe9f6", { contrast: 1.2 }), NAIL = mat("#c8c2a0");
@@ -72,7 +73,7 @@ const make = (s) => (px, F) => {
 
   // ---- the far arm (his left), a tone down: it hangs to the knee; iron cuff, a ham of a fist
   const arm = (side, ang, near, z) => {
-    const b = near ? 0 : -1, sh = [sx + side * 11.6, c0 + 6.4], hd = [sx + side * 17, hipY + 9 + s * ang * 4], el = [sx + side * 16, (sh[1] + hd[1]) / 2 - 1];
+    const b = near ? 0 : -1, sh = [sx + side * 11.6, c0 + 6.4], hd = [sx + side * 17, (near ? sk.hdN[1] : sk.hdF[1]) + 0.6], el = [sx + side * 16, (sh[1] + hd[1]) / 2 - 1];
     px.body(1);
     if (s < 0) { px.limb([sh, el, hd], [6.2, 5, 5.4], SKIN, 4.3, { cast: 0 }); px.capsule(mix(el, hd, 0.7)[0], mix(el, hd, 0.7)[1], 5.2, hd[0], hd[1], 5.2, IRON, 4.35, { floor: 1 }); px.body(0); return { sh, hd }; }
     px.limb([sh, el, hd], [6.2, 5, 5.4], SKIN, z, { bias: b, weld: near ? 4 : 0, weldRoot: near ? 9 : 0 });
@@ -167,27 +168,25 @@ const make = (s) => (px, F) => {
     for (let i = 0; i <= 6; i++) { const t = i / 6, x = sx - 7 + t * 14, y = c0 + 10 + 3.4 * (1 - (2 * t - 1) ** 2); px.dot(x, y, i % 2 ? BONE : KILT_D, 4.5, { fix: i % 2 ? 3 : 1 }); }
   }
 
-  // ---- the jawbone: from the right fist it trails on the ground behind him
+  // ---- the jawbone: ONE pose (carry.js). The side walk holds it at a = -1.9 rad (measured: 109 degrees behind the fist, its heavy
+  // end on the ground behind him): truly dragged. From the front it lies away from us, under his legs, its end clamped to the
+  // ground and splayed outboard so it reads; from behind its heavy end comes toward us down to the ground by his heel.
   const near = arm(rs, p.aN[0], true, 7.9);
-  const fx0 = near.hd, by = -2;
+  const C = carry(-1.9, s, { rs, hand: near.hd, len: 29, butt: 4, K: 0.5, splay: 0.3, maxSplay: 0.6, floorY: -2.4 });
+  const zJ = s > 0 ? C.zTip : 3.5, pr = [-C.dir[1], C.dir[0]];
+  // FRONT: the end is splayed outboard (toward his weapon hand's side) and lies on the ground, 5 px or so past his leg's outline
+  const E = [near.hd[0] + rs * 4.5, -3.4], hd0 = near.hd;
+  const A = s > 0 ? (f, o = 0) => { const t = (f + 4) / 31; return [hd0[0] + (E[0] - hd0[0]) * t, hd0[1] + (E[1] - hd0[1]) * t + o * 0.2]; } : (f, o = 0) => C.at(f, rs * o);
+  const TIP = s > 0 ? [E[0], E[1] - 0.6] : C.at(27, 0);
   px.part(); const cid = px._pid;
-  if (s > 0) {
-    // seen from the front it lies behind his right leg: a stretch of bone from the fist, the heavy end peeking by his foot
-    px.capsule(fx0[0] + rs * 1, fx0[1] + 2, 2.2, fx0[0] + rs * 6, by - 2, 3, BONE, 2.4, { edge: true });
-    px.ellipse(fx0[0] + rs * 8, by - 1.6, 4.4, 3.4, BONE, 2.45, { edge: true });
-    px.part();
-    px.poly([[fx0[0] + rs * 5, by - 4.6], [fx0[0] + rs * 8, by - 5.6], [fx0[0] + rs * 11.6, by - 3.6], [fx0[0] + rs * 11.4, by - 0.6], [fx0[0] + rs * 6, by - 1]], ICE, 2.5, { fix: 3 });
-    px.dot(fx0[0] + rs * 7, by - 5.4, FROST, 2.6, { noLine: true });
-  } else {
-    // from behind its ice-crusted end lies near us beside his heel; the tooth-sockets in a row down the shaft
-    px.capsule(fx0[0] + rs * 0.4, fx0[1] + 2, 2.2, fx0[0] + rs * 2, by - 5, 3.6, BONE, 3.5);
-    px.ellipse(fx0[0] + rs * 2.6, by - 2, 5.4, 4.2, BONE, 3.55);
-    px.toneLine(fx0[0] + rs * 0.6, fx0[1] + 4, fx0[0] + rs * 2.4, by - 8, -1, cid);
-    for (const k of [0.3, 0.5, 0.7]) px.dot(fx0[0] + rs * (0.4 + 1.6 * k) - 1.6, fx0[1] + 2 + (by - 5 - fx0[1] - 2) * k, BONE_D, 3.57, { fix: 0 });
-    px.part();
-    px.poly([[fx0[0] + rs * 0.4 - 4, by - 4], [fx0[0] + rs * 2.6, by - 5.6], [fx0[0] + rs * 6.4, by - 3.4], [fx0[0] + rs * 6, by + 0.6], [fx0[0] + rs * 1, by + 1]], ICE, 3.58, { fix: 3 });
-    px.dot(fx0[0] + rs * 1.4, by - 4.4, FROST, 3.6, { noLine: true });
-  }
+  px.capsule(...A(-4), 1.8, ...A(14), 2.3, BONE, zJ, { edge: s > 0 });
+  px.capsule(...A(14), 2.4, ...A(27), 3.6, BONE, zJ, { edge: s > 0 });
+  px.ellipse(TIP[0] + (s > 0 ? rs * 2 : C.dir[0] * 3), TIP[1] + (s > 0 ? 0 : C.dir[1] * 3), 4.8, 4, BONE, zJ + 0.05, { edge: s > 0 });
+  for (const f of [16, 19, 22]) px.dot(...A(f, 0.4), BONE_D, zJ + 0.07, { fix: 0 });
+  px.part();
+  px.poly([[TIP[0] - 4, TIP[1] - 3.4], [TIP[0] + 1, TIP[1] - 5], [TIP[0] + 5.6, TIP[1] - 3], [TIP[0] + 5.2, TIP[1] + 0.6], [TIP[0] - 2, TIP[1] + 0.8]], ICE, zJ + 0.1, { fix: 3 });
+  px.dot(TIP[0] - 1, TIP[1] - 3.6, FROST, zJ + 0.12, { noLine: true });
+  const fx0 = near.hd;
   // the near fist and the ice crystals on his right shoulder
   px.part();
   px.body(1); if (s > 0) px.ellipse(near.hd[0], near.hd[1] + 0.4, 5.2, 4.8, SKIN, 8.3, { weld: 3 }); else px.ellipse(near.hd[0], near.hd[1] + 0.8, 4.6, 4.2, SKIN, 3.7); px.body(0);

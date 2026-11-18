@@ -73,10 +73,10 @@ const make = (s) => (px, F) => {
   const lf = (f) => cl(f[1], 0, 7), fw = (f) => cl(f[0], -14, 14) * FWD * s;
 
   // a pillar leg, one welded limb to a broad pad; FRONT the pad face-on with its toenails along the front rim, BACK the heel pad
-  const leg = (x, top, f, near, z, M = HIDE) => {
+  const leg = (x, top, f, near, z, M = HIDE, hind = false) => {
     const l = lf(f), dy = fw(f), foot = [x * 0.96, -2.6 + dy - l * 0.9 + (near ? 0 : s > 0 ? -3.4 : -1)];
-    const kn = [x * 1.04, (top[1] + foot[1]) / 2 + 1 + l * 0.2], bias = near ? 0 : -1;
-    px.limb([top, kn, [foot[0], foot[1] - 2]], near && s > 0 ? [10.4, 9, 7.6] : [9.6, 8, 6.8], M, z, { bias, cast: 1, weld: near ? 5 : 0, weldRoot: near ? 11 : 0 });
+    const kn = [x * 1.04, hind ? top[1] + (foot[1] - top[1]) * 0.62 + l * 0.3 : (top[1] + foot[1]) / 2 + 1 + l * 0.2], bias = near ? 0 : -1;   // a hind knee sits low (an elephant's)
+    px.limb(hind ? [[top[0], top[1] - 5], top, kn, [foot[0], foot[1] - 2]] : [top, kn, [foot[0], foot[1] - 2]], hind ? [11.6, 10.8, 8.6, 7.6] : near && s > 0 ? [10.4, 9, 7.6] : [9.6, 8, 6.8], M, z, { bias, cast: 1, weld: hind ? 4 : near ? 5 : 0, weldRoot: hind ? 12 : near ? 11 : 0 });
     for (const [t0, t1, dx] of [[0.2, 0.7, -4.4], [0.3, 0.95, 0.2], [0.25, 0.85, 4]]) { const q0 = mix(top, kn, t0), q1 = mix(top, kn, t1); px.toneLine(q0[0] + dx, q0[1], q1[0] + dx, q1[1], -1, BID); }
     px.ellipse(foot[0], foot[1] + 0.2, 8.8, s > 0 ? 3.8 : 3.2, PADM, z + 0.04, { bias, floor: 1 });
     if (s > 0) for (const dx of [-5, -1.7, 1.7, 5]) px.ellipse(foot[0] + dx, foot[1] + 2.2 - (Math.abs(dx) > 3 ? 0.6 : 0), 1.3, 1, TOENAIL, z + 0.06, { fix: near ? 3 : 2 });
@@ -84,7 +84,7 @@ const make = (s) => (px, F) => {
   };
 
   // far legs: FRONT the hinds, a little outside and up; BACK the fores
-  if (s > 0) { leg(-20.6, [-20.6, -52 + by], p.fNH, false, 1, HIDE_D); leg(20.6, [20.6, -52 + by], p.fFH, false, 1, HIDE_D); }
+  if (s > 0) { leg(-20.6, [-20.6, -52 + by], p.fNH, false, 1, HIDE_D, true); leg(20.6, [20.6, -52 + by], p.fFH, false, 1, HIDE_D, true); }
   else { leg(-14.6, [-14.6, -52 + by], p.fNF, false, 1); leg(14.6, [14.6, -52 + by], p.fFF, false, 1); }
 
   // the barrel, the hump, the coat's tone strokes, the rime on its top
@@ -118,7 +118,7 @@ const make = (s) => (px, F) => {
     px.poly([[t[3][0] - 3.2, t[3][1] - 1], [t[3][0] + 3.2, t[3][1] - 1], [t[3][0] + 2.6 + sw * 0.3, t[3][1] + 7], [t[3][0] + sw * 0.4, t[3][1] + 5], [t[3][0] - 2.6, t[3][1] + 7.4]], SHAG, 9.04, { floor: 1 });
     px.body(1); px.part();
     px.ellipse(0, -92 + by * 0.8, 13, 7, HIDE, 4.2, { cast: 1 });                    // the crown of the dome behind the howdah
-    px.ellipse(-12.4, -86 + by * 0.8, 3.8, 6.4, HIDE, 4.25, { rot: 0.3, bias: -1, cast: 1 }); px.ellipse(12.4, -86 + by * 0.8, 3.8, 6.4, HIDE, 4.25, { rot: -0.3, bias: -1, cast: 1 });
+    { const e = p.ear ?? 0; for (const sd of [-1, 1]) { px.part(); px.ellipse(sd * (26 + e * 2.4), -80 + by * 0.8, 6.4 + e, 11 + e, EARM, 7.6, { rot: sd * (0.25 + e * 0.3), cast: 1 }); px.toneLine(sd * 27, -87 + by, sd * 29, -73 + by, -1, px._pid); } }   // the backs of the ears, past the cloth
     px.body(0);
   }
 
@@ -238,7 +238,7 @@ const make = (s) => (px, F) => {
   // ---- the near legs last, in front: FRONT the forelegs; BACK the hinds
   px.body(1);
   if (s > 0) { leg(nS * 14.4, [nS * 14.4, -52 + by], p.fNF, true, 12); leg(fS * 14.4, [fS * 14.4, -52 + by], p.fFF, true, 12.2); }
-  else { leg(nS * 13.4, [nS * 13.4, -50 + by], p.fNH, true, 12); leg(fS * 13.4, [fS * 13.4, -50 + by], p.fFH, true, 12.2); }
+  else { leg(nS * 13.4, [nS * 13.4, -50 + by], p.fNH, true, 12, HIDE, true); leg(fS * 13.4, [fS * 13.4, -50 + by], p.fFH, true, 12.2, HIDE, true); }
   px.body(0);
   if (s > 0) frontHead(px, p, by, ph, wx, nS);
   return {};
@@ -258,12 +258,12 @@ const frontHead = (px, p, by, ph, wx, nS) => {
   }
   // the ears: broad flaps, a tone darker, the near one flicking
   for (const sd of [-1, 1]) {
-    const e = sd === nS ? ear : 0;
+    const e = sd === nS ? ear : ear * 0.7;
     px.part();
-    px.ellipse(sd * (20.6 + e * 1.6), hy + 1 - e, 9.4 + e, 12 + e * 1.2, EARM, 13, { rot: -sd * (0.18 + e * 0.25), cast: 1 });
-    px.toneLine(sd * 13, hy - 9, sd * 24, hy - 6, 1, px._pid);
-    px.toneLine(sd * 15.6, hy - 4, sd * 17.4, hy + 8, -1, px._pid); px.toneLine(sd * 22, hy - 2, sd * 23.4, hy + 7, -1, px._pid);
-    for (let k = 0; k < 4; k++) { const x = sd * (14.5 + k * 2.6 + e), y = hy + 10.6 + Math.abs(k - 1.5) * -1.4; px.poly([[x - 1.4, y], [x + 1.4, y], [x + sd * 0.6, y + 5 + (k & 1) * 2]], EARM, 13.03, { floor: 1, bias: -0.6 }); }
+    px.ellipse(sd * (23 + e * 2.2), hy + 1 - e, 11.4 + e, 15 + e * 1.2, EARM, 13, { rot: -sd * (0.18 + e * 0.25), cast: 1 });
+    px.toneLine(sd * 14, hy - 12, sd * 28, hy - 9, 1, px._pid);
+    px.toneLine(sd * 16, hy - 5, sd * 18, hy + 10, -1, px._pid); px.toneLine(sd * (25 + e * 2), hy - 4, sd * (27 + e * 2), hy + 9, -1, px._pid);
+    for (let k = 0; k < 5; k++) { const x = sd * (15 + k * 3 + e * 2), y = hy + 13.4 + Math.abs(k - 2) * -1.6; px.poly([[x - 1.4, y], [x + 1.4, y], [x + sd * 0.6, y + 5 + (k & 1) * 2]], EARM, 13.03, { floor: 1, bias: -0.6 }); }
   }
   // the skull: a domed forehead (lit upper left), the cheeks, the face narrowing to the trunk's root
   px.part(); const hid = px._pid;

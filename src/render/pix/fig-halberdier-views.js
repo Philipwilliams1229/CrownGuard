@@ -140,7 +140,7 @@ const make = (s) => (px, F, o = {}) => {
   {
     const sh = [rs * 5.3 + sx, chestY + 1.2];
     // FRONT: the forearm comes up to the haft. BACK: the arm hangs straight down at his side to the haft, the back of the fist toward us, thumb inward
-    const hd = s > 0 ? [hdx, hdy + 2] : [hdx, chestY + 10.5], el = s > 0 ? [rs * 8.4 + sx, (sh[1] + hd[1]) / 2 + 0.5] : [rs * 7.2 + sx, chestY + 5.8];
+    const hd = s > 0 ? [hdx, hdy + 2] : [hdx, hdy + 3], el = s > 0 ? [rs * 8.4 + sx, (sh[1] + hd[1]) / 2 + 0.5] : [rs * 7.8 + sx, chestY + 3.2];
     px.part();
     const az = s > 0 ? 8 : 4.3, ao = s > 0 ? { cast: 2 } : { cast: 0, bias: -1 }; px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, MAIL, az, ao);
     px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, MAIL, az, ao);
