@@ -2059,6 +2059,12 @@ seed default, old circle -> road steps: Ironford 323 / 183 -> 287 / 232, ir5 189
 1970 / 1035, gw3 61 / 24 -> 51 / 22 (noise). `reach-lab.html?realm=` draws it (`&mode=ring`
 the old circles). Provisional, pending the owner's playtest.
 
+**Wall Archers have four tiers** (owner, same day): two bowmen 10k, three 12k (18 a shot, 850 ms,
+360 steps), four longbows 15k, heavy crossbows 25k (reach 340 / 360 / 380 / 400). Saved castles
+carry `_v` (campaign.js `WORKS_V` 2, `upgradeWorks` in loadCastle): a save without it moves an
+archers tier of 2+ up one, so nobody loses what they bought. Re-cutting any work's tiers again:
+bump WORKS_V and add its step there.
+
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 
 Provisional, pending the owner's playtest (sims barely move: the only

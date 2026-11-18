@@ -17,8 +17,12 @@ export const CASTLE_WORKS = {
   archers: {
     name: "Wall Archers", icon: "",
     blurb: "Bowmen on the walk above the gate. They shoot the foe nearest the gate, along the road.",
+    // four tiers since 2026-11-18 (owner: three bowmen at tier 2, four at 3, heavy crossbows the
+    // final); `rate` is each man's, the wall looses every rate / count ms. Old saves move up one from
+    // tier 2 so they keep what they bought (campaign.js loadCastle, WORKS_V).
     tiers: [
       { cost: 10000, label: "Two bowmen", dmg: 16, rate: 900, range: 340, count: 2 },
+      { cost: 12000, label: "Three bowmen", dmg: 18, rate: 850, range: 360, count: 3 },
       { cost: 15000, label: "Four bowmen, longbows", dmg: 24, rate: 800, range: 380, count: 4 },
       { cost: 25000, label: "Heavy crossbows", dmg: 44, rate: 1100, range: 400, count: 4, pierce: true },
     ],

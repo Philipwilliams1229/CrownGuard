@@ -228,11 +228,19 @@ export function loadCastle(scope) {
       for (const n of Object.keys(NO_WORKS)) works[n] = Math.max(works[n], Number(w[n]) || 0);
     }
   }
-  return { ...NO_WORKS, ...works };
+  return upgradeWorks({ ...NO_WORKS, ...works });
 }
+// A saved castle from before a work's tiers were re-cut keeps what it bought: WORKS_V 2
+// (2026-11-18) gave the Wall Archers a new tier 2 (three bowmen), so an old tier 2 or 3 moves up one.
+const WORKS_V = 2;
+const upgradeWorks = (w) => {
+  if ((w._v || 1) < 2 && w.archers >= 2) w.archers += 1;
+  w._v = WORKS_V;
+  return w;
+};
 export function saveCastle(scope, works) {
   const p = loadProgress();
-  p.castle[castleKey(scope)] = { ...works };
+  p.castle[castleKey(scope)] = { ...works, _v: WORKS_V };
   save(p);
   return p;
 }
