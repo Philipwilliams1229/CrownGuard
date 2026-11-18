@@ -151,3 +151,21 @@ export const drawBarricades = (ctx, g) => {
     }
   }
 };
+
+// Each frame's health (owner, 2026-11-18), drawn over the crowd (draw.js, after the figures) so the
+// foes hacking at it never hide it: a slim bar under the frame in a stone rim, once it has been hurt.
+export const drawBarricadeBars = (ctx, g) => {
+  const rows = g.barricades;
+  if (!rows || !rows.length) return;
+  for (const row of rows) for (const sg of row.segs) {
+    if (sg.hp <= 0 || sg.hp >= sg.maxHp) continue;
+    const pct = sg.hp / sg.maxHp, [x, y] = lanePos(row.dist, sg.lane);
+    // (UNDER the frame, at road level, in a pale stone rim: the foes' own bars ride over their heads
+    // just above, so a bar here never reads as one of theirs)
+    const w = 14, x0 = Math.round(x - w / 2), y0 = Math.round(y + 7);
+    ctx.fillStyle = "#c9c2b2"; ctx.fillRect(x0 - 2, y0 - 2, w + 4, 6);
+    ctx.fillStyle = "rgba(36,26,38,0.9)"; ctx.fillRect(x0 - 1, y0 - 1, w + 2, 4);
+    ctx.fillStyle = pct > 0.5 ? "#7cc05e" : pct > 0.25 ? "#e0b84a" : "#d0564a";
+    ctx.fillRect(x0, y0, Math.max(1, Math.round(w * pct)), 2);
+  }
+};

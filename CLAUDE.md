@@ -2099,7 +2099,9 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   `src/render/netlook.js` (`netify(cv, S)`, a Sonnet artist): the silhouette grown and rounded, open
   hemp mesh with knots, a 2 px rim rope, 5 px stone weights ~16 apart; it returns a bigger canvas with
   `.pad` (11 art px) and rigs.js places it. `net-lab.html` shows every flier; `net-anim.html` records
-  a video sample (rename the saved .png to .mp4). Art for the rows: barricade.js `mat` looks + a wreck.
+  a video sample (rename the saved .png to .mp4). Art for the rows: barricade.js `mat` looks + a wreck;
+  each hurt frame shows a health bar UNDER it in a pale stone rim (`drawBarricadeBars`, drawn after the
+  crowd in draw.js), so it is never hidden by, or mistaken for, the foes' bars above their heads.
 - Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
 
 **Refunds** (owner, same day: "refunds full amount no penalty", then "just one button at the top"):

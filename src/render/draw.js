@@ -27,7 +27,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
 import { drawTraps, drawTrapBalloons } from "./traps.js";
-import { drawBarricades } from "./barricade.js";
+import { drawBarricades, drawBarricadeBars } from "./barricade.js";
 import { drawRemains } from "./remains.js";
 import { drawLog } from "./logs.js";
 import { drawHeroUnder, drawHeroFx } from "./heroes/index.js";
@@ -438,6 +438,8 @@ export function draw(g, canvas, bufRef) {
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
+  // the Masons' barricades' health, over the foes hacking at them (barricade.js)
+  drawBarricadeBars(ctx, g);
   // halls a Rime Seer has shrouded in ice (rimefx.js)
   drawFrostShells(ctx, g);
   // a selected River Watch's skiffs, each marked over the crowd
