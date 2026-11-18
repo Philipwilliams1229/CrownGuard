@@ -340,6 +340,8 @@ const dissolveCorpses = (g, tms) => {
 // weight (0.4 until 2026-11-10); each body also costs it `logDrag` of its
 // momentum (towers.js), and at LOG_STALL it stops and breaks apart (owner,
 // 2026-11-10: "Log roller is so op" against the Hollow's floods)
+// how fast a blast effect plays: 0.6 = it lasts 1/0.6 as long (see the effects tick)
+const BLAST_PACE = { boom: 0.6, keg: 0.6, arcane: 0.6, frost: 0.6, dust: 0.6 };
 const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.2, LOG_STALL = 0.25;
 // the Powder Keg Run's log goes up where it stops, or as it leaves the field
 const logBlast = (g, lg, bx, by) => {
@@ -3270,7 +3272,10 @@ export function updateGame(g, dt) {
   }
 
   if (!g.paused) {
-    for (const fx of g.effects) fx.ttl -= sdt * 1000;
+    // blasts play slower than their ttl says (owner, 2026-11-18: "I like seeing the
+    // wave of damage emanate from the centre"): picture, ring and white flash all
+    // read the ttl, so one pace slows them together. Visual only: the damage lands at once.
+    for (const fx of g.effects) fx.ttl -= sdt * 1000 * (BLAST_PACE[fx.type] || 1);
     g.effects = g.effects.filter((fx) => fx.ttl > 0);
     // the storm's rain puts burning ground out faster (weather.js WX.burnOut)
     if (WX.burnOut > 1) for (const gr of g.grounds) if (gr.kind === "lava" || gr.kind === "fire") gr.until -= sdt * 1000 * (WX.burnOut - 1);

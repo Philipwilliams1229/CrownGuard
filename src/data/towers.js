@@ -105,7 +105,7 @@ export const TOWERS = {
         name: "The Log Roller", cost: 440, stats: { logDmg: 110, rate: 5200, range: 999, minRange: 0, logSpeed: 118, logWidth: 22, logDrag: 0.03, splash: 0, roller: true }, desc: "Stops throwing, starts ROLLING: a log down a bearing YOU choose, slowing per foe until it stops.",
         rank4: {
           a: { name: "The Iron Drum", cost: 1020, stats: { logDmg: 190, rate: 5000, range: 999, minRange: 0, logSpeed: 126, logWidth: 28, logDrag: 0.015, splash: 0, roller: true, logStun: 900, logSlow: 0.4, logSlowDur: 2000 }, desc: "An iron-banded drum: heavier, wider, and what survives it is left stunned and staggering." },
-          b: { name: "The Powder Keg Run", cost: 1020, stats: { logDmg: 135, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, logDrag: 0.05, splash: 0, roller: true, logBurn: 10, logBurnDur: 3000, logBlast: 96, logBlastDmg: 220 }, desc: "A powder-packed log: it burns all it grinds past, and goes up where it stops or leaves the field." },
+          b: { name: "The Powder Keg Run", cost: 1020, stats: { logDmg: 135, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, logDrag: 0.05, splash: 0, roller: true, logBurn: 10, logBurnDur: 3000, logBlast: 96, logBlastDmg: 110 }, desc: "A powder-packed log: it burns all it grinds past, and goes up where it stops or leaves the field." },
         },
       },
     },
@@ -345,7 +345,7 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Rimecaller", cost: 405, stats: { slow: 0.4, range: 101, nova: 10, novaFreeze: 900, novaEvery: 7000 }, desc: "Deep cold thickens the air — and every few heartbeats a frost nova flash-freezes the whole aura.",
+        name: "Rimecaller", cost: 405, stats: { slow: 0.4, range: 51, nova: 10, novaFreeze: 900, novaEvery: 7000 }, desc: "Deep cold thickens the air — and every few heartbeats a frost nova flash-freezes the whole aura.",
         rank4: {
           a: { name: "Absolute Zero", cost: 915, stats: { slow: 0.5, range: 109, colddps: 11, nova: 16, novaFreeze: 1100, novaEvery: 6000 }, desc: "The air itself turns lethal: everything in the aura slows to a crawl and freezes by inches." },
           b: { name: "Permafrost Heart", cost: 915, stats: { slow: 0.38, range: 109, nova: 10, novaFreeze: 900, novaEvery: 6000, brittle: 0.35, brittleDur: 4000 }, desc: "Novas leave foes BRITTLE — frozen flesh takes a third more from every arrow, blade, and stone." },

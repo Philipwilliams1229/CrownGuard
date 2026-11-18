@@ -242,6 +242,14 @@ redrawn at the old rigs' size (72 / 94 art px) and the owner turned it down: "th
 big, and griffin too ... keep those riders down to the same size as the normal troops"; they stay
 at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Figures draw at one fixed 0.5 board px an art px.
 
+## Slower blasts, a softer keg, a smaller Rimecaller (2026-11-18, owner request)
+
+"Make it so explosions propagate a bit slower. I like seeing the wave of damage emanate from the
+centre." `BLAST_PACE` (update.js, the effects tick) plays boom / keg / arcane / frost / dust effects
+at 0.6 speed, so the picture, the ring and its white flash (ringflash.js) all run ~1.7x longer
+together. Visual only: the damage still lands at once. The Powder Keg Run's `logBlastDmg` 220 ->
+110; the Rimecaller's `range` 101 -> 51 (its finals keep 109). Provisional.
+
 ## Walking up the screen; the squeeze turn (2026-11-17, owner request)
 
 "When they are walking up, it almost looks like they are moonwalking." The cheap fix
