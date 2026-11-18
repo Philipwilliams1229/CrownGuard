@@ -30,14 +30,14 @@ export const CASTLE_WORKS = {
   ballista: {
     name: "Gate Ballista", icon: "",
     blurb: "A siege bow on the bridge over the gate: slow, screaming bolts at the mightiest foe on the road before the gate.",
-    // four tiers (owner, 2026-11-18; the fire bolts went): `pin` ms the chain harpoon holds its foe
+    // four tiers (owner, 2026-11-18; the fire bolts went; shield-breakers at 3, harpoons at 4): `pin` ms the chain harpoon holds its foe
     // where it stands (bosses and rams too, so the column behind waits); `breaker` knocks every blue
     // pip off and marks the foe (every blow `amp` harder for `ms`) before the bolt strikes (update.js)
     tiers: [
       { cost: 5000, label: "One ballista", dmg: 220, rate: 3200, range: 420 },
       { cost: 10000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 450, twin: true },
-      { cost: 15000, label: "Chain harpoons: each bolt pins its foe 2 s", dmg: 260, rate: 2900, range: 475, twin: true, pin: 2000 },
-      { cost: 25000, label: "Shield-breakers: strip every shield, foe takes +25% for 5 s", dmg: 280, rate: 2800, range: 500, twin: true, pin: 2000, breaker: { amp: 0.25, ms: 5000 } },
+      { cost: 15000, label: "Shield-breakers: strip every shield, foe takes +25% for 5 s", dmg: 260, rate: 2900, range: 475, twin: true, breaker: { amp: 0.25, ms: 5000 } },
+      { cost: 25000, label: "Chain harpoons: each bolt also pins its foe 2 s", dmg: 280, rate: 2800, range: 500, twin: true, breaker: { amp: 0.25, ms: 5000 }, pin: 2000 },
     ],
   },
   guards: {
@@ -46,7 +46,7 @@ export const CASTLE_WORKS = {
     // they fight as a knight garrison does (engine/update.js runMelee): each
     // holds one foe on foot, trades blows, falls and comes back after
     // respawnMs. `men` is each halberdier's health. Four tiers (owner, 2026-11-18;
-    // the thicker gate went to the Masons): two, then four, then `armor` (every blow
+    // the thicker gate went to the Masons): two, then three, then `armor` (every blow
     // on them, a ram's trample too, that much lighter) and `brace` (a charging rider's
     // trample breaks on the halberd: he keeps his feet and holds the rider), then the
     // `sweep`: every `every` ms each halberdier with a foe on foot before him swings
@@ -55,9 +55,9 @@ export const CASTLE_WORKS = {
     // engine/heroes/hale.js halberdSweep).
     tiers: [
       { cost: 5000, label: "Two halberdiers", count: 2, men: 220, dmg: 22, rate: 850, range: 48 },
-      { cost: 10000, label: "Four halberdiers", count: 4, men: 250, dmg: 26, rate: 830, range: 52 },
-      { cost: 15000, label: "Braced, in heavy plate (30% less harm)", count: 4, men: 290, dmg: 30, rate: 820, range: 52, armor: 0.3, brace: true },
-      { cost: 25000, label: "Halberd sweeps", count: 4, men: 320, dmg: 34, rate: 800, range: 52, armor: 0.3, brace: true, sweep: { every: 6000, r: 46, dmg: 45, stun: 800, mounted: 2 } },
+      { cost: 10000, label: "Three halberdiers", count: 3, men: 250, dmg: 26, rate: 830, range: 52 },
+      { cost: 15000, label: "Braced, in heavy plate (30% less harm)", count: 3, men: 290, dmg: 30, rate: 820, range: 52, armor: 0.3, brace: true },
+      { cost: 25000, label: "Halberd sweeps", count: 3, men: 320, dmg: 34, rate: 800, range: 52, armor: 0.3, brace: true, sweep: { every: 6000, r: 46, dmg: 45, stun: 800, mounted: 2 } },
     ],
   },
   masons: {
@@ -72,10 +72,10 @@ export const CASTLE_WORKS = {
     // tier bought, sets them up whole. `hp` is extra castle life (the thicker gate came from the
     // Gate Guard, same day).
     tiers: [
-      { cost: 5000, label: "Mend one life a wave, wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
-      { cost: 10000, label: "Mend two, a thicker gate, a second row of spikes", mend: 2, hp: 5, spikes: 2, spikeHp: 180, thorns: 6, mat: "wood", repair: 0.3 },
-      { cost: 15000, label: "Iron-shod barricades", mend: 2, hp: 5, spikes: 2, spikeHp: 300, thorns: 11, mat: "iron", repair: 0.25 },
-      { cost: 25000, label: "Steel barricades, the wall shored up", mend: 3, hp: 8, spikes: 2, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
+      { cost: 5000, label: "Mend one life a wave, a row of wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
+      { cost: 10000, label: "Iron-shod spikes, a thicker gate (+5 castle life)", mend: 1, hp: 5, spikes: 1, spikeHp: 300, thorns: 11, mat: "iron", repair: 0.25 },
+      { cost: 15000, label: "Steel spikes, the wall shored up (+5 more life)", mend: 1, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
+      { cost: 25000, label: "Mend two lives a wave (flyer nets to come)", mend: 2, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
     ],
   },
   wizards: {
@@ -128,7 +128,7 @@ export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0
 export const RANK_COST = (key, r) => CASTLE_WORKS[key].tiers.at(-1).cost * 2 ** (r + 1);
 export const rankLabel = (key, r) => ({
   archers: `Rank ${r}: +${r * 40}% bowmen damage`, ballista: `Rank ${r}: +${r * 40}% bolt damage`,
-  guards: `Rank ${r}: +${r * 40}% halberdiers and sweeps`, wizards: `Rank ${r}: +${r * 40}% bolt damage`, masons: `Rank ${r}: mend ${3 + r} lives a wave, +${r * 2} castle life, +${r * 40}% barricade health and spikes`,
+  guards: `Rank ${r}: +${r * 40}% halberdiers and sweeps`, wizards: `Rank ${r}: +${r * 40}% bolt damage`, masons: `Rank ${r}: mend ${2 + r} lives a wave, +${r * 2} castle life, +${r * 40}% barricade health and spikes`,
   militia: `Rank ${r}: +${r * 40}% levymen's health and blows`,
 }[key]);
 const ranked = (key, t, r) => {

@@ -2067,18 +2067,20 @@ bump WORKS_V and add its step there.
 
 **Every castle work re-cut to four tiers** (owner, same day; the Levy's tiers unchanged; provisional, pending
 the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
-- **Gate Ballista:** one, twin, **chain harpoon** (`pin` 2000: the bolt holds its foe where it
-  stands, `e.pinUntil`, read as `held` in the movement; bosses and rams too, so the column waits),
-  **shield-breaker** (`breaker` {amp 0.25, ms 5000}: every blue pip knocked off, then the falconer's
-  mark fields `markUntil` / `markAmp`, so every blow lands 25% harder). The fire bolts are gone.
+- **Gate Ballista:** one, twin, **shield-breaker** (`breaker` {amp 0.25, ms 5000}: every blue pip
+  knocked off, then the falconer's mark fields `markUntil` / `markAmp`, so every blow lands 25%
+  harder), **chain harpoon** on top of it (`pin` 2000: the bolt holds its foe where it stands,
+  `e.pinUntil`, read as `held` in the movement; bosses and rams too, so the column waits). The fire
+  bolts are gone. (Tiers 3 and 4 swapped by the owner the same day.)
 - **Court Wizards:** one, two, bounce, **force orbs** (`push` 25: the first mark is thrown 25 road
   steps back and released; never a boss, ram or swimmer; dmg 72).
-- **Gate Guard:** two, **four** (`guardSpots` has a 4-post line, -27..27), **braced plate** (`armor`
-  0.3 off every blow on them, a ram's crush too, via runMelee / `trample`'s `host.st.armor`; `brace`:
-  a cavalier's charge breaks on the halberd, the man keeps his feet and holds the rider), **sweeps**.
-  The thicker gate (castle life) left them for the Masons.
-- **Masons' Guild:** wood one row, wood two rows + thicker gate (+5), **iron** (300 a frame), **steel**
-  (480, +8 life, mend 3). Barricades are no longer rebuilt free each wave: set up whole at the first
+- **Gate Guard:** two, three, **braced plate** (`armor` 0.3 off every blow on them, a ram's crush too,
+  via runMelee / `trample`'s `host.st.armor`; `brace`: a cavalier's charge breaks on the halberd, the
+  man keeps his feet and holds the rider), **sweeps**. (Four men was tried and dropped: `guardSpots`
+  still has a 4-post line.) The thicker gate (castle life) left them for the Masons.
+- **Masons' Guild** (owner's final cut, same day): one row a tier, wood (150), **iron** + thicker gate
+  (300, +5 castle life), **steel** (480, +5 more: 10 in all), then mend 2 lives a wave (mend 1 below)
+  and FLYER NETS (design pending with the owner). Barricades are no longer rebuilt free each wave: set up whole at the first
   build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
   damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
   the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls
