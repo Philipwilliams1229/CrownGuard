@@ -9,6 +9,17 @@
 // which is the ring's gentle live motion. The build ghost's footprint is a
 // stepped, rounded pixel plate with a tinted rim (`drawPlate`).
 // Art pixel = 0.5 world unit (paint.js PX = 2).
+//
+// Memory (2026-11-18, the owner's phone froze and crashed on placing a Log Roller):
+// a whole-map hall (range 900 / 999: the Log Roller, Kingsight...) asked for a ring
+// ~4000 pixels across, ~64 MB a bake plus as much again while it was painted, and
+// every new size or colour (the fog thinning, green / red ghost, selected gold, the
+// slate clear-weather ring) baked another. A ring that lies wholly off the board is
+// now skipped, and the baked rings are held to RING_BUDGET bytes.
+import { W, H } from "../data/constants.js";
+const RING_BUDGET = 24 * 1024 * 1024;
+let ringBytes = 0;
+const WHOLE_MAP = 500;
 
 const AP = 2;                                   // art pixels per world unit
 const INK_RGB = [43, 42, 51];
@@ -36,9 +47,13 @@ const bake = (rp, color, fill) => {
   const key = rp + "|" + color + "|" + fill;
   let hit = CACHE.get(key);
   if (hit) return hit;
-  if (CACHE.size > 60) CACHE.clear();
   const k = kindOf(color);
   const pad = 3, size = rp * 2 + pad * 2 + 1, c0 = rp + pad;
+  // oldest bakes go first once the rings hold more than the budget
+  for (const [key0, h0] of CACHE) {
+    if (ringBytes + size * size * 4 <= RING_BUDGET || !CACHE.size) break;
+    ringBytes -= h0.cv.width * h0.cv.height * 4; CACHE.delete(key0);
+  }
   const cv = document.createElement("canvas");
   cv.width = cv.height = size;
   const cx = cv.getContext("2d");
@@ -49,8 +64,16 @@ const bake = (rp, color, fill) => {
     d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = a;
   };
   const line = [];
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const dx = x - c0, dy = y - c0, dist = Math.sqrt(dx * dx + dy * dy), dd = dist - rp;
+  // only the band round the line is ever painted: walk each row's two spans of it, not the whole square
+  const rOut = rp + 2, rIn = rp - (fill > 0 ? bw : 0) - 2;
+  for (let y = 0; y < size; y++) {
+    const dy0 = y - c0;
+    if (Math.abs(dy0) > rOut) continue;
+    const xo = Math.floor(Math.sqrt(rOut * rOut - dy0 * dy0));
+    const xi = rIn > Math.abs(dy0) ? Math.max(0, Math.ceil(Math.sqrt(rIn * rIn - dy0 * dy0)) - 1) : -1;
+    for (let x = Math.max(0, c0 - xo); x <= Math.min(size - 1, c0 + xo); x++) {
+    if (xi >= 0 && Math.abs(x - c0) < xi) { x = c0 + xi - 1; continue; }
+    const dx = x - c0, dy = dy0, dist = Math.sqrt(dx * dx + dy * dy), dd = dist - rp;
     const lit = dist > 0 ? -(dx + dy) / (dist * 1.4142) : 0;     // +1 upper left
     if (Math.abs(dd) <= 0.5) {
       put(x, y, lit > 0.35 ? k.lite : lit < -0.35 ? k.dark : k.base, 255);
@@ -64,11 +87,13 @@ const bake = (rp, color, fill) => {
       const f = 1 - (-dd - 1.5) / bw;                             // 1 at the line, 0 inward
       if (f * f * 0.85 * fill > (BAYER[((y & 3) << 2) | (x & 3)] + 0.5) / 16) put(x, y, k.base, 150);
     }
+    }
   }
   cx.putImageData(img, 0, 0);
   line.sort((a, b) => a[2] - b[2]);
   hit = { cv, c0, line, n: line.length, rp };
   CACHE.set(key, hit);
+  ringBytes += size * size * 4;
   return hit;
 };
 
@@ -78,6 +103,11 @@ const bake = (rp, color, fill) => {
 export const drawRangeRing = (ctx, cx, cy, radius, color, spin, fill = 1) => {
   const rp = Math.round(radius * AP);
   if (rp < 3) return;
+  // the board's farthest corner from the centre: a ring past it never shows
+  const far = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy));
+  if (radius > far + 2) return;
+  // whole-map halls (900 / 999, even cut by fog) have no ring to show; real reaches end near 320
+  if (radius > WHOLE_MAP) return;
   const b = bake(rp, color, Math.round(fill * 100) / 100);
   const ox = Math.round(cx * AP), oy = Math.round(cy * AP);
   ctx.save();

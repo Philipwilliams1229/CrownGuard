@@ -1728,6 +1728,12 @@ Fable's audit: most likely iOS killed the page for memory. Fixed the same day (n
   wave, bake MB); a clean leave removes it, so a beat found at launch is logged as "unclean-exit"
   (almost always a memory kill). Settings > Progress > Crash reports copies it. It caught one bug
   at once: the storm's warm-up threw `wu is not defined` (weatherfx.js `warm`, fixed).
+- **The Log Roller froze the game** (owner, same day: placing one "almost froze", and it was the
+  last thing placed before the crash): its reach is 999 (whole map), and the range ring baked a
+  ~4000 px canvas for it (~107 ms and ~128 MB on the Mac; every new size or colour, e.g. the fog
+  thinning, baked another, up to 60 kept). rangering.js now skips a ring wholly off the board or
+  over `WHOLE_MAP` 500 (real reaches end near 320), holds its bakes to `RING_BUDGET` 24 MB, and
+  paints only the band round the line (pixel-identical, 48 rings compared; a 316 ring 25 -> 5 ms).
 
 ## Several sessions at once
 
