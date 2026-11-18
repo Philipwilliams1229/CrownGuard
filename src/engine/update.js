@@ -959,6 +959,8 @@ const columnBehind = (g, e) => {
 // enemy loop): archers (rangedAtk) and standoff foes (necromancer, magister)
 // alike, 30 s since 2026-11-08 (owner; was 14)
 const STAND_MS = 30000;
+// ...but archers only 15 s (owner, 2026-11-17: "shorten the archer wait")
+const ARCHER_STAND_MS = 15000;
 
 // Does this man mend at the rest rate? Not in a sword fight, and not hurt in
 // the last HURT_REST_MS (bands.js). Any drop in health since the last call
@@ -2015,7 +2017,7 @@ export function updateGame(g, dt) {
       // reach, shooting from afar; once none is left standing they march on.
       // (`aiming` is last frame's answer; a budget of standing still per foe
       // keeps a healer's stalemate from holding a wave open for ever: STAND_MS)
-      const standing = ((e.rangedAtk || e.standOff) && e.aiming && (e.pauseLeft ??= STAND_MS) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
+      const standing = ((e.rangedAtk || e.standOff) && e.aiming && (e.pauseLeft ??= e.rangedAtk ? ARCHER_STAND_MS : STAND_MS) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
       if (standing) { if (e.clawing) e.clawLeft -= sdt * 1000; else e.pauseLeft -= sdt * 1000; }
       // a captain who follows his column waits for it when it falls behind him
       const waiting = !standing && e.followColumn && !stunned && !held && (e.waitLeft ??= COLUMN_WAIT_MS) > 0 && columnBehind(g, e);

@@ -1215,7 +1215,9 @@ until they have played these. Provisional.
 - **A stand-off foe walks on once his column is gone:** `columnSpent` (update.js) is true when no
   living rank and file (`inColumn`, not `revived`) is within `COLUMN_SPAN` 260 of road of him; then a
   `standOff` foe (necromancer, magister, gravecaller) stops hanging back and marches into your line.
-  Mid-wave nothing changes. Archers keep `STAND_MS`: giving them the same rule made Iron / Hollow ~12%
+  Mid-wave nothing changes. Archers instead stand at most `ARCHER_STAND_MS` 15 s (owner, same day;
+  `STAND_MS` 30 s stays for the stand-off foes; Iron / Hollow `--endure` seeds 1-2 flat: 10718 / 10735,
+  11363 / 12320). Archers do not get the walk-on rule: giving them the same rule made Iron / Hollow ~12%
   harder (seeds 1-2), and letting them walk on mid-wave too (the magister's `columnGone`) +17% / +39%.
 - **His risen fall with him:** a raise stamps `u.raisedBy` with the necromancer's id; when he dies
   (dealDamage, actions.js) each one still standing (or climbing out) crumbles, no bounty
