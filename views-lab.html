@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  Concept (2026-11-17, owner: "give the goblin front and back views"): the goblin walking
+  a loop of road, TODAY (side figure, the up/down walk, the squeeze turn) beside WITH VIEWS
+  (src/render/pix/fig-goblin-views.js: FRONT walking down the screen, BACK walking up, the
+  side figure across; a change of view or facing goes through the same quick squeeze).
+  Below: each view's eight walk frames.  /views-lab.html?z=3&slow=1&bare=1
+-->
+<html><head><meta charset="utf-8" /><title>views lab</title></head>
+<body style="background:#14171d;color:#e8e0c8;font:14px system-ui;margin:0;padding:12px">
+<div id="t" style="margin-bottom:8px"></div>
+<canvas id="c" style="image-rendering:pixelated"></canvas>
+<script type="module">
+import { bakeFrame } from "/src/render/pix/bake.js";
+import { pixRec, vertSheet } from "/src/render/pix/pixrigs.js";
+import { vertOf, turnOf, TURN_MS, SLIVER } from "/src/render/march.js";
+import * as gob from "/src/render/pix/fig-goblin.js";
+
+const Q = new URLSearchParams(location.search);
+const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), BARE = !!Q.get("bare");
+const VIEWS = "/src/render/pix/fig-goblin-views.js";
+const V = await import(/* @vite-ignore */ VIEWS).catch(() => null);
+const SIDE = { ...gob, NAME: "goblin" };
+const N = gob.CLIPS.walk.n, MS = gob.CLIPS.walk.ms, SPEED = (4 * 3.7) / (MS / 1000);
+const variant = BARE ? "bare" : "";
+document.getElementById("t").innerHTML = `<b>Goblin with front and back views</b> (a test, not in the game). Left: today. Right: with views. ` +
+  `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW === 1 ? 3 : 1}${BARE ? "&bare=1" : ""}">${SLOW === 1 ? "slow motion" : "normal speed"}</a> · ` +
+  `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "" : "&bare=1"}">${BARE ? "hooded goblin" : "bare-headed goblin"}</a>` +
+  (V ? "" : ` <span style="color:#e07060">(the views are not drawn yet)</span>`);
+
+const PW = 170, PH = 150, GAP = 8, ROW = 50;
+const pts = [[24, 116], [146, 116], [146, 40], [24, 40]];
+const segs = pts.map((p, i) => { const q = pts[(i + 1) % 4]; return { p, q, len: Math.hypot(q[0] - p[0], q[1] - p[1]) }; });
+const LOOP = segs.reduce((s, g) => s + g.len, 0);
+const posAt = (d) => { d = ((d % LOOP) + LOOP) % LOOP; for (const g of segs) { if (d <= g.len) { const t = d / g.len; return [g.p[0] + (g.q[0] - g.p[0]) * t, g.p[1] + (g.q[1] - g.p[1]) * t]; } d -= g.len; } return pts[0]; };
+const smoothPos = (d) => { let x = 0, y = 0; for (let i = 0; i < 9; i++) { const p = posAt(d + (i - 4) * 3); x += p[0]; y += p[1]; } return [x / 9, y / 9]; };
+
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+cv.width = (PW * 2 + GAP) * Z; cv.height = (PH + 14 + 3 * ROW + 6) * Z;
+const ground = (ox) => {
+  ctx.save(); ctx.translate(ox, 0);
+  ctx.fillStyle = "#6f9a4c"; ctx.fillRect(0, 0, PW, PH);
+  ctx.fillStyle = "#5f8a40"; for (let i = 0; i < 90; i++) ctx.fillRect((i * 53) % PW, (i * 37 + (i % 7) * 11) % PH, 1, 1);
+  ctx.strokeStyle = "#9c7a4e"; ctx.lineWidth = 22; ctx.lineJoin = "round";
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle = "#a9875a"; ctx.lineWidth = 12; ctx.stroke();
+  ctx.fillStyle = "#7d6040"; for (let d = 0; d < LOOP; d += 9) { const p = posAt(d); ctx.fillRect(Math.round(p[0] + (d * 7.3) % 7 - 3.5), Math.round(p[1] + (d * 3.1) % 7 - 3.5), 1, 1); }
+  ctx.restore();
+};
+const shadow = (x, y) => { ctx.fillStyle = "rgba(20,24,12,0.35)"; ctx.beginPath(); ctx.ellipse(x, y + 1, 7, 2.2, 0, 0, Math.PI * 2); ctx.fill(); };
+const blit = (rec, x, y, flip, sx) => { ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.scale(flip ? -sx : sx, 1); ctx.drawImage(rec.cv, -rec.ox, -rec.oy); ctx.restore(); };
+
+const today = {}, views = {};
+let T = 0, last = performance.now();
+const tick = (now) => {
+  T += Math.min(0.1, (now - last) / 1000) / SLOW; last = now;
+  ctx.setTransform(Z, 0, 0, Z, 0, 0); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#14171d"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ground(0); ground(PW + GAP);
+  const d = T * SPEED, p = smoothPos(d), p2 = smoothPos(d + 2), vx = p2[0] - p[0], vy = p2[1] - p[1], v = Math.hypot(vx, vy) || 1;
+  const ph = ((d / (SPEED * MS / 1000)) % 1 + 1) % 1, f = Math.floor(ph * N);
+  const face = Math.abs(vx / v) > 0.3 ? (vx >= 0 ? 1 : -1) : null;
+
+  // today
+  today.x = p[0]; today.y = p[1]; today.face = face ?? today.face ?? 1;
+  const h1 = vertOf(today), t1 = turnOf(today, today.face, T * 1000);
+  const r1 = pixRec(BARE ? "goblinBare" : "goblin", vertSheet("goblin", "walk", h1), ph * 4, t1.face < 0);
+  shadow(p[0], p[1]); blit(r1, p[0], p[1], t1.face < 0, t1.sx);
+
+  // with views: back going up, front going down, side across; a change goes through a squeeze
+  views.x = p[0]; views.y = p[1]; views.face = face ?? views.face ?? 1;
+  const h2 = vertOf(views);
+  const want = !V ? "side" : h2 < -0.6 ? "back" : h2 > 0.6 ? "front" : "side";
+  const key = want === "side" ? `side${views.face}` : want;
+  if (views.key === undefined) views.key = key;
+  if (key !== views.key) { views.from = views.key; views.key = key; views.at = T * 1000; }
+  const u = views.at === undefined ? 1 : (T * 1000 - views.at) / TURN_MS;
+  const showKey = u < 0.5 ? views.from : views.key, sx = u < 1 ? Math.max(SLIVER, Math.abs(Math.cos(Math.PI * u))) : 1;
+  const x2 = PW + GAP + p[0];
+  shadow(x2, p[1]);
+  if (showKey === "front" || showKey === "back") blit(bakeFrame(showKey === "front" ? V.FRONT : V.BACK, "walk", f, { variant }), x2, p[1], false, sx);
+  else { const left = showKey === "side-1"; blit(bakeFrame(SIDE, "walk", f, { flip: left, variant }), x2, p[1], left, sx); }
+
+  ctx.fillStyle = "#14171d"; ctx.fillRect(0, PH, PW * 2 + GAP, 14);
+  ctx.font = "8px system-ui"; ctx.fillStyle = "#c8c0a8"; ctx.fillText("TODAY", 3, PH + 10);
+  ctx.fillStyle = "#e8c070"; ctx.fillText(`WITH VIEWS (${showKey.startsWith("side") ? "side" : showKey})`, PW + GAP + 3, PH + 10);
+
+  // the frames
+  const rows = [["side", SIDE], ["front (walking down)", V?.FRONT], ["back (walking up)", V?.BACK]];
+  rows.forEach(([name, fig], r) => {
+    const y0 = PH + 16 + r * ROW;
+    ctx.fillStyle = "#1c2016"; ctx.fillRect(0, y0, PW * 2 + GAP, ROW - 2);
+    ctx.fillStyle = "#c8c0a8"; ctx.font = "7px system-ui"; ctx.fillText(name, 3, y0 + 8);
+    if (fig) for (let i = 0; i < N; i++) { const rec = bakeFrame(fig, "walk", i, { variant }); ctx.drawImage(rec.cv, 6 + i * 42 - rec.ox + 24, y0 + 4 + 42 - rec.oy); }
+  });
+  requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+</script>
+</body></html>
