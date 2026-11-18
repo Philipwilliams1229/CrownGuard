@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  An animated sample of the Masons' net, recorded to a video (MediaRecorder, in the browser):
+  part 1, every flier netted, big, flailing; part 2, the real engine at Ironford's gate with the
+  Masons' tier 4 and the Gate Guard, fliers coming in (the launcher's reload cut to `reload` ms
+  for the demo, said on screen). Saves .shots/<tag>.png holding the VIDEO bytes: rename it to
+  .mp4 / .webm (the dev server's sink only writes .png names). The pane must be visible.
+
+    /net-anim.html?tag=netanim&reload=3000&secs1=4&secs2=10
+-->
+<html>
+  <head><meta charset="utf-8" /><title>net anim</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <canvas id="out" width="960" height="540"></canvas>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { TOTAL_LEN } from "/src/engine/path.js";
+      import { updateGame, spawnAt } from "/src/engine/update.js";
+      import { emptyWorks } from "/src/data/castle.js";
+      import { draw } from "/src/render/draw.js";
+      import * as R from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "netanim", RELOAD = Number(q.get("reload") || 3000);
+      const SECS1 = Number(q.get("secs1") || 4), SECS2 = Number(q.get("secs2") || 10), FPS = 30;
+      const out = document.getElementById("out"), o = out.getContext("2d");
+      o.imageSmoothingEnabled = false;
+      const label = (t, y = 30) => { o.font = "bold 22px monospace"; o.fillStyle = "rgba(20,16,28,0.85)"; const w = o.measureText(t).width + 20; o.fillRect(10, y - 24, w, 34); o.fillStyle = "#fff3d2"; o.fillText(t, 20, y); };
+      // ---- part 1: every flier netted, flailing ----
+      const types = ["gryphon", "bat", "wraith", "wight", "icedrake"].filter((t) => R.hasRig(t));
+      const part1 = (t) => {
+        o.fillStyle = "#b89a6c"; o.fillRect(0, 0, out.width, out.height);
+        const S = 4, cols = 3;
+        types.forEach((ty, i) => {
+          const cx = (i % cols) * 320 + 160, cy = Math.floor(i / cols) * 250 + 230;
+          const f = Math.floor(t * 9 + i) % 4;
+          o.save(); o.scale(S, S);
+          R.drawRig(o, ty, cx / S, cy / S, i % 2 ? -1 : 1, "fight", f, "");
+          R.drawRig(o, ty, cx / S, cy / S, i % 2 ? -1 : 1, "fight", f, "net");
+          o.restore();
+        });
+        label("The Masons' net: every flier it can catch");
+      };
+      // ---- part 2: the real engine at the gate ----
+      selectRealm("ironford"); selectFaction("iron");
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 999, wave: 1, freeplay: true, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, castle: { ...emptyWorks(), masons: 4, guards: 3 },
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      updateGame(g, 1 / 60); g.phase = "combat";
+      const waves = [["gryphon", 0], ["wraith", 0.6], ["gryphon", 1.4], ["bat", 2.2], ["bat", 2.4], ["gryphon", 3.4], ["wraith", 4.6], ["gryphon", 5.8]];
+      const board = document.createElement("canvas"); board.width = W; board.height = H;
+      let spawned = 0, lastNet = 0;
+      const part2 = (t) => {
+        while (spawned < waves.length && waves[spawned][1] <= t) {
+          const e = spawnAt(g, waves[spawned][0], 1, TOTAL_LEN - 300, g.time * 1000); e.hp = e.maxHp = 2500; spawned++;
+        }
+        // (demo: the launcher reloads in RELOAD ms, not 15 s, so a short clip shows several catches)
+        if ((g.netted || 0) > lastNet) { lastNet = g.netted; if (g.castleCd) g.castleCd.net = RELOAD; }
+        updateGame(g, 1 / FPS);
+        draw(g, board, { current: null });
+        const k = board.width / W, cw = 240, ch = 135, cx = W - cw - 6, cy = 150;
+        o.drawImage(board, cx * k, cy * k, cw * k, ch * k, 0, 0, out.width, out.height);
+        label("At the gate (demo: net reload " + (RELOAD / 1000) + " s, in game 15 s)");
+      };
+      // ---- record ----
+      const types2 = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+      const mime = types2.find((m) => MediaRecorder.isTypeSupported(m));
+      const rec = new MediaRecorder(out.captureStream(FPS), { mimeType: mime, videoBitsPerSecond: 4e6 });
+      const chunks = []; rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.start();
+      const total = (SECS1 + SECS2) * FPS;
+      for (let i = 0; i < total; i++) {
+        const t = i / FPS;
+        if (t < SECS1) part1(t); else part2(t - SECS1);
+        await new Promise((r) => setTimeout(r, 1000 / FPS));
+      }
+      rec.stop();
+      await new Promise((r) => (rec.onstop = r));
+      const blob = new Blob(chunks, { type: mime });
+      const b64 = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
+      await fetch(`/__shot?name=${TAG}`, { method: "POST", body: b64 });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/${TAG}.png (${mime}, ${Math.round(blob.size / 1024)} KB): rename it`;
+    </script>
+  </body>
+</html>
