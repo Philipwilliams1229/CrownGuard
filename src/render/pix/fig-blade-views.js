@@ -111,15 +111,15 @@ const make = (s) => (px, F, o = {}) => {
     px.part(); const cid = px._pid;
     if (s > 0) px.poly([[sx - 6.2, chestY - 2], [sx + 6.2, chestY - 2], [sx + 6.9, chestY + 4], [...tails[6]], [...tails[0]], [sx - 6.9, chestY + 4]], K.CLOAK, 0.8, { round: 0.8, bias: -1, floor: 1, cast: 1 });
     else {
-      px.poly([[sx - 5.8, chestY - 2.4], [sx + 5.8, chestY - 2.4], [sx + 6.6, chestY + 4], ...tails, [sx - 6.6, chestY + 4]], K.CLOAK, 4.4, { round: 0.8, bias: -1, floor: 1, cast: 1 });
+      px.poly([[sx - 5.8, chestY - 2.4], [sx + 5.8, chestY - 2.4], [sx + 6.6, chestY + 4], ...tails, [sx - 6.6, chestY + 4]], K.CLOAK, 5.2, { round: 0.8, bias: -1, floor: 1, cast: 1, edge: true });
       px.toneLine(sx - 0.6, chestY + 2, hx - 0.4 + vx, h - 2.4, -1, cid);
       px.toneLine(sx + 3.4, chestY + 5, hx + 3.2 + vx, h - 2.6, -1, cid);
-      px.line(sx - 4.4, chestY + 1.4, sx + 4.4, chestY + 1.4, K.WRAP, 4.45, { bias: -1 });     // the cloak's collar band
+      px.line(sx - 4.4, chestY + 1.4, sx + 4.4, chestY + 1.4, K.WRAP, 5.25, { bias: -1 });     // the cloak's collar band
     }
   }
 
   // ---- far arm: (his left, screen ls) a sleeve, the empty fist (or the second knife)
-  const armZ = s > 0 ? 3.2 : 2.2;
+  const armZ = s > 0 ? 3.2 : 4.3, wz = s > 0 ? 0 : 1;   // BACK stack: arms 4.3 (both), fists 3.6, weapon 1.0, the cloak 5.2
   const knifeFront = (hd, ang, len, z, side) => {
     // the blade points the way he walks: toward us (FRONT), foreshortened to a wedge below the fist; away (BACK) a tip peeking out
     const l = len * 0.45;
@@ -136,27 +136,28 @@ const make = (s) => (px, F, o = {}) => {
       px.capsule(hd[0], hd[1] - 2, 0.9, hd[0] + side * 0.3, hd[1] + 1.2, 0.9, GRIP, z);
       px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
       px.part();
-      px.capsule(hd[0] + side * 0.6, hd[1] + 1.2, 0.9, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, 0.4, K.STEEL, z + 0.02, { edge: true });
+      px.capsule(hd[0] + side * 0.6, hd[1] + 1.2, 0.9, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, 0.4, K.STEEL, z + 0.02, { edge: false });
       if (K.VENOM) px.line(hd[0] + side * 0.8, hd[1] + 2.2 + l * 0.3, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, K.VENOM, z + 0.05, { noLine: true });
     }
   };
   const klen = L.blade === "long" ? 12 : L.blade === "needle" ? 11 : L.blade === "hanger" ? 9.6 : 8.2;
   {
     const aF = (p.aF || [0.8, 0.8, 0])[0];
-    const sh = [ls * 5.2 + sx, chestY + 0.8], hd = [ls * 6.8 + sx, sh[1] + 8.4 + s * (aF - 0.7) * 2.4], el = [ls * 7.6 + sx, sh[1] + 4.4];
+    const back = s < 0, ao = back ? { cast: 0 } : { bias: -3, floor: 1 };
+    const sh = [ls * (back ? 5.6 : 5.2) + sx, chestY + 0.8], hd = back ? [ls * 7.1 + sx, sh[1] + 9.4 + (aF - 0.7) * 1.6] : [ls * 6.8 + sx, sh[1] + 8.4 + (aF - 0.7) * 2.4], el = [ls * (back ? 7.4 : 7.6) + sx, sh[1] + 4.4];
     px.part();
-    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.1, K.SLEEVE, armZ, { bias: -3, floor: 1 });
-    px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.8, K.SLEEVE, armZ, { bias: -3, floor: 1 });
-    px.capsule(el[0] * 0.35 + hd[0] * 0.65, el[1] * 0.35 + hd[1] * 0.65, 2.0, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.9, K.WRAP, armZ + 0.02, { bias: -1 });
-    px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.7, 1.7, SKIN, armZ + 0.3, { bias: -1 });
-    if (L.twin) knifeFront(hd, 0, klen * 0.9, armZ + 0.2, ls);
+    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.1, K.SLEEVE, armZ, ao);
+    px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.8, K.SLEEVE, armZ, ao);
+    px.capsule(el[0] * 0.35 + hd[0] * 0.65, el[1] * 0.35 + hd[1] * 0.65, 2.0, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.9, K.WRAP, armZ + 0.02, back ? { cast: 0 } : { bias: -1 });
+    px.part(); if (back) px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6, { cast: 0 }); else px.ellipse(hd[0], hd[1] + 0.4, 1.7, 1.7, SKIN, armZ + 0.3, { bias: -1 });
+    if (L.twin) knifeFront(hd, 0, klen * 0.9, back ? 1.0 : armZ + 0.2, ls);
     // the Plague Bearer's censer swings on its chain from this fist
     if (L.censer) {
-      const swg = (p.cz || 0) * 1.4 + wob * 0.5, c0 = [hd[0] + ls * 0.6 + swg, hd[1] + 7.2];
+      const swg = (p.cz || 0) * 1.4 + wob * 0.5, c0 = [hd[0] + ls * 0.6 + swg, hd[1] + 7.2], cz = back ? 1.0 : armZ + 0.4;
       px.part();
-      px.line(hd[0], hd[1] + 1, c0[0], c0[1] - 1.4, K.TRIM, armZ + 0.4, { noLine: true });
-      px.ellipse(c0[0], c0[1], 2.4, 2.4, K.BRASS, armZ + 0.4, { vb: 0.2 });
-      px.dot(c0[0] + 0.4, c0[1] + 0.2, K.VIAL, armZ + 0.5, { noLine: true });
+      px.line(hd[0], hd[1] + 1, c0[0], c0[1] - 1.4, K.TRIM, cz, { noLine: true });
+      px.ellipse(c0[0], c0[1], 2.4, 2.4, K.BRASS, cz, { vb: 0.2 });
+      px.dot(c0[0] + 0.4, c0[1] + 0.2, K.VIAL, cz + 0.1, { noLine: true });
     }
   }
 
@@ -198,10 +199,10 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the mantle: the cowl's own cloth over both shoulders (a pauldron on the Open Contract's right)
   px.part(); const man = px._pid;
-  px.poly([[sx - 5.6, chestY - 3.2], [sx + 5.6, chestY - 3.2], [sx + 6.4, chestY + 0.6], [sx + 4.2, chestY + 2.6], [sx, chestY + 3.2], [sx - 4.2, chestY + 2.6], [sx - 6.4, chestY + 0.6]], K.COWL, 5, { round: 0.9, cast: 1, bias: -2, floor: 1 });
+  px.poly([[sx - 5.6, chestY - 3.2], [sx + 5.6, chestY - 3.2], [sx + 6.4, chestY + 0.6], [sx + 4.2, chestY + 2.6], [sx, chestY + 3.2], [sx - 4.2, chestY + 2.6], [sx - 6.4, chestY + 0.6]], K.COWL, s > 0 ? 5 : 5.4, { round: 0.9, cast: 1, bias: -2, floor: 1, edge: s < 0 });
   px.toneLine(sx - 6, chestY + 1.4, sx - 4.2, chestY + 2.6, -1, man);
   px.toneLine(sx - 4.2, chestY + 2.6, sx, chestY + 3.2, -1, man);
-  if (K.PAUL) { px.part(); px.ellipse(rs * 5.6 + sx, chestY - 0.4, 3.4, 2.8, K.PAUL, 9.5, { cast: 1 }); px.line(rs * 5.6 + sx - 2.4, chestY + 1.8, rs * 5.6 + sx + 2.4, chestY + 1.8, K.TRIM, 9.52); }
+  if (K.PAUL) { px.part(); px.ellipse(rs * 5.6 + sx, chestY - 0.4, 3.4, 2.8, K.PAUL, s > 0 ? 9.5 : 5.6, { cast: 1 }); px.line(rs * 5.6 + sx - 2.4, chestY + 1.8, rs * 5.6 + sx + 2.4, chestY + 1.8, K.TRIM, 9.52); }
 
   // ---- the scarf: wound at the throat (FRONT), or knotted at the nape with two tails down the cloak (BACK)
   if (s > 0) {
@@ -253,16 +254,19 @@ const make = (s) => (px, F, o = {}) => {
     }
   }
 
-  // ---- the near arm (his right) and the knife in his fist, over everything
+  // ---- the near arm (his right) and the knife in his fist. FRONT: over everything. BACK: the same stack as the far arm (z 4.3, fist 3.6, knife 1.0)
   {
-    const aN = (p.aN || [0.7, 0.8, 0])[0];
-    const sh = [rs * 5.2 + sx, chestY + 0.8], hd = [rs * 6.8 + sx, sh[1] + 8.4 + s * (aN - 0.7) * 2.4], el = [rs * 7.8 + sx, sh[1] + 4.4];
+    const aN = (p.aN || [0.7, 0.8, 0])[0], back = s < 0;
+    const sh = [rs * (back ? 5.6 : 5.2) + sx, chestY + 0.8], el = [rs * (back ? 7.4 : 7.8) + sx, sh[1] + 4.4];
+    const hd = back ? [rs * 7.1 + sx, sh[1] + 9.4 + (aN - 0.7) * 1.6] : [rs * 6.8 + sx, sh[1] + 8.4 + s * (aN - 0.7) * 2.4];
+    const z = back ? 4.3 : 9.4, ao = back ? { cast: 0 } : { cast: 2, bias: -2, floor: 1 };
     px.part(); px.tag("nearArm");
-    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, K.SLEEVE, 9.4, { cast: 2, bias: -2, floor: 1 });
-    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, K.SLEEVE, 9.4, { cast: 2, bias: -2, floor: 1 });
-    { const a = mix(el, hd, 0.56), b = mix(el, hd, 0.84); px.capsule(a[0], a[1], 2.1, b[0], b[1], 1.9, K.WRAP, 9.42, { bias: -1 }); }
-    px.part(); px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 9.8, { cast: 1 }); px.tag(null);
-    px.tag("knife"); knifeFront(hd, 0, klen, 9.65, rs); px.tag(null);
+    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, K.SLEEVE, z, ao);
+    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, K.SLEEVE, z, ao);
+    { const a = mix(el, hd, 0.56), b = mix(el, hd, 0.84); px.capsule(a[0], a[1], 2.1, b[0], b[1], 1.9, K.WRAP, z + 0.02, back ? { cast: 0 } : { bias: -1 }); }
+    px.part(); if (back) px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6, { cast: 0 }); else px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 9.8, { cast: 1 });
+    px.tag(null);
+    px.tag("knife"); knifeFront(hd, 0, klen, back ? 1.0 : 9.65, rs); px.tag(null);
   }
   return {};
 };

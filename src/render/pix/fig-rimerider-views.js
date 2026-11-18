@@ -159,10 +159,65 @@ const rider = (px, F, s, b, sx) => {
   void cl;
 };
 
+// BACK stack (views-artist.md, "The BACK stack"): higher z is nearer us. Axe lowest, legs, fists, torso, both
+// arms just over it (cast 0), then what lies on his back: the whole slung shield, the fur mantle, braid, horns,
+// the helm last.
+const riderBack = (px, F, b, sx) => {
+  const ph = F.ph, TAU = Math.PI * 2, seat = b.at(0.06, 0, -1.8);
+  const H = [sx * 0.6, seat[1] + 1.5], C = [H[0], H[1] - 7.7];
+  const hx = Math.round(C[0]), hy = Math.round(C[1] - 5), sw = 0.5 * Math.sin(ph * TAU * 2), S = 5.2;
+  const hN = [C[0] + 6.4, C[1] + 7.4], hF = [C[0] - 6.4, C[1] + 7.4 + sw * 0.8];
+  const tp = [hN[0] + 3, hN[1] - 6];
+  px.part(); px.tag("axe");
+  px.capsule(hN[0] - 0.3, hN[1] + 4.8, 0.85, hN[0], hN[1], 0.85, WOODM, 9, { cast: 0 });
+  px.capsule(hN[0], hN[1], 0.85, tp[0], tp[1], 0.85, WOODM, 9, { cast: 0 });
+  px.poly([[tp[0], tp[1] - 1], [tp[0] + 5.4, tp[1] - 2.6], [tp[0] + 6, tp[1] + 4], [tp[0] + 3.2, tp[1] + 5.2], [tp[0], tp[1] + 2.6]], STEEL, 9.05, { fix: 2, cast: 0 });
+  px.poly([[tp[0] + 3.2, tp[1] + 5.2], [tp[0] + 6, tp[1] + 4], [tp[0] + 5, tp[1] + 2.8]], STEEL, 9.1, { fix: 4, cast: 0 });
+  px.poly([[tp[0], tp[1] - 1.6], [tp[0] - 1.2, tp[1] - 1.6], [tp[0] - 1.2, tp[1] + 2.2], [tp[0], tp[1] + 2.2]], IRON_D, 9.02, { fix: 1, cast: 0 });
+  px.tag(null);
+  for (const side of [-1, 1]) {
+    px.part();
+    const k = [side * 8.2, H[1] + 2.4], f = [side * 8.6, H[1] + 10.2];
+    px.capsule(side * 2.6, H[1] + 0.2, 2.5, k[0], k[1], 2.1, WOOL, 10, { cast: 1 });
+    px.capsule(k[0], k[1], 2, f[0], f[1] - 0.6, 1.6, LEATHER, 10, { cast: 1 });
+    px.ellipse(f[0] + side * 0.3, f[1] + 0.7, 1.9, 1.3, LEATHER, 10.02, { cast: 1 });
+    px.capsule(k[0] - 1.8, k[1] + 3, 1.2, k[0] + 1.8, k[1] + 3.2, 1.2, FURW, 10.05, {});
+  }
+  px.part(); px.ellipse(hN[0], hN[1] + 0.9, 1.5, 1.5, SKIN, 11.6, { cast: 0 });
+  px.part(); px.ellipse(hF[0], hF[1] + 0.9, 1.5, 1.5, SKIN, 11.6, { cast: 0 });
+  px.part();
+  px.poly([[C[0] - 4.8, C[1] - 1.6], [C[0] + 4.8, C[1] - 1.6], [C[0] + 4.8, C[1] + 2.8], [H[0] + 4.7, H[1] - 1], [H[0] + 4.8, H[1] + 2.6], [H[0] - 4.8, H[1] + 2.6], [H[0] - 4.8, H[1] - 1], [C[0] - 4.8, C[1] + 2.8]], TEAL, 12, { round: 0.92, cast: 1 });
+  px.poly([[H[0] - 5, H[1] - 2.2], [H[0] + 5, H[1] - 2.2], [H[0] + 5, H[1] - 0.4], [H[0] - 5, H[1] - 0.4]], LEATHER, 12.05, { round: 0.92, floor: 1 });
+  for (const [sgn, hd] of [[1, hN], [-1, hF]]) {
+    const sh = [C[0] + sgn * S, C[1] + 1.2], el = [C[0] + sgn * (S + 1.2), (C[1] + 1.2 + hd[1]) / 2];
+    px.part();
+    px.limb([sh, el, hd], [2.1, 1.9, 1.7], TEAL, 12.3, { cast: 0 });
+    px.capsule(el[0], el[1] + 0.8, 1.9, hd[0], hd[1], 1.8, LEATHER, 12.35, { cast: 0 });
+  }
+  // the round shield slung whole on his back
+  px.part(); const shId = px._pid;
+  const cx = C[0], cy = C[1] + 3.4, SR = 6.8;
+  px.ellipse(cx, cy, SR, SR, OCHRE, 13.2, { round: 0.55, cast: 1, edge: true });
+  px.ellipse(cx, cy, SR * 0.62, SR * 0.62, TEAL_D, 13.22, { round: 0.6 });
+  px.ellipse(cx, cy, SR * 0.26, SR * 0.26, IRON, 13.26, { cast: 1 });
+  px.toneLine(cx - SR * 0.6, cy - SR * 0.6, cx + SR * 0.6, cy + SR * 0.6, -1, shId);
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3; px.dot(cx + Math.cos(a) * SR * 0.82, cy + Math.sin(a) * SR * 0.82, STEEL, 13.28, { fix: 3 }); }
+  // the mantle over his shoulders
+  px.part();
+  px.ellipse(C[0], C[1] - 0.4, 8, 3.6, FURW, 13.8, { cast: 1, edge: true });
+  for (const x of [-6.4, -4, -1.4, 1.2, 3.8, 6]) px.dot(C[0] + x, C[1] + 2.8 - Math.abs(x) * 0.1, FURW, 13.8);
+  for (const [x, y] of [[-3, -1.4], [1.6, -1.8], [4.4, -0.6]]) px.dot(C[0] + x, C[1] + y, FROST, 13.85, { noLine: true });
+  px.part();
+  horn(px, hx - 4.6, hy - 5, -1, 14); horn(px, hx + 4.6, hy - 5, 1, 14);
+  px.capsule(hx, hy + 4, 1.5, hx + sw, hy + 8.6, 1.3, FLAX, 14.1); px.capsule(hx + sw, hy + 8.6, 1.3, hx + sw * 1.4, hy + 12.4, 0.9, FLAX, 14.1);
+  px.part();
+  px.stamp(RBACK, hx, hy, RLEG, 14.5, { ax: 6, ay: 6, ball: [6.5, 5.5, 7, 6.5], cast: 1 });
+};
+
 const make = (s) => (px, F, o = {}) => {
   const loose = o.variant === "loose";
   const { b, sx } = wolfView(px, F, s, KIT, { zHead: 11, extra: harness });
-  if (!loose) rider(px, F, s, b, sx);
+  if (!loose) { if (s > 0) rider(px, F, s, b, sx); else riderBack(px, F, b, sx); }
   return {};
 };
 export const BOX = { w: 48, h: 84, ox: 24, oy: 76 };

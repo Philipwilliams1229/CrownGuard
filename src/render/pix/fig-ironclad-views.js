@@ -60,7 +60,7 @@ const FWD = 0.4, cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 const make = (s) => (px, F) => {
-  const rs = -s, ls = s, TAU = Math.PI * 2, { sk, ph } = F, p = sk.p;
+  const K = s < 0, rs = -s, ls = s, TAU = Math.PI * 2, { sk, ph } = F, p = sk.p;
   const sw = (t) => rs * 0.7 * Math.sin(t * TAU);
   const sx = sw(ph), sx1 = sw(ph - 0.09), sx2 = sw(ph - 0.18);
   const hipY = sk.P[1], chY = sk.C[1], hy = Math.round(sk.N[1]), hx = Math.round(sx * 0.7);
@@ -74,12 +74,12 @@ const make = (s) => (px, F) => {
   {
     const [sp, el, hd] = armOf(ls, aF, shY - tilt * ls * 0.6);
     px.part();
-    px.capsule(sp[0], sp[1] + 0.6, 4, el[0], el[1], 3.5, SKIN, 4.5, { bias: -1 });
-    px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.7, PLATE, 4.52, { bias: -1 });
+    px.capsule(sp[0], sp[1] + 0.6, 4, el[0], el[1], 3.5, SKIN, K ? 4.3 : 4.5, { bias: K ? 0 : -1, cast: K ? 0 : 1 });
+    px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.7, PLATE, K ? 4.31 : 4.52, { bias: K ? 0 : -1, cast: K ? 0 : 1 });
     px.part();
-    px.ellipse(hd[0], hd[1] + 0.4, 2.9, 2.9, SKIN, 4.7, { bias: -1 });
+    px.ellipse(hd[0], hd[1] + (K ? 1.2 : 0.4), K ? 2.3 : 2.9, K ? 2.3 : 2.9, SKIN, K ? 3.55 : 4.7, { bias: K ? 0 : -1 });
     px.part();
-    px.ellipse(sp[0] + ls * 0.8, sp[1] - 0.6, 5.4, 4.3, PLATE, 4.8, { bias: -1, cast: 1 });
+    px.ellipse(sp[0] + ls * 0.8, sp[1] - 0.6, 5.4, 4.3, PLATE, K ? 5.02 : 4.8, { bias: K ? 0 : -1, cast: 1, edge: K });
     // the kite shield: FRONT shows its face (rim, field, red-daubed point, boss); BEHIND its back edge past his flank
     const c = [ls * 11.4 + sx, chY + 15.8 + tilt * 0.4];
     const S = (x, y) => [c[0] + x * 0.8, c[1] + y * 0.8];
@@ -95,12 +95,12 @@ const make = (s) => (px, F) => {
       px.dot(...S(-0.6, -3.4), PLATE, 5.56, { fix: 4 });
       for (const [x, y] of [[-3.8, -8], [3.8, -8], [-4.6, 0], [4.6, 0]]) px.dot(...S(x, y), PLATE, 5.56, { fix: 4 });
     } else {
-      const cb = [ls * 14.4 + sx, c[1] + 0.5], B = (x, y) => [cb[0] + x, cb[1] + y];
+      const cb = [ls * 15.8 + sx, c[1] + 0.5], B = (x, y) => [cb[0] + x, cb[1] + y];
       px.part();
-      px.poly([B(-2.4, -10), B(2.4, -10), B(3, 1), B(0, 14), B(-3, 1)], IRON, 3.4, { round: 0.6, cast: 1 });
+      px.poly([B(-2.4, -10), B(2.4, -10), B(3, 1), B(0, 14), B(-3, 1)], IRON, 1, { round: 0.6, cast: 0 });
       px.part();
-      px.poly([B(-1.4, -8.6), B(1.4, -8.6), B(1.9, 0.6), B(0, 11.8), B(-1.9, 0.6)], WOOD, 3.42, { round: 0.6 });
-      px.dot(...B(-0.4, -6), PLATE, 3.45, { fix: 4 }); px.dot(...B(0.4, 1), PLATE, 3.45, { fix: 4 });
+      px.poly([B(-1.4, -8.6), B(1.4, -8.6), B(1.9, 0.6), B(0, 11.8), B(-1.9, 0.6)], WOOD, 1.02, { round: 0.6 });
+      px.dot(...B(-0.4, -6), PLATE, 1.05, { fix: 4 }); px.dot(...B(0.4, 1), PLATE, 1.05, { fix: 4 });
     }
   }
 
@@ -154,7 +154,7 @@ const make = (s) => (px, F) => {
 
   // the gorget the helm sits in
   px.part();
-  px.ellipse(sx, chY - 1.8, 9.6, 3.4, IRON, 4.2, { cast: 1 });
+  px.ellipse(sx, chY - 1.8, 9.6, 3.4, IRON, K ? 5 : 4.2, { cast: 1, edge: K });
 
   // the topknot pulled through the helm's crown, tipping to one side and whipping a beat behind
   const top = hy - 12, sway = cl(vx * 1.8 + vx2 * 1.4, -3, 3.5), hop = cl(vy * 1.4 + vy2, -2, 2);
@@ -174,34 +174,34 @@ const make = (s) => (px, F) => {
   {
     const [sp, el, hd] = armOf(rs, aN, shY + tilt * rs * 0.6);
     px.part(); px.tag("nearArm");
-    px.capsule(sp[0], sp[1] + 1, 4.4, el[0], el[1], 3.8, SKIN, 7.9, { cast: 1 });
-    px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.7, SKIN, 7.9, { cast: 1 });
+    px.capsule(sp[0], sp[1] + 1, 4.4, el[0], el[1], 3.8, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
+    px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.7, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
     const v0 = mix(el, hd, 0.36), v1 = mix(el, hd, 0.8);
     px.part();
-    px.capsule(v0[0], v0[1], 4, v1[0], v1[1], 4.1, PLATE, 7.95, { cast: 1 });
-    px.dot(...mix(v0, v1, 0.2), IRON, 7.96, { fix: 0 }); px.dot(...mix(v0, v1, 0.85), IRON, 7.96, { fix: 0 });
+    px.capsule(v0[0], v0[1], 4, v1[0], v1[1], 4.1, PLATE, K ? 4.31 : 7.95, { cast: K ? 0 : 1 });
+    px.dot(...mix(v0, v1, 0.2), IRON, K ? 4.32 : 7.96, { fix: 0 }); px.dot(...mix(v0, v1, 0.85), IRON, K ? 4.32 : 7.96, { fix: 0 });
     px.tag(null);
     // the falchion stands up by his side, point out and up: a leather grip, a cross-guard, the broad blade, belly outward
-    const t = rs * 0.2 + vx * 0.1, A = s > 0 ? (f, o = 0) => [hd[0] + t * f + rs * o, hd[1] - f] : (f, o = 0) => [hd[0] - rs * 0.1 * f + rs * o, hd[1] + f * 0.75], bz = 8.1;   // from behind it hangs point down at his side, behind the hip
+    const t = rs * 0.2 + vx * 0.1, A = s > 0 ? (f, o = 0) => [hd[0] + t * f + rs * o, hd[1] - f] : (f, o = 0) => [hd[0] - rs * 0.1 * f + rs * o, hd[1] + f * 0.75], bz = K ? 1 : 8.1;   // from behind it hangs point down at his side, behind the hip
     px.part(); px.tag("blade");
-    px.poly([A(5, -1.1), A(19.8, -1.5), A(23, 0.3), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)].map(([x, y]) => [x, y]), BLADE, bz, { fix: 2, edge: true });
+    px.poly([A(5, -1.1), A(19.8, -1.5), A(23, 0.3), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)].map(([x, y]) => [x, y]), BLADE, bz, { fix: 2, edge: !K });
     px.poly([A(5, 0.6), A(15, 1.7), A(21.6, 1.4), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)], BLADE, bz + 0.01, { fix: 4 });
     px.poly([A(5, -1.1), A(19.8, -1.5), A(19.4, -0.7), A(5, -0.4)], BLADE, bz + 0.01, { fix: 1 });
     px.part();
     px.capsule(...A(-3.2), 1, ...A(3.4), 1, LEATHER, bz + 0.02);
-    px.capsule(...A(4.2, -3), 1, ...A(4.2, 3.6), 1, IRON, bz + 0.05, { edge: true });
+    px.capsule(...A(4.2, -3), 1, ...A(4.2, 3.6), 1, IRON, bz + 0.05, { edge: !K });
     px.ellipse(...A(-3.8), 1.4, 1.4, IRON, bz + 0.05);
     px.tag(null);
     px.part();
-    px.ellipse(hd[0], hd[1], 2.9, 3.4, SKIN, 8.3);
+    px.ellipse(hd[0], hd[1] + (K ? 1 : 0), K ? 2.3 : 2.9, K ? 2.6 : 3.4, SKIN, K ? 3.56 : 8.3);
     // the pauldron: two lapped plates and a crude spike
     px.part();
-    px.ellipse(sp[0] + rs * 0.6, sp[1] + 2, 5.2, 3.4, PLATE, 7.98, { bias: -1, cast: 1 });
+    px.ellipse(sp[0] + rs * 0.6, sp[1] + 2, 5.2, 3.4, PLATE, K ? 5 : 7.98, { bias: -1, cast: 1, edge: K });
     px.part();
-    px.poly([[sp[0] + rs * 1 - 2, sp[1] - 3], [sp[0] + rs * 2.2 + rs * 0.6, sp[1] - 8.8], [sp[0] + rs * 1 + 2.4, sp[1] - 3.4]], IRON, 7.99, { fix: 1 });
+    px.poly([[sp[0] + rs * 1 - 2, sp[1] - 3], [sp[0] + rs * 2.2 + rs * 0.6, sp[1] - 8.8], [sp[0] + rs * 1 + 2.4, sp[1] - 3.4]], IRON, K ? 5.01 : 7.99, { fix: 1 });
     px.part();
-    px.ellipse(sp[0] + rs * 0.6, sp[1] - 0.4, 6.2, 4.4, PLATE, 8, { cast: 1 });
-    px.dot(sp[0] - 2.4, sp[1] + 1.4, IRON, 8.01, { fix: 0 }); px.dot(sp[0] + 3, sp[1] + 1.8, IRON, 8.01, { fix: 0 });
+    px.ellipse(sp[0] + rs * 0.6, sp[1] - 0.4, 6.2, 4.4, PLATE, K ? 5.02 : 8, { cast: 1, edge: K });
+    px.dot(sp[0] - 2.4, sp[1] + 1.4, IRON, K ? 5.03 : 8.01, { fix: 0 }); px.dot(sp[0] + 3, sp[1] + 1.8, IRON, K ? 5.03 : 8.01, { fix: 0 });
   }
   return {};
 };

@@ -65,20 +65,24 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the left (far) arm: free in the farmer, under the buckler in the yeoman
   const lSh = [ls * 5.4 + sx, shY], lEl = [ls * 6.6 + sx, shY + 5.2], lHd = [ls * 6.5 + sx, shY + (yeo ? 11 : 10.6) + s * swL * 2.2];
   px.part();
-  px.capsule(lSh[0], lSh[1], 2.1, lEl[0], lEl[1], 1.9, JERKIN, 4.4, { bias: -1 });
-  px.capsule(lEl[0], lEl[1], 1.8, lHd[0], lHd[1], 1.5, SKIN, 4.4, { bias: -1 });
+  // BACK stack (views-artist.md "The BACK stack"): higher z is BEHIND him; both arms 4.3 cast 0 over the torso's 4.0,
+  // fists 3.6 under the cuff, everything held at 1.0
+  const AZ = vv ? 4.4 : 4.3, AO = vv ? { bias: -1 } : { cast: 0 };
+  px.capsule(lSh[0], lSh[1], 2.1, lEl[0], lEl[1], 1.9, JERKIN, AZ, AO);
+  px.capsule(lEl[0], lEl[1], 1.8, lHd[0], lHd[1], 1.5, SKIN, AZ, AO);
   px.part();
-  px.ellipse(lHd[0], lHd[1] + 0.4, 1.7 + s * swL * 0.3, 1.7, SKIN, 4.6, { bias: -1 });
+  if (vv) px.ellipse(lHd[0], lHd[1] + 0.4, 1.7 + s * swL * 0.3, 1.7, SKIN, 4.6, { bias: -1 });
+  else px.ellipse(lHd[0], lHd[1] + 1.2, 1.4, 1.4, SKIN, 3.6, { cast: 0 });
 
   if (yeo) {   // the buckler: oak planks, iron rim and boss; from behind its back, a strap and the rim
-    const bx = ls * 8.4 + sx, by = shY + 9;
-    px.part(); const bid = px._pid, bz = vv ? 8.5 : 3.3;
+    const bx = ls * (vv ? 8.4 : 6.6) + sx, by = shY + 9;   // from behind: z 1.0, its centre inboard so only the rim past his outline shows
+    px.part(); const bid = px._pid, bz = vv ? 8.5 : 1.0;
     px.ellipse(bx, by, 4.5, 4.9, IRONK, bz, { round: 0.7 });
-    px.ellipse(bx, by, 3.6, 4.0, OAK, bz + 0.02, { round: 0.8 });
+    px.ellipse(bx, by, 3.6, 4.0, vv ? OAK : LEATHER, bz + 0.02, { round: 0.8 });
     px.toneLine(bx - 1.2, by - 3.4, bx - 1.4, by + 3.4, -1, bid);
     px.part();
     if (vv) { px.dot(bx, by, IRON, bz + 0.1, { fix: 4 }); px.dot(bx + 1, by + 0.4, IRONK, bz + 0.1, { fix: 2 }); }
-    else { px.line(bx - 2.6, by - 0.4, bx + 2.6, by - 0.4, LEATHER, bz + 0.1); px.dot(bx - 2.4, by - 2.2, IRONK, bz + 0.1); px.dot(bx + 2.4, by + 1.8, IRONK, bz + 0.1); }
+    // from behind: just the dark inner face and the rim, no emblem
   }
 
   // ---- legs: breeches, wraps, clogs. Forward is down the screen in front, up it from behind.
@@ -120,30 +124,31 @@ const make = (s) => (px, F, o = {}) => {
   px.poly([[sx - 3.4, chestY - 2.8], [sx + 3.4, chestY - 2.8], [sx + 3.8, chestY - 0.6], [sx - 3.8, chestY - 0.6]], SHIRT, 5, { round: 0.9, cast: 1 });
 
   // ---- the right (near) arm and the weapon: sleeve, bare forearm, the fist on it. The forward swing = hand lower and bigger in front.
-  const ang = p.aN[0] * 0.5, rSh = [rs * 5.4 + sx, shY], rEl = [rs * 7.2 + sx, shY + 4.6], rHd = [rs * 8 + sx, shY + 8 + s * ang * 1.4 + (yeo ? 0 : 0.6)];
+  const ang = p.aN[0] * 0.5, rSh = [rs * 5.4 + sx, shY], rEl = [rs * 7.2 + sx, shY + 4.6], rHd = [rs * (vv ? 8 : 8.6) + sx, shY + 8 + s * ang * 1.4 + (yeo ? 0 : 0.6)];
   const wx = rHd[0] + rs * 0.4;
   px.part(); px.tag("weapon");
+  const WZ = vv ? 8.2 : 1.0, WE = vv;   // the held weapon: in front over the arm; from behind at 1.0, no edge
   if (!yeo) {   // the pitchfork, upright beside him: ONE straight ash haft through the closed fist (the side view's 42 long,
     // gripped 17 up from the butt), a small iron socket and the side view's three tines, the middle one the tallest
     const hx0 = Math.round(rHd[0]), hy0 = rHd[1], butt = hy0 + 15, top = hy0 - 23;
-    px.capsule(hx0, butt, 0.95, hx0, top, 0.95, ASH, 8.2, { edge: true });
+    px.capsule(hx0, butt, 0.95, hx0, top, 0.95, ASH, WZ, { edge: WE });
     px.part();
     const ty = Math.round(top);   // the same head every frame: socket, a crossbar, two outer tines and a taller middle one
-    px.capsule(hx0, ty + 1.6, 1.05, hx0, ty - 0.6, 1.05, IRONK, 8.25);
-    px.capsule(hx0 - 3, ty - 1, 0.6, hx0 + 3, ty - 1, 0.6, IRON, 8.26, { edge: true });
+    px.capsule(hx0, ty + 1.6, 1.05, hx0, ty - 0.6, 1.05, IRONK, WZ + 0.05);
+    px.capsule(hx0 - 3, ty - 1, 0.6, hx0 + 3, ty - 1, 0.6, IRON, WZ + 0.06, { edge: WE });
     px.part();
-    px.rect(hx0 - 3, ty - 7, 1, 6, IRON, 8.27, { noLine: true }); px.rect(hx0 + 3, ty - 7, 1, 6, IRON, 8.27, { noLine: true });
-    px.rect(hx0, ty - 8, 1, 7, IRON, 8.27, { noLine: true });
-    px.dot(hx0 - 3, ty - 7.4, IRONK, 8.28); px.dot(hx0 + 3, ty - 7.4, IRONK, 8.28); px.dot(hx0, ty - 8.4, IRONK, 8.28);
+    px.rect(hx0 - 3, ty - 7, 1, 6, IRON, WZ + 0.07, { noLine: true }); px.rect(hx0 + 3, ty - 7, 1, 6, IRON, WZ + 0.07, { noLine: true });
+    px.rect(hx0, ty - 8, 1, 7, IRON, WZ + 0.07, { noLine: true });
+    px.dot(hx0 - 3, ty - 7.4, IRONK, WZ + 0.08); px.dot(hx0 + 3, ty - 7.4, IRONK, WZ + 0.08); px.dot(hx0, ty - 8.4, IRONK, WZ + 0.08);
   } else if (!vv) {   // from behind: the grip's end and the pommel below the fist; the blade stands up in front of him, so the
-    // torso and arm hide its lower part and only its upper blade peeks above / behind his right shoulder (z 3.9)
-    px.capsule(wx, rHd[1] + 0.5, 0.9, wx, rHd[1] + 3, 0.9, LEATHER, 8.2);
-    px.ellipse(wx, rHd[1] + 3.8, 1.1, 1.1, IRONK, 8.22);
+    // torso and arm hide its lower part and only its upper blade peeks above / behind his right shoulder (z 1.0)
+    px.capsule(wx, rHd[1] + 1, 0.9, wx, rHd[1] + 3.6, 0.9, LEATHER, 1.0, { cast: 0 });
+    px.ellipse(wx, rHd[1] + 4.4, 1.1, 1.1, IRONK, 1.02, { cast: 0 });
     px.part();
     const b0 = [wx - rs * 1.2, rHd[1] - 1.5], b1 = [rs * 7.6 + sx, shY - 9.5];   // from the fist's thumb side up behind the shoulder
     const d3 = [b1[0] - b0[0], b1[1] - b0[1]], L3 = Math.hypot(...d3), B3 = (t) => [b0[0] + d3[0] * t / L3, b0[1] + d3[1] * t / L3];
-    px.capsule(...B3(0), 1.15, ...B3(L3 - 2.2), 0.95, BLADE, 3.9, { edge: true });
-    px.capsule(...B3(L3 - 2.2), 0.95, ...B3(L3), 0.3, BLADE, 3.9, { edge: true });
+    px.capsule(...B3(0), 1.15, ...B3(L3 - 2.2), 0.95, BLADE, 1.0, { cast: 0 });
+    px.capsule(...B3(L3 - 2.2), 0.95, ...B3(L3), 0.3, BLADE, 1.0, { cast: 0 });
   } else {      // the short sword upright from the fist, a cross guard, a pommel
     const sy = rHd[1], tilt = rs * 0.1;
     px.capsule(wx, sy - 2, 1.15, wx + tilt * 14, sy - 15, 0.95, BLADE, 8.2, { edge: true });
@@ -155,11 +160,14 @@ const make = (s) => (px, F, o = {}) => {
   }
   px.tag(null);
   px.part(); px.tag("nearArm");
-  px.capsule(rSh[0], rSh[1] + 0.3, 2.2, rEl[0], rEl[1], 1.9, JERKIN, 8, { cast: 2 });
-  px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SKIN, 8, { cast: 2 });
+  const RZ = vv ? 8 : 4.3, RO = { cast: vv ? 2 : 0 };
+  px.capsule(rSh[0], rSh[1] + 0.3, 2.2, rEl[0], rEl[1], 1.9, JERKIN, RZ, RO);
+  px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SKIN, RZ, RO);
   const fx0 = yeo ? rHd[0] : Math.round(rHd[0]);
-  px.part(); px.ellipse(fx0, rHd[1], 1.8, 1.7, SKIN, 8.6);
-  if (!yeo) px.toneLine(fx0 - 1, rHd[1] + 0.4, fx0 + 1, rHd[1] + 0.4, -1, px._pid);   // the fingers closed over the haft
+  px.part();
+  if (vv) px.ellipse(fx0, rHd[1], 1.8, 1.7, SKIN, 8.6);
+  else px.ellipse(fx0, rHd[1] + 1, 1.5, 1.5, SKIN, 3.6, { cast: 0 });   // from behind the back of the fist, over the haft, under the cuff
+  if (!yeo && vv) px.toneLine(fx0 - 1, rHd[1] + 0.4, fx0 + 1, rHd[1] + 0.4, -1, px._pid);   // the fingers closed over the haft
   px.tag(null);
 
   // ---- the head and its hat

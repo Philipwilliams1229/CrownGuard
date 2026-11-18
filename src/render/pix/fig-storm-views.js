@@ -105,20 +105,22 @@ const make = (s) => (px, F, o = {}) => {
 
   // the far arm (her LEFT, screen side ls): a bell sleeve, silver cuff, the hand open at her side
   const swing = -a * 1.2 * s * 0.4;
-  const shL = [tx + ls * 6.3, chestY + 0.4], elL = [tx + ls * 8.8, chestY + 7.2], hdL = [tx + ls * 9.4, chestY + 13.6 + swing];
+  const shL = [tx + ls * (s > 0 ? 6.3 : 7.2), chestY + 0.4], elL = [tx + ls * (s > 0 ? 8.8 : 9.2), chestY + 7.2], hdL = [tx + ls * (s > 0 ? 9.4 : 9.4), chestY + 13.6 + (s > 0 ? swing : -a * 0.6)];
+  const ar = s > 0 ? 1 : 0.82, azA = s > 0 ? 4.6 : 4.3;   // BACK stack: both arms z 4.3, cast 0, outboard
   px.part();
-  px.capsule(shL[0], shL[1], 2.7, elL[0], elL[1], 2.8, ROBE, 4.6, { bias: -1, cast: 1 });
-  px.capsule(elL[0], elL[1], 3, hdL[0], hdL[1], 2.4, ROBE, 4.6, { bias: -1, cast: 1 });
-  px.line(hdL[0] - 2, hdL[1] - 1.2, hdL[0] + 2, hdL[1] - 1.2, SILVER, 4.62);
-  px.part(); px.ellipse(hdL[0], hdL[1] + 1.8, 1.8, 1.8, SKIN, 4.7, { bias: -1 });
+  const oA = s > 0 ? { bias: -1, cast: 1 } : { cast: 0 };
+  px.capsule(shL[0], shL[1], 2.7 * ar, elL[0], elL[1], 2.8 * ar, ROBE, azA, oA);
+  px.capsule(elL[0], elL[1], 3 * ar, hdL[0], hdL[1], 2.4 * ar, ROBE, azA, oA);
+  px.line(hdL[0] - 2, hdL[1] - 1.2, hdL[0] + 2, hdL[1] - 1.2, SILVER, azA + 0.02);
+  px.part(); px.ellipse(hdL[0], hdL[1] + (s > 0 ? 1.8 : 2.4), s > 0 ? 1.8 : 1.4, s > 0 ? 1.8 : 1.3, SKIN, s > 0 ? 4.7 : 3.6, s > 0 ? { bias: -1 } : {});
 
   // the staff in her right hand, upright and a little outboard; the claw and crystal clear her head
-  const sh = [tx + rs * 6.3, chestY + 0.4], elb = [tx + rs * 9.4, chestY + 6.8], hd = [tx + rs * 10.8, chestY + 12.2 - s * a * 0.4];
-  const lean = rs * 0.05, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
+  const sh = [tx + rs * (s > 0 ? 6.3 : 8.4), chestY + 0.4], elb = [tx + rs * (s > 0 ? 9.4 : 10.0), chestY + 6.8], hd = [tx + rs * (s > 0 ? 10.8 : 10.6), chestY + (s > 0 ? 12.2 - s * a * 0.4 : 13.4 - a * 0.6)];
+  const lean = s > 0 ? rs * 0.05 : 0, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
   const at = (t, w = 0) => [hd[0] + d[0] * t * K + nr[0] * w * K, hd[1] + d[1] * t * K + nr[1] * w * K];
-  const bz = 6.0, cx = at(22.6);
+  const bz = s > 0 ? 6.0 : 1.0, cx = at(22.6);
   px.part(); px.tag("staff");
-  px.capsule(...at(-11), 0.95 * K, ...at(19), 0.9 * K, WOOD, bz, { edge: true });
+  px.capsule(...at(-11), 0.95 * K, ...at(19), 0.9 * K, WOOD, bz, { edge: s > 0 });
   px.capsule(...at(-11), 1.2 * K, ...at(-9.8), 1.2 * K, SILVER, bz + 0.02);
   px.capsule(...at(15.4), 1.4 * K, ...at(17), 1.3 * K, SILVER, bz + 0.03);
   px.part();
@@ -130,11 +132,12 @@ const make = (s) => (px, F, o = {}) => {
   px.tag(null);
   // the sleeve to the fist
   px.part(); px.tag("nearArm");
-  px.capsule(sh[0], sh[1] + 0.4, 2.7, elb[0], elb[1], 2.8, ROBE, 5.9, { cast: 2 });
-  px.capsule(elb[0], elb[1], 3, hd[0], hd[1], 2.4, ROBE, 5.9, { cast: 2 });
-  px.line(hd[0] - 2, hd[1] - 1.4, hd[0] + 2, hd[1] - 1.4, SILVER, 5.95);
-  px.part(); px.ellipse(hd[0], hd[1] + 0.2, 2.4, 2.2, SKIN, 6.3);
-  px.line(hd[0] - 2, hd[1] + 0.4, hd[0] + 2, hd[1] + 0.4, SKIN, 6.32, { fix: 1, noLine: true }); px.tag(null);
+  const zA = s > 0 ? 5.9 : 4.3, oN = s > 0 ? { cast: 2 } : { cast: 0 };
+  px.capsule(sh[0], sh[1] + 0.4, 2.7 * ar, elb[0], elb[1], 2.8 * ar, ROBE, zA, oN);
+  px.capsule(elb[0], elb[1], 3 * ar, hd[0], hd[1], 2.4 * ar, ROBE, zA, oN);
+  px.line(hd[0] - 2, hd[1] - 1.4, hd[0] + 2, hd[1] - 1.4, SILVER, zA + 0.05);
+  px.part(); px.ellipse(hd[0], hd[1] + (s > 0 ? 0.2 : 2.2), s > 0 ? 2.4 : 1.5, s > 0 ? 2.2 : 1.4, SKIN, s > 0 ? 6.3 : 3.6);
+  if (s > 0) px.line(hd[0] - 2, hd[1] + 0.4, hd[0] + 2, hd[1] + 0.4, SKIN, 6.32, { fix: 1, noLine: true }); px.tag(null);
 
   // the head
   px.part();

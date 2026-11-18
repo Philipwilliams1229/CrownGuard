@@ -25,18 +25,18 @@ const make = (s) => (px, F, o = {}) => {
   if (s < 0) {
     for (const side of [-1, 1]) {
       px.part();
-      px.capsule(hx + side * 4.6, chestY + 2.2, 1.1, hx + side * 9.4, chestY + 0.2 + bw, 0.8, IRON, 3.3, { edge: true });
-      px.dot(hx + side * 9.4, chestY + 0.2 + bw, STEELB, 3.4, { fix: 3 });
+      px.capsule(hx + side * 4.6, chestY + 2.2, 1.1, hx + side * 9.4, chestY + 0.2 + bw, 0.8, IRON, 1.0);
+      px.dot(hx + side * 9.4, chestY + 0.2 + bw, STEELB, 1.05, { fix: 3 });
     }
   }
   // the bolt box on his back hip, fletchings standing out of it
   if (s < 0) {
     const bx = hx + rs * 2.2, by = hipY - 0.4;
     px.part();
-    px.poly([[bx - 2.8, by - 3], [bx + 2.8, by - 3], [bx + 3.2, by + 3.6], [bx - 3.2, by + 3.6]], LEATHER, 4.3, { round: 0.8, cast: 1 });
-    px.rect(bx - 2.8, by - 0.6, 5.6, 0.9, BRASS, 4.32, { noLine: true });
+    px.poly([[bx - 2.8, by - 3], [bx + 2.8, by - 3], [bx + 3.2, by + 3.6], [bx - 3.2, by + 3.6]], LEATHER, 5.2, { round: 0.8, cast: 1, edge: true });
+    px.rect(bx - 2.8, by - 0.6, 5.6, 0.9, BRASS, 5.22, { noLine: true });
     px.part();
-    for (const [dx, h] of [[-1.9, 3.4], [-0.5, 4.8], [0.9, 3.8], [2.2, 4.4]]) { px.line(bx + dx, by - 3, bx + dx - vx * 0.3, by - 3 - h, BOLT, 4.25, { noLine: true }); px.dot(bx + dx - vx * 0.3, by - 3 - h, FLETCH, 4.26, { fix: 3 }); px.dot(bx + dx - vx * 0.3 + 1, by - 3 - h + 1, FLETCH, 4.26, { fix: 3 }); }
+    for (const [dx, h] of [[-1.9, 3.4], [-0.5, 4.8], [0.9, 3.8], [2.2, 4.4]]) { px.line(bx + dx, by - 3, bx + dx - vx * 0.3, by - 3 - h, BOLT, 5.25, { noLine: true }); px.dot(bx + dx - vx * 0.3, by - 3 - h, FLETCH, 5.26, { fix: 3 }); px.dot(bx + dx - vx * 0.3 + 1, by - 3 - h + 1, FLETCH, 5.26, { fix: 3 }); }
   }
 
   legsView(px, B, { leg: HOSE, boot: BOOT, thigh: [2.3, 1.9], cuff: LEATHER });
@@ -100,12 +100,14 @@ const make = (s) => (px, F, o = {}) => {
     px.part(); px.tag("nearHand"); px.ellipse(rh[0], rh[1], 1.8, 1.8, LEATHER, 7.1);
     px.tag(null);
   } else {
-    // from behind both arms reach forward round him: the sleeves show, the hands are hidden by the sides
-    for (const side of [rs, ls]) {
+    // BACK stack: both arms hang at his sides (z 4.3, cast 0), the fists under the cuff (3.6); the arbalest is in front of him (prongs at z 1.0)
+    const sw1 = 1.2 * Math.sin(ph * TAU);
+    for (const [side, k] of [[rs, 1], [ls, -1]]) {
+      const hY = shY + 10.8 - k * sw1, hX = side * 7.6 + sx;
       px.part();
-      px.capsule(...sh(side), 2.2, side * 7.6 + sx, shY + 7.6, 2.1, PAD, 4.6, { cast: 1 });
-      px.capsule(side * 7.6 + sx, shY + 7.6, 2.0, side * 7.6 + sx, shY + 11.2 + (side === rs ? bw : -bw), 1.8, PAD, 4.6, { cast: 1 });
-      px.part(); px.ellipse(side * 7.6 + sx, shY + 12.2 + (side === rs ? bw : -bw), 1.7, 1.7, LEATHER, 4.65);
+      px.capsule(...sh(side), 2.1, side * 7.4 + sx, shY + 6.4, 2.0, PAD, 4.3, { cast: 0 });
+      px.capsule(side * 7.4 + sx, shY + 6.4, 2.0, hX, hY - 0.6, 1.9, PAD, 4.3, { cast: 0 });
+      px.part(); px.ellipse(hX, hY + 0.2, 1.5, 1.5, LEATHER, 3.6);
     }
   }
 

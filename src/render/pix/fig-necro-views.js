@@ -84,6 +84,8 @@ const make = (s) => (px, F, o = {}) => {
   const vx = cl((sx - sx1) * 1.3, -2, 2), vx2 = cl((sx1 - sx2) * 1.3, -2, 2);
   const w1 = (F.lag1.p.sway || 0) - (F.lag1.p.gust || 0) * 1.6, w2 = (F.lag2.p.sway || 0) - (F.lag2.p.gust || 0) * 2.2;
   const g = p.glow || 0, lift = p.lift || 0;
+  const zs = (z) => (s > 0 ? z : z - 0.5);                  // BACK stack: carried things at 1.0
+  const B = s < 0, ax = B ? 0 : sx * 0.8;                    // from behind an arm swings in y only
   const hemY = -0.8, top = chestY - 2.2, flare = 8.2 + 0.4 * Math.abs(Math.sin(ph * TAU));
   const hemL = hx - flare, hemR = hx + flare, hm = (t) => hemL + (hemR - hemL) * t;
   const tipD = -vx * 0.6 - vx2 * 0.8 + w2 * 0.7;
@@ -91,12 +93,12 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the cape: front, only its edges frame the robe behind; behind, the whole back of him (drawn over the robe)
   {
     const d2 = -vx * 1.0 - vx2 * 1.4 + w2 * 0.6, topC = chestY - 3.8, botY = s > 0 ? -2.6 : -2.2;
-    const wL = hx - flare - (s > 0 ? 1.2 : 0.2) + d2 * 0.3, wR = hx + flare + (s > 0 ? 1.2 : 0.2) + d2 * 0.3;
+    const wL = hx - flare - (s > 0 ? 1.2 : 0.8) + d2 * 0.3, wR = hx + flare + (s > 0 ? 1.2 : 0.8) + d2 * 0.3;
     const cm = (t) => wL + (wR - wL) * t;
     px.part(); const cid = px._pid;
-    px.poly([[sx - 5.6, topC], [sx + 5.6, topC], [sx + 6.4, chestY + 5], [hx + 7, hipY - 2], [wR, botY - 1],
+    px.poly([[sx - 5.6, topC], [sx + 5.6, topC], [sx + 6.4, chestY + 5], [hx + (s > 0 ? 7 : 6.2), hipY - 2], [wR, botY - 1],
       ...CTAT.map(([t, dp]) => [cm(t) + (dp < 1 ? d2 * 0.3 : 0), botY - dp]),
-      [wL, botY - 1], [hx - 7, hipY - 2], [sx - 6.4, chestY + 5]], CAPE, s > 0 ? 0.4 : 5, { round: 0.9, cast: s < 0 ? 1 : 0 });
+      [wL, botY - 1], [hx - (s > 0 ? 7 : 6.2), hipY - 2], [sx - 6.4, chestY + 5]], CAPE, s > 0 ? 0.4 : 5, { round: 0.9, cast: s < 0 ? 1 : 0, edge: s < 0 });
     if (s < 0) {
       px.toneLine(hx - 3.4, hipY - 2, cm(0.28), botY - 5, -1, cid);
       px.toneLine(hx + 3.2, hipY - 1, cm(0.74), botY - 5, 1, cid);
@@ -113,30 +115,30 @@ const make = (s) => (px, F, o = {}) => {
   const at = (a, b) => [tipX + b, tipY - a];
   const orb = at(8.6, 0), T = at(13.4, 0), Bm = at(4.4, 0), Lf = at(8, -2.6), Rt = at(8, 2.6), Md = at(8, 0);
   px.part();
-  px.capsule(SX, fY, 0.95, tipX, tipY, 0.95, WOOD, 1.5, { edge: true });
+  px.capsule(SX, fY, 0.95, tipX, tipY, 0.95, WOOD, zs(1.5), { edge: s > 0 });
   px.part();
-  px.capsule(...at(-1.8, 0), 1.4, ...at(-0.4, 0), 1.6, BRONZE, 1.55);
+  px.capsule(...at(-1.8, 0), 1.4, ...at(-0.4, 0), 1.6, BRONZE, zs(1.55));
   px.part();
-  if (g > 0.6) { px.poly([T, Rt, Bm, Lf], GLOW, 1.6); px.poly([at(12, 0), at(8.2, 1.5), at(6, 0), at(8.2, -1.5)], HOT, 1.62); }
-  else if (g > 0.3) { px.poly([T, Rt, Bm, Lf], GLOW, 1.6); px.poly([at(10.6, 0), at(8.2, 0.9), at(6.8, 0), at(8.2, -0.9)], HOT, 1.62); }
+  if (g > 0.6) { px.poly([T, Rt, Bm, Lf], GLOW, zs(1.6)); px.poly([at(12, 0), at(8.2, zs(1.5)), at(6, 0), at(8.2, -1.5)], HOT, zs(1.62)); }
+  else if (g > 0.3) { px.poly([T, Rt, Bm, Lf], GLOW, zs(1.6)); px.poly([at(10.6, 0), at(8.2, 0.9), at(6.8, 0), at(8.2, -0.9)], HOT, zs(1.62)); }
   else {
-    px.poly([T, Md, Bm, Lf], CRYS, 1.6, { n: [-0.55, -0.45, 0.7] });
-    px.poly([T, Rt, Bm, Md], CRYS, 1.6, { n: [0.7, 0.35, 0.62] });
-    if (g > 0.2) px.dot(...at(9, -0.6), HOT, 1.62); else px.dot(...at(10, -0.9), CRYS, 1.62, { fix: 4 });
+    px.poly([T, Md, Bm, Lf], CRYS, zs(1.6), { n: [-0.55, -0.45, 0.7] });
+    px.poly([T, Rt, Bm, Md], CRYS, zs(1.6), { n: [0.7, 0.35, 0.62] });
+    if (g > 0.2) px.dot(...at(9, -0.6), HOT, zs(1.62)); else px.dot(...at(10, -0.9), CRYS, zs(1.62), { fix: 4 });
   }
   px.part();
-  { const sp = at(2.4, 0); px.stamp(SKULL, sp[0] - 2, sp[1] - 2.5, SKULL_LEG, 1.64, { ball: [2.2, 2, 3, 3] }); }
+  { const sp = at(2.4, 0); px.stamp(SKULL, sp[0] - 2, sp[1] - 2.5, SKULL_LEG, zs(1.64), { ball: [2.2, 2, 3, 3] }); }
 
-  // ---- the left arm (staff side): a long thin arm in a belled sleeve, the fist round the shaft
+  // ---- the left arm (staff side): a long thin arm in a belled sleeve, the fist round the shaft (BACK: arms 4.3, fist 3.6 under the cuff)
   {
-    const sh = [ls * 6 + sx, chestY + 0.8], el = [ls * 8.4 + sx * 0.8, chestY + 8.4], fist = [SX, hgY], wr = mix(el, fist, 0.7);
+    const sh = [ls * 6 + sx, chestY + 0.8], el = [ls * 8.4 + ax, chestY + 8.4], fist = [SX, hgY], wr = mix(el, fist, 0.7);
+    const za = B ? 4.3 : 4.6, zc = B ? 4.35 : 4.65, zf = B ? 3.6 : 4.7;
     px.part();
-    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, COWL, 4.6, { bias: -1 });
-    px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.8, COWL, 4.6, { bias: -1 });
-    px.poly([[wr[0] - 3, wr[1] - 0.2], [wr[0] + 3, wr[1] - 0.2], [wr[0] + 3, wr[1] + 1.5], [wr[0] - 3, wr[1] + 1.5]], TRIM, 4.65, { bias: -1 });
-    px.part(); px.ellipse(fist[0], fist[1] + 0.8, 2.4, 2.6, SKIN, 4.7, { bias: -1 });
-    px.dot(fist[0] - 1, fist[1] - 0.2, SKIN, 4.75, { fix: 0 }); px.dot(fist[0] - 1, fist[1] + 1.8, SKIN, 4.75, { fix: 0 });   // fingers closed over the shaft
-    px.dot(fist[0] + ls * 0.6, fist[1] - 0.2, SKIN, 4.72);
+    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, COWL, za, B ? { cast: 0 } : { bias: -1 });
+    px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.8, COWL, za, B ? { cast: 0 } : { bias: -1 });
+    px.poly([[wr[0] - 3, wr[1] - 0.2], [wr[0] + 3, wr[1] - 0.2], [wr[0] + 3, wr[1] + 1.5], [wr[0] - 3, wr[1] + 1.5]], TRIM, zc, { bias: B ? 0 : -1 });
+    px.part(); px.ellipse(fist[0], fist[1] + 0.8, B ? 1.6 : 2.4, B ? 1.8 : 2.6, SKIN, zf, B ? { cast: 0 } : { bias: -1 });
+    if (!B) { px.dot(fist[0] - 1, fist[1] - 0.2, SKIN, 4.75, { fix: 0 }); px.dot(fist[0] - 1, fist[1] + 1.8, SKIN, 4.75, { fix: 0 }); }
   }
 
   // slippers under the hem
@@ -172,18 +174,18 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the right arm (free): long and thin in a belled sleeve with a violet cuff, bony fingers hanging
   {
     const ang = p.aN[0];
-    const sh = [rs * 6 + sx, chestY + 0.8], el = [rs * 8 + sx * 0.8, chestY + 8.4], hand = [rs * 7.4 + sx * 0.8, chestY + 15.6 + s * ang * 2.2], wr = mix(el, hand, 0.76);
+    const sh = [rs * 6 + sx, chestY + 0.8], el = [rs * 8.6 + ax, chestY + 8.4], hand = [rs * 8.2 + ax, chestY + 15.6 + s * ang * 2.2], wr = mix(el, hand, 0.76);
     px.part(); px.tag("nearArm");
-    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.3, COWL, 8, { cast: 2 });
-    px.capsule(el[0], el[1], 2.3, wr[0], wr[1], 3, COWL, 8, { cast: 2 });
-    px.poly([[el[0] - 2.4, el[1] + 2.4], [el[0] + 2.4, el[1] + 2.4], [wr[0] + rs * 0.4 + w1 * 0.5, wr[1] + 2.6], [wr[0] - rs * 0.4, wr[1] + 2.6]], COWL, 7.95, { round: 0.6, cast: 1, bias: -1 });
-    px.poly([[wr[0] - 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] + 1.2], [wr[0] - 3.2, wr[1] + 1.2]], TRIM, 8.02, { bias: 1 });
+    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.3, COWL, B ? 4.3 : 8, { cast: B ? 0 : 2 });
+    px.capsule(el[0], el[1], 2.3, wr[0], wr[1], 3, COWL, B ? 4.3 : 8, { cast: B ? 0 : 2 });
+    px.poly([[el[0] - 2.4, el[1] + 2.4], [el[0] + 2.4, el[1] + 2.4], [wr[0] + rs * 0.4 + w1 * 0.5, wr[1] + 2.6], [wr[0] - rs * 0.4, wr[1] + 2.6]], COWL, B ? 4.3 : 7.95, { round: 0.6, cast: B ? 0 : 1, bias: B ? 0 : -1 });
+    px.poly([[wr[0] - 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] + 1.2], [wr[0] - 3.2, wr[1] + 1.2]], TRIM, B ? 4.35 : 8.02, { bias: B ? 0 : 1 });
     const hb = [Math.round(hand[0]) + 0.5, Math.round(hand[1] + 1.4) + 0.5];
     px.part();
-    px.ellipse(hb[0], hb[1], 1.7, 1.5, SKIN, 9.5, { cast: 1 });
+    px.ellipse(hb[0], hb[1], 1.7, 1.5, SKIN, B ? 3.6 : 9.5, { cast: B ? 0 : 1 });
     for (let i = -1; i <= 1; i += (s > 0 ? 1 : 2)) {
       const a = Math.PI / 2 + i * 0.4, L = 3;
-      px.line(hb[0], hb[1] + 0.6, hb[0] + Math.cos(a) * L, hb[1] + 0.6 + Math.sin(a) * L, SKIN, 9.5, { bias: i > 0 ? -1 : 0 });
+      px.line(hb[0], hb[1] + 0.6, hb[0] + Math.cos(a) * L, hb[1] + 0.6 + Math.sin(a) * L, SKIN, B ? 3.6 : 9.5, { bias: i > 0 ? -1 : 0 });
     }
     px.tag(null);
   }

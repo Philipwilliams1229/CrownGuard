@@ -295,7 +295,7 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // the shield arm (his left: screen right in FRONT, screen left from BEHIND) and the shield
-  const shC = [fS * 9.8, C[1] + 4.6];
+  const shC = [fS * (s > 0 ? 9.8 : 8), C[1] + 4.6];
   px.part();
   px.limb([sFs, [fS * 8.6, C[1] + 4], [fS * 7.4, C[1] + 7.4]], [2.2, 2, 1.7], L.IRON, 7.6, { bias: -1 });
   if (s > 0) {
@@ -316,13 +316,13 @@ const make = (s) => (px, F, o = {}) => {
     // its back: a dark rim, planks of leather, the arm strap and the grip, the boss's rivets
     px.part(); const sid = px._pid;
     const S = (x, y) => [shC[0] + x, shC[1] + y];
-    px.poly([S(-4.8, -6.8), S(4.8, -6.8), S(5.2, 0), S(0, 8.6), S(-5.2, 0)], IRONK, 9.62, { round: 0.6, cast: 2 });
-    px.poly([S(-3.6, -5.6), S(3.6, -5.6), S(3.9, -0.4), S(0, 6.8), S(-3.9, -0.4)], LEATHER, 9.64, { round: 0.7, cast: 0 });
+    px.poly([S(-4.8, -6.8), S(4.8, -6.8), S(5.2, 0), S(0, 8.6), S(-5.2, 0)], IRONK, 7.0, { round: 0.6, cast: 2 });
+    px.poly([S(-3.6, -5.6), S(3.6, -5.6), S(3.9, -0.4), S(0, 6.8), S(-3.9, -0.4)], LEATHER, 7.02, { round: 0.7, cast: 0 });
     px.toneLine(...S(0.2, -5.4), ...S(0.2, 6), -1, sid);
     px.part();
-    px.line(...S(-3.4, -2.8), ...S(3.4, -2.8), SADDLE, 9.66, { cast: 0 });
-    px.line(...S(-2.8, 1.6), ...S(2.8, 1.6), SADDLE, 9.66, { cast: 0 });
-    px.dot(...S(-3.6, -2.8), STEELB, 9.68, { fix: 4 }); px.dot(...S(3.6, 1.6), STEELB, 9.68, { fix: 4 });
+    px.line(...S(-3.4, -2.8), ...S(3.4, -2.8), SADDLE, 7.04, { cast: 0 });
+    px.line(...S(-2.8, 1.6), ...S(2.8, 1.6), SADDLE, 7.04, { cast: 0 });
+    px.dot(...S(-3.6, -2.8), STEELB, 7.06, { fix: 4 }); px.dot(...S(3.6, 1.6), STEELB, 7.06, { fix: 4 });
   }
 
   // the trunk: a surcoat down over the thighs and the saddle, belted; FRONT the breastplate and the emblem, BACK the plain back with its seam

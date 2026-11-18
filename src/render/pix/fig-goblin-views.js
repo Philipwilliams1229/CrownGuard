@@ -94,17 +94,20 @@ const make = (s) => (px, F, o = {}) => {
   const shY = chestY + 0.4 - tilt * ls * rs * -1;
   const shL = [ls * 5.6 + sx, shY], shR = [rs * 5.6 + sx, shY - 0.5 * tilt * 0 + tilt];
   if (bare) {
-    const ang = (p.bF || [0.5, 0.8, 0])[0], hand = [ls * 7.4 + sx, shL[1] + 7.2 + s * ang * 2.0], el = [ls * 8 + sx, shL[1] + 3.6];
+    const ang = (p.bF || [0.5, 0.8, 0])[0], hand = [ls * (s > 0 ? 7.4 : 8.0) + sx, shL[1] + 7.2 + s * ang * (s > 0 ? 2.0 : 1.2)], el = [ls * (s > 0 ? 8 : 8.2) + sx, shL[1] + 3.6];
+    const zb = s > 0 ? 4.6 : 4.3, bz = s > 0 ? -1 : 0;
     px.part();
-    px.capsule(shL[0], shL[1], 1.6, el[0], el[1], 1.5, SKIN, 4.6, { bias: -1 });
-    px.capsule(el[0], el[1], 1.5, hand[0], hand[1], 1.4, SKIN, 4.6, { bias: -1 });
+    px.capsule(shL[0], shL[1], 1.6, el[0], el[1], 1.5, SKIN, zb, { bias: bz, cast: s > 0 ? 1 : 0 });
+    px.capsule(el[0], el[1], 1.5, hand[0], hand[1], 1.4, SKIN, zb, { bias: bz, cast: s > 0 ? 1 : 0 });
     px.part();
-    px.ellipse(hand[0], hand[1] + 0.3, 1.9 + s * ang * 0.3, 1.8, SKIN, 4.7, { bias: -1 });
+    if (s > 0) px.ellipse(hand[0], hand[1] + 0.3, 1.9 + s * ang * 0.3, 1.8, SKIN, 4.7, { bias: -1 });
+    else px.ellipse(hand[0], hand[1] + 0.8, 1.5, 1.5, SKIN, 3.6, { cast: 0 });
   } else {
-    const c = [ls * 8.8 + sx, shL[1] + 7.6];
+    const c = [ls * (s > 0 ? 8.8 : 9.4) + sx, shL[1] + 7.6];
     px.part();
-    const zs = s > 0 ? 7.4 : 3.2;
-    px.capsule(shL[0], shL[1], 1.6, ls * 7.6 + sx, shL[1] + 4.4, 1.5, SKIN, zs - 0.2, { bias: -1 });
+    const zs = s > 0 ? 7.4 : 1.0;
+    if (s > 0) px.capsule(shL[0], shL[1], 1.6, ls * 7.6 + sx, shL[1] + 4.4, 1.5, SKIN, zs - 0.2, { bias: -1 });
+    else { px.capsule(shL[0], shL[1], 1.6, ls * 8.2 + sx, shL[1] + 3.8, 1.5, SKIN, 4.3, { cast: 0 }); px.capsule(ls * 8.2 + sx, shL[1] + 3.8, 1.5, ls * 8 + sx, shL[1] + 7.4, 1.4, SKIN, 4.3, { cast: 0 }); }
     px.part(); const id = px._pid;
     px.ellipse(c[0], c[1], 3.1, 5.2, DARK, zs, { round: 0.6 });
     px.ellipse(c[0], c[1], 2.1, 4.2, WOOD, zs + 0.02, { round: 0.75 });
@@ -113,6 +116,7 @@ const make = (s) => (px, F, o = {}) => {
     if (s > 0) px.ellipse(c[0] + ls * 0.5, c[1] - 0.2, 1.1, 1.3, STEEL, zs + 0.06, { cast: 1 });
     else {
       px.line(c[0] - 2.2, c[1] - 0.8, c[0] + 2.2, c[1] - 0.8, DARK, zs + 0.06, { cast: 0 });
+      px.part(); px.ellipse(ls * 8 + sx, shL[1] + 7.9, 1.5, 1.5, SKIN, 3.6, { cast: 0 });
       px.dot(c[0] - 1.4, c[1] - 3.4, STEEL, zs + 0.06); px.dot(c[0] + 1.4, c[1] + 2.6, STEEL, zs + 0.06);
     }
   }
@@ -141,7 +145,7 @@ const make = (s) => (px, F, o = {}) => {
     const pts = notch
       ? [rt(4.6, -6.2), rt(5.4, -2.2), rt(8.4, -3.6), rt(9.6, -4.2 + wob * 0.3), rt(11.4, -5 + wob * 0.5), rt(14.6, -10 + wob), rt(9.4, -8.6 + wob * 0.4)]
       : [rt(4.6, -6.2), rt(5.4, -2.6), rt(9.4, -5.4 + wob * 0.4), rt(14, -9.6 + wob), rt(9.4, -8.2 + wob * 0.4)];
-    px.poly(pts, SKIN, s > 0 ? 5.5 : 6.6, { bias: s > 0 ? -1 : -2, n: [r * 0.3, -0.35, 0.9], cast: 1 });
+    px.poly(pts, SKIN, s > 0 ? 5.5 : 5.2, { bias: s > 0 ? -1 : -2, n: [r * 0.3, -0.35, 0.9], cast: 1 });
     px.toneLine(...rt(5.6, -4.6), ...rt(11.4, -7.8 + wob * 0.8), -1, eid);
   }
 
@@ -179,31 +183,31 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // the near arm (his right, screen side rs): the knife in its fist. Forward swing = the hand lower and bigger in front.
-  const ang = p.aN[0], hand = [rs * 7.6 + sx, shR[1] + 7.4 + s * ang * 2.4], elb = [rs * 8.6 + sx, shR[1] + 3.8];
-  const hr = cl(1.7 + s * ang * 0.5, 1.4, 2.3);
+  const ang = p.aN[0], hand = [rs * (s > 0 ? 7.6 : 8.0) + sx, shR[1] + 7.4 + s * ang * (s > 0 ? 2.4 : 1.2) + (s < 0 ? 0.8 : 0)], elb = [rs * (s > 0 ? 8.6 : 8.2) + sx, shR[1] + 3.8];
+  const hr = s > 0 ? cl(1.7 + s * ang * 0.5, 1.4, 2.3) : 1.5, za = s > 0 ? 4.5 : 4.3, ca = s > 0 ? 1 : 0;
   px.part();
-  px.ellipse(shR[0] - rs * 0.2, shR[1] + 0.2, 2.5, 2.3, jerk, 4.6, { cast: 0, bias: 1 });
+  px.ellipse(shR[0] - rs * 0.2, shR[1] + 0.2, 2.5, 2.3, jerk, s > 0 ? 4.6 : 4.3, { cast: 0, bias: 1 });
   px.part();
-  px.capsule(shR[0], shR[1] + 0.6, 1.7, elb[0], elb[1], 1.6, SKIN, 4.5, { cast: 1 });
-  px.capsule(elb[0], elb[1], 1.6, hand[0], hand[1], 1.5, SKIN, 4.5, { cast: 1 });
+  px.capsule(shR[0], shR[1] + 0.6, 1.7, elb[0], elb[1], 1.6, SKIN, za, { cast: ca });
+  px.capsule(elb[0], elb[1], 1.6, hand[0], hand[1], 1.5, SKIN, za, { cast: ca });
   const b0m = [(elb[0] * 0.38 + hand[0] * 0.62), (elb[1] * 0.38 + hand[1] * 0.62)];
-  px.capsule(b0m[0], b0m[1], 1.65, hand[0] - rs * 0.1, hand[1] - 0.8, 1.6, DARK, 4.55, { cast: 1 });
+  px.capsule(b0m[0], b0m[1], 1.65, hand[0] - rs * 0.1, hand[1] - 0.8, 1.6, DARK, s > 0 ? 4.55 : 4.35, { cast: ca });
   // the knife is IN the fist: a grip runs through it (pommel past the heel of the hand), the blade leaves the top,
   // the fist and its fingers drawn over it. From behind the blade runs forward and inboard, hidden behind his torso
   // (z under the jerkin's), so the grip and pommel by his hip are what shows.
   px.part(); px.tag("weapon");
   const kl = s > 0 ? 8 : 5.4, tip = [hand[0] + rs * (s > 0 ? 3.4 : 2.4), hand[1] - kl - Math.max(0, -ang) * 0.6];
-  const zg = s > 0 ? 8.0 : 4.7;
+  const zg = s > 0 ? 8.0 : 1.0;
   px.capsule(hand[0], hand[1] - 1, 0.8, hand[0] - rs * 0.3, hand[1] + 2.6, 0.8, DARK, zg, { cast: 0 });
   px.dot(hand[0] - rs * 0.3, hand[1] + 3.1, STEEL, zg + 0.02);
-  if (s < 0) { const bt = [hand[0] - rs * 3.2, hand[1] - 5.4]; px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 0.9, hand[1] - 1], [bt[0] + 0.5, bt[1] + 2], [bt[0], bt[1]]], STEEL, 3.9, { fix: 3 }); }
+  if (s < 0) { const bt = [hand[0] - rs * 3.2, hand[1] - 5.4]; px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 0.9, hand[1] - 1], [bt[0] + 0.5, bt[1] + 2], [bt[0], bt[1]]], STEEL, 1.0, { fix: 3 }); }
   else {
   px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 1, hand[1] - 1], [tip[0] + 0.5, tip[1] + 2], [tip[0], tip[1]]], STEEL, 8.1, { fix: 3 });
   px.line(hand[0] - 0.2, hand[1] - 1.2, tip[0], tip[1] + 1.4, STEEL, 8.12, { fix: 4 });
   }
   px.part();
-  px.ellipse(hand[0], hand[1], hr, hr, SKIN, s > 0 ? 8.3 : 4.8);
-  px.line(hand[0] - hr * 0.7, hand[1] - 0.2, hand[0] + hr * 0.7, hand[1] - 0.2, DARK, s > 0 ? 8.4 : 4.9, { cast: 0 });   // the fingers over the grip
+  px.ellipse(hand[0], hand[1], hr, hr, SKIN, s > 0 ? 8.3 : 3.6, { cast: s > 0 ? 1 : 0 });
+  px.line(hand[0] - hr * 0.7, hand[1] - 0.2, hand[0] + hr * 0.7, hand[1] - 0.2, DARK, s > 0 ? 8.4 : 3.7, { cast: 0 });   // the fingers over the grip
   px.tag(null);
 
   // the head
@@ -213,7 +217,7 @@ const make = (s) => (px, F, o = {}) => {
     const rows = bare ? FRONT_B : FRONT_H;
     px.stamp(blink ? blinkOf(rows) : rows, hx, hy, LEG, 6, { ax: 6, ay: 9, ball: [6.5, 6, 7, 7], cast: 1 });
   } else {
-    px.stamp(bare ? BACK_B : BACK_H, hx, hy, LEG, 6.4, { ax: 6, ay: 9, ball: [6.5, 6, 7, 7], cast: 1 });
+    px.stamp(bare ? BACK_B : BACK_H, hx, hy, LEG, 6.0, { ax: 6, ay: 9, ball: [6.5, 6, 7, 7], cast: 1 });
   }
   return {};
 };

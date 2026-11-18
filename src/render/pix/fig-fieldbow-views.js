@@ -58,21 +58,21 @@ const make = (s) => (px, F) => {
   const a = Math.cos(ph * TAU), shY = chestY - 0.4, hem = hipY + 3.4;
 
   // ---- the bow arm (his left): sleeve, shirt cuff and bracer, the fist on the grip; the yew bow upright beside it
-  const lSh = [ls * 5.2 + sx, shY], lEl = [ls * 6.6 + sx, shY + 5], lHd = [ls * 7 + sx, shY + 10.4];
-  const bz = 7, gx = lHd[0] + ls * 0.4, gy = lHd[1];
+  const lSh = [ls * 5.2 + sx, shY], lEl = [ls * 6.6 + sx, shY + 5], lHd = [ls * 7 + sx, shY + 10.4]; const BK = !vv;
+  const bz = vv ? 7 : 1, gx = lHd[0] + ls * (vv ? 0.4 : 1.6), gy = lHd[1];
   px.part(); px.tag("bow");
-  px.capsule(gx - ls * 0.6, gy - 12.5, 0.6, gx + ls * 0.2, gy - 6, 0.95, BOW, bz, { edge: true });
-  px.capsule(gx + ls * 0.2, gy - 6, 0.95, gx + ls * 0.4, gy, 1.3, BOW, bz, { edge: true });
-  px.capsule(gx + ls * 0.4, gy, 1.3, gx + ls * 0.2, gy + 6, 0.95, BOW, bz, { edge: true });
-  px.capsule(gx + ls * 0.2, gy + 6, 0.95, gx - ls * 0.6, gy + 12.5, 0.6, BOW, bz, { edge: true });
+  px.capsule(gx - ls * 0.6, gy - 12.5, 0.6, gx + ls * 0.2, gy - 6, 0.95, BOW, bz, { edge: vv });
+  px.capsule(gx + ls * 0.2, gy - 6, 0.95, gx + ls * 0.4, gy, 1.3, BOW, bz, { edge: vv });
+  px.capsule(gx + ls * 0.4, gy, 1.3, gx + ls * 0.2, gy + 6, 0.95, BOW, bz, { edge: vv });
+  px.capsule(gx + ls * 0.2, gy + 6, 0.95, gx - ls * 0.6, gy + 12.5, 0.6, BOW, bz, { edge: vv });
   px.line(gx - ls * 0.6, gy - 12.5, gx - ls * 1.4, gy + 12.5, STRING, bz - 0.2, { unlit: true });
   px.part(); px.capsule(gx + ls * 0.4, gy - 1.8, 1.25, gx + ls * 0.4, gy + 1.8, 1.25, LEATHER, bz + 0.05);   // the grip wrap
   px.tag(null);
   px.part(); px.tag("farArm");
-  px.capsule(lSh[0], lSh[1], 2.0, lEl[0], lEl[1], 1.8, TUNIC, 4.4, { bias: -1 });
-  px.capsule(lEl[0], lEl[1], 1.8, lHd[0], lHd[1], 1.6, SHIRT, 4.4, { bias: -1 });
-  px.capsule(lEl[0] * 0.4 + lHd[0] * 0.6, lEl[1] * 0.4 + lHd[1] * 0.6, 1.8, lHd[0], lHd[1], 1.7, LEATHER, 4.42, { bias: -1 });
-  px.part(); px.ellipse(lHd[0], lHd[1], 1.7, 1.7, SKIN, bz + 0.3, { bias: -1 }); px.tag(null);
+  px.capsule(lSh[0], lSh[1], 2.0, lEl[0], lEl[1], 1.8, TUNIC, 4.3, { bias: vv ? -1 : 0, cast: vv ? 1 : 0 });
+  px.capsule(lEl[0], lEl[1], 1.8, lHd[0], lHd[1], 1.6, SHIRT, 4.3, { bias: vv ? -1 : 0, cast: vv ? 1 : 0 });
+  px.capsule(lEl[0] * 0.4 + lHd[0] * 0.6, lEl[1] * 0.4 + lHd[1] * 0.6, 1.8, lHd[0], lHd[1], 1.7, LEATHER, 4.32, { bias: vv ? -1 : 0 });
+  px.part(); px.ellipse(lHd[0] + (vv ? 0 : ls * 0.8), lHd[1] + (vv ? 0 : 1), vv ? 1.7 : 1.5, vv ? 1.7 : 1.5, SKIN, vv ? bz + 0.3 : 3.6, { bias: vv ? -1 : 0 }); px.tag(null);
 
   // ---- the quiver across the back: behind the body in front (fletchings over the right shoulder), over it from behind
   const q0 = [ls * 3.2 + sx, hipY - 0.5], q1 = [rs * 3.6 + sx, chestY - 4];
@@ -119,12 +119,12 @@ const make = (s) => (px, F) => {
   px.poly([[sx - 5.4, chestY - 2.8], [sx + 5.4, chestY - 2.8], [sx + 5.8, chestY + 0.8], [sx + 1.6, chestY + 2.8], [sx - 1.6, chestY + 2.8], [sx - 5.8, chestY + 0.8]], HOOD, 5, { round: 0.9, cast: 1 });
 
   // ---- the free right arm: rolled sleeve, cuff, bracer; it swings forward as the left foot is planted
-  const sw = -a * 0.45, rSh = [rs * 5.2 + sx, shY], rEl = [rs * (vv ? 6.8 : 6.2) + sx, shY + 5.2], rHd = [rs * (vv ? 6.6 : 4.4) + sx, shY + (vv ? 10.8 + s * sw * 2.2 : 9.6 - sw * 1.6)];
+  const sw = -a * 0.45, rSh = [rs * 5.2 + sx, shY], rEl = [rs * (vv ? 6.8 : 6.6) + sx, shY + 5.2], rHd = [rs * (vv ? 6.6 : 7) + sx, shY + (vv ? 10.8 + s * sw * 2.2 : 10.2 - sw * 1.2)]; const az = vv ? 8 : 4.3, ao = vv ? { cast: 2 } : { cast: 0, bias: -1 };
   px.part(); px.tag("nearArm");
-  px.capsule(rSh[0], rSh[1] + 0.3, 2.1, rEl[0], rEl[1], 1.9, TUNIC, 8, { cast: 2 });
-  px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SHIRT, 8, { cast: 2 });
-  px.capsule(rEl[0] * 0.4 + rHd[0] * 0.6, rEl[1] * 0.4 + rHd[1] * 0.6, 1.9, rHd[0], rHd[1], 1.8, LEATHER, 8.02);
-  px.part(); px.ellipse(rHd[0], rHd[1] + 0.3, 1.7 + s * sw * 0.3, 1.7, SKIN, 8.3); px.tag(null);
+  px.capsule(rSh[0], rSh[1] + 0.3, 2.1, rEl[0], rEl[1], 1.9, TUNIC, az, ao);
+  px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SHIRT, az, ao);
+  px.capsule(rEl[0] * 0.4 + rHd[0] * 0.6, rEl[1] * 0.4 + rHd[1] * 0.6, 1.9, rHd[0], rHd[1], 1.8, LEATHER, az + 0.02, vv ? {} : { bias: -1 });
+  px.part(); px.ellipse(rHd[0], rHd[1] + (vv ? 0.3 : 1.2), vv ? 1.7 + s * sw * 0.3 : 1.5, vv ? 1.7 : 1.5, SKIN, vv ? 8.3 : 3.6, vv ? {} : { bias: -1 }); px.tag(null);
 
   // ---- the head
   px.part();

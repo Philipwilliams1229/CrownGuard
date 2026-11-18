@@ -71,6 +71,8 @@ const make = (s) => (px, F, o = {}) => {
   const vy = cl(sk.N[1] - F.lag1.N[1], -2, 2), vy2 = cl(F.lag1.N[1] - F.lag2.N[1], -2, 2);
   const vx = cl((sx - sx1) * 1.3, -2, 2), vx2 = cl((sx1 - sx2) * 1.3, -2, 2);
   const g = p.glow || 0, lift = p.lift || 0;
+  const zs = (z) => (s > 0 ? z : z - 0.5);                  // the BACK stack: carried things sit at 1.0, under everything
+  const B = s < 0, ax = B ? 0 : sx * 0.8;                    // from behind an arm swings in y only
 
   // ---- the staff, in his left fist, standing a little out from the body. Planted while he passes it
   // (the foot slides from ahead of him to behind, foreshortened), then swung on ahead and lifted.
@@ -80,43 +82,44 @@ const make = (s) => (px, F, o = {}) => {
   const at = (a, b) => [tipX + b, tipY - a];
   const orb = at(4.2, 0);
   px.part();
-  px.capsule(SX, fY, 0.9, tipX, tipY, 0.9, WOOD, 1.5, { edge: true });
-  { const k = at(-9, 0.6); px.dot(k[0], k[1], WOOD, 1.51, { fix: 3 }); const k2 = at(-17, -0.6); px.dot(k2[0], k2[1], WOOD, 1.51, { fix: 1 }); }
+  px.capsule(SX, fY, 0.9, tipX, tipY, 0.9, WOOD, zs(1.5), { edge: s > 0 });
+  { const k = at(-9, 0.6); px.dot(k[0], k[1], WOOD, zs(1.51), { fix: 3 }); const k2 = at(-17, -0.6); px.dot(k2[0], k2[1], WOOD, zs(1.51), { fix: 1 }); }
   px.part();
-  px.capsule(...at(-1.4, 0), 1.3, ...at(0, 0), 1.5, GOLD, 1.55);
+  px.capsule(...at(-1.4, 0), 1.3, ...at(0, 0), 1.5, GOLD, zs(1.55));
   // the charm: a finger bone on its string, swinging a beat behind
   {
     const csw = cl(-(sx - sx1) * 1.6, -2, 2), c1 = at(-1.6, 1.2 * rs);
     px.part();
-    px.line(c1[0], c1[1], c1[0] + 0.5 + csw * 0.4, c1[1] + 2, DARK, 1.52);
-    px.line(c1[0] + 0.5 + csw * 0.4, c1[1] + 2.6, c1[0] + 0.8 + csw * 0.7, c1[1] + 4.6, BONE, 1.53, { fix: 3 });
+    px.line(c1[0], c1[1], c1[0] + 0.5 + csw * 0.4, c1[1] + 2, DARK, zs(1.52));
+    px.line(c1[0] + 0.5 + csw * 0.4, c1[1] + 2.6, c1[0] + 0.8 + csw * 0.7, c1[1] + 4.6, BONE, zs(1.53), { fix: 3 });
   }
   // the claw: the shaft forks and curls up round the orb
   px.part();
-  px.line(...at(0.6, -1.6), ...at(3.6, -3.2), WOOD, 1.58, { fix: 1 }); px.line(...at(3.6, -3.2), ...at(6, -2.4), WOOD, 1.58, { fix: 2 });
-  px.line(...at(0.6, 1.6), ...at(3.6, 3.2), WOOD, 1.58, { fix: 2 }); px.line(...at(3.6, 3.2), ...at(6, 2.4), WOOD, 1.58, { fix: 3 });
+  px.line(...at(0.6, -1.6), ...at(3.6, -3.2), WOOD, zs(1.58), { fix: 1 }); px.line(...at(3.6, -3.2), ...at(6, -2.4), WOOD, zs(1.58), { fix: 2 });
+  px.line(...at(0.6, zs(1.6)), ...at(3.6, 3.2), WOOD, zs(1.58), { fix: 2 }); px.line(...at(3.6, 3.2), ...at(6, 2.4), WOOD, zs(1.58), { fix: 3 });
   px.part();
   {
     const ox = Math.round(orb[0] - 0.5) + 0.5, oy = Math.round(orb[1] - 0.5) + 0.5;
-    if (g > 0.75) { px.ellipse(ox, oy, 3.1, 3.1, GLOW, 1.6); px.ellipse(ox, oy, 1.9, 1.9, HOT, 1.62); }
-    else if (g > 0.4) { px.ellipse(ox, oy, 2.6, 2.6, GLOW, 1.6); px.ellipse(ox - 0.5, oy - 0.5, 1.1, 1.1, HOT, 1.62); }
+    if (g > 0.75) { px.ellipse(ox, oy, 3.1, 3.1, GLOW, zs(1.6)); px.ellipse(ox, oy, 1.9, 1.9, HOT, zs(1.62)); }
+    else if (g > 0.4) { px.ellipse(ox, oy, 2.6, 2.6, GLOW, zs(1.6)); px.ellipse(ox - 0.5, oy - 0.5, 1.1, 1.1, HOT, zs(1.62)); }
     else {
-      px.ellipse(ox, oy, 2.6, 2.6, ORB, 1.6);
-      if (g > 0.22) { px.dot(ox - 1, oy - 1, HOT, 1.62); px.dot(ox, oy - 1, GLOW, 1.62); px.dot(ox - 1, oy, GLOW, 1.62); }
-      else px.dot(ox - 1, oy - 1.4, ORB, 1.62, { fix: 4 });
+      px.ellipse(ox, oy, 2.6, 2.6, ORB, zs(1.6));
+      if (g > 0.22) { px.dot(ox - 1, oy - 1, HOT, zs(1.62)); px.dot(ox, oy - 1, GLOW, zs(1.62)); px.dot(ox - 1, oy, GLOW, zs(1.62)); }
+      else px.dot(ox - 1, oy - 1.4, ORB, zs(1.62), { fix: 4 });
     }
   }
 
-  // ---- the left arm (staff side): wide sleeve, gold cuff, fist round the shaft. A tone down from the front.
+  // ---- the left arm (staff side): wide sleeve, gold cuff, fist round the shaft. From behind: both arms at 4.3, the fist under the cuff at 3.6.
   {
-    const sh = [ls * 6.2 + sx, chestY + 0.6], el = [ls * 8.6 + sx * 0.8, chestY + 3.8], fist = [SX, hgY];
+    const sh = [ls * 6.2 + sx, chestY + 0.6], el = [ls * 8.6 + ax, chestY + 3.8], fist = [SX, hgY];
+    const za = B ? 4.3 : 4.5, zc = B ? 4.35 : 4.6, zf = B ? 3.6 : 4.7, fr = B ? 1.6 : 2.4;
     px.part();
-    px.capsule(sh[0], sh[1], 1.9, el[0], el[1], 2, SLEEVE, 4.5, { bias: -1 });
-    px.capsule(el[0], el[1], 2, fist[0] - ls * 0.4, fist[1] - 1.2, 2.4, SLEEVE, 4.5, { bias: -1 });
-    px.poly([[fist[0] - 2.7, fist[1] - 2.6], [fist[0] + 2.7, fist[1] - 2.6], [fist[0] + 2.7, fist[1] - 0.9], [fist[0] - 2.7, fist[1] - 0.9]], GOLD, 4.6, { round: 0.8 });
+    px.capsule(sh[0], sh[1], 1.9, el[0], el[1], 2, SLEEVE, za, B ? { cast: 0 } : { bias: -1 });
+    px.capsule(el[0], el[1], 2, fist[0] - ls * 0.4, fist[1] - 1.2, 2.4, SLEEVE, za, B ? { cast: 0 } : { bias: -1 });
+    px.poly([[fist[0] - 2.7, fist[1] - 2.6], [fist[0] + 2.7, fist[1] - 2.6], [fist[0] + 2.7, fist[1] - 0.9], [fist[0] - 2.7, fist[1] - 0.9]], GOLD, zc, { round: 0.8 });
     px.part();
-    px.ellipse(fist[0], fist[1] + 0.4, 2.4, 2.4, SKIN, 4.7, { bias: -1 });
-    px.dot(fist[0] - 1, fist[1] - 0.6, SKIN, 4.75, { fix: 0 }); px.dot(fist[0] - 1, fist[1] + 1.4, SKIN, 4.75, { fix: 0 });   // the fingers closed over the shaft
+    px.ellipse(fist[0], fist[1] + 0.6, fr, fr + 0.2, SKIN, zf, B ? { cast: 0 } : { bias: -1 });
+    if (!B) { px.dot(fist[0] - 1, fist[1] - 0.6, SKIN, 4.75, { fix: 0 }); px.dot(fist[0] - 1, fist[1] + 1.4, SKIN, 4.75, { fix: 0 }); }   // the fingers closed over the shaft
   }
 
   // ---- bare shins and big flat feet under the hem: forward is down the screen (front) or up it (back)
@@ -160,7 +163,7 @@ const make = (s) => (px, F, o = {}) => {
   }
   // the gold collar and the string of teeth and beads under it (front) / the collar's back (behind)
   px.part();
-  px.poly([[sx - 4, top - 0.2], [sx + 4, top - 0.1], [sx + 4.3, top + 1.2], [sx - 4.3, top + 1.2]], GOLD, 4.3, { round: 0.9 });
+  px.poly([[sx - 4, top - 0.2], [sx + 4, top - 0.1], [sx + 4.3, top + 1.2], [sx - 4.3, top + 1.2]], GOLD, 4.2, { round: 0.9 });
   if (s > 0) {
     const bw = cl(-(sx - sx1) * 0.8, -1, 1);
     const beads = [[-2.6, 3, BONE], [-1.2, 4.2, ORB], [0.2 + bw * 0.3, 4.8, BONE], [1.6 + bw * 0.4, 4.2, ORB], [2.8, 3, BONE]];
@@ -173,7 +176,7 @@ const make = (s) => (px, F, o = {}) => {
     px.part(); const eid = px._pid;
     const rr = side, wob = ey * 0.6 + (side === rs ? vx * 0.6 : -vx * 0.6);
     const rt = (xx, yy) => [hx + rr * xx, hy + yy];
-    px.poly([rt(4.8, -5.6), rt(5.6, -2), rt(9.2, -4.6 + wob * 0.4), rt(13.6, -9 + wob), rt(9.2, -8.2 + wob * 0.4)], SKIN, s > 0 ? 5.5 : 6.6, { bias: s > 0 ? -1 : -2, n: [rr * 0.3, -0.35, 0.9], cast: 1 });
+    px.poly([rt(4.8, -5.6), rt(5.6, -2), rt(9.2, -4.6 + wob * 0.4), rt(13.6, -9 + wob), rt(9.2, -8.2 + wob * 0.4)], SKIN, s > 0 ? 5.5 : 5.6, { bias: s > 0 ? -1 : 0, n: [rr * 0.3, -0.35, 0.9], cast: 1 });
     px.toneLine(...rt(5.8, -4), ...rt(11, -7.2 + wob * 0.8), -1, eid);
   }
   px.part();
@@ -197,14 +200,15 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the right arm (free side), over the robe: wide sleeve, gold cuff, hand swinging
   {
     const ang = p.aN[0];
-    const sh = [rs * 6.2 + sx, chestY + 0.6], el = [rs * 8.4 + sx * 0.8, chestY + 3.8], hand = [rs * 7.6 + sx * 0.8, chestY + 7.6 + s * ang * 2.4];
+    const sh = [rs * 6.2 + sx, chestY + 0.6], el = [rs * 8.4 + ax, chestY + 3.8], hand = [rs * 7.6 + ax, chestY + 7.6 + s * ang * 2.4];
     const wr = [(el[0] * 0.26 + hand[0] * 0.74), (el[1] * 0.26 + hand[1] * 0.74)];
     px.part(); px.tag("nearArm");
-    px.capsule(sh[0], sh[1] + 0.3, 2.1, el[0], el[1], 2.1, SLEEVE, 7.9, { cast: 2 });
-    px.capsule(el[0], el[1], 2.1, wr[0], wr[1], 2.5, SLEEVE, 7.9, { cast: 2 });
-    px.poly([[wr[0] - 2.7, wr[1] - 1], [wr[0] + 2.7, wr[1] - 1], [wr[0] + 2.7, wr[1] + 0.6], [wr[0] - 2.7, wr[1] + 0.6]], GOLD, 7.95, { round: 0.8 });
+    const za = B ? 4.3 : 7.9;
+    px.capsule(sh[0], sh[1] + 0.3, 2.1, el[0], el[1], 2.1, SLEEVE, za, { cast: B ? 0 : 2 });
+    px.capsule(el[0], el[1], 2.1, wr[0], wr[1], 2.5, SLEEVE, za, { cast: B ? 0 : 2 });
+    px.poly([[wr[0] - 2.7, wr[1] - 1], [wr[0] + 2.7, wr[1] - 1], [wr[0] + 2.7, wr[1] + 0.6], [wr[0] - 2.7, wr[1] + 0.6]], GOLD, B ? 4.35 : 7.95, { round: 0.8 });
     px.part();
-    px.ellipse(hand[0], hand[1] + 0.6, 1.7 + s * ang * 0.25, 1.8, SKIN, 8.3);
+    px.ellipse(hand[0], hand[1] + 0.6, B ? 1.5 : 1.7 + s * ang * 0.25, B ? 1.6 : 1.8, SKIN, B ? 3.6 : 8.3, B ? { cast: 0 } : {});
     px.tag(null);
   }
 

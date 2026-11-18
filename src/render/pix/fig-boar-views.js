@@ -189,9 +189,51 @@ const rider = (px, F, s, b, sx, hump) => {
   void cl; void hump;
 };
 
+// BACK stack (views-artist.md, "The BACK stack"): higher z is nearer us. Lance lowest (butt below the fist, head
+// past the boar's shoulder), legs, fists, jerkin, both arms over it (cast 0), the head and its ears last.
+const riderBack = (px, F, b, sx) => {
+  const ph = F.ph, seat = b.at(0.14, 0, -3.6);
+  const H = [sx * 0.6, seat[1] + 1], C = [H[0], H[1] - 6.8];
+  const hx = Math.round(C[0]), hy = Math.round(C[1] - 4.8), sw = 0.5 * Math.sin(ph * TAU * 2), S = 5;
+  const hN = [C[0] + 6, C[1] + 7], hF = [C[0] - 6, C[1] + 7 + sw * 0.8];
+  const tp = [hN[0] + 2.6, hN[1] - 12.5];
+  px.part(); px.tag("weapon");
+  px.capsule(hN[0] - 0.3, hN[1] + 5, 0.9, hN[0], hN[1], 0.85, WOOD, 9, { cast: 0 });
+  px.capsule(hN[0], hN[1], 0.85, tp[0], tp[1], 0.75, WOOD, 9, { cast: 0 });
+  px.poly([[tp[0] - 1.3, tp[1] + 0.4], [tp[0] + 1.3, tp[1] + 0.4], [tp[0] + 0.2, tp[1] - 4.8]], STEEL, 9.05, { fix: 3, cast: 0 });
+  px.capsule(tp[0], tp[1] + 1, 0.9, tp[0], tp[1] + 0.2, 0.9, DARK, 9.04, { floor: 1 });
+  px.tag(null);
+  for (const side of [-1, 1]) {
+    px.part();
+    const k = [side * 8, H[1] + 2.2], f = [side * 8.8, H[1] + 8.4];
+    px.capsule(side * 2.4, H[1] + 0.2, 2.2, k[0], k[1], 1.9, SKIN, 10, { cast: 1 });
+    px.capsule(k[0], k[1], 1.8, f[0], f[1] - 0.6, 1.4, SKIN, 10, { cast: 1 });
+    px.ellipse(f[0] + side * 0.4, f[1] + 0.6, 1.9, 1.2, SKIN, 10.02, { cast: 1 });
+  }
+  px.part(); px.ellipse(hN[0], hN[1] + 0.9, 1.5, 1.5, SKIN, 11.6, { cast: 0 });
+  px.part(); px.ellipse(hF[0], hF[1] + 0.9, 1.5, 1.5, SKIN, 11.6, { cast: 0 });
+  px.part(); const tid = px._pid;
+  px.poly([[C[0] - 5.2, C[1] - 0.8], [C[0] + 5.2, C[1] - 0.8], [C[0] + 5.2, C[1] + 2.6], [H[0] + 4.2, H[1] - 1], [H[0] + 4.4, H[1] + 1.8], [H[0] - 4.4, H[1] + 1.8], [H[0] - 4.2, H[1] - 1], [C[0] - 5.2, C[1] + 2.6]], JERK, 12, { round: 0.92, cast: 1 });
+  px.poly([[H[0] - 4.6, H[1] - 2.4], [H[0] + 4.6, H[1] - 2.4], [H[0] + 4.6, H[1] - 0.8], [H[0] - 4.6, H[1] - 0.8]], DARK, 12.05, { round: 0.92, floor: 1 });
+  px.toneLine(C[0], C[1], H[0], H[1] - 2.6, -1, tid);
+  for (const [sgn, hd] of [[1, hN], [-1, hF]]) {
+    const sh = [C[0] + sgn * (S + 0.6), C[1] + 1.2], el = [C[0] + sgn * (S + 1.6), (C[1] + 1.2 + hd[1]) / 2];
+    px.part();
+    px.limb([sh, el, hd], [1.7, 1.6, 1.5], SKIN, 12.3, { cast: 0 });
+    px.capsule(el[0], el[1] + 1, 1.65, hd[0], hd[1], 1.6, DARK, 12.35, { cast: 0, floor: 1 });
+  }
+  for (const side of [-1, 1]) {
+    px.part();
+    const ex = hx + side * 5, ey = hy + 0.4;
+    px.poly([[ex - side * 0.4, ey - 2.4], [ex - side * 0.4, ey + 2.4], [ex + side * 4.4, ey + 2.8 + sw * 0.4], [ex + side * 9.4, ey - 3.4 + sw], [ex + side * 5, ey - 4.6]], SKIN, 13.4, { n: [side * 0.3, -0.35, 0.9], cast: 1 });
+  }
+  px.part();
+  px.stamp(GB, hx, hy, GLEG, 14, { ax: 6, ay: 6, ball: [6.5, 5.5, 7, 6.5], cast: 1 });
+};
+
 const make = (s) => (px, F, o = {}) => {
   const r = boarView(px, F, s);
-  if (o.variant !== "loose") rider(px, F, s, r.b, r.sx, r.hump);
+  if (o.variant !== "loose") { if (s > 0) rider(px, F, s, r.b, r.sx, r.hump); else riderBack(px, F, r.b, r.sx); }
   return {};
 };
 export const BOX = { w: 48, h: 76, ox: 24, oy: 62 };

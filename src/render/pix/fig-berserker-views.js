@@ -7,7 +7,7 @@
 // Shares `kit`, `legs`, `daneAxe`, `backGrip` with fig-thrall-views.js. Unflipped; one sun, upper left.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-berserker.js";
-import { kit, legs, daneAxe, backGrip, mix } from "./fig-thrall-views.js";
+import { kit, legs, daneAxe, backArms, mix } from "./fig-thrall-views.js";
 
 const SKIN = mat("#dca584"), SKINR = mat("#e48a6a"), PELT = mat("#4a4048"), PELT_D = mat("#2e2830"), PELTF = mat("#4a5a70"), WRAP = mat("#b09468"), TIP = mat("#a8a8b0"), LEATHER = mat("#4a382c");
 const MANE = mat("#b8603a"), MANER = mat("#d8582e"), BONE = mat("#ece0c4"), IRON = mat("#5e646e"), BRASS = mat("#c8a040");
@@ -72,10 +72,10 @@ const make = (s) => (px, F, o = {}) => {
   if (s < 0) {
     const t1 = Math.max(-1.2, Math.min(1.2, -vx * 0.6 - vx2 * 0.4));
     px.part(); const pid = px._pid;
-    px.poly([[hx - 5, hy + 1], [hx + 5, hy + 1], [sx + 9.6, chY + 3], [hx + 7.4, hipY - 1], [hx + 6.4 + t1 * 0.5, hipY + 3], [hx + 2 + t1, hipY + 4.4], [hx - 1.4 + t1, hipY + 2.6], [hx - 4.6 + t1, hipY + 4.6], [hx - 7 + t1 * 0.5, hipY + 1.4], [hx - 7.6, hipY - 1], [sx - 9.6, chY + 3]], PELT, 4.3, { round: 0.85, cast: 1 });
+    px.poly([[hx - 5, hy + 1], [hx + 5, hy + 1], [sx + 7.2, chY + 3], [hx + 6.4, hipY - 1], [hx + 6.4 + t1 * 0.5, hipY + 3], [hx + 2 + t1, hipY + 4.4], [hx - 1.4 + t1, hipY + 2.6], [hx - 4.6 + t1, hipY + 4.6], [hx - 7 + t1 * 0.5, hipY + 1.4], [hx - 6.6, hipY - 1], [sx - 7.2, chY + 3]], PELT, 5.0, { round: 0.85, cast: 1, edge: true });
     px.toneLine(hx, hy + 3, hx + t1, hipY + 3, -1, pid);
     px.part();
-    for (const [x, y] of [[-5, 4], [-2.4, 7], [2.6, 5], [5.4, 9], [-4, 12], [3.4, 13]]) px.dot(hx + x, chY + y, TIP, 4.32, { noLine: true });
+    for (const [x, y] of [[-5, 4], [-2.4, 7], [2.6, 5], [5.4, 9], [-4, 12], [3.4, 13]]) px.dot(hx + x, chY + y, TIP, 5.02, { noLine: true });
   }
 
   // legs: fur-wrapped, hide boots
@@ -105,8 +105,7 @@ const make = (s) => (px, F, o = {}) => {
 
   // both arms, bare with a brass band: the axe stands up out of each fist (from behind: fist and haft butt only)
   const arm = (side, ang, z) => {
-    const hd = s > 0 ? [side * 10.4 + sx, shY + 10.6 + s * ang * 1.8] : [side * 9 + sx, hipY - 2 + ang * 1.4];
-    const el = [side * 11 + sx, shY + (s > 0 ? 5.4 : 7.4)];
+    const hd = [side * 10.4 + sx, shY + 10.6 + s * ang * 1.8], el = [side * 11 + sx, shY + 5.4];
     px.part(); px.tag(side === rs ? "nearArm" : "farArm");
     px.capsule(sx + side * 6.2, shY + 0.8, 2.7, el[0], el[1], 2.3, skin, z, { cast: 1 });
     px.capsule(el[0], el[1], 2.3, hd[0], hd[1], 2.0, skin, z, { cast: 1 });
@@ -115,21 +114,31 @@ const make = (s) => (px, F, o = {}) => {
     const c0 = mix(el, hd, 0.62);
     px.capsule(c0[0], c0[1], 2.3, hd[0], hd[1], 2.1, LEATHER, z + 0.05, { cast: 1 });
     px.tag(null);
-    daneAxe(px, { ...K, rs: side }, hd, 17, 1.4, z + 0.2, IRON, s < 0);
+    daneAxe(px, { ...K, rs: side }, hd, 17, 1.4, z + 0.2, IRON);
     px.part(); px.tag("nearHand");
     px.ellipse(hd[0], hd[1], 2.1, 2.5, skin, z + 0.4);
     px.tag(null);
   };
-  arm(ls, p.aF[0], 7.6); arm(rs, p.aN[0], 7.9);
+  if (s > 0) { arm(ls, p.aF[0], 7.6); arm(rs, p.aN[0], 7.9); }
+  else {
+    // BACK stack: both bare arms hang at his sides (z 4.3), a brass band, the fists under at 3.6, an axe upright in each
+    const o = { sh: 6.4, el: 8.4, hx: 9, up: skin, cuff: LEATHER, w: [2.7, 2.3, 2.0], fist: skin };
+    const hr = backArms(px, K, o);
+    for (const [side, hd] of [[rs, hr], [ls, o.handL]]) {
+      const m = [sx + side * 7.6, (shY + hd[1]) / 2 - 1];
+      px.part(); px.capsule(m[0], m[1], 2.35, m[0], m[1] + 0.5, 2.35, BRASS, 4.33, { fix: 3, cast: 0 });
+      daneAxe(px, { ...K, rs: side }, [hd[0], hd[1] + 1], 17, 1.4, 1.0, IRON, true);
+    }
+  }
 
   // the great shaggy mantle over the shoulders with the forepaws hanging at both sides
   px.part();
-  px.ellipse(sx + 0.2, chY + 0.4, 11, 5, PELT, 4.4, { cast: 1 });
-  for (const x of [-9, -6, -3, 0, 3, 6, 9]) px.dot(sx + 0.2 + x, chY + 5 + ((x & 1) ? 0.8 : 0), PELT, 4.4);
-  for (const x of [-5, -1, 3, 6]) px.dot(sx + x, chY - 3.2, TIP, 4.45, { noLine: true });
-  for (const dx of [-8.8, 8.8]) {
-    px.part(); px.capsule(sx + dx, chY + 2.6, 2.4, sx + dx * 1.03, chY + 9, 2, PELTF, 4.45, { cast: 1 });
-    for (const q of [-1.2, 0.2, 1.4]) px.dot(sx + dx * 1.03 + q, chY + 10.4, BONE, 4.5, { fix: 3 });
+  px.ellipse(sx + 0.2, chY + 0.4, 11, 5, PELT, s > 0 ? 4.4 : 5.05, { cast: 1, edge: s < 0 });
+  for (const x of [-9, -6, -3, 0, 3, 6, 9]) px.dot(sx + 0.2 + x, chY + 5 + ((x & 1) ? 0.8 : 0), PELT, s > 0 ? 4.4 : 5.05);
+  for (const x of [-5, -1, 3, 6]) px.dot(sx + x, chY - 3.2, TIP, s > 0 ? 4.45 : 5.08, { noLine: true });
+  for (const dx of s > 0 ? [-8.8, 8.8] : []) {
+    px.part(); px.capsule(sx + dx, chY + 2.6, 2.4, sx + dx * 1.03, chY + 9, 2, PELTF, s > 0 ? 4.45 : 5.1, { cast: 1 });
+    for (const q of [-1.2, 0.2, 1.4]) px.dot(sx + dx * 1.03 + q, chY + 10.4, BONE, s > 0 ? 4.5 : 5.12, { fix: 3 });
   }
 
   // the head

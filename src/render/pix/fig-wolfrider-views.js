@@ -126,9 +126,60 @@ const rider = (px, F, s, b, sx) => {
   void cl;
 };
 
+// BACK stack (views-artist.md, "The BACK stack"): higher z is nearer us, i.e. further BEHIND him. The rider sits
+// over the wolf (z 9+): axe lowest, then legs, fists, torso, both arms just over the torso (cast 0), the fur
+// collar and the hair on his back and shoulders, the head last.
+const riderBack = (px, F, b, sx) => {
+  const ph = F.ph, TAU = Math.PI * 2, seat = b.at(0.2, 0, -0.4);
+  const H = [sx * 0.6, seat[1] + 1.5], C = [H[0], H[1] - 6.3];
+  const hx = Math.round(C[0]), hy = Math.round(C[1] - 3.8), sw = 0.5 * Math.sin(ph * TAU * 2), S = 5.2;
+  const hN = [C[0] + 6.3, C[1] + 7.4], hF = [C[0] - 6.3, C[1] + 7.4 + sw * 0.8];
+  // the axe: the butt below his right fist, the haft forward behind arm and jerkin, the head past his hip
+  const tp = [hN[0] + 3, hN[1] - 5.6];
+  px.part(); px.tag("weapon");
+  px.capsule(hN[0] - 0.3, hN[1] + 4.6, 0.85, hN[0], hN[1], 0.85, WOOD, 9, { cast: 0 });
+  px.capsule(hN[0], hN[1], 0.85, tp[0], tp[1], 0.85, WOOD, 9, { cast: 0 });
+  px.poly([[tp[0], tp[1] - 1], [tp[0] + 5, tp[1] - 2.2], [tp[0] + 5.4, tp[1] + 3.6], [tp[0] + 3, tp[1] + 4.6], [tp[0], tp[1] + 2.4]], STEEL, 9.05, { fix: 2, cast: 0 });
+  px.poly([[tp[0] + 3, tp[1] + 4.6], [tp[0] + 5.4, tp[1] + 3.6], [tp[0] + 4.6, tp[1] + 2.6]], STEEL, 9.1, { fix: 4, cast: 0 });
+  px.poly([[tp[0], tp[1] - 1.4], [tp[0] - 1.2, tp[1] - 1.4], [tp[0] - 1.2, tp[1] + 2], [tp[0], tp[1] + 2]], IRONK, 9.02, { fix: 1, cast: 0 });
+  px.tag(null);
+  // the legs, boots down the flanks
+  for (const side of [-1, 1]) {
+    px.part();
+    const k = [side * 7.8, H[1] + 2.4], f = [side * 8.2, H[1] + 9.4];
+    px.capsule(side * 2.4, H[1] + 0.2, 2.5, k[0], k[1], 2.1, BROWN2, 10, { cast: 1, floor: 1 });
+    px.capsule(k[0], k[1], 2, f[0], f[1] - 0.6, 1.6, LEATHER, 10, { cast: 1, floor: 1 });
+    px.ellipse(f[0] + side * 0.3, f[1] + 0.7, 1.9, 1.3, LEATHER, 10.02, { cast: 1 });
+  }
+  // the fists, small, under the cuffs
+  px.part(); px.ellipse(hN[0], hN[1] + 0.9, 1.5, 1.5, SKIN, 11.6, { cast: 0 });
+  px.part(); px.ellipse(hF[0], hF[1] + 0.9, 1.5, 1.5, SKIN, 11.6, { cast: 0 });
+  // the jerkin, belt and its seam
+  px.part(); const tab = px._pid;
+  px.poly([[C[0] - 4.8, C[1] - 1.6], [C[0] + 4.8, C[1] - 1.6], [C[0] + 4.8, C[1] + 2.8], [H[0] + 4.7, H[1] - 1], [H[0] + 5, H[1] + 3.6], [H[0] + 1.6, H[1] + 4.8], [H[0] - 1, H[1] + 3.4],
+    [H[0] - 3, H[1] + 4.8], [H[0] - 5, H[1] + 3.4], [H[0] - 4.8, H[1] - 1], [C[0] - 4.8, C[1] + 2.8]], BROWN, 12, { round: 0.92, cast: 1 });
+  px.toneLine(C[0], C[1], H[0], H[1] - 2.6, -1, tab);
+  px.poly([[H[0] - 5, H[1] - 2.2], [H[0] + 5, H[1] - 2.2], [H[0] + 5, H[1] - 0.4], [H[0] - 5, H[1] - 0.4]], BROWN2, 12.05, { round: 0.92, floor: 1 });
+  // both arms, the same z, one limb each, hanging at his sides (a forearm bracer on each)
+  for (const [sgn, hd] of [[1, hN], [-1, hF]]) {
+    const sh = [C[0] + sgn * S, C[1] + 1.2], el = [C[0] + sgn * (S + 1.2), (C[1] + 1.2 + hd[1]) / 2];
+    px.part();
+    px.limb([sh, el, hd], [2, 1.8, 1.6], SKIN, 12.3, { cast: 0 });
+    px.capsule(el[0], el[1] + 0.8, 1.9, hd[0], hd[1], 1.75, LEATHER, 12.35, { cast: 0, floor: 1 });
+  }
+  // the fur collar over the shoulders, the hair on his back
+  px.part();
+  px.poly([[C[0] - 5.4, C[1] - 2], [C[0] + 5.4, C[1] - 2], [C[0] + 5.2, C[1] + 1.4], [C[0] - 5.2, C[1] + 1.4]], FUR, 13, { round: 0.8, cast: 1, edge: true });
+  for (const x of [-4.4, -1.8, 1, 3.8]) px.dot(C[0] + x, C[1] + 2.2, FUR, 13, { noLine: true });
+  px.part();
+  px.poly([[hx - 3, hy + 4], [hx + 3, hy + 4], [hx + 2.4 - sw * 0.6, hy + 8.6], [hx - 2.4 - sw * 0.6, hy + 8.6]], HAIR, 13.5, { cast: 1 });
+  px.part();
+  px.stamp(HAIRB, hx, hy, LEG, 14, { ax: 6, ay: 6, cast: 1, ball: [6.5, 5.5, 7, 6.5] });
+};
+
 const make = (s) => (px, F, o = {}) => {
   const { b, sx } = wolfView(px, F, s, WOLF, { zHead: 11 });
-  rider(px, F, s, b, sx);
+  if (s > 0) rider(px, F, s, b, sx); else riderBack(px, F, b, sx);
   void o;
   return {};
 };

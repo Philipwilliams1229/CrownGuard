@@ -60,7 +60,7 @@ const make = (s) => (px, F, o = {}) => {
   // the cloak behind him: navy, down past the knee, its edge showing beyond the arms and swinging a beat late
   const t1 = -vx * 1.2, t2 = -vx * 1.6 - vx2 * 1.4;
   px.part(); const cp = px._pid;
-  px.poly([[tx - 5.6, chestY - 2], [tx + 5.6, chestY - 2], [tx + 7.4, chestY + 6], [hx + 7.4 + t1 * 0.6, hipY + 8], [hx + 7.8 + t2, -6.8], [hx + 3 + t2 * 0.7, -5.2], [hx - 3 + t2 * 0.7, -5.6], [hx - 7.8 + t2, -6.8], [hx - 7.4 + t1 * 0.6, hipY + 8], [tx - 7.4, chestY + 6]], NAVY_D, s > 0 ? 0.5 : 4.6, { round: 0.85, cast: s > 0 ? 0 : 1 });
+  px.poly([[tx - 5.6, chestY - 2], [tx + 5.6, chestY - 2], [tx + 7.4, chestY + 6], [hx + 7.4 + t1 * 0.6, hipY + 8], [hx + 7.8 + t2, -6.8], [hx + 3 + t2 * 0.7, -5.2], [hx - 3 + t2 * 0.7, -5.6], [hx - 7.8 + t2, -6.8], [hx - 7.4 + t1 * 0.6, hipY + 8], [tx - 7.4, chestY + 6]], NAVY_D, s > 0 ? 0.5 : 5.0, { round: 0.85, cast: s > 0 ? 0 : 0, edge: s < 0 });
   px.toneLine(hx + (s > 0 ? -5 : -4), chestY + 6, hx - 5 + t2 * 0.8, -8, -1, cp);
 
   // the legs: navy hose, the knee cop and a steel greave, a leather boot; forward is down (front) or up (back)
@@ -86,7 +86,7 @@ const make = (s) => (px, F, o = {}) => {
   px.poly([[tx - 5.4, chestY - 1.6], [tx + 5.4, chestY - 1.6], [tx + 6.2, chestY + 3.5], [hx + 5, hipY - 2.6], [hx + hemW, hemY], [hx + hemW * 0.5, hemY + 1.1], [hx + 0.3 - vx * 0.4, hemY + 0.2], [hx - hemW * 0.5, hemY + 1.1], [hx - hemW, hemY], [hx - 5, hipY - 2.6], [tx - 6.2, chestY + 3.5]], NAVY, 4, { round: 0.9, ny: -0.12, cast: 2 });
   px.toneLine(hx + 0.6, hipY - 0.5, hx + 0.4 - vx * 0.4, hemY - 0.6, -1, tb);
   px.part();
-  px.poly([[tx - 5.4, chestY - 1.6], [tx + 5.4, chestY - 1.6], [tx + 6.2, chestY + 3.4], [hx + 4.8, hipY - 4.2], [hx - 4.8, hipY - 4.2], [tx - 6.2, chestY + 3.4]], STEEL, 4.3, { round: 0.92, ny: -0.12, cast: 1 });
+  px.poly([[tx - 5.4, chestY - 1.6], [tx + 5.4, chestY - 1.6], [tx + 6.2, chestY + 3.4], [hx + 4.8, hipY - 4.2], [hx - 4.8, hipY - 4.2], [tx - 6.2, chestY + 3.4]], STEEL, s > 0 ? 4.3 : 4.05, { round: 0.92, ny: -0.12, cast: 1 });
   px.line(tx - 3.8, chestY - 0.6, hx - 3.4, hipY - 5.2, STEEL, 4.32, { fix: 4, noLine: true });
   px.line(tx + 4.2, chestY + 0.4, hx + 3.8, hipY - 5.2, STEEL, 4.32, { fix: 1, noLine: true });
   if (s > 0) px.line(tx, chestY - 0.8, hx, hipY - 5.4, STEEL_D, 4.33, { noLine: true });       // the plate's centre ridge
@@ -100,35 +100,36 @@ const make = (s) => (px, F, o = {}) => {
 
   // the far arm (his LEFT, screen side ls): the hand on his hip, the elbow out; a pauldron with one spike
   const PX = 8.2, PY = chestY + 1;   // the pauldrons sit OUT past the head (never over the face)
-  const shL = [tx + ls * 7.4, chestY + 0.8], elL = s > 0 ? [tx + ls * 10.8, chestY + 7.4] : [tx + ls * 9.4, chestY + 7.4], hpL = s > 0 ? [hx + ls * 4.9, hipY - 4] : [tx + ls * 9.8, chestY + 13.6 - a * 0.6 * s];
+  const shL = [tx + ls * 7.4, chestY + 0.8], elL = s > 0 ? [tx + ls * 10.8, chestY + 7.4] : [tx + ls * 9.6, chestY + 7.4], hpL = s > 0 ? [hx + ls * 4.9, hipY - 4] : [tx + ls * 9.7, chestY + 13.6 - a * 0.6 * s];
   px.part();
-  px.capsule(shL[0], shL[1], 2.3, elL[0], elL[1], 2.2, STEEL_D, 4.6, { bias: -1, cast: 0 });
-  px.capsule(elL[0], elL[1], 2.2, hpL[0], hpL[1], 1.9, STEEL, 4.6, { bias: -1, cast: 0 });
-  px.ellipse(elL[0], elL[1], 1.9, 1.9, STEEL, 4.62, { vb: 0.25 });
-  px.ellipse(hpL[0], hpL[1], 1.8, 1.7, STEEL_D, 4.8);
+  const azL = s > 0 ? 4.6 : 4.3, bL = s > 0 ? { bias: -1, cast: 0 } : { cast: 0 };
+  px.capsule(shL[0], shL[1], 2.3, elL[0], elL[1], 2.2, STEEL_D, azL, bL);
+  px.capsule(elL[0], elL[1], 2.2, hpL[0], hpL[1], 1.9, STEEL, azL, bL);
+  px.ellipse(elL[0], elL[1], 1.9, 1.9, STEEL, azL + 0.02, { vb: 0.25 });
+  px.ellipse(hpL[0], hpL[1] + (s < 0 ? 1 : 0), s > 0 ? 1.8 : 1.5, s > 0 ? 1.7 : 1.4, STEEL_D, s > 0 ? 4.8 : 3.6);
   px.part();
   const pL = [tx + ls * PX, PY];
-  px.ellipse(pL[0], pL[1] - 0.4, 3.9, 3.4, STEEL_D, 6.0, { cast: 0 });
-  px.line(pL[0] - 3, pL[1] + 2, pL[0] + 3, pL[1] + 2, GOLD, 6.02);
-  px.poly([[pL[0] - 1.2, pL[1] - 2], [pL[0] + 1.2, pL[1] - 2], [pL[0] + ls * 0.8, pL[1] - 6.8]], STEEL_D, 6.04, { edge: true });
+  px.ellipse(pL[0], pL[1] - 0.4, 3.9, 3.4, STEEL_D, s > 0 ? 6.0 : 5.2, { cast: s > 0 ? 0 : 1, edge: s < 0 });
+  px.line(pL[0] - 3, pL[1] + 2, pL[0] + 3, pL[1] + 2, GOLD, s > 0 ? 6.02 : 5.22);
+  px.poly([[pL[0] - 1.2, pL[1] - 2], [pL[0] + 1.2, pL[1] - 2], [pL[0] + ls * 0.8, pL[1] - 6.8]], STEEL_D, s > 0 ? 6.04 : 5.24, { edge: true });
 
   // the halberd in his right hand: carried upright, a touch outboard, the butt below the fist; the crescent turned outboard
-  const sh = [tx + rs * 7.4, chestY + 0.8], elb = [tx + rs * 9.8, chestY + 6.6], sw = a * 0.5 * s;
-  const hd = [tx + rs * 10.4, chestY + 11.6 + sw * 0.5];
-  const lean = rs * 0.07 + sw * 0.01, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
+  const sh = [tx + rs * 7.4, chestY + 0.8], elb = [tx + rs * (s > 0 ? 9.8 : 10.4), chestY + 6.6], sw = a * 0.5 * s;
+  const hd = [tx + rs * (s > 0 ? 10.4 : 11), chestY + (s > 0 ? 11.6 + sw * 0.5 : 12.6 - a * 0.6)];
+  const lean = s > 0 ? rs * 0.07 + sw * 0.01 : 0, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
   const fk = 1;   // as tall from behind as in front; its lower part is behind him   // from behind the pole leans away from us: foreshortened
   const Bh = (t, w = 0) => [hd[0] + d[0] * t * fk + nr[0] * w * fk, hd[1] + d[1] * t * fk + nr[1] * w * fk];   // t up the shaft from the fist, w across it
-  const bz = s > 0 ? 6.25 : 5.5, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
+  const bz = s > 0 ? 6.25 : 1.0, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
   px.part(); px.tag("halb");
-  px.capsule(...Bh(-9), 1.1, ...Bh(36), 1.05, WOOD, bz, { edge: true });
+  px.capsule(...Bh(-9), 1.1, ...Bh(36), 1.05, WOOD, bz, { edge: s > 0 });
   px.capsule(...Bh(-9), 1.5, ...Bh(-7.6), 1.5, STEEL_D, bz + 0.02);
   px.part();
   px.capsule(...Bh(30), 1.5, ...Bh(33.6), 1.4, STEEL_D, bz + 0.05);
-  px.capsule(...Bh(33), 1.2, ...Bh(42), 0.2, STEEL, bz + 0.06, { edge: true });                // the spike
-  px.poly([Bh(34.6, o1 * 0.8), Bh(36.2, o1 * 4.4), Bh(34.6, o1 * 8), Bh(30.6, o1 * 9.2), Bh(27, o1 * 7.4), Bh(29.4, o1 * 6), Bh(31, o1 * 5.2), Bh(31, o1 * 3.4), Bh(29, o1 * 1)], STEEL, bz + 0.07, { round: 0.5, edge: true });   // the crescent
+  px.capsule(...Bh(33), 1.2, ...Bh(42), 0.2, STEEL, bz + 0.06, { edge: s > 0 });                // the spike
+  px.poly([Bh(34.6, o1 * 0.8), Bh(36.2, o1 * 4.4), Bh(34.6, o1 * 8), Bh(30.6, o1 * 9.2), Bh(27, o1 * 7.4), Bh(29.4, o1 * 6), Bh(31, o1 * 5.2), Bh(31, o1 * 3.4), Bh(29, o1 * 1)], STEEL, bz + 0.07, { round: 0.5, edge: s > 0 });   // the crescent
   px.line(...Bh(34.8, o1 * 2.4), ...Bh(34.4, o1 * 7), STEEL, bz + 0.1, { fix: 4, noLine: true });
   px.line(...Bh(30.4, o1 * 8.4), ...Bh(27.8, o1 * 7), STEEL, bz + 0.1, { fix: 1, noLine: true });
-  px.poly([Bh(30.2, -o1 * 0.8), Bh(32.6, -o1 * 0.8), Bh(32.2, -o1 * 4.4), Bh(30.4, -o1 * 5.6), Bh(30.4, -o1 * 3)], STEEL, bz + 0.07, { round: 0.5, edge: true });   // the back hook, inboard
+  px.poly([Bh(30.2, -o1 * 0.8), Bh(32.6, -o1 * 0.8), Bh(32.2, -o1 * 4.4), Bh(30.4, -o1 * 5.6), Bh(30.4, -o1 * 3)], STEEL, bz + 0.07, { round: 0.5, edge: s > 0 });   // the back hook, inboard
   {
     const w = cl(-vx * 1.4, -3, 3), t0 = Bh(25, 0.4);
     px.part();
@@ -138,19 +139,19 @@ const make = (s) => (px, F, o = {}) => {
   px.tag(null);
   // the right arm over it: vambrace, gauntlet round the haft, the great spiked pauldron
   px.part(); px.tag("nearArm");
-  px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, s > 0 ? 6.2 : 5.2, { cast: 0 });
-  px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, s > 0 ? 6.2 : 5.2, { cast: 0 });
-  px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, s > 0 ? 6.22 : 5.22, { vb: 0.25 });
-  px.ellipse(hd[0], hd[1], 2.1, 2.0, STEEL_D, 6.5);
-  px.line(hd[0] - 1.8, hd[1] - 0.8, hd[0] + 1.8, hd[1] - 0.8, STEEL, 6.52, { fix: 1, noLine: true });   // the fingers over the haft
+  px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, s > 0 ? 6.2 : 4.3, { cast: 0 });
+  px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, s > 0 ? 6.2 : 4.3, { cast: 0 });
+  px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, s > 0 ? 6.22 : 4.32, { vb: 0.25 });
+  px.ellipse(hd[0], hd[1] + (s < 0 ? 1 : 0), s > 0 ? 2.1 : 1.5, s > 0 ? 2.0 : 1.4, STEEL_D, s > 0 ? 6.5 : 3.6);
+  if (s > 0) px.line(hd[0] - 1.8, hd[1] - 0.8, hd[0] + 1.8, hd[1] - 0.8, STEEL, 6.52, { fix: 1, noLine: true });   // the fingers over the haft
   px.line(hd[0] - 1.4, hd[1] + 0.8, hd[0] + 1.4, hd[1] - 1, GOLD, 6.55);
   px.tag(null);
   px.part();
   const pR = [tx + rs * PX, PY];
-  px.ellipse(pR[0], pR[1] - 0.4, 4.0, 3.3, STEEL, 6.0, { cast: 1 });
-  px.line(pR[0] - 3, pR[1] + 2.2, pR[0] + 3, pR[1] + 2.2, GOLD, 6.02);
-  px.poly([[pR[0] - 2, pR[1] - 2], [pR[0] + 0.4, pR[1] - 2], [pR[0] - 1.6, pR[1] - 7.6]], STEEL, 6.04, { edge: true });
-  px.poly([[pR[0] + 0.8, pR[1] - 1.8], [pR[0] + 3.2, pR[1] - 1.8], [pR[0] + 3.6, pR[1] - 6]], STEEL, 6.04, { edge: true });
+  px.ellipse(pR[0], pR[1] - 0.4, 4.0, 3.3, STEEL, s > 0 ? 6.0 : 5.2, { cast: 1, edge: s < 0 });
+  px.line(pR[0] - 3, pR[1] + 2.2, pR[0] + 3, pR[1] + 2.2, GOLD, s > 0 ? 6.02 : 5.22);
+  px.poly([[pR[0] - 2, pR[1] - 2], [pR[0] + 0.4, pR[1] - 2], [pR[0] - 1.6, pR[1] - 7.6]], STEEL, s > 0 ? 6.04 : 5.24, { edge: true });
+  px.poly([[pR[0] + 0.8, pR[1] - 1.8], [pR[0] + 3.2, pR[1] - 1.8], [pR[0] + 3.6, pR[1] - 6]], STEEL, s > 0 ? 6.04 : 5.24, { edge: true });
 
   // the head: sallet and its horsehair crest. From the front the plume rises over the dome and falls behind it; from behind it
   // runs as a broad red ridge down the back of the dome and streams past the nape, a beat behind the bob.

@@ -48,7 +48,7 @@ const BACK_H = [...DOME,
 const blinkOf = (rows) => rows.map((r, i) => (i === 6 ? r.replace(/E/g, "e") : r));
 
 const make = (s) => (px, F, o = {}) => {
-  const B = base(F, s, 0.55), { sk, ph, p, rs, ls, sx, hipY, chestY, hy, hx, vy, vx, vx2, tilt } = B;
+  const B = base(F, s, 0.55), sw1 = 1.2 * Math.sin(F.ph * TAU), { sk, ph, p, rs, ls, sx, hipY, chestY, hy, hx, vy, vx, vx2, tilt } = B;
   const shY = sk.sN[1] + 0.5, c0 = chestY - 3, b0 = hipY, hemY = hipY + 6.4;
 
   // ---- the scarf: knotted at the neck, trailing down his back (BACK: down the middle; FRONT: a knot at the throat)
@@ -59,17 +59,17 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // ---- the shield's back, BACK view only (beyond his left side, behind the body)
-  const sh = [ls * 9.2 + sx, chestY + 8.2], hw = 7.0;
+  const sh = [ls * (s > 0 ? 9.2 : 3.4) + sx, chestY + 8.2], hw = 7.0;
   const heater = (cx, cy, k) => [[cx - hw * k, cy - 9 * k], [cx + hw * k, cy - 9 * k], [cx + hw * k, cy + 0.4 * k], [cx + hw * 0.55 * k, cy + 6 * k], [cx, cy + 10 * k], [cx - hw * 0.55 * k, cy + 6 * k], [cx - hw * k, cy + 0.4 * k]];
   if (s < 0) {
     px.part(); const hid = px._pid;
-    px.poly(heater(sh[0] - 0.6, sh[1], 1), IRON, 3.2, { round: 0.7 });
-    px.poly(heater(sh[0] - 0.6, sh[1], 0.84), WOOD, 3.22, { round: 0.8 });
+    px.poly(heater(sh[0] - 0.6, sh[1], 1), IRON, 1.0, { round: 0.7 });
+    px.poly(heater(sh[0] - 0.6, sh[1], 0.84), WOOD, 1.02, { round: 0.8 });
     px.toneLine(sh[0] - 3, sh[1] - 7, sh[0] - 3, sh[1] + 5, -1, hid);
     px.part();
-    px.line(sh[0] - 5.6, sh[1] - 2.4, sh[0] + 4.4, sh[1] - 2.4, LEATHER, 3.3, { noLine: true });
-    px.line(sh[0] - 5.2, sh[1] + 2, sh[0] + 4, sh[1] + 2, LEATHER, 3.3, { noLine: true });
-    px.line(sh[0] - 0.8, sh[1] - 7.4, sh[0] - 0.8, sh[1] + 8, WOODK, 3.28, { noLine: true });
+    px.line(sh[0] - 5.6, sh[1] - 2.4, sh[0] + 4.4, sh[1] - 2.4, LEATHER, 1.06, { noLine: true });
+    px.line(sh[0] - 5.2, sh[1] + 2, sh[0] + 4, sh[1] + 2, LEATHER, 1.06, { noLine: true });
+    px.line(sh[0] - 0.8, sh[1] - 7.4, sh[0] - 0.8, sh[1] + 8, WOODK, 1.05, { noLine: true });
   }
 
   legsView(px, B, {
@@ -119,22 +119,22 @@ const make = (s) => (px, F, o = {}) => {
   for (const [side, big] of [[ls, 0], [rs, 1]]) {
     px.part();
     const sc2 = [side * 7.4 + sx, shY + 1.4];
-    px.ellipse(sc2[0], sc2[1], 4.6, 3.8, PLATE, 6.5, { cast: 1 });
+    px.ellipse(sc2[0], sc2[1], 4.6, 3.8, PLATE, 6.5, { cast: 1, edge: s < 0 });
     if (big) { px.ellipse(sc2[0], sc2[1] + 2.2, 3.7, 2.8, PLATE, 6.52, { cast: 1 }); px.line(sc2[0] - 3.8, sc2[1] + 1.8, sc2[0] + 3.8, sc2[1] + 1.8, BRASS, 6.55, { noLine: true }); }
     px.dot(sc2[0] - 1, sc2[1] - 1.4, STEELB, 6.56, { fix: 4 }); px.dot(sc2[0] + 1.6, sc2[1] - 0.6, STEELB, 6.56, { fix: 4 });
   }
 
   // ---- the arms: plate vambraces over padded sleeves; the sword hand in FRONT
-  const rEl = [rs * 8 + sx, shY + 7.2], hdY = shY + 8.2 + vy * 0.3, hand = [rs * 6.4 + sx, hdY - (s > 0 ? 1.2 : 0)];
+  const rEl = [rs * 8 + sx, shY + 7.2], hdY = shY + 8.2 + vy * 0.3, hand = s > 0 ? [rs * 6.4 + sx, hdY - 1.2] : [rs * 7.8 + sx, shY + 10.8 - sw1];
   px.part();
-  px.capsule(rs * 7 + sx, shY + 1.8, 2.5, rEl[0], rEl[1], 2.3, PAD, 5, { cast: 2 });
-  px.capsule(rEl[0], rEl[1], 2.3, hand[0], hand[1], 2.0, PLATE, 5, { cast: 2 });
-  px.ellipse(rEl[0], rEl[1], 2.2, 2.2, PLATE, 5.05, { cast: 1 });
+  px.capsule(rs * 7 + sx, shY + 1.8, 2.5, rEl[0], rEl[1], 2.3, PAD, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0 });
+  px.capsule(rEl[0], rEl[1], 2.3, hand[0], hand[1], 2.0, PLATE, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0 });
+  px.ellipse(rEl[0], rEl[1], 2.2, 2.2, PLATE, s > 0 ? 5.05 : 4.32, { cast: s > 0 ? 1 : 0 });
   
-  const lEl = [ls * 8.6 + sx, shY + 8], lh = [ls * 8.6 + sx, shY + 11.6];
+  const lEl = [ls * 8.6 + sx, shY + 8], lh = s > 0 ? [ls * 8.6 + sx, shY + 11.6] : [ls * 7.8 + sx, shY + 10.8 + sw1];
   px.part();
-  px.capsule(ls * 7 + sx, shY + 1.8, 2.5, lEl[0], lEl[1], 2.3, PAD, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
-  px.capsule(lEl[0], lEl[1], 2.3, lh[0], lh[1], 2.0, PLATE, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
+  px.capsule(ls * 7 + sx, shY + 1.8, 2.5, lEl[0], lEl[1], 2.3, PAD, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0, bias: s > 0 ? -1 : 0 });
+  px.capsule(lEl[0], lEl[1], 2.3, lh[0], lh[1], 2.0, PLATE, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0, bias: s > 0 ? -1 : 0 });
 
   // ---- the longsword, FRONT only: the blade stands up before his right shoulder, the point toward us a little
   if (s > 0) {
@@ -149,13 +149,15 @@ const make = (s) => (px, F, o = {}) => {
   } else {
     // BACK: the sword is still in his right hand; its length runs forward, hidden behind his side and shoulder. Past his outline: the pommel under the fist and the crossguard's outer arm.
     px.part(); px.tag("sword");
-    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 3.4, { edge: true });
-    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 6.95);
-    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 4.2, hand[1] - 2.4 + 0.4, 0.9, STEELB, 5.6, { edge: true });
+    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 1.0);
+    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 1.02);
+    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 4.2, hand[1] - 2.2, 0.9, STEELB, 1.04);
+    px.poly([[hand[0] + rs * 0.6 - 1.2, hand[1] - 15], [hand[0] + rs * 0.6 + 1.2, hand[1] - 15], [hand[0] + rs * 0.6 + 0.4, hand[1] - 24], [hand[0] + rs * 0.6 - 0.8, hand[1] - 23]], BLADE, 1.06, { n: [0.1, 0.1, 0.95] });   // the upper blade peeks over his right shoulder
     px.tag(null);
   }
   // the fist closes round the grip (over it in FRONT, round the haft from behind)
-  px.part(); px.ellipse(hand[0], hand[1], 2.0, 2.0, PLATEK, 7.6);
+  px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0 : 0.4), s > 0 ? 2.0 : 1.5, s > 0 ? 2.0 : 1.5, PLATEK, s > 0 ? 7.6 : 3.6);
+  if (s < 0) { px.part(); px.ellipse(lh[0], lh[1] + 0.4, 1.5, 1.5, PLATEK, 3.6); }
 
     // ---- the head: the barbute (BACK: the dome and its ridge, brass studs)
   px.part();

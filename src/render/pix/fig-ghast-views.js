@@ -74,20 +74,21 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the loincloth of shroud: its hem swinging a beat behind
   const hm = hipY + 8.5 + vy * 0.5;
   px.part();
-  px.poly([[hx - 5, hipY - 1.8], [hx + 5, hipY - 1.8], [hx + 5.4, hm - 1.4], [hx + 2.8, hm + 1], [hx + 0.6, hm - 1.2], [hx - 1.8, hm + 1.4], [hx - 4.6 - vx, hm - 0.8]], RAG, s > 0 ? 3.8 : 4.8, { round: 0.85, floor: 1 });
-  px.line(hx - 3, hipY + 0.6, hx - 3.4 - vx, hm - 0.5, RAG2, s > 0 ? 3.85 : 4.85, { fix: 0 });
+  px.poly([[hx - 5, hipY - 1.8], [hx + 5, hipY - 1.8], [hx + 5.4, hm - 1.4], [hx + 2.8, hm + 1], [hx + 0.6, hm - 1.2], [hx - 1.8, hm + 1.4], [hx - 4.6 - vx, hm - 0.8]], RAG, s > 0 ? 3.8 : 5.0, { round: 0.85, floor: 1, edge: s < 0 });
+  px.line(hx - 3, hipY + 0.6, hx - 3.4 - vx, hm - 0.5, RAG2, s > 0 ? 3.85 : 5.05, { fix: 0 });
 
   // ---- arms (hung low, the claws down; they swing in turn)
-  const arm = (side, z, b) => {
+  const arm = (side, z0, b) => {
+    const B = s < 0, z = B ? 4.3 : z0, zh = B ? 3.6 : z + 0.03, cs = B ? 0 : 1;      // BACK: both arms at z 4.3 hanging at the sides, fists under them (views-artist.md)
     const sw2 = side === rs ? a : -a;
     const sh = [side * 7.2 + sx, chestY - 0.4], el = [side * 9.6 + sx, chestY + 7], hd = [side * 9.2 + sx, chestY + 14.4 + s * sw2 * 1.4];
     px.part();
-    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 1.6, SKIN, z, { bias: b, cast: 1 });
-    px.capsule(el[0], el[1], 1.6, hd[0], hd[1], 1.3, SKIN, z, { bias: b, cast: 1 });
-    px.ellipse(el[0], el[1], 1.8, 1.7, SKIN, z + 0.02, { bias: b });
+    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 1.6, SKIN, z, { bias: B ? 0 : b, cast: cs });
+    px.capsule(el[0], el[1], 1.6, hd[0], hd[1], 1.3, SKIN, z, { bias: B ? 0 : b, cast: cs });
+    px.ellipse(el[0], el[1], 1.8, 1.7, SKIN, z + 0.02, { bias: B ? 0 : b, cast: cs });
     px.part();
-    px.ellipse(hd[0], hd[1] + 0.8, s > 0 ? 2.5 : 2.2, 2, SKIN, z + 0.03, { bias: b });
-    for (const dx of [-1.6, 0, 1.6]) px.line(hd[0] + dx * 0.7, hd[1] + 2, hd[0] + dx * 1.1, hd[1] + 4.4, CLAW, z + 0.05, { fix: 3, bias: b });
+    px.ellipse(hd[0], hd[1] + 0.8, s > 0 ? 2.5 : 2.2, 2, SKIN, zh, { bias: B ? 0 : b, cast: cs });
+    for (const dx of [-1.6, 0, 1.6]) px.line(hd[0] + dx * 0.7, hd[1] + 2, hd[0] + dx * 1.1, hd[1] + 4.4, CLAW, zh + 0.02, { fix: 3, bias: B ? 0 : b, cast: cs });
   };
 
   // ---- the body
@@ -116,20 +117,20 @@ const make = (s) => (px, F, o = {}) => {
     // the gut shows past either flank, the pale of it a tone under the hide
     px.ellipse(gutC[0], gutC[1] - 1, 8, 6.8, GUT, 3.8, { cast: 1, round: 0.9 });
     px.part();
-    px.ellipse(sx, chestY - 0.6, 8.4, 5.2, SKIN, 4.5, { cast: 1 });                    // the hump
-    px.capsule(sx, chestY - 1, 5, sx, chestY + 8, 5.4, SKIN, 4.5);
+    px.ellipse(sx, chestY - 0.6, 8.4, 5.2, SKIN, 4.0, { cast: 1 });                    // the hump
+    px.capsule(sx, chestY - 1, 5, sx, chestY + 8, 5.4, SKIN, 4.0);
     px.part();
     // the torn strip of shroud down the spine
-    px.poly([[sx - 1.2, chestY - 6], [sx + 1.2, chestY - 6], [sx + 1.6, chestY + 1], [sx + 2.6 + vx, chestY + 9.6], [sx + 0.4 + vx, chestY + 8.2], [sx - 1.2 + vx, chestY + 10.4], [sx - 2.4, chestY + 2]], RAG, 4.7, { round: 0.7, floor: 1 });
+    px.poly([[sx - 1.2, chestY - 6], [sx + 1.2, chestY - 6], [sx + 1.6, chestY + 1], [sx + 2.6 + vx, chestY + 9.6], [sx + 0.4 + vx, chestY + 8.2], [sx - 1.2 + vx, chestY + 10.4], [sx - 2.4, chestY + 2]], RAG, 5.0, { round: 0.7, floor: 1, edge: true });
     px.part();
     for (const [dx, dy, r] of [[-3.8, -3.4, 1.5], [3.6, 0.4, 1.3], [-3.2, 4.6, 1.3], [2.6, 6.4, 1.1]]) {
       const q = [sx + dx, chestY + dy];
-      px.ellipse(q[0], q[1], r + 0.7, r + 0.6, CRUST, 4.9); px.ellipse(q[0], q[1], r * 0.85, r * 0.8, pulse > 0.5 || r > 1.3 ? PUS_H : PUS, 4.95, { noLine: true });
+      px.ellipse(q[0], q[1], r + 0.7, r + 0.6, CRUST, 5.1); px.ellipse(q[0], q[1], r * 0.85, r * 0.8, pulse > 0.5 || r > 1.3 ? PUS_H : PUS, 5.15, { noLine: true });
     }
     // weed over the shoulder, hanging down the back
     px.part();
     const wv = cl(vx * 1.4, -2, 2);
-    px.poly([[sx + rs * 2.4, chestY - 8], [sx + rs * 6.4, chestY - 6.4], [sx + rs * 7.4 + wv, chestY + 1], [sx + rs * 5.6 + wv * 1.4, chestY + 5.4], [sx + rs * 4, chestY + 1.4]], WEED, 5.1, { round: 0.7, floor: 1 });
+    px.poly([[sx + rs * 2.4, chestY - 8], [sx + rs * 6.4, chestY - 6.4], [sx + rs * 7.4 + wv, chestY + 1], [sx + rs * 5.6 + wv * 1.4, chestY + 5.4], [sx + rs * 4, chestY + 1.4]], WEED, 5.2, { round: 0.7, floor: 1, edge: true });
   }
   arm(rs, s > 0 ? 8 : 6, 0); arm(ls, s > 0 ? 8 : 6, -1);
 
@@ -140,9 +141,9 @@ const make = (s) => (px, F, o = {}) => {
     px.stamp(p.blink ? BLINK : FRONT_H, hx, hy, LEG, 6, { ax: 6, ay: 10, ball: [6, 5, 6, 5.6], cast: 1 });
     px.dot(hx - 1, hy - 10, PUS, 6.2, { fix: 3 });                                    // a sore on the swollen scalp
   } else {
-    const hy = Math.round(sk.N[1] - 0.5);
-    px.stamp(BACK_H, hx, hy, LEG, 4.4, { ax: 6, ay: 9, ball: [6, 5, 6, 5.6], cast: 1 });
-    px.dot(hx + 1, hy - 8, PUS, 4.45, { fix: 3 });
+    const hy = Math.round(sk.N[1] - 2.5);
+    px.stamp(BACK_H, hx, hy, LEG, 3.9, { ax: 6, ay: 9, ball: [6, 5, 6, 5.6], cast: 1 });
+    px.dot(hx + 1, hy - 8, PUS, 3.95, { fix: 3 });
   }
   return { light: { x: gutC[0], y: gutC[1], r: 24, col: "#e0ec70", k: 0.34 + 0.12 * pulse }, glow: [gutC[0], gutC[1]] };
 };

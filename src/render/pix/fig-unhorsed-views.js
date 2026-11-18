@@ -47,7 +47,7 @@ const blinkOf = (rows) => rows.map((r, i) => (i === 7 ? r.replace(/E/g, "e") : r
 
 const make = (s) => (px, F, o = {}) => {
   const gry = o.variant === "gryphon", CAPE = gry ? OX2 : OX, LEG = mk();
-  const B = base(F, s, 0.55), { sk, ph, p, rs, ls, sx, hipY, chestY, hy, hx, vy, vy2, vx, vx2, tilt } = B;
+  const B = base(F, s, 0.55), sw1 = 1.2 * Math.sin(F.ph * TAU), { sk, ph, p, rs, ls, sx, hipY, chestY, hy, hx, vy, vy2, vx, vx2, tilt } = B;
   const shY = sk.sN[1] + 0.5, c0 = chestY - 3, b0 = hipY, hemY = hipY + 6;
   const cb = cl(-vx * 1.6 - vx2 * 1.2, -2.6, 2.6);
 
@@ -57,24 +57,24 @@ const make = (s) => (px, F, o = {}) => {
     px.poly([[sx - 5.6, c0], [sx + 5.6, c0], [sx + 7.4, c0 + 8], [sx + 7 + cb * 0.3, hipY + 6], [sx - 7 + cb * 0.3, hipY + 6.6], [sx - 7.4, c0 + 8]], CAPE, 0.5, { round: 0.8, cast: 1 });
   } else {
     const rag = [[sx + 6.8 + cb * 0.4, hipY + 8], ...dag(sx + 6.8 + cb * 0.4, sx - 7 + cb * 0.5, hipY + 9, 4, 0.8, 2.6)];
-    px.poly([[sx - 5.4, c0], [sx + 5.4, c0], [sx + 7, c0 + 9], ...rag, [sx - 7.2, c0 + 9]], CAPE, 4.2, { round: 0.85, cast: 2 });
+    px.poly([[sx - 5.4, c0], [sx + 5.4, c0], [sx + 7, c0 + 9], ...rag, [sx - 7.2, c0 + 9]], CAPE, 5.2, { round: 0.85, cast: 1, edge: true });
     px.toneLine(sx - 3.8, c0 + 2, sx - 4.4 + cb * 0.4, hipY + 8, -1, capeId);
-    px.part(); px.line(sx + 1.6, hipY + 9, sx + 1.2 + cb * 0.4, hipY + 3.4, OXK, 4.25, { noLine: true });         // the rip
-    px.line(sx + 1.2 + cb * 0.4, hipY + 3.4, sx + 3.2, hipY + 1.4, OXK, 4.25, { noLine: true });
-    px.rect(sx - 5.6, c0 - 0.4, 11.2, 1.2, IRONK, 4.3, { noLine: true });                                        // the cape's clasp band at the neck
-    px.dot(sx - 4.2, c0 + 0.2, BRASS, 4.32, { fix: 3 }); px.dot(sx + 4.2, c0 + 0.2, BRASS, 4.32, { fix: 3 });
+    px.part(); px.line(sx + 1.6, hipY + 9, sx + 1.2 + cb * 0.4, hipY + 3.4, OXK, 5.25, { noLine: true });         // the rip
+    px.line(sx + 1.2 + cb * 0.4, hipY + 3.4, sx + 3.2, hipY + 1.4, OXK, 5.25, { noLine: true });
+    px.rect(sx - 5.6, c0 - 0.4, 11.2, 1.2, IRONK, 5.3, { noLine: true });                                        // the cape's clasp band at the neck
+    px.dot(sx - 4.2, c0 + 0.2, BRASS, 5.32, { fix: 3 }); px.dot(sx + 4.2, c0 + 0.2, BRASS, 5.32, { fix: 3 });
   }
 
   // ---- the shield's back (BACK only): beyond his left side
-  const sc = [ls * 9 + sx, chestY + 7.6], sw = 5.6;
+  const sc = [ls * (s > 0 ? 9 : 3.6) + sx, chestY + 7.6], sw = 5.6;
   const S = (x, y) => [sc[0] + x, sc[1] + y];
   const heater = (k) => [S(-sw * k, -7 * k), S(sw * k, -7 * k), S((sw + 0.4) * k, 0.8 * k), S(0, 9 * k), S((-sw - 0.4) * k, 0.8 * k)];
   if (s < 0) {
     px.part(); const sid = px._pid;
-    px.poly(heater(1), IRON, 3.2, { round: 0.6, cast: 2 });
-    px.poly(heater(0.82), LEATHER, 3.22, { round: 0.7 });
+    px.poly(heater(1), IRON, 1.0, { round: 0.6 });
+    px.poly(heater(0.82), LEATHER, 1.02, { round: 0.7 });
     px.toneLine(...S(-2, -5.4), ...S(-1.8, 5.4), -1, sid);
-    px.part(); px.line(...S(-4, -1.6), ...S(3.6, -1.6), IRONK, 3.3, { noLine: true }); px.line(...S(-3.6, 2.4), ...S(3.2, 2.4), IRONK, 3.3, { noLine: true });
+    px.part(); px.line(...S(-4, -1.6), ...S(3.6, -1.6), IRONK, 1.05, { noLine: true }); px.line(...S(-3.6, 2.4), ...S(3.2, 2.4), IRONK, 1.05, { noLine: true });
   }
 
   legsView(px, B, {
@@ -112,21 +112,21 @@ const make = (s) => (px, F, o = {}) => {
   for (const side of [ls, rs]) {
     px.part();
     const q = [side * 7.4 + sx, shY + 1.2];
-    px.ellipse(q[0], q[1], 4.4, 3.8, IRON, 6.5, { cast: 1 });
+    px.ellipse(q[0], q[1], 4.4, 3.8, IRON, 6.5, { cast: 1, edge: s < 0 });
     px.line(q[0] - 3.2, q[1] + 1.6, q[0] + 3.6, q[1] + 1.6, IRONK, 6.52, { fix: 1 });
     px.dot(q[0] - 0.6, q[1] - 1.6, STEELB, 6.54, { fix: 4 });
   }
 
   // ---- the arms
-  const rEl = [rs * 8 + sx, shY + 7.2], hand = [rs * 6.4 + sx, shY + 7.6 + vy * 0.3 - (s > 0 ? 1 : 0)];
+  const rEl = [rs * 8 + sx, shY + 7.2], hand = s > 0 ? [rs * 6.4 + sx, shY + 6.6 + vy * 0.3] : [rs * 7.8 + sx, shY + 10.8 - sw1];
   px.part();
-  px.capsule(rs * 7 + sx, shY + 1.8, 2.4, rEl[0], rEl[1], 2.1, IRON, 5, { cast: 2 });
-  px.capsule(rEl[0], rEl[1], 2.1, hand[0], hand[1], 1.8, IRON, 5, { cast: 2 });
+  px.capsule(rs * 7 + sx, shY + 1.8, 2.4, rEl[0], rEl[1], 2.1, IRON, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0 });
+  px.capsule(rEl[0], rEl[1], 2.1, hand[0], hand[1], 1.8, IRON, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0 });
   
-  const lEl = [ls * 8.4 + sx, shY + 8], lh = [ls * 8.4 + sx, shY + 11.2];
+  const lEl = [ls * 8.4 + sx, shY + 8], lh = s > 0 ? [ls * 8.4 + sx, shY + 11.2] : [ls * 7.8 + sx, shY + 10.8 + sw1];
   px.part();
-  px.capsule(ls * 7 + sx, shY + 1.8, 2.4, lEl[0], lEl[1], 2.1, IRON, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
-  px.capsule(lEl[0], lEl[1], 2.1, lh[0], lh[1], 1.8, IRON, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
+  px.capsule(ls * 7 + sx, shY + 1.8, 2.4, lEl[0], lEl[1], 2.1, IRON, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0, bias: s > 0 ? -1 : 0 });
+  px.capsule(lEl[0], lEl[1], 2.1, lh[0], lh[1], 1.8, IRON, s > 0 ? 5 : 4.3, { cast: s > 0 ? 2 : 0, bias: s > 0 ? -1 : 0 });
 
   // ---- the arming sword, FRONT only, upright before his right shoulder
   if (s > 0) {
@@ -141,13 +141,15 @@ const make = (s) => (px, F, o = {}) => {
   } else {
     // BACK: the sword is still in his right hand; its length runs forward, hidden behind his side and shoulder. Past his outline: the pommel under the fist and the crossguard's outer arm.
     px.part(); px.tag("sword");
-    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 3.4, { edge: true });
-    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 6.95);
-    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 3.8, hand[1] - 2.4 + 0.4, 0.9, STEELB, 5.6, { edge: true });
+    px.capsule(hand[0], hand[1] + 2.6, 1.0, hand[0], hand[1] - 1.4, 1.0, GRIP, 1.0);
+    px.capsule(hand[0], hand[1] + 3.2, 1.6, hand[0], hand[1] + 3.8, 1.6, BRASS, 1.02);
+    px.capsule(hand[0], hand[1] - 2.4, 0.9, hand[0] + rs * 3.8, hand[1] - 2.2, 0.9, STEELB, 1.04);
+    px.poly([[hand[0] + rs * 0.6 - 1, hand[1] - 13], [hand[0] + rs * 0.6 + 1, hand[1] - 13], [hand[0] + rs * 0.6 + 0.3, hand[1] - 21], [hand[0] + rs * 0.6 - 0.7, hand[1] - 20]], BLADE, 1.06, { n: [0.1, 0.1, 0.95] });   // the upper blade peeks over his right shoulder
     px.tag(null);
   }
   // the fist closes round the grip (over it in FRONT, round the haft from behind)
-  px.part(); px.ellipse(hand[0], hand[1], 2.0, 2.0, IRONK, 7.6);
+  px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0 : 0.4), s > 0 ? 2.0 : 1.5, s > 0 ? 2.0 : 1.5, IRONK, s > 0 ? 7.6 : 3.6);
+  if (s < 0) { px.part(); px.ellipse(lh[0], lh[1] + 0.4, 1.5, 1.5, IRONK, 3.6); }
 
     // ---- the crest and (the gryphon's rider) the feather, behind the head
   const tuft = cl(-vx * 1.4 - vx2 * 1.0, -2, 2), bob = cl(vy * 1.2 + vy2 * 0.8, -1.5, 1.5);

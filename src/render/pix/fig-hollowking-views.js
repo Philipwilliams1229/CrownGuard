@@ -72,13 +72,13 @@ const make = (s) => (px, F, o = {}) => {
       px.line(hx - 6.4, chestY - 1.6, hx - 10.4 + vx, hipY + 2, GOLD, 0.42, { fix: 1 });
     } else {
       const d = vx * 1.5 + vx2 * 0.8, TT = [[1, 0.4], [0.86, 4.2], [0.72, 0], [0.56, 5], [0.42, 0.2], [0.28, 4], [0.14, 0], [0, 2.4]];
-      const hem = TT.map(([t, dp]) => [hx + 11 - t * 22 + (dp < 1 ? d : d * 0.4), -4.5 - dp]);
-      px.poly([[hx - 6.6, chestY - 1.8], [hx + 6.6, chestY - 1.8], [hx + 8.4, hipY - 4], [hx + 11, hipY + 6], ...hem, [hx - 11, hipY + 6], [hx - 8.4, hipY - 4]], CAPE, 5.4, { round: 0.9, floor: 1, cast: 1 });
+      const hem = TT.map(([t, dp]) => [hx + 8.6 - t * 17.2 + (dp < 1 ? d : d * 0.4), -4.5 - dp]);
+      px.poly([[hx - 5.8, chestY - 1.8], [hx + 5.8, chestY - 1.8], [hx + 6.2, hipY - 4], [hx + 7.2, hipY + 6], ...hem, [hx - 7.2, hipY + 6], [hx - 6.2, hipY - 4]], CAPE, 5.4, { round: 0.9, floor: 1, cast: 1, edge: true });
       px.toneLine(hx - 4, hipY + 4, hx - 5.4, -8, -1, cid);
       px.toneLine(hx + 4, hipY + 4, hx + 5, -8, 1, cid);
       px.part();
-      px.line(hx - 6.6, chestY - 1.6, hx + 6.6, chestY - 1.6, GOLD, 5.45, { fix: 2 });              // the gold-edged collar of the cape
-      px.line(hx - 6.6, chestY - 1.6, hx - 11, hipY + 6, GOLD, 5.45, { fix: 1 });
+      px.line(hx - 5.8, chestY - 1.6, hx + 5.8, chestY - 1.6, GOLD, 5.45, { fix: 2 });              // the gold-edged collar of the cape
+      px.line(hx - 5.8, chestY - 1.6, hx - 7.2, hipY + 6, GOLD, 5.45, { fix: 1 });
       px.dot(hx, chestY - 0.4, CROWN, 5.5, { fix: 2 });
       for (const [dx, t] of [[-5, 0.7], [3.4, 1.0], [-1, 1.5]]) px.dot(hx + dx, y(t), WEED, 5.5, { fix: 1 });
     }
@@ -132,11 +132,11 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the mantle over the shoulders: a gold-edged collar, verdigris fittings, weed
   px.part(); const mid = px._pid;
-  px.poly([[hx - rw - 3, chestY - 1.4], [hx - rw - 2, chestY + 1.6], [hx - rw, chestY + 3.6], [hx - 2.4, chestY + 2.4], [hx + 2.4, chestY + 2.4], [hx + rw, chestY + 3.6], [hx + rw + 2, chestY + 1.6], [hx + rw + 3, chestY - 1.4], [hx + 3, chestY - 3], [hx - 3, chestY - 3]], ROBE, s > 0 ? 5 : 5.6, { round: 0.8, floor: 1, edge: true, cast: 1 });
+  px.poly([[hx - rw - 3, chestY - 1.4], [hx - rw - 2, chestY + 1.6], [hx - rw, chestY + 3.6], [hx - 2.4, chestY + 2.4], [hx + 2.4, chestY + 2.4], [hx + rw, chestY + 3.6], [hx + rw + 2, chestY + 1.6], [hx + rw + 3, chestY - 1.4], [hx + 3, chestY - 3], [hx - 3, chestY - 3]], ROBE, s > 0 ? 5 : 5.0, { round: 0.8, floor: 1, edge: true, cast: 1 });
   px.line(hx - rw - 2.6, chestY - 0.8, hx - rw - 0.6, chestY + 3, GOLD, 5.1, { fix: 2 }); px.line(hx + rw + 2.6, chestY - 0.8, hx + rw + 0.6, chestY + 3, GOLD, 5.1, { fix: 2 });
   if (s > 0) for (const x of [-3.4, 0, 3.4]) px.dot(hx + x, chestY + 2.4, CROWN, 5.2, { fix: 2 });
   px.part();
-  px.poly([[hx + 3, chestY + 1], [hx + 6, chestY + 2], [hx + 7.4, chestY + 5 - vx], [hx + 5, chestY + 6.4 - vx * 1.4], [hx + 3.4, chestY + 4]], WEED, s > 0 ? 5.3 : 5.8, { round: 0.7, floor: 1 });
+  px.poly([[hx + 3, chestY + 1], [hx + 6, chestY + 2], [hx + 7.4, chestY + 5 - vx], [hx + 5, chestY + 6.4 - vx * 1.4], [hx + 3.4, chestY + 4]], WEED, s > 0 ? 5.3 : 5.5, { round: 0.7, floor: 1 });
 
   // ---- the great sword (FRONT only: before him it is hidden by his body from behind)
   const sleeveHand = (sh, hd, z, bias) => {
@@ -172,18 +172,20 @@ const make = (s) => (px, F, o = {}) => {
     sleeveHand([hx + ls * 5.4, chestY + 1.2], [grip[0] - rs * 0.4, grip[1] + 0.6], 8.3, -1);
     sleeveHand([hx + rs * 5.4, chestY + 1.2], grip, 8.4, 0);
   } else {
+    // BACK stack: fists 3.6, both sleeves 4.3 at his sides hanging and swinging in y only (cast 0), under the cape
     for (const side of [-1, 1]) {
-      const sh = [hx + side * 5.8, chestY + 1.2], hd = [hx + side * 7, chestY + 11];
+      const sw1 = Math.cos(ph * TAU) * (side === rs ? -1 : 1) * 1.0;
+      const sh = [hx + side * 7.2, chestY + 1.2], el = [hx + side * 8.6, chestY + 7], hd = [hx + side * 8.6, chestY + 12.6 + sw1];
       px.body(1);
-      px.limb([sh, [hx + side * 8.4, chestY + 6.4], hd], [2.3, 2.1, 1.7], ROBE, 5.9, { floor: 1, weld: 2, weldRoot: 3 });
-      px.ellipse(hx + side * 8.4, chestY + 6.4, 2.1, 1.9, ROBE, 5.92, { floor: 1, weld: 2 });
+      px.limb([sh, el, [hd[0], hd[1] - 1]], [2.3, 2.2, 2.0], ROBE, 4.3, { floor: 1, cast: 0 });
       px.body(0);
-      px.line(hx + side * 8.4 - 1.6, chestY + 8.4, hx + side * 8.4 + 1.4, chestY + 8.8, GOLD, 5.98, { fix: 2 });
+      px.part(); px.ellipse(hd[0], hd[1], 1.5, 1.4, BONE, 3.6);
+      px.part(); px.line(el[0] - 1.8, el[1] + 2.2, el[0] + 1.6, el[1] + 2.4, GOLD, 4.35, { fix: 2 });
     }
   }
   // the near shoulder cap over the sleeve root
   px.part();
-  for (const side of [-1, 1]) px.ellipse(hx + side * 5.8, chestY + 0.6, 2.2, 1.9, ROBE, s > 0 ? 8.3 : 5.95, { floor: 1 });
+  for (const side of [-1, 1]) px.ellipse(hx + side * 5.8, chestY + 0.6, 2.2, 1.9, ROBE, s > 0 ? 8.3 : 5.05, { floor: 1, cast: 1 });
 
   // ---- the crowned skull; a trailing weed from the crown
   px.part();

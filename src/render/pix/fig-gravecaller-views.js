@@ -73,28 +73,28 @@ const make = (s) => (px, F, o = {}) => {
       px.poly([[sx - 6.6, top + 0.6], [sx + 6.6, top + 0.6], [sx + 9.4 + vx, hipY + 3], [sx + 10.4 + vx * 1.5, -2 + vx], [sx + 5, -4], [sx - 5, -4], [sx - 10.4 + vx * 1.5, -2 - vx], [sx - 9.4 + vx, hipY + 3]], CAPE, 0.4, { round: 0.9 });
     } else {
       const d = vx * 1.4 + vx2 * 0.8;
-      const hem = TAT.map(([t, dp]) => [sx + 9.6 - t * 19.2 + (dp < 1 ? d : d * 0.4), -1.6 - dp - 1.6]);
-      px.poly([[sx - 6.2, top + 0.4], [sx + 6.2, top + 0.4], [sx + 7.4, hipY - 2], [sx + 9.4, hipY + 6], ...hem, [sx - 9.4, hipY + 6], [sx - 7.4, hipY - 2]], CAPE, 5.4, { round: 0.9, cast: 1 });
+            const hem = TAT.map(([t, dp]) => [sx + 7.8 - t * 15.6 + (dp < 1 ? d : d * 0.4), -1.6 - dp - 1.6]);
+      px.poly([[sx - 5.6, top + 0.4], [sx + 5.6, top + 0.4], [sx + 6.2, hipY - 2], [sx + 7.6, hipY + 6], ...hem, [sx - 7.6, hipY + 6], [sx - 6.2, hipY - 2]], CAPE, 5.0, { round: 0.9, cast: 1, edge: true });
       px.toneLine(sx - 3.4, hipY + 6, sx - 4.6, -6, -1, cid);
       px.toneLine(sx + 3.4, hipY + 6, sx + 4.4, -6, 1, cid);
       px.part();
-      px.line(sx - 6.2, top + 0.6, sx + 6.2, top + 0.6, TRIM, 5.45, { fix: 2 });   // the clasp cord at the nape
-      px.dot(sx, top + 2, BRONZE, 5.5, { fix: 2 });
+      px.line(sx - 5.6, top + 0.6, sx + 5.6, top + 0.6, TRIM, 5.05, { fix: 2 });   // the clasp cord at the nape
+      px.dot(sx, top + 2, BRONZE, 5.1, { fix: 2 });
     }
   }
 
   // ---- the crook: planted beside him; from the front it stands on the screen side of his left hand
   const lift = p.lift || 0, plant = p.sx != null ? (p.sx - 7) * 0.14 : 0;
-  const cx = hx + ls * 9.4 + sx * 0.3, base = -0.6 + s * plant - lift * 0.5, tipY = base - STAFF;
+  const cx = hx + ls * (s > 0 ? 9.4 : 8.6) + sx * 0.3, base = -0.6 + s * plant - lift * 0.5, tipY = base - STAFF;
   const hook = (dx, dy) => [cx + ls * dx, tipY + dy];
   px.part(); const crookId = px._pid;
-  px.capsule(cx, base, 0.95, cx, tipY, 0.95, WOOD, s > 0 ? 6.4 : 1.5, { edge: true });
-  px.capsule(cx, tipY, 0.95, ...hook(-1.6, -2.2), 0.9, WOOD, s > 0 ? 6.4 : 1.5, { edge: true });
-  px.capsule(...hook(-1.6, -2.2), 0.9, ...hook(-3.8, -0.6), 0.8, WOOD, s > 0 ? 6.4 : 1.5, { edge: true });
-  px.line(cx, tipY + 6, cx, tipY + 2, BRONZE, s > 0 ? 6.45 : 1.52, { fix: 3 });
+  px.capsule(cx, base, 0.95, cx, tipY, 0.95, WOOD, s > 0 ? 6.4 : 1.0, { edge: true });
+  px.capsule(cx, tipY, 0.95, ...hook(-1.6, -2.2), 0.9, WOOD, s > 0 ? 6.4 : 1.0, { edge: true });
+  px.capsule(...hook(-1.6, -2.2), 0.9, ...hook(-3.8, -0.6), 0.8, WOOD, s > 0 ? 6.4 : 1.0, { edge: true });
+  px.line(cx, tipY + 6, cx, tipY + 2, BRONZE, s > 0 ? 6.45 : 1.02, { fix: 3 });
   // the bell hangs from the hook's end, swinging a little toward and away
   {
-    const hk = hook(-3.8, -0.6), ring = (p.ring || 0), bx = hk[0] + ring * 0.8, by = hk[1] + 4 - Math.abs(ring) * 0.3, zz = s > 0 ? 6.5 : 1.6;
+    const hk = hook(-3.8, -0.6), ring = (p.ring || 0), bx = hk[0] + ring * 0.8, by = hk[1] + 4 - Math.abs(ring) * 0.3, zz = s > 0 ? 6.5 : 1.1;
     px.part();
     px.line(hk[0], hk[1], bx, by - 1.4, IRON, zz - 0.05, { noLine: true });
     px.poly([[bx - 1.2, by - 1.6], [bx + 1.2, by - 1.6], [bx + 1.8, by + 0.4], [bx + 2.8, by + 2.4], [bx - 2.8, by + 2.4], [bx - 1.8, by + 0.4]], BRONZE, zz, { round: 0.7 });
@@ -129,49 +129,70 @@ const make = (s) => (px, F, o = {}) => {
     px.line(sx - 2, hipY - 3, sx - 5.4, hemY - 4, TRIM, 4.04, { fix: 0 });
   }
   px.part();
-  for (let i = 0; i < 7; i++) px.dot(sx - hw + 1.4 + i * 2.5, hemY - 1.2 - (i % 2) * 1.6, WEED, s > 0 ? 4.1 : 5.6, { fix: 1 });
+  for (let i = 0; i < 7; i++) px.dot(sx - hw + 1.4 + i * 2.5, hemY - 1.2 - (i % 2) * 1.6, WEED, s > 0 ? 4.1 : 4.1, { fix: 1 });
   // the rope belt, finger bones swinging from it
   const sw = cl(-vx * 1.1 - vx2 * 0.9 + w1 * 0.6, -1.5, 1.5);
   px.part();
-  px.poly([[sx - 5.8, hipY - 3.4], [sx + 5.8, hipY - 3.4], [sx + 6, hipY - 1.7], [sx - 6, hipY - 1.7]], WOOD, s > 0 ? 4.5 : 5.7, { round: 0.94, bias: -1 });
+  px.poly([[sx - 5.8, hipY - 3.4], [sx + 5.8, hipY - 3.4], [sx + 6, hipY - 1.7], [sx - 6, hipY - 1.7]], WOOD, s > 0 ? 4.5 : 4.1, { round: 0.94, bias: -1 });
   if (s > 0) {
     px.part();
     for (let i = 0; i < 3; i++) px.line(sx - 3.6 + ls * 0.4 + i * 1.8, hipY - 1.6, sx - 3.6 + ls * 0.4 + i * 1.8 + sw * 0.5, hipY + 1 + (i % 2) * 1.2, BONE, 4.6, { fix: 3 });
     px.dot(sx + 1.4, hipY - 2.6, BRONZE, 4.6, { fix: 2 });
   } else {
-    px.part(); px.dot(sx + 1.4, hipY - 2.6, BRONZE, 5.75, { fix: 2 });
+    px.part(); px.dot(sx + 1.4, hipY - 2.6, BRONZE, 4.15, { fix: 2 });
   }
 
   // ---- the arms: belled sleeves. Right (lantern) hangs, left (crook) is up on the shaft.
-  const fistN = [hx + rs * 8, sk.hdN[1] + 1], fistF = [cx + ls * (s > 0 ? 0 : 0), clamp(sk.hdF[1], chestY + 5, hipY)];
-  const arm = (sh, el, hd, z, bias) => {
+  let lx = 0, ly = 0;
+  if (s > 0) {
+    const fistN = [hx + rs * 6.8, sk.hdN[1] + 1], fistF = [cx, cl(sk.hdF[1], chestY + 5, hipY)];
+    const arm = (sh, el, hd, z, bias) => {
+      px.part();
+      px.capsule(sh[0], sh[1], 2, el[0], el[1], 1.9, COWL, z, { bias, cast: 2 });
+      px.capsule(el[0], el[1], 1.9, hd[0], hd[1] - 0.6, 2.5, COWL, z, { bias, cast: 2 });
+      px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.6, 1.6, BONE, z + 0.4, { bias });
+    };
+    const shN = [hx + rs * 6.6, chestY + 0.4], shF = [hx + ls * 6.6, chestY + 0.4];
+    const elN = [hx + rs * 8.8, (chestY + fistN[1]) / 2 + 0.6], elF = [hx + ls * 8.4, (chestY + fistF[1]) / 2 + 0.6];
+    arm(shF, elF, [cx, fistF[1]], 8, -1);
+    arm(shN, elN, fistN, 8, 0);
+    px.part(); px.line(fistN[0] - 2.4, fistN[1] - 2.4, fistN[0] + 2.4, fistN[1] - 2.4, TRIM, 8.1, { fix: 1 });
+    const lsw = (lag1.p.sway || 0) * 0.5 + vx * -0.6, flick = p.flick || 0;
+    lx = fistN[0] + lsw; ly = fistN[1] + 5.6;
     px.part();
-    px.capsule(sh[0], sh[1], 2, el[0], el[1], 1.9, COWL, z, { bias, cast: 2 });
-    px.capsule(el[0], el[1], 1.9, hd[0], hd[1] - 0.6, 2.5, COWL, z, { bias, cast: 2 });
-    px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.6, 1.6, BONE, z + 0.4, { bias });
-  };
-  const shN = [hx + rs * 6.6, chestY + 0.4], shF = [hx + ls * 6.6, chestY + 0.4];
-  const elN = [hx + rs * 8.8, (chestY + fistN[1]) / 2 + 0.6], elF = [hx + ls * 8.4, (chestY + fistF[1]) / 2 + 0.6];
-  const nearZ = s > 0 ? 8 : 5.8;
-  arm(shF, elF, [cx, fistF[1]], nearZ, -1);
-  arm(shN, elN, fistN, nearZ, 0);
-  // the cuff trim
-  px.part(); px.line(fistN[0] - 2.4, fistN[1] - 2.4, fistN[0] + 2.4, fistN[1] - 2.4, TRIM, nearZ + 0.1, { fix: 1 });
-  // the lantern: a chain, an iron cage, a teal flame; it sways a beat behind the stride
-  const lsw = (lag1.p.sway || 0) * 0.5 + vx * -0.6, lx = fistN[0] + lsw, ly = fistN[1] + 5.6, flick = p.flick || 0;
-  px.part();
-  px.line(fistN[0], fistN[1] + 1, lx, ly - 2.4, IRON, 8.45, { noLine: true });
-  px.rect(lx - 2, ly - 2.4, 4, 1, IRON, 8.5, { fix: 1 }); px.rect(lx - 2, ly + 2.4, 4, 1, IRON, 8.5, { fix: 1 });
-  px.rect(lx - 1.5, ly - 1.4, 3, 3.8, F_TEAL, 8.48, { noLine: true });
-  px.dot(Math.round(lx), Math.round(ly) - (flick ? 0 : 1), F_PALE, 8.55, { noLine: true });
-  px.line(lx - 2, ly - 1.4, lx - 2, ly + 2.4, IRON, 8.52, { fix: 1, noLine: true }); px.line(lx + 2, ly - 1.4, lx + 2, ly + 2.4, IRON, 8.52, { fix: 1, noLine: true });
+    px.line(fistN[0], fistN[1] + 1, lx, ly - 2.4, IRON, 8.45, { noLine: true });
+    px.rect(lx - 2, ly - 2.4, 4, 1, IRON, 8.5, { fix: 1 }); px.rect(lx - 2, ly + 2.4, 4, 1, IRON, 8.5, { fix: 1 });
+    px.rect(lx - 1.5, ly - 1.4, 3, 3.8, F_TEAL, 8.48, { noLine: true });
+    px.dot(Math.round(lx), Math.round(ly) - (flick ? 0 : 1), F_PALE, 8.55, { noLine: true });
+    px.line(lx - 2, ly - 1.4, lx - 2, ly + 2.4, IRON, 8.52, { fix: 1, noLine: true }); px.line(lx + 2, ly - 1.4, lx + 2, ly + 2.4, IRON, 8.52, { fix: 1, noLine: true });
+  } else {
+    // BACK stack: fists 3.6 (under the sleeve), both sleeves 4.3 at his sides, hanging and swinging in y only; the lantern
+    // and the crook (z 1.0) show only past his outline, the shaft passing through the left fist
+    const sh1 = Math.cos(ph * TAU);
+    for (const side of [rs, ls]) {
+      const k = side === rs ? -1 : 1, hy2 = chestY + 12.6 + k * sh1 * 1.1;
+      const shd = [hx + side * 6.6, chestY + 0.6], el = [hx + side * 8, chestY + 6.6], hd = [side === ls ? cx : hx + side * 8.2, hy2];
+      px.part();
+      px.limb([shd, el, [hd[0], hd[1] - 1.2]], [2.1, 2, 2.3], COWL, 4.3, { cast: 0 });
+      px.part(); px.ellipse(hd[0], hd[1] + 0.2, 1.5, 1.4, BONE, 3.6);
+    }
+    const hdN = [hx + rs * 8.2, chestY + 12.6 - sh1 * 1.1];
+    const lsw = (lag1.p.sway || 0) * 0.4 + vx * -0.5, flick = p.flick || 0;
+    lx = hdN[0] + rs * 1.6 + lsw; ly = hdN[1] + 5.4;
+    px.part();
+    px.line(hdN[0], hdN[1] + 1, lx, ly - 2.4, IRON, 1.0, { noLine: true });
+    px.rect(lx - 2, ly - 2.4, 4, 1, IRON, 1.05, { fix: 1 }); px.rect(lx - 2, ly + 2.4, 4, 1, IRON, 1.05, { fix: 1 });
+    px.rect(lx - 1.5, ly - 1.4, 3, 3.8, F_TEAL, 1.02, { noLine: true });
+    px.dot(Math.round(lx), Math.round(ly) - (flick ? 0 : 1), F_PALE, 1.08, { noLine: true });
+    px.line(lx - 2, ly - 1.4, lx - 2, ly + 2.4, IRON, 1.1, { fix: 1, noLine: true }); px.line(lx + 2, ly - 1.4, lx + 2, ly + 2.4, IRON, 1.1, { fix: 1, noLine: true });
+  }
 
   // ---- the hood's point, behind the head, trailing a beat behind the stride; then the head
   const bend = cl(vx * 2 + vx2 * 1.4, -2, 3), gx = hx + (s > 0 ? 5 : -5), gy = hy - 15.5;
   px.part();
-  px.poly([[hx - 3.6, hy - 8], [hx + 3.6, hy - 8], [hx + 2.6 + bend * 0.3, hy - 13], [gx + bend, gy - 1.6], [hx + (s > 0 ? 1 : -1) * 0.6, gy + 3.2], [hx - 2, hy - 10.6]], COWL, 8.95, { round: 0.85, ny: -0.2 });
+  px.poly([[hx - 3.6, hy - 8], [hx + 3.6, hy - 8], [hx + 2.6 + bend * 0.3, hy - 13], [gx + bend, gy - 1.6], [hx + (s > 0 ? 1 : -1) * 0.6, gy + 3.2], [hx - 2, hy - 10.6]], COWL, s > 0 ? 8.95 : 6.1, { round: 0.85, ny: -0.2 });
   px.part();
-  px.stamp(s > 0 ? FRONT_H : BACK_H, hx, hy, p.eye > 0.5 ? LEG_HOT : p.eye < -0.5 ? LEG_DIM : LEG, 9, { ax: 6, ay: 11, ball: [6, 6.5, 7, 7.5], cast: 1 });
+  px.stamp(s > 0 ? FRONT_H : BACK_H, hx, hy, p.eye > 0.5 ? LEG_HOT : p.eye < -0.5 ? LEG_DIM : LEG, s > 0 ? 9 : 6, { ax: 6, ay: 11, ball: [6, 6.5, 7, 7.5], cast: 1 });
 
   const tk = p.toll || 0;
   return { light: { x: lx, y: ly, r: 16 + 10 * tk, col: "#7ce0b8", k: 0.3 + 0.3 * tk }, feet: [hx, 0] };

@@ -74,6 +74,7 @@ const make = (s) => (px, F) => {
   const arm = (side, ang, near, z) => {
     const b = near ? 0 : -1, sh = [sx + side * 11.6, c0 + 6.4], hd = [sx + side * 17, hipY + 9 + s * ang * 4], el = [sx + side * 16, (sh[1] + hd[1]) / 2 - 1];
     px.body(1);
+    if (s < 0) { px.limb([sh, el, hd], [6.2, 5, 5.4], SKIN, 4.3, { cast: 0 }); px.capsule(mix(el, hd, 0.7)[0], mix(el, hd, 0.7)[1], 5.2, hd[0], hd[1], 5.2, IRON, 4.35, { floor: 1 }); px.body(0); return { sh, hd }; }
     px.limb([sh, el, hd], [6.2, 5, 5.4], SKIN, z, { bias: b, weld: near ? 4 : 0, weldRoot: near ? 9 : 0 });
     const wc = mix(el, hd, 0.7);
     px.capsule(wc[0], wc[1], 5.2, hd[0], hd[1], 5.2, IRON, z + 0.05, { bias: b, floor: 1 });
@@ -81,7 +82,7 @@ const make = (s) => (px, F) => {
     return { sh, hd };
   };
   const fa = arm(ls, p.aF[0], false, 3.5);
-  px.body(1); px.ellipse(fa.hd[0], fa.hd[1] + 0.4, 4.8, 4.4, SKIN, 3.6, { bias: -1 }); px.body(0);
+  px.body(1); px.ellipse(fa.hd[0], fa.hd[1] + 0.4, 4.8, 4.4, SKIN, 3.6, s > 0 ? { bias: -1 } : {}); px.body(0);
 
   // ---- two legs like pillars, bare feet bound in fur; the stepping foot comes toward us (front) / away (back)
   const feet = [[p.fF, ls, 2], [p.fN, rs, 3]];
@@ -154,10 +155,11 @@ const make = (s) => (px, F) => {
 
   // ---- the mantle: a huge shaggy fur across the shoulders, rime on it; knuckle-bones across the chest (front)
   px.part();
-  px.ellipse(sx, c0 + 3.6, 14.8, 6.6, FUR, 4.4, { cast: 1 });
-  for (const x of [-13, -10, -7, -4, -1, 2, 5, 8, 11, 13]) px.dot(sx + x, c0 + 9 - Math.abs(x) * 0.12 + ((x & 1) ? 1 : 0), FUR, 4.4);
-  for (const x of [-11, -6, 0, 6, 11]) px.dot(sx + x, c0 + 10.8 + (x & 1), FURB, 4.42, { fix: 2 });
-  for (const [x, y] of [[-9, 1], [-4, 0], [2, 0.4], [7, 2], [11, 5]]) px.dot(sx + x, c0 + y, FROST, 4.46, { noLine: true });
+  const mz = s > 0 ? 4.4 : 5.2;
+  px.ellipse(sx, c0 + 3.6, 14.8, 6.6, FUR, mz, { cast: 1 });
+  for (const x of [-13, -10, -7, -4, -1, 2, 5, 8, 11, 13]) px.dot(sx + x, c0 + 9 - Math.abs(x) * 0.12 + ((x & 1) ? 1 : 0), FUR, mz);
+  for (const x of [-11, -6, 0, 6, 11]) px.dot(sx + x, c0 + 10.8 + (x & 1), FURB, mz + 0.02, { fix: 2 });
+  for (const [x, y] of [[-9, 1], [-4, 0], [2, 0.4], [7, 2], [11, 5]]) px.dot(sx + x, c0 + y, FROST, mz + 0.06, { noLine: true });
   if (s > 0) {
     px.part();
     for (let i = 0; i <= 6; i++) { const t = i / 6, x = sx - 7 + t * 14, y = c0 + 10 + 3.4 * (1 - (2 * t - 1) ** 2); px.dot(x, y, i % 2 ? BONE : KILT_D, 4.5, { fix: i % 2 ? 3 : 1 }); }
@@ -176,17 +178,17 @@ const make = (s) => (px, F) => {
     px.dot(fx0[0] + rs * 7, by - 5.4, FROST, 2.6, { noLine: true });
   } else {
     // from behind its ice-crusted end lies near us beside his heel; the tooth-sockets in a row down the shaft
-    px.capsule(fx0[0] + rs * 0.4, fx0[1] + 2, 2.2, fx0[0] + rs * 2, by - 5, 3.6, BONE, 8.15, { edge: true });
-    px.ellipse(fx0[0] + rs * 2.6, by - 2, 5.4, 4.2, BONE, 8.2, { edge: true });
+    px.capsule(fx0[0] + rs * 0.4, fx0[1] + 2, 2.2, fx0[0] + rs * 2, by - 5, 3.6, BONE, 3.5);
+    px.ellipse(fx0[0] + rs * 2.6, by - 2, 5.4, 4.2, BONE, 3.55);
     px.toneLine(fx0[0] + rs * 0.6, fx0[1] + 4, fx0[0] + rs * 2.4, by - 8, -1, cid);
-    for (const k of [0.3, 0.5, 0.7]) px.dot(fx0[0] + rs * (0.4 + 1.6 * k) - 1.6, fx0[1] + 2 + (by - 5 - fx0[1] - 2) * k, BONE_D, 8.22, { fix: 0 });
+    for (const k of [0.3, 0.5, 0.7]) px.dot(fx0[0] + rs * (0.4 + 1.6 * k) - 1.6, fx0[1] + 2 + (by - 5 - fx0[1] - 2) * k, BONE_D, 3.57, { fix: 0 });
     px.part();
-    px.poly([[fx0[0] + rs * 0.4 - 4, by - 4], [fx0[0] + rs * 2.6, by - 5.6], [fx0[0] + rs * 6.4, by - 3.4], [fx0[0] + rs * 6, by + 0.6], [fx0[0] + rs * 1, by + 1]], ICE, 8.3, { fix: 3 });
-    px.dot(fx0[0] + rs * 1.4, by - 4.4, FROST, 8.4, { noLine: true });
+    px.poly([[fx0[0] + rs * 0.4 - 4, by - 4], [fx0[0] + rs * 2.6, by - 5.6], [fx0[0] + rs * 6.4, by - 3.4], [fx0[0] + rs * 6, by + 0.6], [fx0[0] + rs * 1, by + 1]], ICE, 3.58, { fix: 3 });
+    px.dot(fx0[0] + rs * 1.4, by - 4.4, FROST, 3.6, { noLine: true });
   }
   // the near fist and the ice crystals on his right shoulder
   px.part();
-  px.body(1); px.ellipse(near.hd[0], near.hd[1] + 0.4, 5.2, 4.8, SKIN, 8.3, { weld: 3 }); px.body(0);
+  px.body(1); if (s > 0) px.ellipse(near.hd[0], near.hd[1] + 0.4, 5.2, 4.8, SKIN, 8.3, { weld: 3 }); else px.ellipse(near.hd[0], near.hd[1] + 0.8, 4.6, 4.2, SKIN, 3.7); px.body(0);
   const sh = near.sh;
   px.part();
   px.ellipse(fa.sh[0] + ls * 0.6, fa.sh[1] - 0.4, 7.6, 6.4, FUR, 5.5, { cast: 1 });

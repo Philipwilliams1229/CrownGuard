@@ -74,10 +74,10 @@ const make = (s) => (px, F, o = {}) => {
     const ang = (p.aF || [0.1, 0.9, 0])[0];
     const sh = [ls * 5.3 + sx, chestY + 1.2], el = [ls * 7.2 + sx, sh[1] + 4.8], hd = [ls * 7 + sx, sh[1] + 10 + s * ang * 2.2];
     px.part();
-    px.capsule(sh[0], sh[1], 2.1, el[0], el[1], 2.0, MAIL, s > 0 ? 3.2 : 2.2, { bias: -1 });
-    px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.7, MAIL, s > 0 ? 3.2 : 2.2, { bias: -1 });
-    px.capsule(el[0] * 0.3 + hd[0] * 0.7, el[1] * 0.3 + hd[1] * 0.7, 1.8, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.8, LEATHER, s > 0 ? 3.22 : 2.22, { bias: -1 });
-    px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.7 + s * ang * 0.2, 1.7, SKIN, s > 0 ? 3.3 : 2.3, { bias: -1 });
+    px.capsule(sh[0], sh[1], 2.1, el[0], el[1], 2.0, MAIL, s > 0 ? 3.2 : 4.3, { bias: -1 });
+    px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.7, MAIL, s > 0 ? 3.2 : 4.3, { bias: -1 });
+    px.capsule(el[0] * 0.3 + hd[0] * 0.7, el[1] * 0.3 + hd[1] * 0.7, 1.8, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.8, LEATHER, s > 0 ? 3.22 : 4.32, { bias: -1 });
+    px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.7 + s * ang * 0.2, 1.7, SKIN, s > 0 ? 3.3 : 3.6, { bias: -1 });
   }
 
   // legs: a hip apart, boots; forward is down the screen (front) or up it (back)
@@ -122,31 +122,30 @@ const make = (s) => (px, F, o = {}) => {
   px.stamp(rows, hx, hy, LEG, 6, { ax: 6, ay: 12, cast: 2, ball: [6.5, 4, 7, 7] });
 
   // the halberd in his right hand: haft upright at his side, butt off the flags, the axe blade outward
-  const hdx = rs * (s > 0 ? 8 : 6.9) + sx, hdy = sk.hdN[1] + (s > 0 ? 0 : 0), a = Math.cos(ph * TAU) * 0.035;
+  const hdx = rs * (s > 0 ? 8 : 7.4) + sx, hdy = sk.hdN[1], a = Math.cos(ph * TAU) * 0.035;
   const butt = [hdx - 32 * Math.sin(a) * -0, hdy + 32], top = [hdx + 64 * Math.sin(a) * 0, hdy + 32 - 64];
-  const kb = s > 0 ? 1 : 0.5, bz = s > 0 ? 7.06 : 6.9;     // from behind the blade runs forward, away from us: mostly hidden behind the haft
+  const kb = s > 0 ? 1 : 0.5, bz = s > 0 ? 7.06 : 0.9;     // from behind the blade runs forward, away from us: mostly hidden behind the haft
   const at = (u, b) => [top[0] + rs * b * (b > 0 ? kb : 1), top[1] - u];
   px.part();
-  px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, WOOD, 7, { edge: true });
-  px.capsule(butt[0], butt[1], 1.1, butt[0], butt[1] - 1.6, 1.1, STEEL, 7.01);
+  const hz = s > 0 ? 7 : 1; px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, WOOD, hz, { edge: s > 0 });
+  px.capsule(butt[0], butt[1], 1.1, butt[0], butt[1] - 1.6, 1.1, STEEL, hz + 0.01);
   px.part();
-  px.capsule(...at(-11.5, 0), 1.25, ...at(0, 0), 1.25, STEEL, 7.05);
-  px.capsule(...at(0, 0), 1.0, ...at(6, 0), 0.35, BLADE, 7.05);
+  px.capsule(...at(-11.5, 0), 1.25, ...at(0, 0), 1.25, STEEL, hz + 0.05);
+  px.capsule(...at(0, 0), 1.0, ...at(6, 0), 0.35, BLADE, hz + 0.05);
   px.poly([at(-9.6, 0.6), at(-11.4, 5.4), at(-6.2, 6.6), at(-0.8, 5.2), at(-2.6, 0.6)], STEEL, bz, { n: [rs * 0.1, 0.2, 0.95] });
   px.line(...at(-10.6, 5.6), ...at(-1.6, 5.4), BLADE, bz + 0.01, { fix: 4 });
-  px.poly([at(-7.8, -0.6), at(-6.4, -4.4), at(-4.4, -0.6)], STEEL, 7.06, { n: [-rs * 0.3, -0.4, 0.86] });
+  px.poly([at(-7.8, -0.6), at(-6.4, -4.4), at(-4.4, -0.6)], STEEL, hz + 0.06, { n: [-rs * 0.3, -0.4, 0.86] });
 
   // the near arm (his right): mail sleeve to a leather cuff, his fist on the haft
   {
     const sh = [rs * 5.3 + sx, chestY + 1.2];
     // FRONT: the forearm comes up to the haft. BACK: the arm hangs straight down at his side to the haft, the back of the fist toward us, thumb inward
-    const hd = s > 0 ? [hdx, hdy + 2] : [hdx, chestY + 9.5 + (sk.hdN[1] + 35) * 0.3], el = s > 0 ? [rs * 8.4 + sx, (sh[1] + hd[1]) / 2 + 0.5] : [rs * 6.6 + sx, chestY + 5.2];
+    const hd = s > 0 ? [hdx, hdy + 2] : [hdx, chestY + 10.5], el = s > 0 ? [rs * 8.4 + sx, (sh[1] + hd[1]) / 2 + 0.5] : [rs * 7.2 + sx, chestY + 5.8];
     px.part();
-    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, MAIL, 8, { cast: 2 });
-    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, MAIL, 8, { cast: 2 });
-    px.capsule(el[0] * 0.28 + hd[0] * 0.72, el[1] * 0.28 + hd[1] * 0.72, 2.0, el[0] * 0.16 + hd[0] * 0.84, el[1] * 0.16 + hd[1] * 0.84, 2.0, LEATHER, 8.02);
-    px.part(); px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 8.2);
-    if (s < 0) px.dot(hd[0] - rs * 1.6, hd[1] - 0.6, SKIN, 8.25, { bias: -1 });   // the thumb, inward
+    const az = s > 0 ? 8 : 4.3, ao = s > 0 ? { cast: 2 } : { cast: 0, bias: -1 }; px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, MAIL, az, ao);
+    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, MAIL, az, ao);
+    px.capsule(el[0] * 0.28 + hd[0] * 0.72, el[1] * 0.28 + hd[1] * 0.72, 2.0, el[0] * 0.16 + hd[0] * 0.84, el[1] * 0.16 + hd[1] * 0.84, 2.0, LEATHER, az + 0.02);
+    px.part(); if (s > 0) px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 8.2); else px.ellipse(hd[0], hd[1] + 1.2, 1.5, 1.5, SKIN, 3.6, { bias: -1 });
   }
   return {};
 };

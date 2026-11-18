@@ -82,3 +82,52 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
 ## Budget and report
 About 45 tool calls a figure. Report per figure: what each view shows, variants handled,
 the `BOX`, weak spots, shot paths. The lead wires the PIX `views`; do not touch pixrigs.js.
+
+## The BACK stack (2026-11-17, the advisor's diagnosis of "arms folded behind the back")
+
+The owner kept seeing arms "folded / snapped behind the back" in BACK views. Cause: every BACK
+view reused the side/front depth stack. In pix.js higher z is nearer the camera, and in BACK the
+camera is BEHIND him: whatever is drawn over the torso is physically behind his back. The side
+view's "near arm" kept its high z and `cast: 2`, so it lay on his back. pix.js has no inner
+outline: parts read as separate only through a cast shadow, `edge: true` and the overlap rim, all
+of which fire when the z gap is over 0.2 and all of which say "this lies on top".
+
+**Rule 0.** In BACK, higher z = further BEHIND him (nearer us). Never share arm, hand or weapon z
+between FRONT and BACK: write a BACK stack.
+
+| z (BACK) | what |
+|---|---|
+| 1.0 | everything carried in a hand: weapon, staff, bow, lance, strapped shield. `edge: false`, `cast: 0` |
+| 2, 3 | legs |
+| 3.6 | both fists: radius 1.5 or less, ~1 px lower than FRONT, no highlight, no thumb dot; over the weapon, under the cuff and hip |
+| 4.0 | torso, tabard, robe |
+| 4.3 | BOTH arms at the same z, `cast: 0` (the 0.3 gap gives a dark rim against the torso, no shadow on the back) |
+| 5.0+ | what lies on the back or shoulders: cowl, aventail, pauldrons, cloak, hair, quiver, slung shield, scabbard; its rim `edge: true` so the arm comes out from under it |
+| 6.0 | head |
+
+**Arm geometry.** Shoulder at ±S, elbow x at or outboard of the shoulder, hand x at or outboard
+of the elbow less 0.3. No arm pixel inboard of (torso edge minus arm radius); never angle a forearm
+across the back. One `limb()` per arm. A free arm swings in y only (~1.2 px): forward = the hand
+rises and half-hides under the cuff/hip; back = it drops ~1 px. No x travel, no z flip.
+**Held weapon/staff in front.** The shaft passes through the fist at the hand's x. From behind:
+shaft below the fist, the fist, the sleeve hiding the shaft up to the shoulder, then shaft again
+above the shoulder. A forearm reaching forward (a staff held out): shorten it to 60-70%, elbow
+outboard, only a sliver of fist. **Upright weapon over the shoulder:** shaft vertical at the hand's
+x, at least 1 px outside the head's columns, emerging from behind the shoulder/pauldron. A sword
+peeks its upper blade over the right shoulder (owner); short weapons otherwise are a stub down-
+forward below the fist plus a pommel. **Bow upright:** 1.5 px outboard of the hand, belly a thin
+curve outside the arm, grip under the fist, string inboard and mostly hidden. **Shield** on the left
+arm (screen left from behind): z 1.0, arm, pauldron and trunk drawn over it; only the 2-4 px past
+his outline show (dark inner face, rim, no emblem); move its centre inboard if more shows. Only a
+shield slung ON the back goes in the 5.0 layer, whole.
+**Light.** Sun upper left in both views. Drop the "far arm `bias: -1`" habit in BACK (if one arm
+is darker it is the screen-right one). No `cast: 2` on arms; shoulder gear keeps `cast: 1`.
+**pix.js notes.** z gaps under 0.2 read as one surface. A poly/ellipse/stamp that hides something
+gets no seam line, so a weapon pushed behind the body can look soft: put `edge: true` on the
+occluder's rim rather than pulling the weapon back on top. `edge: true` on hafts/bows/staffs means
+"lies on top": off in BACK.
+**Check at zoom 4, every frame:** no skin or sleeve pixel on the torso's interior; no shaft crossing
+a shoulder, cloak or head (except the deliberate over-the-shoulder peek); the weapon visible above
+and/or below the body.
+Worked proofs (advisor's scratch copies): scratchpad/adv/fig-halberdier-views.js, fig-fieldbow-views.js
+(scratchpad/adv/ in the repo: the recipe applied, rough).

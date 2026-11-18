@@ -43,6 +43,98 @@ const BACK_H = mir(["....QQQR", "..QQQRRR", ".QRRRRRR", ".RRRRRRr", ".RRRRRrR", 
 
 const FWD = 0.4, cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
+
+// ---- BACK, on its own depth stack (views-artist.md "The BACK stack": from behind a HIGHER z is BEHIND her) ----
+// 1.0 the bow in her hand; 2-3 legs; 3.6 the fists; 4.0 the tunic; 4.3 BOTH arms (cast 0); 5.0+ what lies on her back
+// (cloak, quiver, ponytail, mantle; their rims edge: true so the arms come out from under them); 6.0 the head.
+const drawBack = (px0, F) => {
+  const px = big(px0), s = -1, rs = 1, ls = -1, TAU = Math.PI * 2;
+  const { sk, ph } = F, { p, P, C, N } = sk, lag1 = F.lag1;
+  const sw = (q) => 0.7 * Math.sin(q * TAU);
+  const sx = sw(ph), sx1 = sw(ph - 0.08), sx2 = sw(ph - 0.16);
+  const hipY = P[1], chY = C[1], ank = SIDE_BONES.ankle;
+  const vx = cl((sx - sx1) * 2, -2.5, 2.5), vx2 = cl((sx1 - sx2) * 2, -2.5, 2.5);
+  const swN = cl(p.aN[0] * 1.8, -1.2, 1.2), swF = cl((p.aF[0] - 0.62) * 2, -1, 1);
+  const hx = Math.round(sx * 0.6), hyr = Math.round(N[1] - 0.8);
+  const tp = cl(vx * 2 + vx2 * 1.4, -2, 3), t2 = vx * 2 + vx2 * 1.6;
+
+  // the bow: upright, 1.5 outboard of her left hand (screen left), belly a thin curve outside the arm, string inboard
+  const lh = [sx + ls * 6.4, chY + 8.2 + swF], bx = lh[0] + ls * 1.5, bt = 0.06 * ls;
+  const R = (x, y) => [bx + x * Math.cos(bt) - y * Math.sin(bt), lh[1] + x * Math.sin(bt) + y * Math.cos(bt)];
+  const top = R(ls * 0.2, -12.5), bot = R(ls * 0.2, 12.5), tm = R(ls * 0.9, -6.5), bm = R(ls * 0.9, 6.5);
+  px.part();
+  px.line(top[0], top[1], bot[0], bot[1], STRING, 0.9, { unlit: true });
+  px.capsule(bx, lh[1] - 1.8, 1.0, tm[0], tm[1], 0.95, BOW, 1.0); px.capsule(tm[0], tm[1], 0.95, top[0], top[1], 0.6, BOW, 1.0);
+  px.capsule(bx, lh[1] + 1.8, 1.0, bm[0], bm[1], 0.95, BOW, 1.0); px.capsule(bm[0], bm[1], 0.95, bot[0], bot[1], 0.6, BOW, 1.0);
+  px.capsule(bx, lh[1] - 1.8, 1.2, bx, lh[1] + 1.8, 1.2, LEATHER, 1.05);
+
+  // legs
+  for (const [f, side] of [[p.fF, ls], [p.fN, rs]]) {
+    const lift = f[1], z = side === rs ? 3 : 2;
+    const fx = sx * 0.5 + side * 2.9, fy = -ank - lift + s * f[0] * FWD;
+    const hp = [sx * 0.5 + side * 1.9, hipY + 0.5], kn = [(hp[0] + fx) / 2 + side * 0.6, (hp[1] + fy) / 2];
+    px.part(); px.body(1);
+    px.limb([hp, kn, [fx, fy]], [2.2, 1.85, 1.65], LEG_C, z + lift * 0.05, { weld: 2, weldRoot: 4 });
+    px.capsule(kn[0] * 0.25 + fx * 0.75, kn[1] * 0.25 + fy * 0.75, 1.6, fx, fy, 1.5, BOOT, z + 0.01 + lift * 0.05, { wrap: true });
+    px.body(0);
+    px.ellipse(fx, fy + 0.8, 1.9, 1.2, BOOT, z + 0.4 + lift * 0.05);
+  }
+
+  // the tunic, belted
+  px.part(); const tun = px.body(1);
+  const hy = hipY + 2.8, hemW = 5.2;
+  px.poly([[sx - 4.6, chY - 1.8], [sx + 4.8, chY - 1.8], [sx + 5.6, chY + 3], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 5.6, chY + 3]], TUNIC, 4.0, { round: 0.92 });
+  px.toneLine(sx + 0.4, hipY - 0.5, sx + 0.4 + vx, hy - 0.5, -1, tun);
+  px.poly([[sx - 4.3, hipY - 4.4], [sx + 4.3, hipY - 4.4], [sx + 4.3, hipY - 2.6], [sx - 4.3, hipY - 2.6]], LEATHER, 4.05, { round: 0.92 });
+  px.body(0);
+
+  // both arms at one z (4.3), one limb each, hanging from the shoulder straight down and outboard; the cloak lies over their tops
+  const arm = (sgn, hdy) => {
+    const sh = [sx + sgn * 5.4, chY + 0.6], el = [sx + sgn * 6.1, chY + 4.3], hd = [sx + sgn * 6.4, hdy];
+    px.part(); px.body(1);
+    px.limb([sh, el, hd], [2.1, 1.9, 1.6], TUNIC, 4.3, { cast: 0 });
+    px.capsule(el[0], el[1], 1.8, hd[0], hd[1], 1.55, SHIRT, 4.31, { wrap: true, cast: 0 });
+    px.capsule((el[0] + hd[0]) / 2, (el[1] + hd[1]) / 2, 1.7, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.55, LEATHER, 4.32, { wrap: true, cast: 0 });
+    px.body(0);
+    px.part(); px.ellipse(hd[0], hd[1] + 0.9, 1.4, 1.4, SKIN, 3.6);
+  };
+  arm(ls, lh[1]); arm(rs, chY + 8.2 + swN);
+
+  // the cloak down her back (its rim edged so the arms come out from under it), the quiver and its strap over it
+  px.part(); const cid = px._pid;
+  px.poly([[sx - 5, chY - 2.2], [sx + 5, chY - 2.2], [sx + 6, chY + 4], [sx + 6.8 + t2 * 0.3, hipY + 3], [sx + 7 + t2 * 0.7, -9.6], [sx + 3.6 + t2 * 0.6, -7.8], [sx + t2 * 0.5, -10], [sx - 3.4 + t2 * 0.6, -7.8], [sx - 7 + t2 * 0.7, -9.6], [sx - 6.8 + t2 * 0.3, hipY + 3], [sx - 6, chY + 4]], CLOAK, 5.0, { round: 0.9, cast: 1, edge: true });
+  px.toneLine(sx - 2, chY + 3, sx - 2.4 + t2 * 0.6, -8.6, -1, cid);
+  px.toneLine(sx + 2.8, chY + 3, sx + 3.2 + t2 * 0.6, -8.4, -1, cid);
+  const q0 = [sx + 1.2, hipY - 1], q1 = [sx + 4.4, chY - 3.2];
+  px.part();
+  px.capsule(q0[0], q0[1], 1.9, q1[0], q1[1], 1.9, LEATHER, 5.6);
+  px.line(q1[0] - 1.6, q1[1] + 0.8, q1[0] + 1.6, q1[1] - 0.4, GOLD, 5.62);
+  px.part();
+  for (const dx of [-0.9, 1.1]) px.capsule(q1[0] + dx, q1[1] - 1.2, 0.8, q1[0] + dx + 0.4, q1[1] - 4.2, 0.7, dx > 0 ? FLETCH_R : FLETCH, 5.58);
+  px.part(); px.toneLine(sx + 3.8, chY - 1, sx - 3.6, hipY - 3.4, -1, px._pid);
+  // the mantle over both shoulders, a scalloped edge
+  px.part();
+  px.poly([[sx - 5.6, chY - 2.6], [sx + 5.6, chY - 2.6], [sx + 6.4, chY + 1.6], [sx + 3.6, chY + 3.2], [sx + 0.4, chY + 2.2], [sx - 3, chY + 3.4], [sx - 6.4, chY + 1.6]], RANGER, 5.8, { round: 0.9, cast: 1, edge: true });
+
+  // the neck, the ponytail over the cloak, then the head (6.0) and cap
+  px.part(); px.capsule(hx, chY - 3.4, 1.7, hx, hyr + 1.2, 1.6, SKIN, 5.9);
+  px.part();
+  px.capsule(hx, hyr - 6, 1.9, hx + tp * 0.4, hyr - 1, 1.7, HAIR, 5.95);
+  px.capsule(hx + tp * 0.4, hyr - 1, 1.7, hx + tp * 0.9, hyr + 5.4, 1.4, HAIR, 5.95);
+  px.capsule(hx + tp * 0.9, hyr + 5.4, 1.4, hx + tp * 1.4, hyr + 9.6, 0.6, HAIR, 5.95);
+  px0.stamp(BACK_H, Math.round(hx * SC), Math.round(hyr * SC), LEG, 6.0, { ax: 7, ay: 11, cast: 0 });
+  px.part(); px.dot(hx, hyr - 4.6, GOLD, 6.1, { fix: 3 });
+  px.part();
+  px.poly([[hx - 4.8, hyr - 7.4], [hx + 4.8, hyr - 7.4], [hx + 3, hyr - 11.8], [hx - 3, hyr - 11.8]], RANGER, 6.2, { round: 0.9 });
+  px.toneLine(hx, hyr - 7.4, hx, hyr - 11.6, -1, px._pid);
+  px.part();
+  px.poly([[hx - 6, hyr - 7.2], [hx + 6, hyr - 7.2], [hx + 5.4, hyr - 6.2], [hx - 5.4, hyr - 6.2]], RANGER, 6.3, { round: 0.6, bias: -1, cast: 2 });
+  px.part();
+  px.capsule(hx + 2.2, hyr - 11, 0.9, hx + 4.4 - tp * 0.2, hyr - 14.4, 0.9, FLETCH, 6.4);
+  px.capsule(hx + 4.4 - tp * 0.2, hyr - 14.4, 0.9, hx + 5.4 - tp * 0.5, hyr - 17, 0.6, FLETCH_R, 6.4);
+  return {};
+};
+
 const make = (s) => (px0, F, o = {}) => {
   const px = big(px0), rs = -s, ls = s, TAU = Math.PI * 2;
   const { sk, ph, lag1, lag2 } = F, { p, P, C, N } = sk;
@@ -169,4 +261,4 @@ const make = (s) => (px0, F, o = {}) => {
 
 const walk = { ...SIDE.walk };
 export const FRONT = { NAME: "archer-front", BOX: { w: 56, h: 86, ox: 28, oy: 73 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "archer-back", BOX: { w: 56, h: 86, ox: 28, oy: 73 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const BACK = { NAME: "archer-back", BOX: { w: 56, h: 86, ox: 28, oy: 73 }, BONES: SIDE_BONES, draw: drawBack, CLIPS: { walk } };

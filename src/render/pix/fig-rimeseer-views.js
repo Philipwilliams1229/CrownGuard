@@ -59,28 +59,30 @@ const make = (s) => (px, F) => {
   // ---- the staff in her left hand, beside her: a whalebone shaft, bone rings, a cradle and a crown of ice
   const stx = ls * 11.4 + sx, sfy = -(p.lift || 0) * 0.6 - 0.5, STAFF = 38, top = sfy - STAFF;
   const at = (a, b) => [stx + b * 1, top + 0 - a + STAFF * 0 + 0];   // a up from the tip (+ = above), b across
+  const Z0 = s > 0 ? 1.5 : 1.0;
   px.part();
-  px.capsule(stx, sfy, 1, stx, top, 1, WHALE, 1.5, { edge: true });
-  for (const a of [10, 20, 30]) px.dot(stx, top + a, BONE, 1.52, { fix: 3 });
+  px.capsule(stx, sfy, 1, stx, top, 1, WHALE, Z0, { edge: s > 0 });
+  for (const a of [10, 20, 30]) px.dot(stx, top + a, BONE, Z0 + 0.02, { fix: 3 });
   px.part();
-  px.capsule(stx, top + 1.6, 1.5, stx, top - 1.4, 1.7, BONE, 1.55);
-  px.poly([[stx + 0.8, top - 1], [stx + 4.2, top - 4], [stx + 2.6, top - 8.5], [stx + 0.6, top - 6]], BONE, 1.56, { fix: 2 });
-  px.poly([[stx - 0.8, top - 1], [stx - 4.2, top - 4], [stx - 2.6, top - 8.5], [stx - 0.6, top - 6]], BONE, 1.56, { fix: 1 });
+  px.capsule(stx, top + Z0 + 0.1, 1.5, stx, top - 1.4, 1.7, BONE, Z0 + 0.05);
+  px.poly([[stx + 0.8, top - 1], [stx + 4.2, top - 4], [stx + 2.6, top - 8.5], [stx + 0.6, top - 6]], BONE, Z0 + 0.06, { fix: 2 });
+  px.poly([[stx - 0.8, top - 1], [stx - 4.2, top - 4], [stx - 2.6, top - 8.5], [stx - 0.6, top - 6]], BONE, Z0 + 0.06, { fix: 1 });
   px.part();
-  px.poly([[stx - 1.2, top - 1.4], [stx + 1.2, top - 1.4], [stx + 1.6, top - 7], [stx, top - 13.5], [stx - 1.6, top - 7]], ICE, 1.6, { fix: 2 });
-  px.poly([[stx + 1.2, top - 2.4], [stx + 4.6, top - 4.4], [stx + 3.6, top - 10], [stx + 1.2, top - 7]], ICE, 1.61, { fix: 1 });
-  px.poly([[stx - 1.2, top - 2.4], [stx - 4.6, top - 4.4], [stx - 3.6, top - 10], [stx - 1.2, top - 7]], ICE, 1.61, { fix: 3 });
+  px.poly([[stx - 1.2, top - 1.4], [stx + 1.2, top - 1.4], [stx + Z0 + 0.1, top - 7], [stx, top - 13.5], [stx - Z0 + 0.1, top - 7]], ICE, Z0 + 0.1, { fix: 2 });
+  px.poly([[stx + 1.2, top - 2.4], [stx + 4.6, top - 4.4], [stx + 3.6, top - 10], [stx + 1.2, top - 7]], ICE, Z0 + 0.11, { fix: 1 });
+  px.poly([[stx - 1.2, top - 2.4], [stx - 4.6, top - 4.4], [stx - 3.6, top - 10], [stx - 1.2, top - 7]], ICE, Z0 + 0.11, { fix: 3 });
   const light = { x: stx, y: top - 5, r: 16 + 24 * (p.glow || 0), col: "#9ad8f2", k: Math.min(p.glow || 0, 0.4 + 0.25 * (p.glow || 0)) };
 
   // ---- the far arm (her left), a tone down: a wide sleeve out to the staff, a fur cuff, the fist on it
   {
-    const sh = [sx + ls * 7.8, c0 + 3], hd = [stx - ls * 0.2, hipY + 1.5], el = [sx + ls * 9.4, (sh[1] + hd[1]) / 2 - 0.5], wr = [(el[0] + hd[0]) / 2 + ls * 0.4, (el[1] + hd[1]) / 2 + 2.6];
+    const back = s < 0, az = back ? 4.3 : 3.2, o = back ? { cast: 0 } : { bias: -1 };
+    const sh = [sx + ls * 7.8, c0 + 3], hd = [stx - ls * 0.2, hipY + 1.5], el = [sx + ls * (back ? 10 : 9.4), (sh[1] + hd[1]) / 2 - 0.5], wr = [(el[0] + hd[0]) / 2 + ls * 0.4, (el[1] + hd[1]) / 2 + 2.6];
     px.part();
-    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, SLEEVE, 3.2, { bias: -1 });
-    px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.7, SLEEVE, 3.2, { bias: -1 });
-    px.capsule(wr[0], wr[1], 1.7, hd[0], hd[1] - 0.6, 1.7, FURW, 3.25, { bias: -1 });
+    px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, SLEEVE, az, o);
+    px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.7, SLEEVE, az, o);
+    px.capsule(wr[0], wr[1], 1.7, hd[0], hd[1] - 0.6, 1.7, FURW, az + 0.05, o);
     px.part();
-    px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 3.3, { bias: -1 });
+    if (back) px.ellipse(hd[0], hd[1] + 0.6, 1.5, 1.5, SKIN, 3.6); else px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 3.3, { bias: -1 });
   }
 
   // ---- boots peeping under the hem; the stepping foot comes toward us (front) / away (back)
@@ -114,18 +116,20 @@ const make = (s) => (px, F) => {
   else px.toneLine(sx, c0 + 3, hx, hipY - 4, -1, px._pid);        // the back seam
   // the mantle: white fur over the shoulders, shaggy at its edge
   px.part();
-  px.ellipse(sx, c0 + 2, 9.4, 4.2, FURW, 4.4, { cast: 1 });
-  for (const x of [-8, -5.4, -2.6, 0, 2.6, 5.4, 8]) px.dot(sx + x, c0 + 5.4 + (Math.abs(x) > 6 ? -1 : 0) + ((x * 2) & 1), FURW, 4.4);
+  const mz = s > 0 ? 4.4 : 5.2;
+  px.ellipse(sx, c0 + 2, 9.4, 4.2, FURW, mz, { cast: 1 });
+  for (const x of [-8, -5.4, -2.6, 0, 2.6, 5.4, 8]) px.dot(sx + x, c0 + 5.4 + (Math.abs(x) > 6 ? -1 : 0) + ((x * 2) & 1), FURW, mz);
 
   // ---- the near arm (her right, free): a wide sleeve and a fur cuff, the palm hanging open
   {
-    const ang = p.aN[0], sh = [sx + rs * 7.8, c0 + 3], hd = [sx + rs * 10.2, hipY + 2 + s * ang * 1.6], el = [sx + rs * 9.4, (sh[1] + hd[1]) / 2], wr = [(el[0] + hd[0]) / 2, (el[1] + hd[1]) / 2 + 2.4];
+    const back = s < 0, az = back ? 4.3 : 7.9, o = { cast: back ? 0 : 2 };
+    const ang = p.aN[0], sh = [sx + rs * 7.8, c0 + 3], hd = [sx + rs * 10.2, hipY + 2 + (back ? -ang * 1.2 : s * ang * 1.6)], el = [sx + rs * 10, (sh[1] + hd[1]) / 2], wr = [(el[0] + hd[0]) / 2, (el[1] + hd[1]) / 2 + 2.4];
     px.part();
-    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.4, SLEEVE, 7.9, { cast: 2 });
-    px.capsule(el[0], el[1], 2.4, wr[0], wr[1], 2.9, SLEEVE, 7.9, { cast: 2 });
-    px.capsule(wr[0], wr[1] - 0.4, 2.7, hd[0], hd[1] - 1, 2.8, FURW, 7.95, { cast: 2 });
+    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.4, SLEEVE, az, o);
+    px.capsule(el[0], el[1], 2.4, wr[0], wr[1], 2.9, SLEEVE, az, o);
+    px.capsule(wr[0], wr[1] - 0.4, 2.7, hd[0], hd[1] - 1, 2.8, FURW, az + 0.05, o);
     px.part();
-    px.ellipse(hd[0], hd[1] + 0.2, 1.9, 2, SKIN, 8.3);
+    if (back) px.ellipse(hd[0], hd[1] + 0.6, 1.6, 1.6, SKIN, 3.6); else px.ellipse(hd[0], hd[1] + 0.2, 1.9, 2, SKIN, 8.3);
   }
 
   // ---- the head: braids, the far antler behind, the hood, antlers over it
@@ -142,8 +146,8 @@ const make = (s) => (px, F) => {
     for (const side of [-1, 1]) {
       const b0 = [hx + side * 1.4, hy + 5], b1 = [b0[0] + side * 0.6 + bs * 0.3, b0[1] + 7 + by], b2 = [b1[0] + side * 0.2 + bs * 0.6, b1[1] + 7], b3 = [b2[0] + bs * 0.3, b2[1] + 5.6];
       px.part();
-      px.capsule(b0[0], b0[1], 1.6, b1[0], b1[1], 1.5, HAIR, 5, { bias: -1 }); px.capsule(b1[0], b1[1], 1.5, b2[0], b2[1], 1.3, HAIR, 5, { bias: -1 }); px.capsule(b2[0], b2[1], 1.3, b3[0], b3[1], 0.9, HAIR, 5, { bias: -1 });
-      px.dot(b3[0], b3[1] + 1, ICE, 5.1, { fix: 3 });
+      px.capsule(b0[0], b0[1], 1.6, b1[0], b1[1], 1.5, HAIR, 5.4); px.capsule(b1[0], b1[1], 1.5, b2[0], b2[1], 1.3, HAIR, 5.4); px.capsule(b2[0], b2[1], 1.3, b3[0], b3[1], 0.9, HAIR, 5.4);
+      px.dot(b3[0], b3[1] + 1, ICE, 5.5, { fix: 3 });
     }
   }
   const antler = (x0, y0, dir, z) => {

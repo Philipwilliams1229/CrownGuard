@@ -73,12 +73,12 @@ const make = (s) => (px, F) => {
 
   // ---- the cloak behind him: teal, its ochre border along the hem; the tail swings late
   {
-    const c = cl(-vx * 1.4 - vx2 * 1, -3, 3), hem = hipY + 8, w = 10.6;
+    const c = cl(-vx * 1.4 - vx2 * 1, -3, 3), hem = hipY + 8, w = s > 0 ? 10.6 : 9.2, cz = s > 0 ? 0.5 : 5.0, sw2 = s > 0 ? 9 : 7.6, ct = s > 0 ? c0 - 0.6 : c0 + 1.4;
     px.part(); const cid = px._pid;
-    px.poly([[sx - 6, c0 - 0.6], [sx + 6, c0 - 0.6], [sx + 9, c0 + 5], [hx + w + c, hem - 2], [hx + w + 0.6 + c, hem], [hx - w + c, hem], [hx - w - 0.6 + c, hem - 2], [sx - 9, c0 + 5]], TEAL, 0.5, { round: 0.85, cast: 1 });
+    px.poly([[sx - 6, ct], [sx + 6, ct], [sx + sw2, c0 + 5], [hx + w + c, hem - 2], [hx + w + 0.6 + c, hem], [hx - w + c, hem], [hx - w - 0.6 + c, hem - 2], [sx - sw2, c0 + 5]], TEAL, cz, { round: 0.85, cast: 1, edge: s < 0 });
     px.toneLine(sx - 3, c0 + 4, hx - 5 + c, hem - 1, -1, cid);
     px.toneLine(sx + 4, c0 + 4, hx + 6 + c, hem - 1, -1, cid);
-    px.poly([[hx - w - 0.4 + c, hem - 1.6], [hx + w + 0.4 + c, hem - 1.6], [hx + w + 0.6 + c, hem], [hx - w + c, hem]], OCHRE, 0.52, { round: 0.9 });
+    px.poly([[hx - w - 0.4 + c, hem - 1.6], [hx + w + 0.4 + c, hem - 1.6], [hx + w + 0.6 + c, hem], [hx - w + c, hem]], OCHRE, cz + 0.02, { round: 0.9 });
   }
 
   // ---- legs: wool trews, leather wraps, fur-topped boots. The stepping foot comes toward us (front) / away (back)
@@ -103,10 +103,10 @@ const make = (s) => (px, F) => {
   if (s < 0) {
     const hxh = hx + 5.6, hyh = hipY - 1.4;
     px.part();
-    px.line(hx + 3.4, hipY - 3, hxh - 0.4, hyh + 0.4, LEATHER, 4.2);
-    px.capsule(hxh, hyh, 1.7, hxh + 1.2, hyh + 4.2, 2.1, BONE, 4.3, { cast: 1 });
-    px.capsule(hxh + 1.2, hyh + 4.2, 2.1, hxh + 0.2, hyh + 7.4, 1.1, BONE, 4.3, { cast: 1 });
-    px.dot(hxh + 0.4, hyh + 1.4, BRASS, 4.35, { fix: 3 });
+    px.line(hx + 3.4, hipY - 3, hxh - 0.4, hyh + 0.4, LEATHER, 5.05);
+    px.capsule(hxh, hyh, 1.7, hxh + 1.2, hyh + 4.2, 2.1, BONE, 5.1, { cast: 1 });
+    px.capsule(hxh + 1.2, hyh + 4.2, 2.1, hxh + 0.2, hyh + 7.4, 1.1, BONE, 5.1, { cast: 1 });
+    px.dot(hxh + 0.4, hyh + 1.4, BRASS, 5.15, { fix: 3 });
   }
 
   // ---- the tunic to the knee, a leather belt with a brass buckle, an ochre hem
@@ -120,32 +120,35 @@ const make = (s) => (px, F) => {
   else px.toneLine(sx, c0 + 2, hx, hipY - 4, -1, tid);
   // the big fur collar
   px.part();
-  px.ellipse(sx, c0 + 1.4, 9.6, 4.2, FURW, 4.4, { cast: 1 });
-  for (const x of [-8, -5.6, -2.8, 0, 2.8, 5.6, 8]) px.dot(sx + x, c0 + 4.4 + (Math.abs(x) > 6 ? -1 : 0) + ((x * 2) & 1), FURW, 4.4);
+  const kz = s > 0 ? 4.4 : 5.4;
+  px.ellipse(sx, c0 + 1.4, 9.6, 4.2, FURW, kz, { cast: 1 });
+  for (const x of [-8, -5.6, -2.8, 0, 2.8, 5.6, 8]) px.dot(sx + x, c0 + 4.4 + (Math.abs(x) > 6 ? -1 : 0) + ((x * 2) & 1), FURW, kz);
 
-  // ---- the drum on his left arm: held across and a little out, seen almost edge-on (a thin hoop, a sliver of hide)
+  // ---- the drum on his left arm: held across and a little out, seen almost edge-on (a thin hoop, a sliver of hide);
+  // from behind it is at z 1.0 and only its rim past his outline shows, the arm hanging over it
   {
-    const sh = [sx + ls * 8, c0 + 3], dxc = hx + ls * 8.6, dyc = c0 + 11 - (p.dlift || 0), hd = [dxc - ls * 1.2, dyc + 5.6], el = [sx + ls * 9, (sh[1] + hd[1]) / 2];
+    const back = s < 0, az = back ? 4.3 : 7.4, o = back ? { cast: 0 } : { bias: -1, cast: 1 };
+    const sh = [sx + ls * 8, c0 + 3], dxc = hx + ls * (back ? 9.6 : 8.6), dyc = c0 + 11 - (p.dlift || 0), hd = back ? [sx + ls * 10.2, hipY - 3] : [dxc - ls * 1.2, dyc + 5.6], el = [sx + ls * (back ? 10.4 : 9), (sh[1] + hd[1]) / 2];
     px.part();
-    px.capsule(sh[0], sh[1], 2.3, el[0], el[1], 2, TUNIC_L, 7.4, { bias: -1, cast: 1 });
-    px.capsule(el[0], el[1], 2, hd[0], hd[1], 1.7, TUNIC_L, 7.4, { bias: -1, cast: 1 });
+    px.capsule(sh[0], sh[1], 2.3, el[0], el[1], 2, TUNIC_L, az, o);
+    px.capsule(el[0], el[1], 2, hd[0], hd[1], 1.7, TUNIC_L, az, o);
     px.part(); const did = px._pid;
-    const Rr = 6.6;
-    px.ellipse(dxc, dyc, 2.6, Rr, WOOD, 7.6, { round: 0.5, cast: 1 });
-    px.ellipse(dxc + rs * 0.7, dyc, 1.4, Rr * 0.84, HIDE, 7.62, { round: 0.6 });
-    px.toneLine(dxc - 1.4, dyc - Rr * 0.7, dxc - 1.4, dyc + Rr * 0.7, -1, did);
+    const Rr = 6.6, dz = back ? 1.0 : 7.6;
+    px.ellipse(dxc, dyc, back ? 2.2 : 2.6, Rr, WOOD, dz, { round: 0.5, cast: back ? 0 : 1 });
+    if (!back) { px.ellipse(dxc + rs * 0.7, dyc, 1.4, Rr * 0.84, HIDE, 7.62, { round: 0.6 }); px.toneLine(dxc - 1.4, dyc - Rr * 0.7, dxc - 1.4, dyc + Rr * 0.7, -1, did); }
     px.part();
-    if (s > 0) px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 7.8, { bias: -1 });   // from behind the hand is hidden by the drum
+    if (s > 0) px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 7.8, { bias: -1 }); else px.ellipse(hd[0], hd[1] + 0.6, 1.5, 1.5, SKIN, 3.6);
   }
 
   // ---- the near arm (his right): a sleeve and a leather cuff, the beater held up in the fist, falling on the beat
   {
-    const lift = cl((p.aN[0] - 1.0) * 8, 0, 4), sh = [sx + rs * 8.2, c0 + 3], hd = [sx + rs * 9.4, hipY - 1 - lift + s * 0.6], el = [sx + rs * 9.8, (sh[1] + hd[1]) / 2 - 0.4];
+    const back = s < 0, az = back ? 4.3 : 7.9, o = { cast: back ? 0 : 1 };
+    const lift = cl((p.aN[0] - 1.0) * 8, 0, 4), sh = [sx + rs * 8.2, c0 + 3], hd = [sx + rs * (back ? 10.4 : 9.4), hipY - 1 - (back ? lift * 0.5 : lift) + (back ? 0 : s * 0.6)], el = [sx + rs * (back ? 10.6 : 9.8), (sh[1] + hd[1]) / 2 - 0.4];
     px.part(); px.tag("nearArm");
-    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, TUNIC_L, 7.9, { cast: 1 });
-    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, TUNIC_L, 7.9, { cast: 1 });
+    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, TUNIC_L, az, o);
+    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, TUNIC_L, az, o);
     const c1 = [(el[0] + hd[0] * 2) / 3, (el[1] + hd[1] * 2) / 3];
-    px.capsule(c1[0], c1[1], 2, hd[0], hd[1], 1.9, LEATHER, 7.95, { cast: 1 });
+    px.capsule(c1[0], c1[1], 2, hd[0], hd[1], 1.9, LEATHER, az + 0.05, o);
     px.tag(null);
     px.part(); px.tag("weapon");
     if (s > 0) {
@@ -153,11 +156,11 @@ const make = (s) => (px, F) => {
       px.capsule(hd[0], hd[1] + 1.4, 1.1, tip[0], tip[1], 1.1, STICK, 8.1, { edge: true });
       px.ellipse(tip[0], tip[1] - 0.6, 2.2, 2.2, BONE, 8.12);
     } else {
-      // from behind the beater runs forward, away from us: its butt below the fist and a stretch of stick above it show; the knob is hidden ahead of him
-      px.capsule(hd[0] - rs * 0.4, hd[1] + 2.6, 0.8, hd[0] - rs * 1.2, hd[1] - 3.4, 0.8, STICK, 3, { edge: true });
+      // the beater runs forward, away from us, behind the fist and sleeve: only its butt shows below the fist
+      px.capsule(hd[0], hd[1] + 3.4, 0.9, hd[0], hd[1] - 1, 0.9, STICK, 1.0);
     }
     px.part(); px.tag(null);
-    px.ellipse(hd[0], hd[1], 1.8, 2, SKIN, 8.3);
+    if (s > 0) px.ellipse(hd[0], hd[1], 1.8, 2, SKIN, 8.3); else px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6);
   }
 
   // ---- the head

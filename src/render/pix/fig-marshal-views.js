@@ -202,6 +202,99 @@ const make = (s) => (px, F) => {
   return {};
 };
 
+// ---- BACK on the BACK stack (art/briefs/views-artist.md): the lance behind him (z 1.0, upright outside the helm's columns,
+// through his right fist), legs 2-3, fists 3.6, both arms hanging at 4.3 (cast 0), what lies on his back (cape, gorget,
+// pauldrons) 5.0+, helm 6.0 and the plume over it. His left hand is in front of him: only that arm's plate shows.
+const back = (px, F) => {
+  const rs = 1, ls = -1, s = -1, { sk, ph } = F, { p, P, C, N } = sk;
+  const sw = (t) => 0.8 * Math.sin(t * TAU);
+  const sx = sw(ph), sx1 = sw(ph - 0.09), sx2 = sw(ph - 0.18);
+  const vx = cl((sx - sx1) * 1.4, -2.4, 2.4), vx2 = cl((sx1 - sx2) * 1.4, -2.4, 2.4), vy = cl(C[1] - F.lag1.C[1], -2, 2);
+  const hipY = P[1], chY = C[1], shY = chY + 0.9, hy = Math.round(N[1]) - 1, hx = Math.round(sx * 0.7), fl = p.flut || 0;
+  const sw1 = (v) => cl(v, -1.2, 1.2);
+  const nearY = shY + 11 + sw1(-(p.aN[0] - 0.9) * 3);
+  const lx = sx + 11.6, buttY = nearY + 24, topY = buttY - 66;
+  // the lance and its banner, lowest of all
+  px.part();
+  px.capsule(lx, buttY, 1.2, lx, topY, 1.2, WOOD, 1.0);
+  px.capsule(lx, buttY, 1.5, lx, buttY - 2.4, 1.5, IRON, 1.01);
+  px.capsule(lx, topY + 3.4, 1.7, lx, topY + 1.4, 1.7, BRASS, 1.04);
+  px.poly([[lx, topY + 1], [lx + 2.6, topY - 0.6], [lx + 2.4, topY - 7], [lx, topY - 12], [lx - 2.4, topY - 7], [lx - 2.6, topY - 0.6]], STEELB, 1.06, { n: [0.1, 0.1, 0.95] });
+  const barY = topY + 5, ff = cl(vx * 2 + fl, -3, 3);
+  px.part(); px.line(lx, barY, lx + 15, barY, BRASS, 1.05, { noLine: true });
+  const pt = (a, b) => [lx + b, barY + 0.6 + a];
+  px.part(); const bid = px._pid;
+  px.poly([pt(0, 0.6), pt(0, 15), pt(15 + ff * 0.5, 16 + ff * 0.4), pt(21, 14.4 + ff * 0.6), pt(15.4, 10 + ff * 0.4), pt(20, 6 + ff * 0.3), pt(15, 0.8)], OX, 1.08, { round: 0.5, cast: 0 });
+  px.toneLine(...pt(2, 2), ...pt(14, 12 + ff), -1, bid);
+  px.line(...pt(0.6, 1.4), ...pt(0.6, 14.4), BRASS, 1.1, { noLine: true });
+  px.line(...pt(15.6, 1), ...pt(19.4, 6 + ff * 0.3), BRASS, 1.1, { noLine: true });
+  const tx = pt(8, 8); px.part(); px.rect(tx[0] - 2.6, tx[1] - 2.8, 5.2, 5.6, OXK, 1.12, { noLine: true });
+
+  // legs under the cape
+  const leg = (h, k, an, z, b) => {
+    px.body(1);
+    px.limb([h, k, an], [3.5, 3.1, 2.5], HOSE, z, { bias: b, floor: 1 });
+    px.capsule(h[0] * 0.62 + k[0] * 0.38, h[1] * 0.62 + k[1] * 0.38, 3.6, h[0] * 0.18 + k[0] * 0.82, h[1] * 0.18 + k[1] * 0.82, 3.3, PLATE, z + 0.01, { bias: b, wrap: true });
+    px.capsule(k[0], k[1], 2.7, an[0], an[1] - 1, 2.4, PLATE, z + 0.02, { bias: b, wrap: true });
+    px.capsule(k[0] * 0.3 + an[0] * 0.7, k[1] * 0.3 + an[1] * 0.7, 2.8, an[0], an[1], 2.5, PLATEK, z + 0.03, { bias: b, wrap: true });
+    px.ellipse(an[0], an[1] + 1.4, 3.2, 2.4, PLATEK, z + 0.04, { bias: b, weld: 2 });
+    px.body(0);
+  };
+  for (const [f, side, z, b] of [[p.fF, ls, 2, -1], [p.fN, rs, 3, 0]]) {
+    const h = [hx + side * 3.4, hipY + 1], an = [hx + side * 3.8, -3.6 + s * f[0] * FWD - f[1] * 0.8];
+    leg(h, [(h[0] + an[0]) / 2 + side * 0.9, (h[1] + an[1]) / 2 - f[1] * 0.3], an, z, b);
+  }
+  // belt, scabbard's tip past the hip, angled down
+  px.part(); px.poly([[hx - 6.6, hipY - 5.6], [hx + 6.6, hipY - 5.6], [hx + 6.6, hipY - 3.2], [hx - 6.6, hipY - 3.2]], LEATHER, 4.0, { round: 0.92 });
+  px.part(); px.line(hx + 6, hipY - 4, hx + 8.4 + vx * 0.4, hipY + 6, LEATHER, 4.02, { noLine: true });
+
+  // both arms hang at his sides (z 4.3): the right to the lance's fist, the left only to the wrist (its hand is in front of him)
+  const armR = () => {
+    const sh = [sx + 7.6, shY + 0.3], hand = [lx, nearY], r = ik(sh[0], sh[1], hand[0], hand[1], UP, FO, -1), el = [Math.max(r.mid[0], sh[0] + 1.6), r.mid[1]];
+    px.part(); px.body(1);
+    px.limb([sh, el, hand], [3, 2.7, 2.35], PAD, 4.3, { cast: 0 });
+    px.capsule(el[0], el[1], 2.7, hand[0], hand[1], 2.3, PLATE, 4.31, { wrap: true, cast: 0 });
+    px.body(0); px.part(); px.ellipse(hand[0], hand[1], 1.5, 1.5, PLATEK, 3.6);
+  };
+  const armL = () => {
+    const sh = [sx - 7.6, shY + 0.3], el = [sx - 10.2, shY + 8.4], wr = [sx - 9.6, shY + 14.4 + sw1(-(p.aF[0] - 0.9) * 3)];
+    px.part(); px.body(1);
+    px.limb([sh, el, wr], [3, 2.7, 2.3], PAD, 4.3, { cast: 0 });
+    px.capsule(el[0], el[1], 2.7, wr[0], wr[1], 2.3, PLATE, 4.31, { wrap: true, cast: 0 });
+    px.ellipse(el[0], el[1], 2.7, 2.7, PLATE, 4.34, { weld: 2 }); px.body(0);
+  };
+  armL(); armR();
+
+  // the cape over his back, the gorget, the pauldrons, the helm and the plume
+  const cs = cl(-vx * 1.8 - vx2 * 1.2 + fl * 0.6, -3, 3), bot = -6.5, hw = 10.6;
+  px.part(); const cid = px._pid;
+  px.poly([[sx - 6.8, chY - 4.6], [sx + 6.8, chY - 4.6], [sx + 8.6, chY + 6], [hx + hw + cs, bot - 1], [hx + hw * 0.5 + cs * 0.7, bot + 1.4], [hx + cs * 0.4, bot - 0.8], [hx - hw * 0.5 + cs * 0.7, bot + 1.4], [hx - hw + cs, bot - 1], [sx - 8.6, chY + 6]], CAPE, 5, { round: 0.85, cast: 1, edge: true });
+  px.toneLine(sx - 4, chY - 2, hx - 7 + cs, bot - 3, -1, cid);
+  px.toneLine(sx + 1, chY, hx + 1 + cs * 0.6, bot - 3, 1, cid);
+  px.toneLine(sx + 5, chY + 2, hx + 7 + cs * 0.8, bot - 3, -1, cid);
+  px.line(hx - hw + cs + 1, bot - 1.4, hx + hw + cs - 1, bot - 1.4, BRASS, 5.02, { noLine: true });
+  px.part();
+  px.poly([[sx - 6.4, chY - 4.4], [sx + 6.4, chY - 4.4], [sx + 7.2, chY - 0.4], [sx - 7.2, chY - 0.2]], PLATE, 5.1, { round: 0.9, cast: 1, edge: true });
+  px.line(sx - 6.8, chY - 0.2, sx + 6.8, chY - 0.2, BRASS, 5.15, { noLine: true });
+  px.part(); px.rect(sx - 2.4, chY - 4, 1.6, 2, BRASS, 5.2, { fix: 3 }); px.rect(sx + 0.8, chY - 4, 1.6, 2, BRASS, 5.2, { fix: 3 });
+  for (const side of [rs, ls]) {
+    px.part();
+    const ox = sx + side * 9.4;
+    for (const [k, dz, dy] of [[1, 0, 0], [0.74, 0.02, 3]]) px.ellipse(ox, shY + 2 + dy * 0.8, 5.2 * k, 4.4 * k, PLATE, 5.3 + dz, { cast: 1, edge: true });
+    px.line(ox - 4.6, shY + 4, ox + 4.6, shY + 4, BRASS, 5.35, { noLine: true });
+    px.poly([[ox - 1.2, shY - 1.8], [ox + 1.4, shY - 1.8], [ox + 0.2 + side * 0.6, shY - 5.6]], STEELB, 5.4, { cast: 0 });
+    px.dot(ox + 2.2, shY + 1.4, STEELB, 5.42, { fix: 4 }); px.dot(ox - 2.6, shY + 1.8, STEELB, 5.42, { fix: 4 });
+  }
+  const tr = cl(-vx * 2.2 - vx2 * 1.4 + fl * 0.8, -3.6, 3.6), dr = cl(-vy * 1.4, -1.6, 2);
+  px.part();
+  px.stamp(BACK_H, hx, hy, LEG, 6, { ax: 8, ay: 14, cast: 2, ball: [8.5, 7, 8.5, 8] });
+  px.part(); const pid = px._pid;
+  px.poly([[hx - 2.4, hy - 14.6], [hx + 2.4, hy - 14.6], [hx + 3.4 + tr * 0.3, hy - 8], [hx + 3.2 + tr * 0.8, hy + 4], [hx + 2.4 + tr * 1.2, hy + 14 + dr], [hx + tr * 1.3, hy + 17 + dr], [hx - 2.4 + tr * 1.2, hy + 14 + dr], [hx - 3.2 + tr * 0.8, hy + 4], [hx - 3.4 + tr * 0.3, hy - 8]], PLUME, 6.5, { round: 0.8, cast: 1 });
+  px.toneLine(hx - 1, hy - 13, hx - 1 + tr, hy + 15, -1, pid);
+  px.toneLine(hx + 2.4, hy - 10, hx + 2.4 + tr * 0.9, hy + 12, 1, pid);
+  return {};
+};
+
 const walk = { ...SIDE.walk };
 export const FRONT = { NAME: "marshal-front", BOX: { w: 72, h: 114, ox: 36, oy: 106 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "marshal-back", BOX: { w: 72, h: 114, ox: 36, oy: 106 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const BACK = { NAME: "marshal-back", BOX: { w: 72, h: 114, ox: 36, oy: 106 }, BONES: SIDE_BONES, draw: back, CLIPS: { walk } };

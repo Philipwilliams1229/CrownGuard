@@ -57,7 +57,7 @@ const FWD = 0.4, cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 const make = (s) => (px, F) => {
-  const rs = -s, ls = s, TAU = Math.PI * 2, { sk, ph } = F, p = sk.p;
+  const K = s < 0, rs = -s, ls = s, TAU = Math.PI * 2, { sk, ph } = F, p = sk.p;
   const sw = (t) => rs * 0.7 * Math.sin(t * TAU);
   const sx = sw(ph), sx1 = sw(ph - 0.09), sx2 = sw(ph - 0.18);
   const hipY = sk.P[1], chY = sk.C[1], hy = Math.round(sk.N[1]), hx = Math.round(sx * 0.7);
@@ -74,13 +74,13 @@ const make = (s) => (px, F) => {
   {
     const [sp, el, hd] = armOf(ls, aF, shY - tilt * ls * 0.6);
     px.part();
-    px.capsule(sp[0], sp[1] + 0.6, 4.2, el[0], el[1], 3.6, SKIN, 4.5, { bias: -1 });
-    px.capsule(el[0], el[1], 3.4, hd[0], hd[1], 3.7, SKIN, 4.5, { bias: -1 });
+    px.capsule(sp[0], sp[1] + 0.6, 4.2, el[0], el[1], 3.6, SKIN, K ? 4.3 : 4.5, { bias: K ? 0 : -1, cast: K ? 0 : 1 });
+    px.capsule(el[0], el[1], 3.4, hd[0], hd[1], 3.7, SKIN, K ? 4.3 : 4.5, { bias: K ? 0 : -1, cast: K ? 0 : 1 });
     const b0 = mix(el, hd, 0.35), b1 = mix(el, hd, 0.8);
-    px.capsule(b0[0], b0[1], 3.6, b1[0], b1[1], 3.9, DARK, 4.55, { bias: -1 });
-    px.dot(...mix(b0, b1, 0.3), IRON, 4.57, { fix: 4 }); px.dot(...mix(b0, b1, 0.8), IRON, 4.57, { fix: 4 });
+    px.capsule(b0[0], b0[1], 3.6, b1[0], b1[1], 3.9, DARK, K ? 4.31 : 4.55, { bias: K ? 0 : -1, cast: K ? 0 : 1 });
+    px.dot(...mix(b0, b1, 0.3), IRON, K ? 4.32 : 4.57, { fix: 4 }); px.dot(...mix(b0, b1, 0.8), IRON, K ? 4.32 : 4.57, { fix: 4 });
     px.part();
-    px.ellipse(hd[0], hd[1] + 0.4, 3, 3.1, SKIN, 4.7, { bias: -1 });
+    px.ellipse(hd[0], hd[1] + (K ? 1.2 : 0.4), K ? 2.4 : 3, K ? 2.4 : 3.1, SKIN, K ? 3.55 : 4.7, { bias: K ? 0 : -1 });
   }
 
   // legs: short thick, bare knees, dark hide boots in a fur cuff; forward is down (front) / up (back)
@@ -131,8 +131,8 @@ const make = (s) => (px, F) => {
 
   // the fur collar the head sits in
   px.part();
-  px.ellipse(sx, chY - 1.8, 9.8, 3.7, FUR, 4.2, { cast: 1 });
-  for (const x of [-7.6, -4.6, -1.6, 1.6, 4.6, 7.6]) px.dot(sx + x, chY + 1.6 + Math.abs(x) * 0.05, FUR, 4.2);
+  px.ellipse(sx, chY - 1.8, 9.8, 3.7, FUR, K ? 5 : 4.2, { cast: 1, edge: K });
+  for (const x of [-7.6, -4.6, -1.6, 1.6, 4.6, 7.6]) px.dot(sx + x, chY + 1.6 + Math.abs(x) * 0.05, FUR, K ? 5 : 4.2);
 
   // the topknot: a bone-banded tail whipping a beat behind the head (tips to one side, as the hood does)
   const top = hy - 11, sway = cl(vx * 1.8 + vx2 * 1.4, -3, 3.5), hop = cl(vy * 1.4 + vy2, -2, 2);
@@ -152,30 +152,30 @@ const make = (s) => (px, F) => {
   {
     const [sp, el, hd] = armOf(rs, aN, shY + tilt * rs * 0.6);
     px.part(); px.tag("nearArm");
-    px.capsule(sp[0], sp[1] + 1, 4.4, el[0], el[1], 3.8, SKIN, 7.9, { cast: 1 });
-    px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.9, SKIN, 7.9, { cast: 1 });
+    px.capsule(sp[0], sp[1] + 1, 4.4, el[0], el[1], 3.8, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
+    px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.9, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
     const b0 = mix(el, hd, 0.34), b1 = mix(el, hd, 0.78);
-    px.capsule(b0[0], b0[1], 3.9, b1[0], b1[1], 4.1, DARK, 7.95, { cast: 1 });
-    px.dot(...mix(b0, b1, 0.25), IRON, 7.96, { fix: 4 }); px.dot(...mix(b0, b1, 0.8), IRON, 7.96, { fix: 4 });
+    px.capsule(b0[0], b0[1], 3.9, b1[0], b1[1], 4.1, DARK, K ? 4.31 : 7.95, { cast: K ? 0 : 1 });
+    px.dot(...mix(b0, b1, 0.25), IRON, K ? 4.32 : 7.96, { fix: 4 }); px.dot(...mix(b0, b1, 0.8), IRON, K ? 4.32 : 7.96, { fix: 4 });
     px.tag(null);
     // the axe stands up by his side, beard out: an oak haft through the fist, a bearded steel head above it
     const t = -rs * 0.12 + vx * 0.05, A = (f, o) => [hd[0] + t * f + rs * o, hd[1] + f * 0.8], H = 9;   // hangs at his side, head down by the thigh
     px.part(); px.tag("weapon");
-    px.capsule(...A(-3, 0), 1.05, ...A(H + 3.4, 0), 1.05, WOOD, 8.1, { edge: true });
+    px.capsule(...A(-3, 0), 1.05, ...A(H + 3.4, 0), 1.05, WOOD, K ? 1 : 8.1, { edge: !K });
     px.part();
-    px.poly([A(H - 2.4, 0.6), A(H - 3.6, 4.4), A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.6, 3.4), A(H + 2.8, 0.6)], STEEL, 8.12, { fix: 2 });
-    px.poly([A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.9, 5.6), A(H + 1.8, 7.4), A(H - 1.4, 7.9), A(H - 4.2, 7)], STEEL, 8.13, { fix: 4 });
-    px.poly([A(H - 2.4, 0.6), A(H - 3.3, 3.4), A(H + 3.3, 3), A(H + 2.8, 0.6)], STEEL, 8.13, { fix: 1 });
-    px.poly([A(H - 1.8, -0.8), A(H + 2.2, -0.8), A(H + 1.8, -3), A(H - 1.4, -3)], IRON, 8.12, { fix: 2 });
-    px.poly([A(H - 2.4, -1.2), A(H + 2.8, -1.2), A(H + 2.8, 1.2), A(H - 2.4, 1.2)], IRON, 8.14, { fix: 1 });
+    px.poly([A(H - 2.4, 0.6), A(H - 3.6, 4.4), A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.6, 3.4), A(H + 2.8, 0.6)], STEEL, K ? 1.02 : 8.12, { fix: 2 });
+    px.poly([A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.9, 5.6), A(H + 1.8, 7.4), A(H - 1.4, 7.9), A(H - 4.2, 7)], STEEL, K ? 1.02 : 8.13, { fix: 4 });
+    px.poly([A(H - 2.4, 0.6), A(H - 3.3, 3.4), A(H + 3.3, 3), A(H + 2.8, 0.6)], STEEL, K ? 1.02 : 8.13, { fix: 1 });
+    px.poly([A(H - 1.8, -0.8), A(H + 2.2, -0.8), A(H + 1.8, -3), A(H - 1.4, -3)], IRON, K ? 1.03 : 8.12, { fix: 2 });
+    px.poly([A(H - 2.4, -1.2), A(H + 2.8, -1.2), A(H + 2.8, 1.2), A(H - 2.4, 1.2)], IRON, K ? 1.03 : 8.14, { fix: 1 });
     px.tag(null);
     px.part();
-    px.ellipse(hd[0], hd[1], 3.2, 3.2, SKIN, 8.3);
+    px.ellipse(hd[0], hd[1] + (K ? 1 : 0), K ? 2.5 : 3.2, K ? 2.5 : 3.2, SKIN, K ? 3.56 : 8.3);
     // the hide pauldron with its fur fringe and rivets
     px.part();
-    px.ellipse(sp[0] + rs * 0.4, sp[1] - 0.6, 5.4, 4.5, HIDE, 8, { cast: 1 });
-    for (const x of [-3.6, -1, 1.6, 4]) px.dot(sp[0] + rs * 0.4 + x, sp[1] + 3.6 - Math.abs(x) * 0.3, FUR, 8);
-    px.dot(sp[0] - 1.8, sp[1] - 1.4, IRON, 8.01, { fix: 4 }); px.dot(sp[0] + 2.4, sp[1] - 1.8, IRON, 8.01, { fix: 4 });
+    px.ellipse(sp[0] + rs * 0.4, sp[1] - 0.6, 5.4, 4.5, HIDE, K ? 5 : 8, { cast: 1, edge: K });
+    for (const x of [-3.6, -1, 1.6, 4]) px.dot(sp[0] + rs * 0.4 + x, sp[1] + 3.6 - Math.abs(x) * 0.3, FUR, K ? 5 : 8);
+    px.dot(sp[0] - 1.8, sp[1] - 1.4, IRON, K ? 5.01 : 8.01, { fix: 4 }); px.dot(sp[0] + 2.4, sp[1] - 1.8, IRON, K ? 5.01 : 8.01, { fix: 4 });
   }
   return {};
 };

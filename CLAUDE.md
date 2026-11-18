@@ -265,7 +265,12 @@ lead has checked it. **Owner feedback page:** private Artifact "Crownguard Front
 (slug 8fb9b2d0-5e54-4d21-be4c-af059cc36945): every figure animated side / front / back, its frames,
 a note box per figure. Notes land in its db collection `feedback` (`db_list`); answer by setting
 `reply` (and `done: true`) on the note with `db_write`. Rebuild: `node scripts/build-views-preview.mjs`,
-then republish `scratchpad/views-preview/` with publish_files (slug + base_version). Three-quarter turning poses at the corners were drawn and
+then republish `scratchpad/views-preview/` with publish_files (slug + base_version).
+**Back views use their own depth stack** (Fable's diagnosis, same day, after the owner kept seeing
+arms "folded behind the back"): in BACK higher z is BEHIND him, so held things go at the bottom,
+arms just above the torso, back gear above them (art/briefs/views-artist.md, "The BACK stack").
+Every BACK view was rebuilt on it. Artists: never search outside the repo (a `find /` raised macOS
+privacy prompts on the owner's Mac). Three-quarter turning poses at the corners were drawn and
 rejected the same day (owner: "it was better before. Lets leave it as just side, front, and
 back"): a view change is a plain switch; don't add in-between turn frames unasked. A sprite-stacked goblin was tried first and set aside
 (`stack-lab.html`, `concept/stack-goblin.js`: turns to any angle but reads blobby at our camera).

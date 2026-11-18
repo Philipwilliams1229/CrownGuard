@@ -106,9 +106,10 @@ const make = (s) => (px, F) => {
   if (s > 0) px.rect(hx - 1.5, hipY - 3.4, 3, 2.4, SILVER, 4.25, { fix: 3 });
   // ---- the white bear mantle, deep and shaggy
   px.part();
-  px.ellipse(sx, c0 + 2.4, 12, 5, FURW, 4.4, { cast: 1 });
-  for (const x of [-10, -7.4, -4.6, -1.8, 1.8, 4.6, 7.4, 10]) px.dot(sx + x, c0 + 6.6 + (Math.abs(x) > 8 ? -1 : 0) + ((x * 2) & 1), FURW, 4.4);
-  for (const x of [-6, -2, 2, 6]) px.dot(sx + x, c0 + 8.4 + (x & 1), FURW, 4.4);
+  const mz = s > 0 ? 4.4 : 5.2;
+  px.ellipse(sx, c0 + 2.4, 12, 5, FURW, mz, { cast: 1 });
+  for (const x of [-10, -7.4, -4.6, -1.8, 1.8, 4.6, 7.4, 10]) px.dot(sx + x, c0 + 6.6 + (Math.abs(x) > 8 ? -1 : 0) + ((x * 2) & 1), FURW, mz);
+  for (const x of [-6, -2, 2, 6]) px.dot(sx + x, c0 + 8.4 + (x & 1), FURW, mz);
 
   // ---- the axe and his arms
   let handR;
@@ -142,24 +143,26 @@ const make = (s) => (px, F) => {
     px.part(); px.ellipse(hl[0], hl[1], 2.4, 2.4, SKIN, 8.3);
     handR = hr;
   } else {
-    // from behind: the right arm hangs, the fist at his hip on the haft; only its butt shows, angled down and forward
-    const hd = [sx + rs * 10.4, hipY - 2], el = [sx + rs * 11.6, c0 + 12];
-    px.part(); px.tag("nearArm");
-    armTo(rs, [sx + rs * 8.6, c0 + 4], hd, el, 7.9, MAIL, 2);
-    const cu = mix(el, hd, 0.7); px.capsule(cu[0], cu[1], 2.6, hd[0], hd[1], 2.5, FURW, 7.95);
-    px.tag(null);
+    // from behind (the BACK stack): both arms hang at his sides, over the mail and under the mantle and cape; the axe stands
+    // upright at the right fist's x behind it (z 1.0): the haft shows below the fist and above the shoulder, the blade runs
+    // forward, away from us, so only its edge shows by the haft
+    const hd = [sx + rs * 12.4, hipY - 1.4 - Math.max(0, p.aN[0] - 0.7) * 2], el = [sx + rs * 12.6, c0 + 12], shd = [sx + rs * 9, c0 + 4];
+    const ax = hd[0], butt = hd[1] + 5, top = butt - 40;
     px.part(); px.tag("weapon");
-    px.capsule(hd[0], hd[1], 1.1, hd[0] + rs * 0.4, hd[1] + 5, 1.2, WOOD, 8.1, { edge: true });      // the butt below the fist
-    px.dot(hd[0] + rs * 0.4, hd[1] + 5.6, IRON_D, 8.12, { fix: 1 });
-    // the haft runs on up past his hip, forward of the cape: behind the cape and mantle (z 3), only the sliver outside his outline shows
-    px.capsule(hd[0] - rs * 0.4, hd[1], 1.2, hd[0] - rs * 1.4, c0 + 3, 1.2, WOOD, 3, { edge: true });
+    px.capsule(ax, butt, 1.1, ax, top + 4, 1.1, WOOD, 1.0);
+    px.dot(ax, butt + 0.6, IRON_D, 1.02, { fix: 1 });
+    px.poly([[ax, top + 4], [ax + rs * 2.2, top + 3], [ax + rs * 2.6, top + 9], [ax, top + 9]], STEEL, 0.9, { fix: 2 });
+    px.poly([[ax - 1.2, top + 3.6], [ax + 1.2, top + 3.6], [ax + 1.2, top + 9], [ax - 1.2, top + 9]], IRON_D, 1.04, { fix: 1 });
     px.tag(null);
-    px.part(); px.ellipse(hd[0], hd[1], 2.5, 2.5, SKIN, 8.3);
-    // the far arm hangs at his left side, the hand turned in
-    const hl = [sx + ls * 10.2, hipY - 3.4], elL = [sx + ls * 11.2, c0 + 12];
+    px.part(); px.tag("nearArm");
+    armTo(rs, shd, hd, el, 4.3, MAIL, 0);
+    const cu = mix(el, hd, 0.7); px.capsule(cu[0], cu[1], 2.6, hd[0], hd[1], 2.5, FURW, 4.35);
+    px.tag(null);
+    px.part(); px.ellipse(hd[0], hd[1] + 0.8, 1.6, 1.6, SKIN, 3.6);
+    const hl = [sx + ls * 11.2, hipY - 2.4 - Math.max(0, p.aF[0] - 0.7) * 2], elL = [sx + ls * 11.8, c0 + 12];
     px.part();
-    armTo(ls, [sx + ls * 8.6, c0 + 4], hl, elL, 7.9, MAIL_D, 2);
-    px.part(); px.ellipse(hl[0], hl[1], 2.4, 2.4, SKIN, 8.3);
+    armTo(ls, [sx + ls * 9, c0 + 4], hl, elL, 4.3, MAIL, 0);
+    px.part(); px.ellipse(hl[0], hl[1] + 0.8, 1.6, 1.6, SKIN, 3.6);
     handR = hd;
   }
 

@@ -42,6 +42,7 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const TOT = 54;
 
 const make = (s) => (px, F) => {
+  const ED = s > 0;                   // BACK: nothing carried 'lies on top', so no edge on the totem
   const rs = -s, ls = s;              // screen side of his right (free hand, trophy) and of his left (the totem)
   const { sk, ph } = F, p = sk.p;
   const sw = (t) => rs * 0.7 * Math.sin(t * TAU);
@@ -70,11 +71,11 @@ const make = (s) => (px, F) => {
       px.part(); px.capsule(a[0], a[1], 0.7, mid[0], mid[1], 1.3, m, z); px.capsule(mid[0], mid[1], 1.3, e[0], e[1], 0.5, m, z);
     };
     feather(-6.2, 8, RED, 1.2, -1.8, 1.44); feather(-5, 8.5, F_GOLD, 1, 0.6, 1.46); feather(6.4, 7.5, F_BLUE, 0.85, 1.8, 1.48);
-    px.part(); px.capsule(...foot, 1.15, ...top(TOT + 2.4), 1.05, WOOD, 1.5, { edge: true });
+    px.part(); px.capsule(...foot, 1.15, ...top(TOT + 2.4), 1.05, WOOD, 1.5, { edge: ED });
     px.part();
     px.capsule(...top(TOT - 4.4), 1.5, ...top(TOT - 2.2), 1.5, DARK, 1.52, { floor: 1 });
     px.capsule(...top(1), 1.35, ...top(2.6), 1.35, IRON, 1.52);
-    px.part(); px.capsule(bar[0] - 7.4, bar[1], 0.95, bar[0] + 7.4, bar[1], 0.95, WOOD, 1.55, { edge: true });
+    px.part(); px.capsule(bar[0] - 7.4, bar[1], 0.95, bar[0] + 7.4, bar[1], 0.95, WOOD, 1.55, { edge: ED });
     // the skull and the two horns bound to it
     const sc = top(TOT + 6.2);
     px.part();
@@ -134,27 +135,27 @@ const make = (s) => (px, F) => {
     px.line(hx + rs * 5, hipY + 0.2, hx + rs * 5.3, hipY + 2, DARK, 4.2);
     px.stamp(TROPHY, Math.round(hx + rs * 5.4), Math.round(hipY + 4.6), SKULL_LEG, 4.22, { ax: 2, ay: 2, ball: [2.5, 2.2, 3, 3] });   // the trophy at his right hip
   } else {
-    px.line(hx + rs * 5, hipY + 0.2, hx + rs * 5.3, hipY + 2, DARK, 4.2);
-    px.stamp(TROPHY_B, Math.round(hx + rs * 5.4), Math.round(hipY + 4.6), SKULL_LEG, 4.22, { ax: 2, ay: 2, ball: [2.5, 2.2, 3, 3] });
+    px.line(hx + rs * 5, hipY + 0.2, hx + rs * 5.3, hipY + 2, DARK, 5);
+    px.stamp(TROPHY_B, Math.round(hx + rs * 5.4), Math.round(hipY + 4.6), SKULL_LEG, 5.1, { ax: 2, ay: 2, ball: [2.5, 2.2, 3, 3] });
     const s0 = [hx - 1, hipY - 0.2], swv = cl(sh * 1.3, -3, 3);       // the sash's tail down his back
-    px.poly([[s0[0] - 1.8, s0[1]], [s0[0] + 2, s0[1]], [s0[0] + 2.2 + swv * 0.5, s0[1] + 4], [s0[0] + 1.6 + swv, s0[1] + 7.4], [s0[0] - 0.2 + swv, s0[1] + 6], [s0[0] - 1.4 + swv, s0[1] + 7.6]], RED, 4.2, { round: 0.6, cast: 1 });
+    px.poly([[s0[0] - 1.8, s0[1]], [s0[0] + 2, s0[1]], [s0[0] + 2.2 + swv * 0.5, s0[1] + 4], [s0[0] + 1.6 + swv, s0[1] + 7.4], [s0[0] - 0.2 + swv, s0[1] + 6], [s0[0] - 1.4 + swv, s0[1] + 7.6]], RED, 5, { round: 0.6, cast: 1 });
   }
 
   // ---- the fur mantle over both shoulders, tufted along its edge
   px.part();
-  px.ellipse(sx, c0 + 0.6, 11.6, 3.8, FUR, 4.4, { cast: 1 });
+  px.ellipse(sx, c0 + 0.6, 11.6, 3.8, FUR, s > 0 ? 4.4 : 5, { cast: 1, edge: s < 0 });
   for (let i = 0; i < 7; i++) px.dot(sx - 10.2 + i * 3.4, c0 + 3.4 + (i % 2) * 0.8, FUR, 4.4);
 
   // ---- the head: horns, ears, helm, face (or the back of the helm and a bare skull)
   const ex = cl(-vx * 1.3 - vx2 * 0.9, -2.5, 2.5), ey = cl(-vy * 1.3 - vy2 * 0.9 - (p.ear || 0) * 1.6, -2.5, 2.5);
   for (const side of [-1, 1]) {
     px.part();
-    px.poly([[hx + side * 4.4, hy - 8.4], [hx + side * 7.6, hy - 8.6], [hx + side * 8.4, hy - 13], [hx + side * 11, hy - 19.4], [hx + side * 6.2, hy - 16], [hx + side * 4.8, hy - 12.4]], BONE, s > 0 ? 5.8 : 5.6, { bias: side < 0 ? -1 : 0, n: [side * 0.3, -0.3, 0.9] });
+    px.poly([[hx + side * 4.4, hy - 8.4], [hx + side * 7.6, hy - 8.6], [hx + side * 8.4, hy - 13], [hx + side * 11, hy - 19.4], [hx + side * 6.2, hy - 16], [hx + side * 4.8, hy - 12.4]], BONE, s > 0 ? 5.8 : 5.4, { bias: side < 0 ? -1 : 0, n: [side * 0.3, -0.3, 0.9] });
   }
   for (const side of [-1, 1]) {   // the long ears out under the helm, a gold ring in each
     px.part(); const eid = px._pid, wob = ey * 0.7 + side * ex * 0.4;
     const b = [hx + side * 6, hy - 4.6];
-    px.poly([[b[0] - side * 1, b[1] - 2.4], [b[0] - side * 0.4, b[1] + 2.6], [b[0] + side * 4.4, b[1] + 2 + wob * 0.4], [b[0] + side * 11.6, b[1] - 1.8 + wob], [b[0] + side * 5.4, b[1] - 3.4 + wob * 0.4]], SKIN, 6.5, { bias: s > 0 ? -1 : -2, n: [side * 0.25, -0.35, 0.9], cast: 1 });
+    px.poly([[b[0] - side * 1, b[1] - 2.4], [b[0] - side * 0.4, b[1] + 2.6], [b[0] + side * 4.4, b[1] + 2 + wob * 0.4], [b[0] + side * 11.6, b[1] - 1.8 + wob], [b[0] + side * 5.4, b[1] - 3.4 + wob * 0.4]], SKIN, s > 0 ? 6.5 : 5.5, { bias: s > 0 ? -1 : 0, n: [side * 0.25, -0.35, 0.9], cast: 1 });
     px.toneLine(b[0] + side * 0.4, b[1] - 0.2, b[0] + side * 7.4, b[1] - 1.2 + wob * 0.6, -1, eid);
     if (side === (s > 0 ? -1 : 1)) { px.part(); px.dot(b[0] + side * 4.6, b[1] + 2.6 + wob * 0.4, GOLD, 6.6, { fix: 3 }); px.dot(b[0] + side * 4.6, b[1] + 3.6 + wob * 0.4, GOLD, 6.6, { fix: 1 }); }
   }
@@ -167,35 +168,37 @@ const make = (s) => (px, F) => {
     px.dot(e[0], e[1] - 1.6, GOLD, 6.4, { fix: 3 });
   }
 
+  // BACK stack (higher z = further behind him): arms 4.3 both with no cast, pauldrons 5.0 (edge), fists 3.6 and small
+  const za = s > 0 ? 7.9 : 4.3, zp = s > 0 ? 8 : 5, zf = s > 0 ? 8.3 : 3.6, ca = s > 0 ? 1 : 0, fr = s > 0 ? 1 : 0.7;
   // ---- the free right arm: a gold armband, a studded wristband; swings, the hand rising and falling a little
   {
-    const ang = p.aN[0], sh0 = [hx + rs * 10.6, c0 + 3], hd = [hx + rs * 12, hipY - 1 + s * ang * 2.6], el = [hx + rs * 11.6, (sh0[1] + hd[1]) / 2 + 0.6];
+    const ang = p.aN[0], sh0 = [hx + rs * 10.6, c0 + 3], hd = [hx + rs * 12, hipY - 1 + s * ang * (s > 0 ? 2.6 : 1.2)], el = [hx + rs * 11.6, (sh0[1] + hd[1]) / 2 + 0.6];
     px.part();
-    px.capsule(sh0[0], sh0[1], 3.2, el[0], el[1], 2.9, SKIN, 7.9, { cast: 1 });
-    px.capsule(el[0], el[1], 2.8, hd[0], hd[1], 2.7, SKIN, 7.9, { cast: 1 });
+    px.capsule(sh0[0], sh0[1], 3.2, el[0], el[1], 2.9, SKIN, za, { cast: ca });
+    px.capsule(el[0], el[1], 2.8, hd[0], hd[1], 2.7, SKIN, za, { cast: ca });
     const a0 = mix(sh0, el, 0.74), a1 = mix(sh0, el, 0.92);
-    px.poly([[a0[0] - 3, a0[1]], [a0[0] + 3, a0[1]], [a1[0] + 3, a1[1]], [a1[0] - 3, a1[1]]], GOLD, 7.95, { round: 0.85 });
+    px.poly([[a0[0] - 3, a0[1]], [a0[0] + 3, a0[1]], [a1[0] + 3, a1[1]], [a1[0] - 3, a1[1]]], GOLD, za + 0.05, { round: 0.85 });
     const b0 = mix(el, hd, 0.5), b1 = mix(el, hd, 0.76);
-    px.capsule(b0[0], b0[1], 2.9, b1[0], b1[1], 2.9, DARK, 7.96, { cast: 1, floor: 1 });
-    px.dot(...mix(b0, b1, 0.5), GOLD, 7.97, { fix: 3 });
+    px.capsule(b0[0], b0[1], 2.9, b1[0], b1[1], 2.9, DARK, za + 0.06, { cast: ca, floor: 1 });
+    if (s > 0) px.dot(...mix(b0, b1, 0.5), GOLD, 7.97, { fix: 3 });
     px.part();
-    px.ellipse(sh0[0], sh0[1] - 1.2, 4.2, 3.2, FUR, 8, { cast: 1 });
+    px.ellipse(sh0[0], sh0[1] - 1.2, 4.2, 3.2, FUR, zp, { cast: 1, edge: s < 0 });
     px.part();
-    px.ellipse(hd[0], hd[1] + 0.6, 2.7, 2.8, SKIN, 8.3);
+    px.ellipse(hd[0], hd[1] + 0.6, 2.7 * fr + (s > 0 ? 0 : 1.3), 2.8 * fr + (s > 0 ? 0 : 1.3), SKIN, zf);
   }
   // ---- the left arm, bent to the pole: the upper arm down from the shoulder, the fist round the pole
   {
-    const sh0 = [hx + ls * 10.6, c0 + 3], el = [hx + ls * 12.4, handL[1] + 0.8];
+    const sh0 = [hx + ls * 10.6, c0 + 3], el = [hx + ls * (s > 0 ? 11.6 : 10.8), handL[1] + 0.8];
     px.part();
-    px.capsule(sh0[0], sh0[1], 3.2, el[0], el[1], 2.9, SKIN, 7.9, { bias: -1, cast: 1 });
-    px.capsule(el[0], el[1], 2.8, handL[0], handL[1], 2.6, SKIN, 7.9, { bias: -1, cast: 1 });
+    px.capsule(sh0[0], sh0[1], 3.2, el[0], el[1], 2.9, SKIN, za, { bias: s > 0 ? -1 : 0, cast: ca });
+    px.capsule(el[0], el[1], 2.8, handL[0], handL[1], 2.6, SKIN, za, { bias: s > 0 ? -1 : 0, cast: ca });
     const a0 = mix(sh0, el, 0.72), a1 = mix(sh0, el, 0.9);
-    px.poly([[a0[0] - 3, a0[1]], [a0[0] + 3, a0[1]], [a1[0] + 3, a1[1]], [a1[0] - 3, a1[1]]], GOLD, 7.95, { round: 0.85 });
+    px.poly([[a0[0] - 3, a0[1]], [a0[0] + 3, a0[1]], [a1[0] + 3, a1[1]], [a1[0] - 3, a1[1]]], GOLD, za + 0.05, { round: 0.85 });
     px.part();
-    px.ellipse(sh0[0], sh0[1] - 1.2, 4.2, 3.2, FUR, 8, { cast: 1 });
+    px.ellipse(sh0[0], sh0[1] - 1.2, 4.2, 3.2, FUR, zp, { cast: 1, edge: s < 0 });
     px.part();
-    px.ellipse(handL[0], handL[1], 2.9, 2.8, SKIN, 8.3, { bias: -1 });
-    px.line(handL[0] - 2.4, handL[1] + 0.4, handL[0] + 2.4, handL[1] + 0.4, DARK, 8.35);
+    px.ellipse(handL[0], handL[1] + (s > 0 ? 0 : 1), 2.9 * fr + (s > 0 ? 0 : 1.3), 2.8 * fr + (s > 0 ? 0 : 1.3), SKIN, zf, { bias: s > 0 ? -1 : 0 });
+    if (s > 0) px.line(handL[0] - 2.4, handL[1] + 0.4, handL[0] + 2.4, handL[1] + 0.4, DARK, 8.35);
   }
   return {};
 };

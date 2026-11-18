@@ -145,6 +145,76 @@ const make = (s) => (px, F) => {
   return { light: k > 0.05 ? { x: stx, y: cy, r: 20 + 26 * cl(k, 0, 1), col: "#9ab6d8", k: k * 0.4 } : null };
 };
 
+// ---- BACK, built on the advisor's BACK stack (art/briefs/views-artist.md): in BACK higher z lies nearer the camera,
+// so the staff is lowest (1.0, behind him), then legs, fists 3.6, robe 4.0, both arms 4.3 (cast 0), back gear 5.0+ (gorget,
+// pauldron, the hood's tail), head 6.0. Both arms hang at his sides; the staff runs up beside the head from his left fist.
+const back = (px, F) => {
+  const rs = 1, ls = -1, s = -1, { sk, ph } = F, { p, P, C, N } = sk;
+  const sw = (t) => 0.7 * Math.sin(t * TAU);
+  const sx = sw(ph), sx1 = sw(ph - 0.09), sx2 = sw(ph - 0.18);
+  const vx = cl((sx - sx1) * 1.4, -2, 2), vx2 = cl((sx1 - sx2) * 1.4, -2, 2), vy = cl(C[1] - F.lag1.C[1], -2, 2);
+  const hipY = P[1], chY = C[1], shY = chY + 0.9, hy = Math.round(N[1]), hx = Math.round(sx * 0.7);
+  const g = p.glow || 0, lift = p.lift || 0, fl = -vx * 0.9 - vx2 * 0.6;
+  const sw1 = (v) => cl(v, -1.2, 1.2);
+
+  // the staff: behind him (z 1.0), in the left fist, a hand's breadth outside the hood's columns
+  const stx = sx - 9.4, foot = -lift * 0.7 + 0.2 - 0.6, tipY = foot - 58, cs = 1.35, cy = tipY - (8.4 * cs + 1);
+  px.part();
+  px.capsule(stx, foot, 0.95, stx, tipY, 0.95, WOOD, 1.0);
+  px.capsule(stx, foot, 1.2, stx, foot - 2.4, 1.2, IRON, 1.01);
+  px.capsule(stx, tipY + 2.4, 1.4, stx, tipY + 0.4, 1.7, BRASS, 1.02);
+  for (const d of [-1, 1]) { px.line(stx + d * 3.4, tipY, stx + d * 4.6, tipY - 6, IRON, 1.0); px.line(stx + d * 4.6, tipY - 6, stx + d * 3.4, tipY - 15, IRON, 1.0); }
+  px.ellipse(stx, tipY - 16, 1.6, 1.3, BRASS, 1.02, { cast: 1 });
+  px.part();
+  px.poly([[-2.6, -3.2], [2.6, -3.2], [2.6, 0.2], [0, 3.6], [-2.6, 0.2]].map(([a, b]) => [stx + a * cs * 1.1, cy + b * cs * 1.15]), WARD, 1.05, {});
+  px.poly([[-1.1, -1.4], [1.1, -1.4], [1.1, 0.4], [0, 1.6], [-1.1, 0.4]].map(([a, b]) => [stx + a * cs * 1.1 + 0.3, cy + b * cs * 1.15 + 0.2]), CORE, 1.06);
+
+  // boots
+  const fy = [0, 0];
+  [[p.fF, ls, 2], [p.fN, rs, 3]].forEach(([f, side, z], i) => {
+    const bx = hx + side * 3.3, by = -1.2 + s * f[0] * FWD - f[1] * 0.8; fy[i] = f[1];
+    px.part(); px.ellipse(bx, by + 1.2, 2.6, 1.9, BOOT, z, { fix: 1 });
+  });
+  // the robe, belt and its tail
+  const top = chY - 2.4, hem = -0.6, hl = hem - fy[0] * 0.3, hr = hem - fy[1] * 0.3;
+  px.part(); const rid = px._pid;
+  px.poly([[sx - 5.6, top], [sx + 5.6, top], [sx + 6.4, chY + 3], [hx + 5.6, hipY - 2], [hx + 8 + fl, hr], [hx - 8 + fl, hl], [hx - 5.6, hipY - 2], [sx - 6.4, chY + 3]], ROBE, 4, { round: 0.9, cast: 1, edge: true });
+  px.toneLine(hx - 3.2, hipY + 3, hx - 5.4 + fl, hem - 5, -1, rid);
+  px.toneLine(hx + 3.4, hipY + 3, hx + 5.6 + fl, hem - 5, 1, rid);
+  px.part();
+  px.toneLine(hx, hipY, hx + fl * 0.6, hem - 3, -1, rid);
+  px.line(hx - 7.6 + fl, hem - 1, hx + 7.6 + fl, hem - 1, OX, 4.03, { noLine: true });
+  px.part();
+  px.poly([[hx - 5.8, hipY - 3.6], [hx + 5.8, hipY - 3.6], [hx + 5.8, hipY - 1.9], [hx - 5.8, hipY - 1.9]], IRON, 4.05, { round: 0.94, bias: -1 });
+  px.poly([[hx + 1, hipY - 1.9], [hx + 3, hipY - 1.9], [hx + 3.4 + fl * 0.4, hipY + 6], [hx + 1.2 + fl * 0.4, hipY + 6]], IRON, 4.04, { bias: -1 });
+
+  // both arms hang at his sides at z 4.3: elbow at or outboard of the shoulder, the hand outboard of the elbow; y-only swing
+  const handN = shY + 11.6 + sw1(-(p.aN[0] - 0.36) * 8), handF = shY + 10.4 + sw1(-(p.aF[0] - 0.9) * 7);
+  const arm = (side, hand, cuffM, fistX) => {
+    const sh = [sx + side * 6.4, shY], el = [sx + side * 8.2, shY + 5.4], wr = [sx + side * fistX, hand - 2];
+    px.part();
+    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.3, ROBE, 4.3, { cast: 0, floor: 1 });
+    px.capsule(el[0], el[1], 2.3, wr[0], wr[1], 3, ROBE, 4.3, { cast: 0, floor: 1 });
+    px.poly([[wr[0] - 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] - 0.6], [wr[0] + 3.2, wr[1] + 1.4], [wr[0] - 3.2, wr[1] + 1.4]], cuffM, 4.32, { bias: 1 });
+    px.part(); px.ellipse(wr[0], hand + 0.6, 1.5, 1.5, SKIN, 3.6);
+  };
+  arm(ls, handF, OXD, 9.4); arm(rs, handN, OX, 7.4);
+  // what lies on his back and shoulders: the gorget, the near pauldron, the hood's tail
+  px.part();
+  px.poly([[sx - 6.8, chY - 3.2], [sx + 6.8, chY - 3.2], [sx + 7.4, chY + 1], [sx + 2.4, chY + 2.4], [sx - 2.4, chY + 2.4], [sx - 7.4, chY + 1]], STEEL, 5, { round: 0.9, cast: 1, edge: true });
+  px.line(sx - 7, chY + 1.4, sx + 7, chY + 1.4, BRASS, 5.05, { noLine: true });
+  px.part();
+  px.ellipse(sx + 6.8, shY - 0.4, 4.4, 3.8, STEEL, 5.2, { cast: 1, edge: true });
+  px.line(sx + 2.8, shY + 1.8, sx + 10.8, shY + 1.8, BRASS, 5.22, { noLine: true });
+  const bend = cl(vx * 2.2 + vx2 * 1.6 + (p.sway || 0) * 0.6, -2.4, 2.4), dr = cl(-vy * 1.3, -1.2, 1.8);
+  px.part();
+  px.poly([[hx - 2.4, hy - 6], [hx + 2.4, hy - 6], [hx + 3 - bend * 0.3, hy + 2], [hx + 2.4 - bend, hy + 9 - dr * 0.4], [hx + 0.2 - bend * 1.1, hy + 11.4], [hx - 2.4 - bend * 0.8, hy + 8.4], [hx - 3, hy + 2]], HOOD, 5.6, { round: 0.85, ny: -0.2, cast: 1 });
+  px.part();
+  px.stamp(BACK_H, hx, hy, LEG, 6, { ax: 7, ay: 13, ball: [7, 7.5, 7.5, 8.5], cast: 1 });
+  const k = cl(g, 0, 1.4);
+  return { light: k > 0.05 ? { x: stx, y: cy, r: 20 + 26 * cl(k, 0, 1), col: "#9ab6d8", k: k * 0.4 } : null };
+};
+
 const walk = { ...SIDE.walk };
 export const FRONT = { NAME: "magister-front", BOX: { w: 56, h: 102, ox: 28, oy: 93 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "magister-back", BOX: { w: 56, h: 102, ox: 28, oy: 93 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const BACK = { NAME: "magister-back", BOX: { w: 56, h: 102, ox: 28, oy: 93 }, BONES: SIDE_BONES, draw: back, CLIPS: { walk } };

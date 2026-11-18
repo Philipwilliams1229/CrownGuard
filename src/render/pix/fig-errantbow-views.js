@@ -66,7 +66,7 @@ const make = (s) => (px, F) => {
   // string, the stock a short foreshortened wooden block hanging from its middle to his belt. (From behind it
   // is hidden by his body except the prod's ends past his sides.)
   // carried angled DOWN and across the body: butt at the right hip, the nose and prod pointing down and out toward the ground ahead of him
-  const gz = vv ? 7 : 3.4, pz = vv ? 8.3 : 3.4;
+  const gz = vv ? 7 : 1.0, pz = vv ? 8.3 : 1.0;
   const B = [rs * 5.6 + sx, chestY + 11 + bob], T = [ls * 3.6 + sx, hipY + 4.5 + bob];
   const len = Math.hypot(T[0] - B[0], T[1] - B[1]), u = [(T[0] - B[0]) / len, (T[1] - B[1]) / len], w = [u[1], -u[0]];
   const at = (a, b) => [B[0] + u[0] * a + w[0] * b, B[1] + u[1] * a + w[1] * b];
@@ -105,7 +105,7 @@ const make = (s) => (px, F) => {
 
   // ---- the bolt box on the hip (behind in front view, plain to see from behind), fletchings standing out
   px.part();
-  { const bx = rs * 0.5 * 0 + (vv ? ls * 6.2 : ls * 3.2) + sx, by = hipY - 0.4, bz = vv ? 3.5 : 4.4;
+  { const bx = rs * 0.5 * 0 + (vv ? ls * 6.2 : ls * 3.2) + sx, by = hipY - 0.4, bz = vv ? 3.5 : 5.0;
     px.poly([[bx - 2.4, by - 3], [bx + 2.4, by - 3], [bx + 2.8, by + 3.6], [bx - 2.8, by + 3.6]], LEATHER, bz, { round: 0.8, cast: 1 });
     px.rect(bx - 2.4, by - 0.6, 4.8, 0.9, BRASS, bz + 0.02, { noLine: true });
     for (const [dx, h] of [[-1.5, 3.4], [0.2, 4.6], [1.7, 3.8]]) { px.line(bx + dx, by - 3, bx + dx, by - 3 - h, BOLT, bz - 0.05, { noLine: true }); px.dot(bx + dx, by - 3 - h, FLETCH, bz - 0.04, { fix: 3 }); } }
@@ -151,13 +151,13 @@ const make = (s) => (px, F) => {
   // ---- the arms. FRONT: both hands on the arbalest (right on the stock below the prod, left under the prod). BEHIND: both
   // hang at his sides, swinging forward (the back of each arm, the hand low and a little in).
   const sw = Math.cos(ph * TAU) * 0.45;
-  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? at(len * 0.16, 0) : [rs * 7 + sx, shY + 11 - sw * 1.6]];
-  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? at(len * 0.62, 0) : [ls * 7 + sx, shY + 11 + sw * 1.6]];
+  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? at(len * 0.16, 0) : [rs * 7.3 + sx, shY + 11 - sw * 1.2]];
+  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? at(len * 0.62, 0) : [ls * 7.3 + sx, shY + 11 + sw * 1.2]];
   for (const arm of [aL, aR]) {
     px.part(); px.tag("arm");
-    px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, 8, { cast: 2 });
-    px.capsule(arm[1][0], arm[1][1], 1.9, arm[2][0], arm[2][1], 1.6, PADK, 8.1, { cast: 2 });
-    px.part(); px.ellipse(arm[2][0], arm[2][1], 1.7, 1.7, SKIN, 8.6); px.tag(null);
+    px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, vv ? 8 : 4.3, { cast: vv ? 2 : 0 });
+    px.capsule(arm[1][0], arm[1][1], 1.9, arm[2][0], arm[2][1], 1.6, PADK, vv ? 8.1 : 4.3, { cast: vv ? 2 : 0 });
+    px.part(); px.ellipse(arm[2][0], arm[2][1] + (vv ? 0 : 0.8), vv ? 1.7 : 1.5, vv ? 1.7 : 1.5, SKIN, vv ? 8.6 : 3.6); px.tag(null);
   }
   return {};
 };

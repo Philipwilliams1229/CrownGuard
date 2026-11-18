@@ -41,7 +41,7 @@ export const knightViews = (C) => {
     if (L.cape) {
       const hemC = C.capeHem, sx2 = -vx * 1.2 + (p.sway || 0) * 0.6, sh = (a) => a * W;
       px.part(); const cid = px._pid;
-      px.poly([[tx - sh(4.4), yC - sh(1.8)], [tx + sh(4.4), yC - sh(1.8)], [tx + sh(6.4), yC + sh(4)], [hx + sh(8.4), yP + sh(2)], [hx + sh(9) + sx2, hemC], [hx + sh(5) + sx2 * 0.6, hemC + 1.6], [hx + sh(1.5) + sx2 * 0.4, hemC - 0.4], [hx - sh(2.5) + sx2 * 0.4, hemC + 1.8], [hx - sh(6) + sx2 * 0.6, hemC], [hx - sh(9) + sx2, hemC + 0.6], [hx - sh(8.4), yP + sh(2)], [tx - sh(6.4), yC + sh(4)]], L.cape, s > 0 ? 0.5 : 4.4, { round: 0.85 });
+      px.poly([[tx - sh(4.4), yC - sh(1.8)], [tx + sh(4.4), yC - sh(1.8)], [tx + sh(6.4), yC + sh(4)], [hx + sh(8.4), yP + sh(2)], [hx + sh(9) + sx2, hemC], [hx + sh(5) + sx2 * 0.6, hemC + 1.6], [hx + sh(1.5) + sx2 * 0.4, hemC - 0.4], [hx - sh(2.5) + sx2 * 0.4, hemC + 1.8], [hx - sh(6) + sx2 * 0.6, hemC], [hx - sh(9) + sx2, hemC + 0.6], [hx - sh(8.4), yP + sh(2)], [tx - sh(6.4), yC + sh(4)]], L.cape, s > 0 ? 0.5 : 5, { round: 0.85, edge: s < 0, cast: s < 0 ? 1 : undefined });
       px.toneLine(hx - sh(2.2), yC + sh(3), hx - sh(2.4) + sx2 * 0.5, hemC - 0.8, -1, cid);
       if (s < 0) px.toneLine(hx + sh(3), yC + sh(4), hx + sh(3.4) + sx2 * 0.5, hemC - 0.6, -1, cid);
     }
@@ -65,16 +65,24 @@ export const knightViews = (C) => {
         px.part(); px.ellipse(gx, gy + 0.2, 1.7 * RW, 1.7 * RW, L.mail, zs + 0.1, { bias: -1 });
       } else {
         px.part();
-        px.capsule(sh0[0], sh0[1], 2 * RW, el[0], el[1], 1.9 * RW, L.plate, s > 0 ? 3.6 : 4.55, { bias: -1 });
-        px.capsule(el[0], el[1], 1.9 * RW, hd[0], hd[1], 1.7 * RW, L.plate, s > 0 ? 3.6 : 4.55, { bias: -1 });
+        if (s > 0) {
+          px.capsule(sh0[0], sh0[1], 2 * RW, el[0], el[1], 1.9 * RW, L.plate, 3.6, { bias: -1 });
+          px.capsule(el[0], el[1], 1.9 * RW, hd[0], hd[1], 1.7 * RW, L.plate, 3.6, { bias: -1 });
+        } else {
+          // BACK stack: the arm hangs at his side (z 4.3, no cast), the fist under the cuff (z 3.6), the shield behind (z 1.0)
+          const e3 = [tx + ls * 6.6 * W, el[1]], h3 = [tx + ls * 6.2 * W, hd[1] + 0.8];
+          px.capsule(sh0[0], sh0[1], 2.1 * RW, e3[0], e3[1], 2 * RW, L.plate, 4.3, { cast: 0 });
+          px.capsule(e3[0], e3[1], 2 * RW, h3[0], h3[1], 1.8 * RW, L.plate, 4.3, { cast: 0 });
+          px.part(); px.ellipse(h3[0], h3[1] + 0.4, 1.5 * RW, 1.6 * RW, L.mail, 3.6, { cast: 0 }); px.part();
+        }
         // the kite: face-on in front; from behind its back, seen mostly edge-on past the body
         const k = C.shK || 1, xs = (s > 0 ? 0.9 : 0.5) * k, ys = 0.95 * k;
-        const scx = tx + ls * (s > 0 ? 7.4 : 8.2) * W, scy = sk.hdF[1] * 0.7 + sk.eF[1] * 0.3 + (s > 0 ? 3.2 : 0.8) * W;   // carried low: the top stays under the chin
+        const scx = tx + ls * (s > 0 ? 7.4 : 8.8) * W, scy = sk.hdF[1] * 0.7 + sk.eF[1] * 0.3 + (s > 0 ? 3.2 : 0.8) * W;   // carried low: the top stays under the chin
         const tl = ((p.shield ?? 0.08) - 0.08) * ls * 0.8, cs = Math.cos(tl), sn = Math.sin(tl);
         const S = (x, y) => [scx + (x * cs - y * sn) * xs, scy + (x * sn + y * cs) * ys];
-        const zk = s > 0 ? 4.6 : 3.2;
+        const zk = s > 0 ? 4.6 : 1;
         px.part(); const sid = px._pid;
-        px.poly([S(-4.6, -6.2), S(4.6, -6.2), S(4.9, 0.6), S(0, 8), S(-4.9, 0.6)], L.rim, zk, { round: 0.6, cast: 2 });
+        px.poly([S(-4.6, -6.2), S(4.6, -6.2), S(4.9, 0.6), S(0, 8), S(-4.9, 0.6)], L.rim, zk, { round: 0.6, cast: s > 0 ? 2 : 0 });
         if (s > 0) {
           px.poly([S(-3.5, -5.1), S(3.5, -5.1), S(3.7, 0.3), S(0, 6.3), S(-3.7, 0.3)], L.field, zk + 0.02, { round: 0.6 });
           if (L.shieldSun) { /* the sun is drawn below */ }
@@ -84,8 +92,6 @@ export const knightViews = (C) => {
           if (L.shieldSun) { px.ellipse(...S(0, -0.6), 2.3, 2.3, L.trim, zk + 0.08, { noLine: true }); px.ellipse(...S(0, -0.6), 1.1, 1.1, L.coat, zk + 0.1, { noLine: true }); }
         } else {
           px.poly([S(-3.5, -5.1), S(3.5, -5.1), S(3.7, 0.3), S(0, 6.3), S(-3.7, 0.3)], LEATHER, zk + 0.02, { round: 0.6 });
-          px.line(...S(-3, -2.4), ...S(3, -2.4), DARK, zk + 0.05); px.line(...S(-2.6, 2.2), ...S(2.6, 2.2), DARK, zk + 0.05);
-          px.dot(...S(-3, -2.4), L.trim, zk + 0.08, { fix: 3 }); px.dot(...S(3, 2.2), L.trim, zk + 0.08, { fix: 3 });
         }
       }
     }
@@ -126,37 +132,40 @@ export const knightViews = (C) => {
     px.line(tx - 2.6 * W, yC - 1.2 * W, tx + 2.6 * W, yC - 1.2 * W, L.plate, 4.3);
 
     // ---- the sword arm (his right, screen side rs): pauldron, vambrace, the fist on the grip
-    const sh1 = [tx + rs * 5.4 * W, sk.sN[1] + 0.4 * W], el1 = [tx + rs * 6.2 * W, sk.eN[1]], H1 = [tx + rs * 5.6 * W, sk.hdN[1] + 0.5];
+    const sh1 = [tx + rs * 5.4 * W, sk.sN[1] + 0.4 * W], el1 = [tx + rs * (s > 0 ? 6.2 : 6.6) * W, sk.eN[1]], H1 = [tx + rs * (s > 0 ? 5.6 : 6.2) * W, sk.hdN[1] + (s > 0 ? 0.5 : 1.3)];
     px.part();
-    px.capsule(sh1[0], sh1[1], 2.1 * RW, el1[0], el1[1], 2 * RW, L.plate, 4.6, { cast: 2 });
-    px.capsule(el1[0], el1[1], 2 * RW, H1[0], H1[1], 1.8 * RW, L.plate, 4.6, { cast: 2 });
-    px.ellipse(el1[0], el1[1], 1.7 * RW, 1.7 * RW, L.cop, 4.62, { vb: 0.25 });
+    if (s > 0) {
+      px.capsule(sh1[0], sh1[1], 2.1 * RW, el1[0], el1[1], 2 * RW, L.plate, 4.6, { cast: 2 });
+      px.capsule(el1[0], el1[1], 2 * RW, H1[0], H1[1], 1.8 * RW, L.plate, 4.6, { cast: 2 });
+      px.ellipse(el1[0], el1[1], 1.7 * RW, 1.7 * RW, L.cop, 4.62, { vb: 0.25 });
+    } else {   // BACK stack: both arms z 4.3, cast 0
+      px.capsule(sh1[0], sh1[1], 2.1 * RW, el1[0], el1[1], 2 * RW, L.plate, 4.3, { cast: 0 });
+      px.capsule(el1[0], el1[1], 2 * RW, H1[0], H1[1], 1.8 * RW, L.plate, 4.3, { cast: 0 });
+    }
     // the weapon, held upright and canted a little outward; flat face toward us
-    const tilt = rs * (s > 0 ? 0.2 : 0.14), d = [Math.sin(tilt), -Math.cos(tilt)], nrm = [-d[1], d[0]], wk = C.wk || 1;
+    const tilt = rs * (s > 0 ? 0.2 : 0.17), d = [Math.sin(tilt), -Math.cos(tilt)], nrm = [-d[1], d[0]], wk = C.wk || 1;
     const B = (t, off = 0) => [H1[0] + d[0] * t * wk + nrm[0] * off * (wk > 1 ? 1.15 : 1), H1[1] + d[1] * t * wk + nrm[1] * off * (wk > 1 ? 1.15 : 1)];
     px.part(); px.tag("weapon");
     if (s < 0) {
-      // from behind it is the same weapon in the same fist, at true depth: it points forward and up, away from us, so what
-      // runs in front of him is foreshortened and sunk behind his arm (z 3.9, under the torso and the arm); the grip, the
-      // guard and the pommel are at the fist, and the far end pokes out past the arm's outline, canted outward
-      const t2 = rs * 0.7, d2 = [Math.sin(t2), -Math.cos(t2)], n2 = [-d2[1], d2[0]], FS = 0.42;
-      const B2 = (t, off = 0) => [H1[0] + d2[0] * t * FS * wk + n2[0] * off, H1[1] + d2[1] * t * FS * wk + n2[1] * off];
-      const hw = L.weapon === "sword";
-      px.capsule(...B(-3.4), 0.9, ...B(2), 0.9, hw ? LEATHER : L.wood, 5.2);
-      px.ellipse(...B(-3.8), 1.1, 1.1, hw ? BRASS : L.trim, 5.22);
-      px.part();
+      // BACK stack: the weapon is carried in front of him, so it sits at the far end of the stack (z 1.0, no edge, no cast):
+      // the torso, the arm and the pauldron hide the part that runs up in front of him; the pommel shows below the fist and
+      // the top of it shows above the shoulder, canted out of the head's columns
+      const hw = L.weapon === "sword", W0 = { cast: 0 };
       if (hw) {
-        px.capsule(...B(1.8, -2.4), 0.8, ...B(1.8, 2.4), 0.8, STEEL, 5.22, { edge: true });
-        // the blade stands up behind his right shoulder: the arm, pauldron and torso hide its lower part, the top peeks over
-        const t3 = rs * 0.16, d3 = [Math.sin(t3), -Math.cos(t3)], B3 = (t) => [H1[0] + d3[0] * t, H1[1] + d3[1] * t];
-        px.capsule(...B3(2.5), 1.2, ...B3(18), 1, BLADE, 3.9, { edge: true });
-        px.capsule(...B3(18), 1, ...B3(20.2), 0.3, BLADE, 3.9, { edge: true });
+        px.capsule(...B(-3.4), 0.9, ...B(1), 0.9, LEATHER, 1, W0);
+        px.ellipse(...B(-3.8), 1.1, 1.1, BRASS, 1, W0);
+        px.capsule(...B(1.8, -2.6), 0.8, ...B(1.8, 2.6), 0.8, STEEL, 1.02, W0);
+        px.capsule(...B(2.5), 1.2, ...B(18), 1, BLADE, 1, W0);
+        px.capsule(...B(18), 1, ...B(20.2), 0.3, BLADE, 1, W0);
       } else if (L.weapon === "mace") {
-        px.capsule(...B2(0), 0.9, ...B2(11), 0.9, L.wood, 3.9, { edge: true });
-        px.ellipse(...B2(15), 3.2, 3.2, L.trim, 3.92, { edge: true });
+        px.capsule(...B(-3.4), 0.9, ...B(11), 0.9, L.wood, 1, W0);
+        px.ellipse(...B(-3.8), 1.1, 1.1, L.trim, 1.02, W0);
+        px.ellipse(...B(14), 3.2, 3.2, L.trim, 1.04, W0);
+        px.capsule(...B(14, -4), 1, ...B(14, 4), 1, L.trim, 1.06, W0);
       } else {
-        px.capsule(...B2(0), 1.2, ...B2(17), 1.2, L.wood, 3.9, { edge: true });
-        px.ellipse(...B2(20), 3.7, 3.4, L.trim, 3.92, { edge: true });
+        px.capsule(...B(-4.6), 1.2, ...B(17), 1.2, L.wood, 1, W0);
+        px.ellipse(...B(-5.2), 1.6, 1.6, L.trim, 1.02, W0);
+        px.ellipse(...B(19), 3.7, 3.4, L.trim, 1.04, W0);
       }
     } else if (L.weapon === "sword") {
       px.capsule(...B(2.5), 1.2, ...B(14.5), 1, BLADE, 5.2, { edge: true });
@@ -183,12 +192,13 @@ export const knightViews = (C) => {
     }
     px.tag(null);
     px.part();
-    px.ellipse(H1[0], H1[1], 1.8 * RW, 2.1 * RW, L.mail, 5.3);
+    if (s > 0) px.ellipse(H1[0], H1[1], 1.8 * RW, 2.1 * RW, L.mail, 5.3);
+    else px.ellipse(H1[0], H1[1] + 0.3, 1.5 * RW, 1.6 * RW, L.mail, 3.6, { cast: 0 });
     // the pauldrons, both shoulders
     for (const sd of [rs, ls]) {
       px.part();
-      px.ellipse(tx + sd * 6 * W, sk.sN[1] - 0.2 * W, 3.2 * RW, 3 * RW, L.plate, 4.8, { cast: 2 });
-      px.line(tx + sd * 6 * W - 2.7 * RW, sk.sN[1] + 2.1 * W, tx + sd * 6 * W + 2.7 * RW, sk.sN[1] + 2.1 * W, L.hem, 4.82);
+      px.ellipse(tx + sd * 6 * W, sk.sN[1] - 0.2 * W, 3.2 * RW, 3 * RW, L.plate, s > 0 ? 4.8 : 5, { cast: s > 0 ? 2 : 1, edge: s < 0 });
+      px.line(tx + sd * 6 * W - 2.7 * RW, sk.sN[1] + 2.1 * W, tx + sd * 6 * W + 2.7 * RW, sk.sN[1] + 2.1 * W, L.hem, s > 0 ? 4.82 : 5.02);
     }
 
     // ---- the head (stamped at the board's scale: the Champion's grid is drawn small already)

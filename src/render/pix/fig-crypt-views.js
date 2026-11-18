@@ -51,7 +51,14 @@ const LEG = legend(EYE), LEG_HOT = legend(EYE_HOT);
 const FWD = 0.4, TAU = Math.PI * 2;
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const make = (s) => (px, F, o = {}) => {
+// BACK depth stack (views-artist.md, "The BACK stack"): in BACK higher z lies further BEHIND him. The torso-layer numbers
+// the FRONT uses are remapped: held things / the lid 1.0, legs 2-3, torso 4.0, back gear (pauldrons, weed) 5.0+, head 6.0.
+const ZI = { capsule: 7, limb: 3, ellipse: 5, poly: 2, line: 5, dot: 3, rect: 5, stamp: 4 };
+const bz = (z) => (z <= 1.9 ? 1.0 : z < 5 ? z : z < 5.9 ? 4 + (z - 5) * 0.1 : z < 7 ? 5 + (z - 5.9) * 0.5 : 5.2);
+const backOf = (p) => new Proxy(p, { get: (t, k) => (k in ZI ? (...a) => { a[ZI[k]] = bz(a[ZI[k]]); return t[k](...a); } : typeof t[k] === "function" ? t[k].bind(t) : t[k]) });
+
+const make = (s) => (px0, F, o = {}) => {
+  const px = s > 0 ? px0 : backOf(px0);
   const rs = -s, ls = s;
   const { sk, ph, lag1, lag2 } = F, p = sk.p;
   const a = Math.cos(ph * TAU), lurch = rs * 0.9 * Math.sin(ph * TAU);          // sways over the planted foot (near foot planted 0..0.5)
@@ -64,9 +71,9 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the lid on the far (left) arm. FRONT: its carved face before him; BACK: its rough back, mostly hid behind him
   {
-    const c = [ls * 11 + cx, handY + (s > 0 ? 3 : 0)], lw = 5.2, lh = s > 0 ? 9.6 : 11.4, z = s > 0 ? 7.6 : 1.6;
+    const c = [ls * (s > 0 ? 11 : 10.6) + cx, handY + (s > 0 ? 3 : 0)], lw = 5.2, lh = s > 0 ? 9.6 : 11.4, z = s > 0 ? 7.6 : 1.6;
     px.part(); const sid = px._pid;
-    px.poly([[c[0] - lw, c[1] - lh + 1.6], [c[0] - lw + 1.6, c[1] - lh], [c[0] + lw - 1.6, c[1] - lh], [c[0] + lw, c[1] - lh + 1.6], [c[0] + lw, c[1] + lh - 1.2], [c[0] + lw - 1.4, c[1] + lh], [c[0] - lw + 1.4, c[1] + lh], [c[0] - lw, c[1] + lh - 1.2]], STONE, z, { round: 0.5, floor: 1, edge: true });
+    px.poly([[c[0] - lw, c[1] - lh + 1.6], [c[0] - lw + 1.6, c[1] - lh], [c[0] + lw - 1.6, c[1] - lh], [c[0] + lw, c[1] - lh + 1.6], [c[0] + lw, c[1] + lh - 1.2], [c[0] + lw - 1.4, c[1] + lh], [c[0] - lw + 1.4, c[1] + lh], [c[0] - lw, c[1] + lh - 1.2]], STONE, z, { round: 0.5, floor: 1, edge: s > 0 });
     px.toneLine(c[0] - lw + 1, c[1] - lh + 2, c[0] - lw + 1, c[1] + lh - 2, -1, sid);
     px.part();
     if (s > 0) {
@@ -78,18 +85,25 @@ const make = (s) => (px, F, o = {}) => {
       for (const [dx, dy] of [[-3, -8], [-2, -7], [3, 6], [2, 7], [3, 8]]) px.dot(c[0] + dx, c[1] + dy, MOSS, z + 0.15, { fix: 1 });
     }
   }
-  // far arm: bone, vambrace, gauntlet at the lid's edge. FRONT it is hidden mostly behind the lid; BACK it reaches round to it
-  {
+  // far arm: bone, vambrace, gauntlet at the lid's edge. FRONT it is hidden mostly behind the lid; BACK it hangs at his side (z 4.3, fist 3.6)
+  if (s > 0) {
     const sh = [hx + ls * 7.2, chestY + 1.4], hd = [ls * 8.4 + cx, handY], el = [ls * 9.4 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
     px.body(1);
-    px.limb([sh, el, hd], [1.7, 1.8, 1.6], BONE, s > 0 ? 7.7 : 2, { bias: -1 });
-    px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.6, STEEL_D, s > 0 ? 7.75 : 2.01, { bias: -1, wrap: true });
-    px.ellipse(hd[0], hd[1], 1.7, 1.6, STEEL_D, s > 0 ? 7.8 : 2.05, { bias: -1, weld: 1.5 });
+    px.limb([sh, el, hd], [1.7, 1.8, 1.6], BONE, 7.7, { bias: -1 });
+    px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.6, STEEL_D, 7.75, { bias: -1, wrap: true });
+    px.ellipse(hd[0], hd[1], 1.7, 1.6, STEEL_D, 7.8, { bias: -1, weld: 1.5 });
     px.body(0);
+  } else {
+    const sh = [hx + ls * 7.6, chestY + 1.4], el = [hx + ls * 8.8, chestY + 7.4], hd = [hx + ls * 8.8, chestY + 12.4 + ls * Math.cos(ph * TAU) * 1.0];
+    px0.body(1);
+    px0.limb([sh, el, [hd[0], hd[1] - 1]], [1.8, 1.9, 1.8], BONE, 4.3, { cast: 0 });
+    px0.capsule(el[0], el[1], 2.0, hd[0], hd[1] - 1.2, 1.8, STEEL_D, 4.35, { cast: 0, wrap: true });
+    px0.body(0);
+    px0.part(); px0.ellipse(hd[0], hd[1], 1.6, 1.5, STEEL_D, 3.6);
   }
 
   // ---- legs: bone, a steel greave over the shin, a bronze-capped knee, a sabaton. Forward is down the screen in FRONT
-  const feet = [[p.fF || [2.8, 0], ls, 3, STEEL_D, -1], [p.fN || [-2.6, 0], rs, 4, STEEL, 0]];
+  const feet = [[p.fF || [2.8, 0], ls, s > 0 ? 3 : 2, STEEL_D, s > 0 ? -1 : 0], [p.fN || [-2.6, 0], rs, s > 0 ? 4 : 3, STEEL, 0]];
   for (const [f, side, z, st, b] of feet) {
     const lf = f[1], ax = hx + side * 3.4 + cx * 0.2, ay = -2.8 + s * f[0] * FWD - lf * 0.9;
     const hp = [hx + side * 2.9, hipY + 1], kn = [(hp[0] + ax) / 2 + side * 1.2, (hp[1] + ay) / 2 - lf * 0.4];
@@ -159,31 +173,33 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the head: the bascinet and the skull in it
   px.part();
-  px.stamp(s > 0 ? FRONT_H : BACK_H, hx, hy - 1, p.eye > 0.5 ? LEG_HOT : LEG, 6, { ax: 6, ay: 8, ball: [6.5, 5.2, 6.5, 5.8], cast: 1 });
+  px0.stamp(s > 0 ? FRONT_H : BACK_H, hx, hy - 1, p.eye > 0.5 ? LEG_HOT : LEG, 6, { ax: 6, ay: 8, ball: [6.5, 5.2, 6.5, 5.8], cast: 1 });
 
-  // ---- the mace: out of his right fist, up over the shoulder, its flanged head standing above it
+  // ---- the mace: out of his right fist. FRONT up over the shoulder; BACK z 1.0, the haft past the fist and the head past the hip
   {
     const hd = [rs * 8.4 + cx, handY], sh = [hx + rs * 7.4, chestY];
     const el = [rs * 10 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
-    px.part();
-    {
-      // the mace rides his right shoulder: its haft runs UP through the fist and over the shoulder, the head standing past it
-      // (from behind it is the same, the head coming toward us over the shoulder)
-      const top = s > 0 ? [rs * 12.2 + cx, chestY - 12] : [rs * 12.6 + cx, handY + 9], bot = s > 0 ? [rs * 7.8 + cx, handY + 4] : [rs * 8 + cx, handY - 3];
-      px.capsule(bot[0], bot[1], 0.9, top[0], top[1], 0.9, HAFT, 8.8);
-      px.ellipse(bot[0], bot[1], 1.2, 1.2, BRONZE, 8.82, { fix: 2 });
-      const hc = s > 0 ? [top[0] + rs * 0.6, top[1] - 2.6] : [top[0] + rs * 1, top[1] + 2.6];
-      px.part();
-      px.ellipse(hc[0], hc[1], 2.7, 2.7, IRON, 8.9);
-      for (const an of [0, 1.05, 2.1, 3.15, 4.2, 5.25]) px.line(hc[0] + Math.cos(an) * 2.2, hc[1] + Math.sin(an) * 2.2, hc[0] + Math.cos(an) * 4.4, hc[1] + Math.sin(an) * 4.4, IRON, 8.95, { fix: an === 0 ? 4 : 2 });
-      px.dot(hc[0] - 0.6, hc[1] - 0.6, STEEL, 9, { fix: 4 });
+    const Z = s > 0 ? 8.8 : 1.0, top = s > 0 ? [rs * 12.2 + cx, chestY - 12] : [rs * 11.4 + cx, handY + 10], bot = s > 0 ? [rs * 7.8 + cx, handY + 4] : [rs * 8.6 + cx, handY - 2];
+    const hc = s > 0 ? [top[0] + rs * 0.6, top[1] - 2.6] : [top[0] + rs * 0.8, top[1] + 2.6];
+    px0.part();
+    px0.capsule(bot[0], bot[1], 0.9, top[0], top[1], 0.9, HAFT, Z);
+    px0.ellipse(bot[0], bot[1], 1.2, 1.2, BRONZE, Z + 0.02, { fix: 2 });
+    px0.part();
+    px0.ellipse(hc[0], hc[1], 2.7, 2.7, IRON, Z + 0.1);
+    for (const an of [0, 1.05, 2.1, 3.15, 4.2, 5.25]) px0.line(hc[0] + Math.cos(an) * 2.2, hc[1] + Math.sin(an) * 2.2, hc[0] + Math.cos(an) * 4.4, hc[1] + Math.sin(an) * 4.4, IRON, Z + 0.15, { fix: an === 0 ? 4 : 2 });
+    px0.dot(hc[0] - 0.6, hc[1] - 0.6, STEEL, Z + 0.2, { fix: 4 });
+    px0.body(1); px0.tag("nearArm");
+    if (s > 0) {
+      px0.limb([[sh[0], sh[1] + 1], el, hd], [1.9, 1.9, 1.7], BONE, 7.9, { weld: 1.5, weldRoot: 3 });
+      px0.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.7, STEEL, 7.95, { wrap: true });
+      px0.ellipse(hd[0], hd[1], 1.9, 1.8, STEEL, 9.4, { weld: 1.5 });
+    } else {
+      const shb = [hx + rs * 7.6, chestY + 1.4], elb = [hx + rs * 8.8, chestY + 7.4], hdb = [hx + rs * 8.8, chestY + 12.4 - rs * Math.cos(ph * TAU) * 0 + -rs * Math.cos(ph * TAU) * 1.0];
+      px0.limb([shb, elb, [hdb[0], hdb[1] - 1]], [1.8, 1.9, 1.8], BONE, 4.3, { cast: 0 });
+      px0.capsule(elb[0], elb[1], 2.0, hdb[0], hdb[1] - 1.2, 1.8, STEEL, 4.35, { cast: 0, wrap: true });
+      px0.ellipse(hdb[0], hdb[1], 1.7, 1.6, STEEL, 3.6);
     }
-    // the arm: bone, vambrace, gauntlet closed on the haft
-    px.body(1); px.tag("nearArm");
-    px.limb([[sh[0], sh[1] + 1], el, hd], [1.9, 1.9, 1.7], BONE, 7.9, { weld: 1.5, weldRoot: 3 });
-    px.capsule(el[0], el[1], 2.0, hd[0], hd[1], 1.7, STEEL, 7.95, { wrap: true });
-    px.ellipse(hd[0], hd[1], 1.9, 1.8, STEEL, 8.4, { weld: 1.5 });
-    px.tag(null); px.body(0);
+    px0.tag(null); px0.body(0);
   }
   return { light: { x: hx + 0.8, y: y(0.4) + 0.4, r: 16, col: "#7ce0b8", k: s > 0 ? 0.22 : 0.08 }, feet: [hx, 0] };
 };

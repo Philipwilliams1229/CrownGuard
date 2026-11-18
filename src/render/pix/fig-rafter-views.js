@@ -78,13 +78,13 @@ const make = (s) => (px, F) => {
   }
 
   // the spear: carried slanted up across him (front); a ferrule stub behind him (back)
-  const hdR = [rs * 4.6 + sx, chY + 9.4 + s * ang * 1.8], hdL = s > 0 ? [ls * 6.8 + sx, chY + 1.6 + tilt * 0.6] : [ls * 4 + sx, chY - 3 + tilt * 0.6];
+  const hdR = s > 0 ? [rs * 4.6 + sx, chY + 9.4 + s * ang * 1.8] : [rs * 5.8 + sx, hipY - 1.4 + cl(ang, -1, 1) * 1.1], hdL = s > 0 ? [ls * 6.8 + sx, chY + 1.6 + tilt * 0.6] : [ls * 3.2 + sx, chY - 3.5];
   const dx = hdL[0] - hdR[0], dy = hdL[1] - hdR[1], dl = Math.hypot(dx, dy), d = [dx / dl, dy / dl], nn = [-d[1], d[0]];
   const at = (f, o = 0) => [hdR[0] + d[0] * f + nn[0] * o, hdR[1] + d[1] * f + nn[1] * o];
   const fl = cl(-vx * 1.2 + (p.flut || 0), -2, 2);
   // FRONT it lies over him (z 8); from BEHIND it runs in front of him, so the torso and head hide the middle of it and
   // the butt below the rear fist and the head above his left shoulder still show (z 3.3, under the body)
-  const zs = s > 0 ? 8 : 3.3;
+  const zs = s > 0 ? 8 : 1.0;
   px.part();
   px.capsule(...at(-2.5), 0.8, ...at(dl + 14), 0.8, WOOD, zs, { cast: 1 });
   px.capsule(...at(-2.9), 1.1, ...at(-1.6), 1.1, DARK, zs + 0.02, { floor: 1 });
@@ -138,7 +138,20 @@ const make = (s) => (px, F) => {
     px.part();
     px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, zA + 0.3);
   };
-  arm(ls, hdL, s > 0 ? 8.4 : 3.4); arm(rs, hdR, 8.5);
+  if (s > 0) { arm(ls, hdL, 8.4); arm(rs, hdR, 8.5); }
+  else {
+    // BACK stack: both arms hang at his sides (z 4.3, cast 0), fists under them at 3.6; the spear (z 1.0) passes his right fist
+    // and runs forward, behind his torso, rising to show above his left shoulder; the left fist only a sliver
+    for (const [side, hd] of [[ls, [ls * 5.8 + sx, chY + 6.4]], [rs, hdR]]) {
+      const shp = [side * 4.6 + sx, chY - 1.2], el = [side * 6 + sx, (shp[1] + hd[1]) / 2 + 0.4];
+      px.part();
+      px.ellipse(shp[0], shp[1] + 0.2, 2.5, 2.3, JERK, 4.35, { cast: 0 });
+      px.capsule(shp[0], shp[1] + 0.6, 1.7, el[0], el[1], 1.6, SKIN, 4.3, { cast: 0 });
+      px.capsule(el[0], el[1], 1.6, hd[0], hd[1], 1.5, SKIN, 4.3, { cast: 0 });
+      px.part();
+      px.ellipse(hd[0], hd[1] + 0.8, 1.5, 1.5, SKIN, 3.6);
+    }
+  }
 
   // the head
   px.part();

@@ -7,7 +7,7 @@
 // Shares `kit`, `legs`, `horn`, `daneAxe`, `backGrip` with fig-thrall-views.js. Unflipped; one sun, upper left.
 import { mat, flat } from "./pix.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-huscarl.js";
-import { kit, legs, horn, daneAxe, backGrip, mix } from "./fig-thrall-views.js";
+import { kit, legs, horn, daneAxe, backArms, mix } from "./fig-thrall-views.js";
 
 const SKIN = mat("#e2b48c"), TEAL = mat("#3a5a66"), TEAL_D = mat("#2a5260"), WOOL = mat("#6e5a44"), LEATHER = mat("#5a3e2a");
 const MAIL = mat("#8a929c", { contrast: 1.25 }), MAIL_D = mat("#5a626e"), FURW = mat("#e8e6e0"), OCHRE = mat("#e0b050"), IRON = mat("#7e8692", { contrast: 1.3 }), IRON_D = mat("#5e646e");
@@ -54,13 +54,13 @@ const make = (s) => (px, F) => {
   const shY = chY + 0.4;
 
   // horns, far then near
-  px.part(); horn(px, hx - 5.6, hy - 8.4, -1, 0.7, 1.15);
-  px.part(); horn(px, hx + 5.6, hy - 8.4, 1, 0.8, 1.15);
+  px.part(); horn(px, hx - 5.6, hy - 8.4, -1, s > 0 ? 0.7 : 5.9, 1.15);
+  px.part(); horn(px, hx + 5.6, hy - 8.4, 1, s > 0 ? 0.8 : 5.9, 1.15);
 
   // the great shield on his left arm, low and forward: face in front (quarters, boss, rivets), wooden back behind
-  const zs = s > 0 ? 7.4 : 3.2, R = 10.2, c = [ls * 14.2 + sx, chY + 14.4 + tilt * 0.4];
+  const zs = s > 0 ? 7.4 : 1.0, R = 10.2, c = s > 0 ? [ls * 14.2 + sx, chY + 14.4 + tilt * 0.4] : [ls * 2 + sx, chY + 12];
   px.part();
-  px.capsule(sx + ls * 5, shY, 2.2, ls * 9 + sx, shY + 9, 2, MAIL_D, zs - 0.2, { bias: -1 });
+  if (s > 0) px.capsule(sx + ls * 5, shY, 2.2, ls * 9 + sx, shY + 9, 2, MAIL_D, zs - 0.2, { bias: -1 });
   px.part(); const shId = px._pid;
   if (s > 0) {
     px.ellipse(c[0], c[1], R, R, OCHRE, zs, { round: 0.55, cast: 1 });
@@ -71,13 +71,9 @@ const make = (s) => (px, F) => {
     px.part();
     for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 + 0.2; px.dot(c[0] + Math.cos(a) * R * 0.9, c[1] + Math.sin(a) * R * 0.9, STEEL, zs + 0.07, { fix: 3 }); }
   } else {
-    px.ellipse(c[0], c[1], R, R, IRON_D, zs, { round: 0.6, cast: 1 });
+    // strapped on his left arm and carried forward: only its rim and dark inner face past his outline
+    px.ellipse(c[0], c[1], R, R, IRON_D, zs, { round: 0.6, cast: 0 });
     px.ellipse(c[0], c[1], R * 0.88, R * 0.88, WOOD, zs + 0.02, { round: 0.75 });
-    px.toneLine(c[0] - R * 0.75, c[1] - 2.4, c[0] + R * 0.75, c[1] - 2.4, -1, shId);
-    px.toneLine(c[0] - R * 0.75, c[1] + 3, c[0] + R * 0.75, c[1] + 3, -1, shId);
-    px.part();
-    px.line(c[0] - R * 0.8, c[1] + 0.3, c[0] + R * 0.8, c[1] + 0.3, LEATHER, zs + 0.06, { cast: 0 });
-    px.dot(c[0] - 2, c[1] - 6, IRON, zs + 0.07); px.dot(c[0] + 2, c[1] + 6, IRON, zs + 0.07);
   }
 
   legs(px, K, { hip: 2.4, foot: 3.6, ground: -2.4, w: [2.9, 2.4, 1.9], cloth: WOOL, boot: LEATHER, bootAt: 0.42, cuff: FURW });
@@ -100,21 +96,28 @@ const make = (s) => (px, F) => {
   for (const x of [-8.4, -5.8, -3, -0.2, 2.6, 5.4, 8]) px.dot(sx + x, chY + 3.8 - Math.abs(x) * 0.12 + (x & 1), FURW, 4.4);
   for (const x of [-6, -3, 0, 3, 6]) px.dot(sx + x, chY + 5.4 + (x & 1), FURW, 4.4);
 
-  // the axe arm: mail sleeve, fur cuff, fist on the haft (from behind: fist at the hip, butt of the haft only)
-  const ang = p.aN[0], hd = s > 0 ? [rs * 9 + sx, shY + 10 + s * ang * 1.6] : [rs * 8 + sx, hipY - 2 + ang * 1.2];
-  const el = [rs * 9.4 + sx, shY + (s > 0 ? 5 : 7)];
-  px.part(); px.tag("nearArm");
-  px.capsule(sx + rs * 5.4, shY + 0.4, 2.4, el[0], el[1], 2.1, MAIL, 7.9, { cast: 1 });
-  px.capsule(el[0], el[1], 2.1, hd[0], hd[1], 1.9, MAIL, 7.9, { cast: 1 });
-  const cf = mix(el, hd, 0.7);
-  px.capsule(cf[0], cf[1], 2.1, hd[0], hd[1], 2, FURW, 7.95, { cast: 1 });
-  px.tag(null);
-  daneAxe(px, K, hd, 19, 1.5, 8.1, undefined, s < 0);
-  px.part(); px.tag("nearHand");
-  px.ellipse(hd[0], hd[1], 1.9, 2.2, SKIN, 8.3);
-  px.tag(null);
+  // the axe arm: mail sleeve, fur cuff, fist on the haft (BACK: both arms hang at his sides, the axe upright in the fist)
+  const ang = p.aN[0];
+  if (s > 0) {
+    const hd = [rs * 9 + sx, shY + 10 + s * ang * 1.6], el = [rs * 9.4 + sx, shY + 5];
+    px.part(); px.tag("nearArm");
+    px.capsule(sx + rs * 5.4, shY + 0.4, 2.4, el[0], el[1], 2.1, MAIL, 7.9, { cast: 1 });
+    px.capsule(el[0], el[1], 2.1, hd[0], hd[1], 1.9, MAIL, 7.9, { cast: 1 });
+    const cf = mix(el, hd, 0.7);
+    px.capsule(cf[0], cf[1], 2.1, hd[0], hd[1], 2, FURW, 7.95, { cast: 1 });
+    px.tag(null);
+    daneAxe(px, K, hd, 19, 1.5, 8.1);
+    px.part(); px.tag("nearHand");
+    px.ellipse(hd[0], hd[1], 1.9, 2.2, SKIN, 8.3);
+    px.tag(null);
+  } else {
+    const o = { sh: 5.8, el: 8, hx: 8.2, up: MAIL, cuff: FURW, w: [2.4, 2.1, 1.9] };
+    const hd = backArms(px, K, o);
+    daneAxe(px, K, [hd[0], hd[1] + 1], 19, 1.5, 1.0, undefined, true);
+  }
   px.part();
-  px.ellipse(sx + rs * 9, shY + 0.6, 4, 3.8, FURW, 8, { cast: 1 });
+  px.ellipse(sx + rs * 9, shY + 0.6, 4, 3.8, FURW, s > 0 ? 8 : 5, { cast: 1, edge: s < 0 });
+  if (s < 0) px.ellipse(sx + ls * 9, shY + 0.6, 4, 3.8, FURW, 5, { cast: 1, edge: true });
 
   // the head
   px.part();

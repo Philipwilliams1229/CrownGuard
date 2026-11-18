@@ -201,17 +201,18 @@ const make = (s) => (px, F) => {
     // from behind: the left hand at his hip; the right (screen right) holds the Dane axe upright at his side as
     // in FRONT, drawn at its true depth (behind his arm and mantle): the haft above his shoulder and the head up beside
     // his helm's horn show, the fist closed round the haft
-    px.part(); px.limb([[fS * 8.6, C[1] + 1.6], [fS * 11, C[1] + 6.4], [fS * 7.4, hipY - 2]], [2.7, 2.4, 2.1], MAIL, 10.3, { cast: 1 }); px.part(); px.ellipse(fS * 7.4, hipY - 2, 2, 2, SKIN, 10.7);
+    // BACK stack (camera behind him: what he carries sits lowest, both arms one z just under the cape and mantle, fists over the weapon)
+    px.part(); px.limb([[fS * 9, C[1] + 1.6], [fS * 11.6, C[1] + 6.4], [fS * 11.2, hipY - 2]], [2.7, 2.4, 2.1], MAIL, 8.6, { cast: 0 });
+    px.part(); px.ellipse(fS * 11.2, hipY - 2, 1.6, 1.5, SKIN, 8.4);
     const hd = [nS * 16, C[1] + 4.6 + sway], tip = [nS * 16.8, C[1] - 17 + sway * 2];   // outside the banner pole
-    px.part(); px.limb([sR, [nS * 14, C[1] + 6.4], hd], [2.7, 2.4, 2.1], MAIL, 10.3, { cast: 1 });
-    px.part(); cap(px, [hd[0], hd[1] + 7], tip, 1, 1, WOOD, 8.4, { edge: true });
+    px.part(); cap(px, [hd[0], hd[1] + 7], tip, 1, 1, WOOD, 8.2, { edge: false });
     const k = 1.4, ax = tip[0], ay = tip[1];
     px.part();
-    px.poly([[ax, ay + 0.6], [ax + nS * 1.4, ay - 0.6], [ax + nS * 7.6 * k * 0.8, ay - 4.6 * k], [ax + nS * 8.4 * k * 0.8, ay + 1], [ax + nS * 7 * k * 0.8, ay + 5.6 * k], [ax + nS * 1.4, ay + 4]], STEEL, 8.42, { fix: 2 });
-    px.poly([[ax, ay - 1.6], [ax + nS * 3, ay - 3], [ax + nS * 3, ay - 0.4], [ax, ay + 0.6]], IRON_D, 8.44, { fix: 1 });
-    for (const [dx, dy] of [[5, -2.8], [6, 3.6]]) px.dot(ax + nS * dx, ay + dy, RIME, 8.46, { noLine: true });
-    px.part(); px.ellipse(hd[0], hd[1], 2.2, 2.2, SKIN, 10.7);
-    px.toneLine(hd[0] - 1.6, hd[1] - 0.6, hd[0] + 1.6, hd[1] - 0.6, -1, px._pid);
+    px.poly([[ax, ay + 0.6], [ax + nS * 1.4, ay - 0.6], [ax + nS * 7.6 * k * 0.8, ay - 4.6 * k], [ax + nS * 8.4 * k * 0.8, ay + 1], [ax + nS * 7 * k * 0.8, ay + 5.6 * k], [ax + nS * 1.4, ay + 4]], STEEL, 8.22, { fix: 2 });
+    px.poly([[ax, ay - 1.6], [ax + nS * 3, ay - 3], [ax + nS * 3, ay - 0.4], [ax, ay + 0.6]], IRON_D, 8.24, { fix: 1 });
+    for (const [dx, dy] of [[5, -2.8], [6, 3.6]]) px.dot(ax + nS * dx, ay + dy, RIME, 8.26, { noLine: true });
+    px.part(); px.limb([[nS * 9, C[1] + 1.6], [nS * 14, C[1] + 6.4], [hd[0] - nS * 0.3, hd[1]]], [2.7, 2.4, 2.1], MAIL, 8.6, { cast: 0 });
+    px.part(); px.ellipse(hd[0], hd[1], 1.8, 1.7, SKIN, 8.4);
     // the braids hang down his back from under the helm
     const bs = cl(-wx * 1.4, -2.4, 2.4);
     for (const dx of [-2, 2]) { px.part(); cap(px, [hx + dx, hy + 5], [hx + dx + bs * 0.3, hy + 12], 1.7, 1.5, BLOND, 9.9); px.dot(hx + dx + bs * 0.4, hy + 13, BRASS, 9.95, { fix: 3 }); }

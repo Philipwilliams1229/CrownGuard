@@ -103,19 +103,21 @@ const make = (s) => (px, F) => {
   // ---- the arms: boulders of shoulder, forearms thicker than the upper arm, fists like hams. The club's fist is rs.
   const armOf = (side, ang, club) => {
     const sh = [sx + side * 18, c0 + 4.4], hd = [sx + side * 21.4, hipY + 7 + s * ang * 3.2], el = [sx + side * 20.2, (sh[1] + hd[1]) / 2 - 0.5];
-    const near = club, b = near ? 0 : -1;
+    const near = club, b = s > 0 && !near ? -1 : 0;
+    // BACK stack (higher z = further behind him): arms 4.3 both, shoulder boulders 5.0, fists 3.6; no cast, no far-arm bias
+    const za = s > 0 ? 7.9 : 4.3, zs = s > 0 ? 8 : 5, zf = s > 0 ? 8.3 : 3.6, ca = s > 0 ? 1 : 0;
     px.part();
-    px.capsule(sh[0], sh[1], 6, el[0], el[1], 5.3, SKIN, 7.9, { bias: b, cast: 1 });
-    px.capsule(el[0], el[1], 5.3, hd[0], hd[1], 5.8, SKIN, 7.9, { bias: b, cast: 1 });
+    px.capsule(sh[0], sh[1], 6, el[0], el[1], 5.3, SKIN, za, { bias: b, cast: ca });
+    px.capsule(el[0], el[1], 5.3, hd[0], hd[1], 5.8, SKIN, za, { bias: b, cast: ca });
     px.part(); const sid = px._pid;
-    px.ellipse(sh[0] + side * 0.4, sh[1] - 0.6, 7.6, 7, SKIN, 8, { bias: b, cast: 1 });
+    px.ellipse(sh[0] + side * 0.4, sh[1] - 0.6, 7.6, 7, SKIN, zs, { bias: b, cast: 1, edge: s < 0 });
     px.toneLine(sh[0] - 4.6, sh[1] + 6.6, sh[0] + 4.6, sh[1] + 6.8, -1, sid);
     if (near) {   // the moss on his right shoulder
-      for (const [x, y, t] of [[-3.6, -5.6, 3], [-2.4, -5.8, 2], [-1.2, -5.2, 3], [-4.6, -4.4, 2], [-3.4, -4.4, 3], [-2.2, -4.4, 2], [0.2, -5.8, 2], [1.4, -5.4, 3]]) px.dot(sh[0] + x, sh[1] + y, MOSS, 8.01, { fix: t });
-    } else { px.dot(sh[0] + 2.4, sh[1] + 1.6, SKIN, 8.01, { fix: 4 }); px.dot(sh[0] + 2.4, sh[1] + 2.6, SKIN, 8.01, { fix: 0 }); }
+      for (const [x, y, t] of [[-3.6, -5.6, 3], [-2.4, -5.8, 2], [-1.2, -5.2, 3], [-4.6, -4.4, 2], [-3.4, -4.4, 3], [-2.2, -4.4, 2], [0.2, -5.8, 2], [1.4, -5.4, 3]]) px.dot(sh[0] + x, sh[1] + y, MOSS, zs + 0.01, { fix: t });
+    } else { px.dot(sh[0] + 2.4, sh[1] + 1.6, SKIN, zs + 0.01, { fix: 4 }); px.dot(sh[0] + 2.4, sh[1] + 2.6, SKIN, zs + 0.01, { fix: 0 }); }
     px.part();
-    px.ellipse(hd[0], hd[1] + 0.4, 5.2, 4.8, SKIN, 8.3, { bias: b });
-    px.dot(hd[0] - 1.6, hd[1] - 1.2, SKIN, 8.31, { fix: 1 }); px.dot(hd[0] + 1.4, hd[1] - 1.4, SKIN, 8.31, { fix: 1 });
+    px.ellipse(hd[0], hd[1] + 0.4, 5.2, 4.8, SKIN, zf, { bias: b });
+    if (s > 0) { px.dot(hd[0] - 1.6, hd[1] - 1.2, SKIN, 8.31, { fix: 1 }); px.dot(hd[0] + 1.4, hd[1] - 1.4, SKIN, 8.31, { fix: 1 }); }
     return hd;
   };
   armOf(ls, p.aF[0], false);
@@ -126,8 +128,8 @@ const make = (s) => (px, F) => {
   px.part(); const cid = px._pid;
   // the haft runs INTO the fist and out the other side: a butt end over his forearm above the fist, drawn under the fingers
   px.part();
-  px.capsule(fist[0], fist[1] - 1, 2.2, fist[0] + rs * 0.3, fist[1] - 6, 2, WOOD, 8.2, { edge: true });
-  px.ellipse(fist[0] + rs * 0.3, fist[1] - 6.4, 2, 1.4, CUT, 8.22, { fix: 3 });
+  if (s > 0) { px.capsule(fist[0], fist[1] - 1, 2.2, fist[0] + rs * 0.3, fist[1] - 6, 2, WOOD, 8.2, { edge: true });
+  px.ellipse(fist[0] + rs * 0.3, fist[1] - 6.4, 2, 1.4, CUT, 8.22, { fix: 3 }); }
   px.part(); const cid2 = px._pid;
   if (s > 0) {
     px.capsule(fist[0], fist[1] + 1, 2.6, fist[0] + rs * 3, -3.6, 4.4, WOOD, 8.25, { edge: true });
@@ -136,8 +138,8 @@ const make = (s) => (px, F) => {
   } else {
     // dragged ahead of him, away from us: the handle runs from the fist in behind his leg; only the end of its head peeks past the foot
     const hc = [fist[0] - rs * 6.5, -3.4];
-    px.capsule(fist[0], fist[1] + 1, 2.6, hc[0], hc[1], 4.4, WOOD, 2.4, { edge: true });
-    px.ellipse(hc[0] + rs * 0.6, hc[1], 5.4, 4.6, BARK, 2.45, { edge: true });
+    px.capsule(fist[0], fist[1] + 1, 2.6, hc[0], hc[1], 4.4, WOOD, 1, { cast: 0 });
+    px.ellipse(hc[0] + rs * 0.6, hc[1], 5.4, 4.6, BARK, 1.05, { cast: 0 });
     px.toneLine(fist[0] - rs * 1.6, fist[1] + 3, hc[0], hc[1] - 3, -1, cid);
   }
 
@@ -146,7 +148,7 @@ const make = (s) => (px, F) => {
   for (const side of [-1, 1]) {
     px.part(); const eid = px._pid;
     const r = side, wob = ey * 0.8 + (side === rs ? vx * 0.6 : -vx * 0.6), rt = (xx, yy) => [hx + r * xx, hy + yy];
-    px.poly([rt(8, -6.6), rt(8.4, -2.4), rt(12.4, -1.4 + wob * 0.4), rt(16.6, -3.2 + wob), rt(12.4, -7 + wob * 0.4)], SKIN, 8.2, { bias: s > 0 ? -1 : -2, round: 0.6, cast: 1 });
+    px.poly([rt(8, -6.6), rt(8.4, -2.4), rt(12.4, -1.4 + wob * 0.4), rt(16.6, -3.2 + wob), rt(12.4, -7 + wob * 0.4)], SKIN, s > 0 ? 8.2 : 5.5, { bias: s > 0 ? -1 : 0, round: 0.6, cast: 1 });
     px.toneLine(...rt(9, -4.4), ...rt(13.4, -4.2 + wob * 0.8), -1, eid);
   }
   px.part();

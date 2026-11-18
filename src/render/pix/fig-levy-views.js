@@ -98,34 +98,35 @@ const make = (s) => (px, F, o = {}) => {
     px.capsule(ls * 5.3 + sx, shY, 2.1, ls * 8.2 + sx, shY + 6, 2.0, PAD, 1, { bias: -1 });
   } else {
     // from behind: the shield hangs off the left arm, its back beyond the body: planks, a strap, the grip, the rim
+    const scb = [ls * 2.6 + sx, chestY + 7.4];
     px.part(); const sid = px._pid;
-    px.ellipse(sc[0] - 0.8, sc[1] - 0.4, rx, ry, IRON, 3.2, { round: 0.7 });
-    px.ellipse(sc[0] - 0.8, sc[1] - 0.4, rx - 1.1, ry - 1.1, WOOD, 3.22, { round: 0.8 });
-    px.toneLine(sc[0] - 2.6, sc[1] - ry + 1.6, sc[0] - 2.8, sc[1] + ry - 2, -1, sid);
+    px.ellipse(scb[0] - 0.8, scb[1] - 0.4, rx, ry, IRON, 1.0, { round: 0.7 });
+    px.ellipse(scb[0] - 0.8, scb[1] - 0.4, rx - 1.1, ry - 1.1, WOOD, 1.02, { round: 0.8 });
+    px.toneLine(scb[0] - 2.6, scb[1] - ry + 1.6, scb[0] - 2.8, scb[1] + ry - 2, -1, sid);
     px.part();
-    px.line(sc[0] - rx + 1.4, sc[1] - 1.8, sc[0] + rx - 1.2, sc[1] - 1.8, LEATHER, 3.3, { noLine: true });              // the arm strap
-    px.line(sc[0] - rx + 1.4, sc[1] + 2.4, sc[0] + rx - 1.2, sc[1] + 2.4, LEATHER, 3.3, { noLine: true });
-    px.line(sc[0] - 4.4, sc[1] - ry + 2.4, sc[0] - 4.2, sc[1] + ry - 2.4, WOODK, 3.28, { noLine: true });             // plank joints
-    px.line(sc[0] + 1.6, sc[1] - ry + 2, sc[0] + 1.8, sc[1] + ry - 2, WOODK, 3.28, { noLine: true });
-    for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.3; px.dot(sc[0] - 0.8 + Math.cos(a) * (rx - 0.5), sc[1] - 0.4 + Math.sin(a) * (ry - 0.5), STEELB, 3.35, { fix: 4 }); }
-    px.part(); px.capsule(ls * 5.3 + sx, shY, 2.1, ls * 7 + sx, shY + 5.4, 1.9, PAD, 3.6, { bias: -1 });              // the left arm going in behind the shield
+    px.line(scb[0] - rx + 1.4, scb[1] - 1.8, scb[0] + rx - 1.2, scb[1] - 1.8, LEATHER, 1.06, { noLine: true });              // the arm strap
+    px.line(scb[0] - rx + 1.4, scb[1] + 2.4, scb[0] + rx - 1.2, scb[1] + 2.4, LEATHER, 1.06, { noLine: true });
+    px.line(scb[0] - 4.4, scb[1] - ry + 2.4, scb[0] - 4.2, scb[1] + ry - 2.4, WOODK, 1.05, { noLine: true });             // plank joints
+    px.line(scb[0] + 1.6, scb[1] - ry + 2, scb[0] + 1.8, scb[1] + ry - 2, WOODK, 1.05, { noLine: true });
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.3; px.dot(scb[0] - 0.8 + Math.cos(a) * (rx - 0.5), scb[1] - 0.4 + Math.sin(a) * (ry - 0.5), STEELB, 1.08, { fix: 4 }); }
   }
 
   // ---- the spear: ash shaft, a leaf head, the pennon streaming; at his right side, held at the chest
-  const hdY = shY + 7.6 + s * 0.4 * (SIDE_ARM - 1) + vy * 0.4, hdX = rs * 7.4 + sx;
+  const sw1 = 1.2 * Math.sin(ph * TAU), zb = s > 0 ? 0 : -3.9;
+  const hdY = s > 0 ? shY + 7.6 + s * 0.4 * (SIDE_ARM - 1) + vy * 0.4 : shY + 10.8 - sw1, hdX = rs * (s > 0 ? 7.4 : 8) + sx;
   const lean = cl(vx * 0.8 + vx2 * 0.5, -1.5, 1.5);
   const topY = hdY - 40, topX = hdX + rs * 1.2 + lean * 0.4, buY = -3, buX = hdX - rs * 0.8;
   px.part(); px.tag("weapon");
-  px.capsule(buX, buY, 1.0, topX, topY, 1.0, WOOD, 5.0, { edge: true });
-  px.capsule(buX, buY, 1.2, buX, buY - 1.8, 1.2, IRON, 5.01);
+  px.capsule(buX, buY, 1.0, topX, topY, 1.0, WOOD, 5.0 + zb, { edge: s > 0 });
+  px.capsule(buX, buY, 1.2, buX, buY - 1.8, 1.2, IRON, 5.01 + zb);
   px.part();
-  px.capsule(topX, topY + 2.8, 1.25, topX, topY - 0.4, 1.25, IRON, 5.05);
-  px.poly([[topX, topY - 0.2], [topX + 2.1, topY - 2], [topX + 0.1, topY - 8.4], [topX - 2.1, topY - 2]], STEELB, 5.06, { n: [0.1, 0.1, 0.95] });
-  px.line(topX, topY - 1, topX, topY - 7, IRON, 5.07, { fix: 1, noLine: true });
+  px.capsule(topX, topY + 2.8, 1.25, topX, topY - 0.4, 1.25, IRON, 5.05 + zb);
+  px.poly([[topX, topY - 0.2], [topX + 2.1, topY - 2], [topX + 0.1, topY - 8.4], [topX - 2.1, topY - 2]], STEELB, 5.06 + zb, { n: [0.1, 0.1, 0.95] });
+  px.line(topX, topY - 1, topX, topY - 7, IRON, 5.07 + zb, { fix: 1, noLine: true });
   px.part();
   {   // a pennon of oxblood under the head, streaming out to the spear side and flapping with the stride
     const f = cl(lean * 1.2 + 0.9 * Math.sin(ph * TAU * 2), -2, 2), dir = rs;
-    px.poly([[topX, topY + 1.4], [topX + dir * 2, topY + 1.4 + f * 0.2], [topX + dir * 7.2, topY + 2.6 + f], [topX + dir * 10.4, topY + 1.6 + f * 1.3], [topX + dir * 8.4, topY + 4.6 + f * 1.2], [topX + dir * 2, topY + 5], [topX, topY + 4.6]], OX, 5.1, { round: 0.6, cast: 1 });
+    px.poly([[topX, topY + 1.4], [topX + dir * 2, topY + 1.4 + f * 0.2], [topX + dir * 7.2, topY + 2.6 + f], [topX + dir * 10.4, topY + 1.6 + f * 1.3], [topX + dir * 8.4, topY + 4.6 + f * 1.2], [topX + dir * 2, topY + 5], [topX, topY + 4.6]], OX, 5.1 + zb, { round: 0.6, cast: 1 });
   }
   px.tag(null);
 
@@ -167,15 +168,26 @@ const make = (s) => (px, F, o = {}) => {
   px.part();
   px.poly([[sx - 4.8, c0 - 0.2], [sx + 4.8, c0 - 0.2], [sx + 5.4, c0 + 2.4], [sx - 5.4, c0 + 2.4]], PAD, 5, { round: 0.9, cast: 1 });
 
+  // ---- the arms. BACK stack: both arms hang at his sides at z 4.3 (cast 0), fists under the cuff at 3.6, the spear behind them
+  if (s < 0) {
+    for (const [side, k] of [[rs, 1], [ls, -1]]) {
+      const hY = side === rs ? hdY : shY + 10.8 + sw1, hX = side * 7.6 + sx;
+      px.part();
+      px.capsule(side * 5.6 + sx, shY + 0.8, 2.1, side * 7.4 + sx, shY + 6.4, 2.0, PAD, 4.3, { cast: 0 });
+      px.capsule(side * 7.4 + sx, shY + 6.4, 2.0, hX, hY - 0.6, 1.9, PAD, 4.3, { cast: 0 });
+      px.part(); px.ellipse(hX, hY + 0.2, 1.5, 1.5, LEATHER, 3.6);
+    }
+  } else {
   // ---- the spear arm (right, screen side rs): the sleeve down to the elbow, the forearm short toward us / away
-  const el = [rs * 7.8 + sx, shY + 7 + s * 0.2], hand = [hdX, hdY];
-  px.part();
-  px.ellipse(rs * 5.6 + sx, shY + 0.2, 2.6, 2.3, PAD, 4.6, { bias: 1, cast: 0 });
-  px.part();
-  px.capsule(rs * 5.4 + sx, shY + 0.6, 2.0, el[0], el[1], 2.0, PAD, 4.5, { cast: 1 });
-  px.capsule(el[0], el[1], 1.9, hand[0], hand[1] - 0.4, 1.7, PAD, 4.5, { cast: 1 });
-  px.capsule(el[0] * 0.3 + hand[0] * 0.7, el[1] * 0.3 + hand[1] * 0.7, 1.8, hand[0], hand[1], 1.8, LEATHER, 4.55);
-  px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0.3 : -0.3), s > 0 ? 1.9 : 1.6, s > 0 ? 1.9 : 1.6, LEATHER, 8.3);
+    const el = [rs * 7.8 + sx, shY + 7 + s * 0.2], hand = [hdX, hdY];
+    px.part();
+    px.ellipse(rs * 5.6 + sx, shY + 0.2, 2.6, 2.3, PAD, 4.6, { bias: 1, cast: 0 });
+    px.part();
+    px.capsule(rs * 5.4 + sx, shY + 0.6, 2.0, el[0], el[1], 2.0, PAD, 4.5, { cast: 1 });
+    px.capsule(el[0], el[1], 1.9, hand[0], hand[1] - 0.4, 1.7, PAD, 4.5, { cast: 1 });
+    px.capsule(el[0] * 0.3 + hand[0] * 0.7, el[1] * 0.3 + hand[1] * 0.7, 1.8, hand[0], hand[1], 1.8, LEATHER, 4.55);
+    px.part(); px.ellipse(hand[0], hand[1] + (s > 0 ? 0.3 : -0.3), s > 0 ? 1.9 : 1.6, s > 0 ? 1.9 : 1.6, LEATHER, 8.3);
+  }
 
   // ---- the head
   px.part();

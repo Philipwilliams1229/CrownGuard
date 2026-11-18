@@ -59,6 +59,101 @@ const BACK_H = mir(["....MMMM", "..MMMMMM", ".mMMMMmM", ".MMMMMmM", ".GGGGGGG", 
 
 const FWD = 0.4, cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
+
+// ---- BACK, on its own depth stack (views-artist.md "The BACK stack": from behind a HIGHER z is BEHIND him) ----
+// 1.0 sword and shield (carried: their parts in front of him lie behind his body); 2-3 legs; 3.6 fists; 4.0 torso;
+// 4.3 BOTH arms, one limb each, hanging outboard; 5.0+ cape, pauldrons, plume (edge: true so the arms come out from
+// under them); 6.0 the head.
+const drawBack = (px0, F, o = {}) => {
+  const px = big(px0), s = -1, rs = 1, ls = -1, TAU = Math.PI * 2;
+  const { sk, ph } = F, { p, P, C, N } = sk, lag1 = F.lag1, lag2 = F.lag2;
+  const sw = (q) => rs * 0.5 * Math.sin(q * TAU);
+  const sx = sw(ph), sx1 = sw(ph - 0.08), sx2 = sw(ph - 0.16);
+  const hipY = P[1], chY = C[1], ank = SIDE_BONES.ankle;
+  const vx = cl((sx - sx1) * 2, -2.5, 2.5), vx2 = cl((sx1 - sx2) * 2, -2.5, 2.5);
+  const swing = cl((p.aN[0] - 1.1) * 3.4, -1.2, 1.2), swingF = cl((p.aF[0] - 0.5) * 2.2, -1.2, 1.2);
+  const t1 = vx * 1.4, t2 = vx * 2 + vx2 * 1.6;
+  const hx = Math.round(sx * 0.7 * 0.8), hyr = Math.round(N[1] + 0.4), pl = cl(vx * 2 + vx2 * 1.5, -3, 3);
+
+  // the shield on his left arm (screen left): behind arm, pauldron and trunk; only its outer rim, dark inside and strap show
+  const shC = [ls * 9.6 + sx, chY + 7 + swingF * 0.4], S = (x, y) => [shC[0] + x, shC[1] + y];
+  px.part(); const shid = px._pid;
+  px.poly([S(-4.6, -6.4), S(4.6, -6.4), S(4.9, 0.6), S(0, 8.2), S(-4.9, 0.6)], GOLD, 1.0, { round: 0.6 });
+  px.poly([S(-3.5, -5.3), S(3.5, -5.3), S(3.7, 0.3), S(0, 6.5), S(-3.7, 0.3)], LEATHER, 1.02, { round: 0.6 });
+  px.toneLine(shC[0], shC[1] - 5, shC[0], shC[1] + 5.6, -1, shid);
+  px.line(shC[0] - 3.4, shC[1] - 2.8, shC[0] + 3.4, shC[1] - 2.8, GOLD, 1.06, { fix: 3 });
+  px.line(shC[0] - 3, shC[1] + 2.2, shC[0] + 3, shC[1] + 2.2, GOLD, 1.06, { fix: 3 });
+
+  // the sword in his right fist (screen right): the sword stands upright in the fist
+  const sh = [rs * 7.2 + sx, chY + 0.6], el = [rs * 9 + sx, chY + 4.2], hd = [rs * 9.6 + sx, chY + 7.2 + swing];
+  const ang = 0.05 * rs, d = [Math.sin(ang), -Math.cos(ang)], nrm = [-d[1], d[0]];
+  const B = (q, w = 0) => [hd[0] + d[0] * q + nrm[0] * w, hd[1] + d[1] * q + nrm[1] * w];
+  px.part(); px.tag("sword");   // upright at the fist's x, outside the head: the upper blade peeks out from behind the right pauldron, the rest is hidden
+  px.capsule(...B(3.4), 1.05, ...B(17.5), 0.9, BLADE, 1.0);
+  px.capsule(...B(17.5), 0.9, ...B(19.6), 0.3, BLADE, 1.0);
+  px.part();
+  px.capsule(...B(-3), 0.9, ...B(1), 0.9, LEATHER, 1.02);
+  px.capsule(...B(2.9, -2.8), 0.85, ...B(2.9, 2.8), 0.85, GOLD, 1.25);
+  px.ellipse(...B(-3.6), 1.2, 1.2, GOLD, 1.05);
+  px.tag(null);
+
+  // legs: greaves, knee cops, sabatons
+  for (const [f, side] of [[p.fF, ls], [p.fN, rs]]) {
+    const lift = f[1], z = side === rs ? 3 : 2;
+    const fx = sx * 0.5 + side * 3.3, fy = -ank - lift + s * f[0] * FWD;
+    const hp = [sx * 0.5 + side * 2.2, hipY + 0.5], kn = [(hp[0] + fx) / 2 + side * 0.9, (hp[1] + fy) / 2];
+    px.part();
+    px.limb([hp, kn, [fx, fy]], [2.6, 2.1, 1.8], STEEL, z + lift * 0.05, { weld: 2, weldRoot: 5 });
+    px.ellipse(kn[0], kn[1] - 0.2, 1.9, 1.5, STEEL, z + 0.12 + lift * 0.05, { vb: 0.25, weld: 2 });
+    px.ellipse(fx, fy + 0.7, 2.0, 1.3, MAIL, z + 0.4 + lift * 0.05);
+  }
+
+  // the torso (4.0): breastplate and the surcoat skirt under the cape
+  px.body(1);
+  px.poly([[sx - 6, chY - 1.6], [sx + 6.2, chY - 1.6], [sx + 7.4, chY + 3.5], [sx + 5.4, hipY - 2.6], [sx - 5.4, hipY - 2.6], [sx - 7.2, chY + 3.5]], STEEL, 4.0, { round: 0.92, ny: -0.12, weld: 2 });
+  const hy = hipY + 3.6;
+  px.poly([[sx - 4.9, hipY - 3], [sx + 4.7, hipY - 3], [sx + 6.2, hy], [sx + 3.6, hy + 0.9], [sx + 0.4 + vx, hy], [sx - 3, hy + 0.9], [sx - 6.2, hy]], RED, 4.02, { round: 0.9, cast: 0 });
+  px.poly([[sx - 4.9, hipY - 3], [sx + 4.7, hipY - 3], [sx + 4.8, hipY - 1], [sx - 5, hipY - 1]], LEATHER, 4.05, { round: 0.9 });
+  px.body(0);
+
+  // both arms at one z (4.3), one limb each, fists at 3.6 under the cuff
+  const arm = (sh0, el0, hd0, fy) => {
+    px.part(); px.body(1);
+    px.limb([sh0, el0, hd0], [2.2, 2.1, 1.9], STEEL, 4.3, { cast: 0 });
+    px.ellipse(el0[0], el0[1], 1.8, 1.8, STEEL, 4.31, { vb: 0.25, cast: 0 });
+    px.body(0);
+    px.part(); px.ellipse(hd0[0], hd0[1] + 0.9, 1.5, 1.6, MAIL, 3.6);
+  };
+  arm(sh, el, hd);
+  arm([ls * 7.2 + sx, chY + 0.6], [ls * 9 + sx, chY + 4.2], [shC[0] - ls * 0.2, shC[1] + 0.4]);
+
+  // the cape (5.0+, its rim edged so the arms come out from under it), the clasp chain, then the pauldrons
+  px.part(); const cid = px._pid;
+  px.poly([[sx - 6.8, chY - 2.2], [sx + 6.8, chY - 2.2], [sx + 7.6, chY + 4], [sx + 8.4 + t1, hipY + 4], [sx + 8.6 + t2, -8], [sx + 4.2 + t2 * 0.8, -6.4], [sx + 0.2 + t2 * 0.6, -8.6], [sx - 3.8 + t2 * 0.8, -6.2], [sx - 8.6 + t2, -8], [sx - 8.4 + t1, hipY + 4], [sx - 7.6, chY + 4]], RED_D, 5.2, { round: 0.9, cast: 1, edge: true });
+  px.toneLine(sx - 2.2, chY + 2, sx - 2.6 + t2 * 0.6, -7, -1, cid);
+  px.toneLine(sx + 2.6, chY + 3, sx + 3.2 + t2 * 0.7, -7.4, -1, cid);
+  px.toneLine(sx - 5.6, hipY - 2, sx - 6 + t2 * 0.9, -7.6, -1, cid);
+  px.part();
+  px.line(sx - 3.2, chY - 1.5, sx + 3.2, chY - 1.5, GOLD, 5.3);
+  px.dot(sx - 3.6, chY - 1.2, GOLD, 5.35, { fix: 3 }); px.dot(sx + 3.6, chY - 1.2, GOLD, 5.35, { fix: 3 });
+  for (const sg of [-1, 1]) {
+    px.part();
+    px.ellipse(sg * 7.2 + sx + sg * 0.2, chY + 0.3, 3.7, 3.2, STEEL, 5.5, { weld: 2, cast: 1, edge: true });
+    px.line(sg * 7.2 + sx - 3, chY + 2.1, sg * 7.2 + sx + 2.6, chY + 2.1, GOLD, 5.52);
+  }
+
+  // the head (6.0): helm from behind, the plume down its back
+  px.part();
+  px0.stamp(BACK_H, Math.round(hx * SC), Math.round(hyr * SC), LEG, 6.0, { ax: 7, ay: 11, ball: [7.5, 6.5, 8, 8], cast: 0, edge: true });
+  px.part();
+  const ty = hyr - 10.4;
+  px.capsule(hx, ty, 1.6, hx + pl * 0.2, ty + 3.6, 2.1, RED, 6.1);
+  px.capsule(hx + pl * 0.2, ty + 3.6, 2.1, hx + pl * 0.5, ty + 8.4, 1.9, RED, 6.1);
+  px.capsule(hx + pl * 0.5, ty + 8.4, 1.9, hx + pl * 1.1, ty + 12.6, 1.0, RED, 6.1);
+  px.line(hx - 0.4, ty + 1, hx + pl * 0.3 - 0.4, ty + 10, RED_D, 6.15, { fix: 1 });
+  return {};
+};
+
 const make = (s) => (px0, F, o = {}) => {
   const px = big(px0), face = FFACE[o.variant] ? o.variant : "c";
   const rs = -s, ls = s;                                   // the screen side of his right (sword) and left (shield)
@@ -191,4 +286,4 @@ const make = (s) => (px0, F, o = {}) => {
 
 const walk = { ...SIDE.walk };
 export const FRONT = { NAME: "knight-front", BOX: { w: 66, h: 86, ox: 33, oy: 73 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "knight-back", BOX: { w: 66, h: 86, ox: 33, oy: 73 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const BACK = { NAME: "knight-back", BOX: { w: 66, h: 86, ox: 33, oy: 73 }, BONES: SIDE_BONES, draw: drawBack, CLIPS: { walk } };
