@@ -19,6 +19,7 @@ import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./action
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 import { isBuilt, fights, shocked } from "./build.js";
+import { layBands, bandSoldiers } from "./bandplay.js";
 // zone IV: landings, the frost shroud (fights = built and not frozen), weather
 import { rimeTick, seaborne } from "./rime.js";
 import { registerSeaTools, seaHold } from "./serpent.js";
@@ -1255,6 +1256,8 @@ export function updateGame(g, dt) {
   // who owns which id this frame — the damage ledger resolves through this
   g._towerById = new Map(g.towers.map((t) => [t.id, t]));
   if (g.bands) for (const b of g.bands) g._towerById.set(b.id, b);
+  // the King's Band: lays its tune on the halls it plays for (engine/bandplay.js)
+  layBands(g, sdt, tms);
   if (g.phase === "combat" && !g.paused) for (const t of g.towers) {
     t.liveTime = (t.liveTime || 0) + sdt;
     // the menu's dps clock: only the seconds a built tower has a foe in its
@@ -1627,6 +1630,7 @@ export function updateGame(g, dt) {
         }
       }
     }
+    bandSoldiers(g, unitHosts(g));   // the Royal Tattoo's soldiers strike harder
     // the newer heroes' auras on their soldiers (engine/heroes/<key>.js buffs),
     // laid after the Support halls have cleared and set atkBuff
     for (const k in HERO_HOOKS) HERO_HOOKS[k].buffs?.(g, sdt, tms);

@@ -2111,6 +2111,8 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   a pinned foe is chained taut to an iron stake driven into the road 22 steps behind it (`e.pinAnchor`,
   `e.pinAt`; `drawPinnedChains` under the crowd), and when the pin ends the chain drops and fades.
   **Bosses are never pinned** (owner: "the dragon was just completely nullified").
+- Barricade spikes x0.75 (owner: "barricades do too much damage": thorns 4 / 8 / 14 / 14), and a foe
+  hacking at a frame plays its attack clip (enemies.js reads `e.barred`, stamped each frame it is held).
 - **The tray's foot** (owner, same day): the hero on a row of his own, then the **Masons** button (it
   says Masons, not Barricade) and the militia horn sharing the row under him, half each. The horn's
   icon is the man the Levy's tier raises (`militiaStats().rig`: farmer, yeoman, squire). It takes a

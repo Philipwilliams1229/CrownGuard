@@ -69,17 +69,18 @@ export const CASTLE_WORKS = {
     // sets ONE row of stake frames across it (one a lane); then the masons need `cooldown` ms before
     // the next. At most `rows` rows stand at once: a new one takes the oldest down. `spikeHp` a frame,
     // `mat` its look (wood / iron / steel, render/barricade.js). A foe on foot halts at one and hacks
-    // it down while the spikes prick it for `thorns` a blow; a siege ram smashes through, fliers pass
+    // it down while the spikes prick it for `thorns` a blow (x0.75 since 2026-11-18, owner: "barricades do too
+    // much damage": 4 / 8 / 14 / 14); a siege ram smashes through, fliers pass
     // over. No repairs: a broken row is replaced by placing a new one. `hp` is extra castle life (the
     // thicker gate), `mend` lives mended a wave. `net` (tier 4): a net-thrower catches a flier over
     // any standing row (within `zone` road steps of it; never a boss) and reloads `every` ms; the
     // flier is held on the road in the net and flails at it until its `hp` is gone, then flies on;
     // killed in it, the net goes with it (engine/update.js, castle works).
     tiers: [
-      { cost: 5000, label: "Wooden barricades, mend one life a wave", mend: 1, rows: 1, cooldown: 40000, spikeHp: 150, thorns: 5, mat: "wood" },
-      { cost: 10000, label: "Iron-shod barricades, a thicker gate (+5 castle life)", mend: 1, hp: 5, rows: 1, cooldown: 35000, spikeHp: 300, thorns: 11, mat: "iron" },
-      { cost: 15000, label: "Steel barricades, two rows at once, the wall shored up (+5 more life)", mend: 1, hp: 10, rows: 2, cooldown: 30000, spikeHp: 480, thorns: 18, mat: "steel" },
-      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricades", mend: 2, hp: 10, rows: 2, cooldown: 25000, spikeHp: 480, thorns: 18, mat: "steel", net: { every: 15000, hp: 240, zone: 30 } },
+      { cost: 5000, label: "Wooden barricades, mend one life a wave", mend: 1, rows: 1, cooldown: 40000, spikeHp: 150, thorns: 4, mat: "wood" },
+      { cost: 10000, label: "Iron-shod barricades, a thicker gate (+5 castle life)", mend: 1, hp: 5, rows: 1, cooldown: 35000, spikeHp: 300, thorns: 8, mat: "iron" },
+      { cost: 15000, label: "Steel barricades, two rows at once, the wall shored up (+5 more life)", mend: 1, hp: 10, rows: 2, cooldown: 30000, spikeHp: 480, thorns: 14, mat: "steel" },
+      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricades", mend: 2, hp: 10, rows: 2, cooldown: 25000, spikeHp: 480, thorns: 14, mat: "steel", net: { every: 15000, hp: 240, zone: 30 } },
     ],
   },
   wizards: {

@@ -140,7 +140,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // rigged foes: baked frames, feet on the ground line, mirrored to face
   // (a gryphon at war with a war-eagle fights in the air: e.airFight)
   // (a flier caught in the Masons' net, e.net, flails at it: its blow plays on its own clock, the engine's meleeCd)
-  const rsheet = (fighting && !airborne) || e.airFight || e.net ? "fight" : "walk";
+  // (and a foe hacking at a Masons' barricade, e.barred: stamped by the engine each frame it is held there)
+  const atWall = e.barred != null && tms - e.barred < 120;
+  const rsheet = (fighting && !airborne) || e.airFight || e.net || atWall ? "fight" : "walk";
   const def = rigDef(skin);
   // walkers step to the ground they cover; fliers keep time. A foe held in a melee trades blows
   // on its own clock (engine meleeCd, reset to atkRate at each blow, atkAnim 200 ms from it);
