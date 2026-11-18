@@ -2034,7 +2034,7 @@ tops of the wall's towers nearest the gate (`wizardSpots`, castle.js; skips a to
 wall's bowmen took, falls back to free walk slots), each on his own clock (`castleCd.wiz` /
 `wizAt`, update.js after the ballista), casting a magic orb at the most armoured foe within
 `range` of the gate (then the nearest; never neutral or submerged monsters). Tiers 10k
-(45 / 1600 ms / 180), 15k (52 / 1500 / 190), 25k (60 / 1400 / 200, `chain` 2 within 80 at 0.6
+(45 / 1600 ms / 270 road steps), 15k (52 / 1500 / 285), 25k (60 / 1400 / 300, `chain` 2 within 80 at 0.6
 a bounce: the orb BOUNCES on to the next foe in a low arc, `hop` on the projectile, fx.js lifts it, and bursts in the arcane blast's look where it lands, so a tier-3 cast shows two bursts after its first hit; the blow stays single-target; owner: no lightning). Ranks +40% damage. Icon
 `StaffIcon`. The Gate Guard's tier 3 is now **Halberd sweeps** (owner picked it over
 murder-hole stones, a fourth man, a portcullis slam): `sweep: { every 6000, r 46, dmg 45,
@@ -2045,6 +2045,19 @@ build passes). The oil and its cauldron are gone. `sim.mjs --works wizards:3,gua
 works (prints `wizard-casts`, `sweeps`). Ironford `--endure` seed default: no works 720 / 545,
 archers:3 542 / 309, wizards:3 555 / 376 (Iron's pips eat magic). `works-lab.html?works=...`
 snaps the gate on the real engine. The wall archers and the ballista skip sea monsters too (`neutral` / `submerged`, owner, same day), like the wizards. `reach-lab.html?realm=&horn=` rings every work's reach and targeting over a board (top tier solid, first tier dashed); `&mode=road` draws the same numbers as steps along the road from the gate (an idea put to the owner, 2026-11-18).
+
+## The wall shoots by road steps (2026-11-18, owner request)
+
+"I do like the step way better": the Wall Archers', Gate Ballista's and Court Wizards' reach is
+counted in STEPS ALONG THE ROAD back from the gate (`TOTAL_LEN - e.dist`; fliers walk the road too;
+a river swimmer, with no road distance, by the straight line), not a circle round the gate, so a
+winding board (the Citadel) no longer gives more than a straight one (Ironford). `steps` in
+update.js's castle-works block; "nearest" (archers, the wizards' tie-break) is fewest steps too.
+Owner's numbers for the top tiers: archers 400, ballista 500, wizards 300 (lower tiers scaled:
+340 / 380, 420 / 460, 270 / 285). Measured `--endure --works archers:3,ballista:3,wizards:3`,
+seed default, old circle -> road steps: Ironford 323 / 183 -> 287 / 232, ir5 1890 / 1377 ->
+1970 / 1035, gw3 61 / 24 -> 51 / 22 (noise). `reach-lab.html?realm=` draws it (`&mode=ring`
+the old circles). Provisional, pending the owner's playtest.
 
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 

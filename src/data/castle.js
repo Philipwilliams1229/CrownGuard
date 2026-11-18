@@ -10,23 +10,26 @@
 import { H } from "./constants.js";
 import { inRiver } from "./terrain.js";
 
+// The wall's shooters (archers, ballista, wizards) reach `range` STEPS ALONG THE ROAD back from
+// the gate, not a circle round it (owner, 2026-11-18: top tiers 400 / 500 / 300; was 200 / 260 /
+// 200 as a circle). engine/update.js `steps`; reach-lab.html&mode=road draws it on a board.
 export const CASTLE_WORKS = {
   archers: {
     name: "Wall Archers", icon: "",
-    blurb: "Bowmen on the walk above the gate. They shoot whatever comes within a long bowshot of the wall.",
+    blurb: "Bowmen on the walk above the gate. They shoot the foe nearest the gate, along the road.",
     tiers: [
-      { cost: 10000, label: "Two bowmen", dmg: 16, rate: 900, range: 170, count: 2 },
-      { cost: 15000, label: "Four bowmen, longbows", dmg: 24, rate: 800, range: 190, count: 4 },
-      { cost: 25000, label: "Heavy crossbows", dmg: 44, rate: 1100, range: 200, count: 4, pierce: true },
+      { cost: 10000, label: "Two bowmen", dmg: 16, rate: 900, range: 340, count: 2 },
+      { cost: 15000, label: "Four bowmen, longbows", dmg: 24, rate: 800, range: 380, count: 4 },
+      { cost: 25000, label: "Heavy crossbows", dmg: 44, rate: 1100, range: 400, count: 4, pierce: true },
     ],
   },
   ballista: {
     name: "Gate Ballista", icon: "",
-    blurb: "A siege bow on the bridge over the gate: slow, screaming bolts at the mightiest foe in reach of the wall.",
+    blurb: "A siege bow on the bridge over the gate: slow, screaming bolts at the mightiest foe on the road before the gate.",
     tiers: [
-      { cost: 10000, label: "One ballista", dmg: 220, rate: 3200, range: 220 },
-      { cost: 15000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 240, twin: true },
-      { cost: 25000, label: "Fire bolts", dmg: 280, rate: 2800, range: 260, twin: true, burn: 16, burnDur: 3000 },
+      { cost: 10000, label: "One ballista", dmg: 220, rate: 3200, range: 420 },
+      { cost: 15000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 460, twin: true },
+      { cost: 25000, label: "Fire bolts", dmg: 280, rate: 2800, range: 500, twin: true, burn: 16, burnDur: 3000 },
     ],
   },
   guards: {
@@ -65,13 +68,13 @@ export const CASTLE_WORKS = {
     blurb: "The crown's own mages on the wall's towers, hurling arcane bolts. Magic: it bites through armour the arrows glance off, but not through shields.",
     // they stand on the open tops of the wall's towers nearest the gate
     // (wizardSpots below); each casts on his own clock, `rate` ms, at the
-    // most armoured foe in `range` of the gate (then the nearest). `chain`
+    // most armoured foe within `range` road steps of the gate (then the nearest). `chain`
     // (the last tier): the bolt leaps on to that many more foes within
     // `chainRange`, 0.6 of its blow each time (update.js).
     tiers: [
-      { cost: 10000, label: "A court wizard", count: 1, dmg: 45, rate: 1600, range: 180 },
-      { cost: 15000, label: "Two court wizards", count: 2, dmg: 52, rate: 1500, range: 190 },
-      { cost: 25000, label: "Arcane chains: each bolt leaps to two more", count: 2, dmg: 60, rate: 1400, range: 200, chain: 2, chainRange: 80 },
+      { cost: 10000, label: "A court wizard", count: 1, dmg: 45, rate: 1600, range: 270 },
+      { cost: 15000, label: "Two court wizards", count: 2, dmg: 52, rate: 1500, range: 285 },
+      { cost: 25000, label: "Arcane chains: each bolt leaps to two more", count: 2, dmg: 60, rate: 1400, range: 300, chain: 2, chainRange: 80 },
     ],
   },
   militia: {

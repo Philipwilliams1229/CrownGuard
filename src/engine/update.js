@@ -2223,6 +2223,10 @@ export function updateGame(g, dt) {
     // (none of them shoots a sea monster, `neutral`: owner, 2026-11-18)
     if (g.castle) {
       const [gx, gy] = PTS[PTS.length - 1];
+      // their reach is counted in STEPS ALONG THE ROAD back from the gate (owner, 2026-11-18), not a
+      // circle round it, so a winding board gives no more than a straight one; every foe, fliers
+      // too, walks by its road distance (lanePos(e.dist)); a river swimmer has none, so the straight line
+      const steps = (e) => (e.swimming ? Math.hypot(e.x - gx, e.y - gy) : TOTAL_LEN - e.dist);
       g.castleCd = g.castleCd || { archers: 0, ballista: 0, shot: 0 };
       const cd = g.castleCd;
       const bows = workTier(g.castle, "archers", g.castleRanks);
@@ -2230,7 +2234,7 @@ export function updateGame(g, dt) {
         // the wall bowmen follow the nearest foe between shots (cd.aimDeg[slot], eased)
         {
           let near = null, nd = Infinity;
-          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < nd) { nd = d; near = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = steps(e); if (d < bows.range && d < nd) { nd = d; near = e; } }
           if (near) {
             const sp = bowmenSpots(gy, bows.count), ar = cd._ar || (cd._ar = {});
             for (let k = 0; k < sp.length; k++) {
@@ -2243,7 +2247,7 @@ export function updateGame(g, dt) {
         cd.archers -= sdt * 1000;
         if (cd.archers <= 0) {
           let best = null, bd = Infinity;
-          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < bd) { bd = d; best = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = steps(e); if (d < bows.range && d < bd) { bd = d; best = e; } }
           if (best) {
             cd.archers = bows.rate / bows.count;
             cd.shot = (cd.shot + 1) % bows.count;
@@ -2266,7 +2270,7 @@ export function updateGame(g, dt) {
         // the ballistae swing to the heaviest foe in reach between bolts (cd.balAim[slot], world angle, eased)
         {
           let big = null, bh = -1;
-          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; big = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = steps(e); if (d < bal.range && e.hp > bh) { bh = e.hp; big = e; } }
           if (big) {
             const ar = cd._ar || (cd._ar = {});
             for (let k = 0; k < (bal.twin ? 2 : 1); k++) {
@@ -2279,7 +2283,7 @@ export function updateGame(g, dt) {
         cd.ballista -= sdt * 1000;
         if (cd.ballista <= 0) {
           let best = null, bh = -1;
-          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = steps(e); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
           if (best) {
             cd.ballista = bal.rate / (bal.twin ? 2 : 1);
             cd.shot = (cd.shot + 1) % 2;
@@ -2310,7 +2314,7 @@ export function updateGame(g, dt) {
           let best = null, ba = -1, bd = Infinity;
           for (const e of g.enemies) {
             if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue;
-            const d = Math.hypot(e.x - gx, e.y - gy);
+            const d = steps(e);
             if (d > wiz.range) continue;
             const a = e.armor || 0;
             if (a > ba + 1e-6 || (Math.abs(a - ba) < 1e-6 && d < bd)) { ba = a; bd = d; best = e; }

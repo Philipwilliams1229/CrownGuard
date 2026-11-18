@@ -6,7 +6,8 @@
 
     /reach-lab.html?realm=greenwood&horn=0.72&scale=2&tag=x
     &horn   where along the road the example Levy horn is sounded (0..1)
-    &mode=road  the same reaches as steps along the road from the gate; &mul=2 scales them
+    the reaches are steps along the road from the gate (the game's rule); &mode=ring draws
+    the old circles, &mul=2 scales the road reach
 
   Saved to .shots/reach_<tag>.png.
 -->
@@ -60,7 +61,7 @@
       const C = { archers: "#f0d27a", ballista: "#e0574c", wizards: "#c8a4f0", guards: "#8ab8e0", levy: "#9ad06a" };
       // the three that measure from the gate: rings round the gate, labels where each ring crosses the road's side
       const gateRings = [["ballista", "Ballista: most health left"], ["wizards", "Wizards: most armour, then nearest"], ["archers", "Archers: nearest to the gate"]];
-      const ROAD = q.get("mode") === "road";
+      const ROAD = q.get("mode") !== "ring";   // the game counts road steps (2026-11-18); &mode=ring draws the old circles
       if (!ROAD) {
         for (const [k] of gateRings) { ring(gx, gy, first(k).range, C[k], true); ring(gx, gy, top(k).range, C[k], false); }
         // (equal reaches hide each other: the wizards' top ring goes on top again in long dashes)
@@ -114,7 +115,7 @@
       // legend
       o.setTransform(1, 0, 0, 1, 0, 0);
       o.font = `bold ${7 * SC}px monospace`; o.textAlign = "left"; o.textBaseline = "top";
-      const lines = ROAD ? [`${Number(q.get("mul")) > 1 ? `IDEA x${q.get("mul")}: DOUBLED,` : "IDEA:"} reach counted in steps along the road from the gate (${q.get("realm") || "greenwood"})`, "stripe = top tier reach, square = where it ends"] : [`TODAY: reach as a circle round the gate (${q.get("realm") || "greenwood"})`, "solid ring = top tier, dashed = first tier, dots = where they stand"];
+      const lines = ROAD ? [`${Number(q.get("mul")) > 1 ? `x${q.get("mul")}:` : "NOW:"} reach in steps along the road from the gate (${q.get("realm") || "greenwood"})`, "stripe = top tier reach, square = where it ends"] : [`OLD RULE: reach as a circle round the gate (its numbers are now road steps) (${q.get("realm") || "greenwood"})`, "solid ring = top tier, dashed = first tier, dots = where they stand"];
       o.fillStyle = "rgba(20,16,28,0.88)"; o.fillRect(6 * SC, 6 * SC, 400 * SC, 24 * SC);
       o.fillStyle = "#fff3d2"; lines.forEach((l, i) => o.fillText(l, 10 * SC, (9 + i * 10) * SC));
       await fetch(`/__shot?name=reach_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
