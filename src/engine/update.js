@@ -2220,6 +2220,7 @@ export function updateGame(g, dt) {
       }
     }
     // ---- the castle's own works: bowmen on the walk, ballistae on the drums ----
+    // (none of them shoots a sea monster, `neutral`: owner, 2026-11-18)
     if (g.castle) {
       const [gx, gy] = PTS[PTS.length - 1];
       g.castleCd = g.castleCd || { archers: 0, ballista: 0, shot: 0 };
@@ -2229,7 +2230,7 @@ export function updateGame(g, dt) {
         // the wall bowmen follow the nearest foe between shots (cd.aimDeg[slot], eased)
         {
           let near = null, nd = Infinity;
-          for (const e of g.enemies) { if (e.dead || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < nd) { nd = d; near = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < nd) { nd = d; near = e; } }
           if (near) {
             const sp = bowmenSpots(gy, bows.count), ar = cd._ar || (cd._ar = {});
             for (let k = 0; k < sp.length; k++) {
@@ -2242,7 +2243,7 @@ export function updateGame(g, dt) {
         cd.archers -= sdt * 1000;
         if (cd.archers <= 0) {
           let best = null, bd = Infinity;
-          for (const e of g.enemies) { if (e.dead || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < bd) { bd = d; best = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < bd) { bd = d; best = e; } }
           if (best) {
             cd.archers = bows.rate / bows.count;
             cd.shot = (cd.shot + 1) % bows.count;
@@ -2265,7 +2266,7 @@ export function updateGame(g, dt) {
         // the ballistae swing to the heaviest foe in reach between bolts (cd.balAim[slot], world angle, eased)
         {
           let big = null, bh = -1;
-          for (const e of g.enemies) { if (e.dead || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; big = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; big = e; } }
           if (big) {
             const ar = cd._ar || (cd._ar = {});
             for (let k = 0; k < (bal.twin ? 2 : 1); k++) {
@@ -2278,7 +2279,7 @@ export function updateGame(g, dt) {
         cd.ballista -= sdt * 1000;
         if (cd.ballista <= 0) {
           let best = null, bh = -1;
-          for (const e of g.enemies) { if (e.dead || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
+          for (const e of g.enemies) { if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
           if (best) {
             cd.ballista = bal.rate / (bal.twin ? 2 : 1);
             cd.shot = (cd.shot + 1) % 2;

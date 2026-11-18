@@ -2044,7 +2044,7 @@ importing hale.js into update.js is an import cycle that breaks the page at load
 build passes). The oil and its cauldron are gone. `sim.mjs --works wizards:3,guards:3` sets any
 works (prints `wizard-casts`, `sweeps`). Ironford `--endure` seed default: no works 720 / 545,
 archers:3 542 / 309, wizards:3 555 / 376 (Iron's pips eat magic). `works-lab.html?works=...`
-snaps the gate on the real engine; `reach-lab.html?realm=&horn=` rings every work's reach and targeting over a board (top tier solid, first tier dashed).
+snaps the gate on the real engine. The wall archers and the ballista skip sea monsters too (`neutral` / `submerged`, owner, same day), like the wizards. `reach-lab.html?realm=&horn=` rings every work's reach and targeting over a board (top tier solid, first tier dashed).
 
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 
