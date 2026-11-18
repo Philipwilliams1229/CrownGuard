@@ -28,6 +28,7 @@ import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
 import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawBarricades, drawBarricadeBars } from "./barricade.js";
+import { drawPinnedChains, drawHarpoonLines } from "./chains.js";
 import { drawRemains } from "./remains.js";
 import { drawLog } from "./logs.js";
 import { drawHeroUnder, drawHeroFx } from "./heroes/index.js";
@@ -177,6 +178,8 @@ export function draw(g, canvas, bufRef) {
   drawTraps(ctx, g);
   // the masons' barricades before the Gate Guard
   drawBarricades(ctx, g);
+  // the ballista's harpoon chains staked into the road (chains.js)
+  drawPinnedChains(ctx, g);
   // the fallen a necromancer may raise, lying where they fell
   drawRemains(ctx, g);
 
@@ -523,6 +526,7 @@ export function draw(g, canvas, bufRef) {
 
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)
+  drawHarpoonLines(ctx, g);   // (the chain paying out behind a harpoon bolt, chains.js)
   for (const p of g.projectiles) {
     if (p.delay > 0 || spikeBehind(p, g)) continue;
     drawProjectile(ctx, p, g.time);

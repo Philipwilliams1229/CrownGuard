@@ -557,7 +557,9 @@ export default function Crownguard() {
       catch (err) { const k = String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("updateGame failed", err); noteCrash("update", err); } }
       // a garrison sold mid-move takes its rally prompt with it
       const abAim = typeof g.rallyFor === "string" && g.rallyFor.startsWith("ab:");
-      if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && !abAim && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
+      if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && g.rallyFor !== "barricade" && !abAim && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
+      // (the Masons' aim goes if the guild is refunded meanwhile)
+      if (g.rallyFor === "barricade" && !workTier(g.castle, "masons", g.castleRanks)) g.rallyFor = null;
       // an ability can't take aim, nor he take a post, while the hero is down
       if ((abAim || g.rallyFor === "hero") && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
       // a painter's fault must cost one frame's picture, never freeze the board for good
@@ -1783,7 +1785,7 @@ export default function Crownguard() {
               ? <><b>{a.name}</b> — tap near a foe: {a.aimHint || "the biggest one there takes the arrow."}</>
               : <><b>{a?.name}</b> — tap the map where it should land.</>, "Cancel ability", cancelRally);
           })()}
-          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(
+          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && ui.rallyFor !== "barricade" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
             {/* the Free Play sandbox's live controls: its own card over the map */}

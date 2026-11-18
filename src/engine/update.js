@@ -2294,7 +2294,7 @@ export function updateGame(g, dt) {
             const bk = bal.twin ? cd.shot : 0, ar2 = cd._ar || (cd._ar = {});
             if (ar2["b" + bk] == null) ar2["b" + bk] = Math.atan2(lay2 - by, lax - bx) * 180 / Math.PI;
             (cd.balAim || (cd.balAim = []))[bk] = ar2["b" + bk] * Math.PI / 180;
-            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true, pin: bal.pin || 0, breaker: bal.breaker || null });
+            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true, pin: bal.pin || 0, breaker: bal.breaker || null, ox: bx, oy: by });
             sfx.play("bolt");
           }
         }
@@ -3283,8 +3283,16 @@ export function updateGame(g, dt) {
               target.markUntil = Math.max(target.markUntil || 0, tms + p.breaker.ms);
             }
             dealDamage(g, target, p.dmg, p.dtype, p.pierce, false, p.src);
-            // its chain harpoon pins the foe where it stands
-            if (p.pin && !target.dead) target.pinUntil = Math.max(target.pinUntil || 0, tms + p.pin);
+            // its chain harpoon pins the foe where it stands, staked to the ground behind it (never a
+            // boss, owner 2026-11-18: "the dragon was just completely nullified"); render/chains.js
+            // draws the chain from e.pinAnchor while it holds and snaps it after
+            if (p.pin && !target.dead && !target.boss) {
+              target.pinUntil = Math.max(target.pinUntil || 0, tms + p.pin);
+              const [ax, ay] = lanePos(Math.max(0, target.dist - 22), target.lane || 0);
+              target.pinAnchor = [ax, ay + (target.flying ? 10 : 2)];
+              target.pinAt = tms;
+              g.effects.push({ type: "dust", x: ax, y: ay + 2, ttl: 300, r: 8 });
+            }
             // a Court Wizard's orb (tier 4) throws its mark back down the road: never a boss or a ram
             if (p.push && !target.dead && !target.boss && !target.roadBlock && !target.crush && !target.swimming) {
               releaseEnemy(g, target);

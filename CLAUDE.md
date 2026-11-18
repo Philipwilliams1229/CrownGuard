@@ -2106,6 +2106,14 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   barricades show the knights' pale-blue bar (red at 40% and under; enemies.js `FRIEND_BAR`) ONLY while
   below full health, hurt or being mended, and it goes at full. The hero's bar used to show always (his
   level badge still does).
+- **The chain harpoon is drawn** (owner, same day: "you can't tell what's happening"): `src/render/chains.js`.
+  The bolt pays out a sagging chain back to the bow in flight (`drawHarpoonLines`, the bolt's `ox/oy`);
+  a pinned foe is chained taut to an iron stake driven into the road 22 steps behind it (`e.pinAnchor`,
+  `e.pinAt`; `drawPinnedChains` under the crowd), and when the pin ends the chain drops and fades.
+  **Bosses are never pinned** (owner: "the dragon was just completely nullified").
+- Any new tray aim (`g.rallyFor` string) must be added to the game loop's keep-list in
+  CrownguardGame.jsx (the line that clears an unknown `rallyFor` every frame): "barricade" was missing
+  at first, so the Masons' button did nothing.
 - Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
 
 **Refunds** (owner, same day: "refunds full amount no penalty", then "just one button at the top"):
