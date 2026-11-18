@@ -174,6 +174,7 @@ export const PauseIcon = icon([
 
 // one, two or three chevrons: the three gears of the game clock
 const SPEED = {
+  0.5: [".....", ".....", "kk...", "kck..", "kcsk.", "kck..", "kk...", "....."],
   1: ["kk...", "kck..", "kcck.", "kccck", "kcsck", "kcsk.", "kck..", "kk..."],
   2: ["kk..kk...", "kck.kck..", "kcckkcck.", "kccckccck", "kcsckcsck", "kcskkcsk.", "kck.kck..", "kk..kk..."],
   4: ["kk..kk..kk...", "kck.kck.kck..", "kcckkcckkcck.", "kccckccckccck", "kcsckcsckcsck", "kcskkcskkcsk.", "kck.kck.kck..", "kk..kk..kk..."],

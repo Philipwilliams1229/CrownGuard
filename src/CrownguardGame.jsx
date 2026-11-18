@@ -1049,7 +1049,8 @@ export default function Crownguard() {
       This run's settings stop halls at this tier.
     </div>
   );
-  const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
+  // 1x -> 2x -> 4x -> 0.5x (owner, 2026-11-18: a slow speed to watch a fight) -> 1x
+  const cycleSpeed = () => { if (G.current) G.current.speed = { 1: 2, 2: 4, 4: 0.5 }[G.current.speed] ?? 1; };
   // one panel at a time in the tray: the tower grid is home
   const trayHome = () => { setSandboxPanel(false); setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
   const trayOpen = (which) => {
@@ -1963,7 +1964,7 @@ export default function Crownguard() {
                   {ui.rush && <BoltIcon size={11} />}
                 </button>
               </div>
-              <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 54, minHeight: 54, flexDirection: "column", gap: 2, padding: "0 6px" }} onClick={cycleSpeed}>
+              <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed !== 1 && "is-on")} style={{ minWidth: 54, minHeight: 54, flexDirection: "column", gap: 2, padding: "0 6px" }} onClick={cycleSpeed}>
                 <SpeedIcon speed={ui.speed} size={16} /><span style={{ fontSize: 11 }}>{ui.speed}x</span>
               </button>
             </div>
