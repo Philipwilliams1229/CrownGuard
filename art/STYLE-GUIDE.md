@@ -1549,7 +1549,16 @@ walk looks wrong, the knobs are `DEPTH` / `LIFT` in pix/march.js.
 a facing flip narrowing to a sliver, mirroring while thin and widening the other way
 over `TURN_MS` 200 (`turnOf` / `drawTurned`, render/march.js); with it off a flip is
 the one-frame mirror. Front and back views (`fig-goblin-views.js`, `views-lab.html`)
-are the way forward for facing up and down the screen. `march-lab.html` shows both on the goblin (today vs fix).
+are the way forward for facing up and down the screen.
+**Front and back views** (owner, 2026-11-17: side, front and back only, a plain switch, no
+in-between poses). A figure that has them sets `views: { front, back }` on its PIX entry
+(pixrigs.js); `vertSheet` then asks for `walkBack` past an up-share of 0.6 and `walkFront`
+past a down-share of 0.6, `pixRec` bakes that view's own `walk` (same n and ms as the side
+walk, so the stride carries over) and rigs.js draws it unmirrored. Fights and idles stay
+side-on. A views file exports `FRONT` and `BACK`, each `{ NAME, BOX, BONES, draw, CLIPS: {
+walk } }`, handles the figure's variants, draws the RIGHT hand on screen left from the front
+and on screen right from behind. The goblin is the worked example; the shared brief is
+`art/briefs/views-artist.md`. `march-lab.html` shows both on the goblin (today vs fix).
 
 ### The joint kit: one body, welded limbs, wrapped fur, named layers (2026-11-15)
 

@@ -24,6 +24,7 @@
 import { prefs } from "../../data/prefs.js";
 import { bakeFrame, rimOf } from "./bake.js";
 import { vertWalk, marchesOnFoot } from "./march.js";
+import * as goblinViews from "./fig-goblin-views.js";
 import * as knight from "./fig-knight.js";
 import * as archer from "./fig-archer.js";
 import * as goblin from "./fig-goblin.js";
@@ -97,6 +98,10 @@ const mk = (NAME, mod) => ({ ...mod, NAME });
 //         engine already flies the real thing (Wren's arrow).
 // variant a look of the same figure (handed to its draw as o.variant): the bare-headed
 //         goblin, the boar without its rider
+// views   { front, back }: the same figure seen from the front (walking DOWN the screen) and from
+//         behind (walking UP it), each a figure module with a `walk` clip in step with the side
+//         walk (same n and ms). Drawn unmirrored. Owner, 2026-11-17: side, front and back only,
+//         a plain switch between them (no in-between poses). fig-<name>-views.js.
 // casts   things it does ON THE MARCH, each a walk-shaped clip in step with "walk" (same
 //         legs, other arms and light) worn while an engine clock says so:
 //         { clip, clock, every, lead, hold }: from `lead` ms before e[clock] runs out
@@ -134,8 +139,8 @@ export const PIX = {
   skiffA: { fig: mk("skiff", skiff), variant: "a", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
   skiffB: { fig: mk("skiff", skiff), variant: "b", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
   // ---- the Greenwood horde ----
-  goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
-  goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
+  goblin: { fig: mk("goblin", goblin), views: { front: goblinViews.FRONT, back: goblinViews.BACK }, atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
+  goblinBare: { fig: mk("goblin", goblin), views: { front: goblinViews.FRONT, back: goblinViews.BACK }, variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
   orc: { fig: mk("orc", orc), atk: "attack", hit: 0.55, per: 4, legacy: [0, 6, 7, 9], fx: true },
   armored: { fig: mk("ironclad", ironclad), atk: "attack", hit: 0.583, per: 3.5, legacy: [0, 5, 7, 8], fx: true },
   troll: { fig: mk("troll", troll), atk: "attack", hit: 0.6, per: 3.6, legacy: [0, 7, 9, 10], fx: true },
@@ -218,8 +223,11 @@ for (const d of Object.values(PIX)) {
 // the walk sheet for a figure heading `v` up (-1) or down (+1) the screen (render/march.js
 // keeps v): the side walk, half-way, or fully foreshortened
 export const vertSheet = (type, sheet, v) => {
-  if (sheet !== "walk" || !v || !hasPix(type) || !PIX[type].vert) return sheet;
+  if (sheet !== "walk" || !v || !hasPix(type)) return sheet;
   const a = Math.abs(v);
+  // a figure drawn from the front and behind shows its back walking up, its face walking down
+  if (PIX[type].views && a > 0.6) return v < 0 ? "walkBack" : "walkFront";
+  if (!PIX[type].vert) return sheet;
   return a > 0.8 ? (v < 0 ? "walkU" : "walkD") : a > 0.45 ? (v < 0 ? "walkUh" : "walkDh") : sheet;
 };
 export const hasPix = (type) => Object.prototype.hasOwnProperty.call(PIX, type);
@@ -254,8 +262,16 @@ const clipFrame = (d, sheet, frame) => {
 // the baked frame record (bake.js) for what the game asked; left: the figure faces left
 // `aim` (degrees in the figure's own frame, engine/aim.js) turns a shooter's bow or gun to its mark: the
 // figure reads it as "<variant>@<deg>" (art/briefs/aim-contract.md); only the shooting clip takes it
+export const isViewSheet = (sheet) => sheet === "walkFront" || sheet === "walkBack";
 export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
-  const d = PIX[type], [clip, f] = clipFrame(d, sheet, frame);
+  const d = PIX[type];
+  // the front / back views: their own figure, the walk in step with the side one, never mirrored
+  if (isViewSheet(sheet) && d.views) {
+    const vf = sheet === "walkFront" ? d.views.front : d.views.back, c = vf.CLIPS.walk;
+    const f = Math.floor((((typeof frame === "number" ? frame : 0) / 4) % 1 + 1) % 1 * c.n) % c.n;
+    return bakeFrame(vf, "walk", f, { flip: false, variant: d.variant });
+  }
+  const [clip, f] = clipFrame(d, sheet, frame);
   const v = aim && (clip === d.atk || d.aimClips?.includes(clip)) ? `${d.variant || ""}@${aim}` : d.variant;
   return bakeFrame(d.fig, clip, f, { flip: left, variant: v });
 };

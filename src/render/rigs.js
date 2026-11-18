@@ -8,7 +8,7 @@
 import { bakeSprite, PX } from "./paint.js";
 import { RIMEBEAST_RIGS, RIMEBEAST_PAINTERS } from "./rigs-rimebeasts.js";
 import "./rigs-eagle.js";   // registers the eagle in PIX (pix/pixrigs.js)
-import { PIX, hasPix, pixBox, pixRec, lightAt, pixRim } from "./pix/pixrigs.js";
+import { PIX, hasPix, pixBox, pixRec, lightAt, pixRim, isViewSheet } from "./pix/pixrigs.js";
 import { prefs } from "../data/prefs.js";
 
 // ---- the roster ----------------------------------------------------------------
@@ -82,7 +82,7 @@ const pixSprite = (type, sheet, frame, variant) => {
 // drawRig's work for a pix type: the frame baked for the way it faces (one sun),
 // then whatever light falls on it, its own glow, and its blow's effect
 const drawPix = (ctx, type, x, y, dir, sheet, frame, variant, alpha, aim) => {
-  const left = dir < 0, rec = pixRec(type, sheet, frame, left, aim), w = rec.cv.width / 2, h = rec.cv.height / 2, ax = rec.ox / 2, ay = rec.oy / 2;
+  const left = dir < 0 && !isViewSheet(sheet), rec = pixRec(type, sheet, frame, left, aim), w = rec.cv.width / 2, h = rec.cv.height / 2, ax = rec.ox / 2, ay = rec.oy / 2;
   ctx.save();
   if (alpha !== 1) ctx.globalAlpha *= alpha;
   ctx.translate(x, y); if (left) ctx.scale(-1, 1);
