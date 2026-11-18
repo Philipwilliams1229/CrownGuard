@@ -146,7 +146,10 @@ const make = (s) => (px, F) => {
     px.part();
     px.capsule(wx, sy + 0.8, 0.9, wx, sy - 2.2, 0.9, LEATHER, 8.27);
     px.capsule(wx - 2.8, sy - 2.4, 0.8, wx + 2.8, sy - 2.4, 0.8, BRASS, 8.3, { edge: true });
-  } else {   // from behind: the blade runs forward past his hip hidden behind him; the grip's end and the brass pommel show below the fist
+  } else {   // from behind: the sword carried upright in front; its upper blade peeks over his right shoulder, the rest is hidden behind him
+    px.capsule(wx, sy - 2.5, 1.25, wx + tl * 14, sy - 17, 1.05, BLADE, 3.4, { edge: true });
+    px.capsule(wx + tl * 14, sy - 17, 1.05, wx + tl * 17, sy - 19.6, 0.3, BLADE, 3.4, { edge: true });
+    px.part();
     px.capsule(wx, sy + 0.5, 0.9, wx, sy + 3.2, 0.9, LEATHER, 8.2);
     px.ellipse(wx, sy + 4, 1.2, 1.2, BRASS, 8.22);
   }

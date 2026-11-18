@@ -65,21 +65,24 @@ const make = (s) => (px, F) => {
   // the arbalest carried nose toward us: the prod a clear horizontal steel bow across his lower chest with its
   // string, the stock a short foreshortened wooden block hanging from its middle to his belt. (From behind it
   // is hidden by his body except the prod's ends past his sides.)
-  const py = chestY + 4 + bob, gz = vv ? 7 : 3.4;
+  // carried angled DOWN and across the body: butt at the right hip, the nose and prod pointing down and out toward the ground ahead of him
+  const gz = vv ? 7 : 3.4, pz = vv ? 8.3 : 3.4;
+  const B = [rs * 5.6 + sx, chestY + 11 + bob], T = [ls * 3.6 + sx, hipY + 4.5 + bob];
+  const len = Math.hypot(T[0] - B[0], T[1] - B[1]), u = [(T[0] - B[0]) / len, (T[1] - B[1]) / len], w = [u[1], -u[0]];
+  const at = (a, b) => [B[0] + u[0] * a + w[0] * b, B[1] + u[1] * a + w[1] * b];
   px.part(); px.tag("stock");
-  px.capsule(sx + rs * 0.6, py + 1, 1.7, sx + rs * 0.8, py + 9, 1.4, WOOD, gz, { edge: true });
-  px.capsule(sx + rs * 0.8, py + 9, 1.4, sx + rs * 0.9, hipY - 3, 1.9, WOOD, gz, { edge: true });
-  px.rect(sx + rs * 0.6 - 2, py + 4.4, 4, 1.2, IRON, gz + 0.03, { noLine: true });
-  const pz = vv ? 8.3 : 3.4;
+  px.capsule(...at(-1, 0), 1.9, ...at(len * 0.4, 0), 1.5, WOOD, gz, { edge: true });
+  px.capsule(...at(len * 0.4, 0), 1.4, ...at(len, 0), 1.1, WOOD, gz, { edge: true });
+  px.capsule(...at(len * 0.46, 0), 1.5, ...at(len * 0.56, 0), 1.5, IRON, gz + 0.03);
   px.tag("prod"); px.part();
-  px.capsule(sx - 1, py, 1.9, sx - 5.4, py - 0.4, 1.3, IRON, pz + 0.05, { edge: true });
-  px.capsule(sx + 1, py, 1.9, sx + 5.4, py - 0.4, 1.3, IRON, pz + 0.05, { edge: true });
-  px.capsule(sx - 5.4, py - 0.4, 1.7, sx - 9.6, py - 2.4, 0.9, IRON, pz + 0.05, { edge: true });
-  px.capsule(sx + 5.4, py - 0.4, 1.7, sx + 9.6, py - 2.4, 0.9, IRON, pz + 0.05, { edge: true });
-  px.dot(sx - 9.6, py - 2.4, STEELB, pz + 0.07, { fix: 3 }); px.dot(sx + 9.6, py - 2.4, STEELB, pz + 0.07, { fix: 3 });
+  const pe = [-1, 1].map((q) => at(len - 1.6, q * 8.8)), pm = [-1, 1].map((q) => at(len - 0.6, q * 4.4));
+  px.capsule(...at(len, 0), 1.9, ...pm[0], 1.7, IRON, pz, { edge: true }); px.capsule(...pm[0], 1.7, ...pe[0], 1.0, IRON, pz, { edge: true });
+  px.capsule(...at(len, 0), 1.9, ...pm[1], 1.7, IRON, pz, { edge: true }); px.capsule(...pm[1], 1.7, ...pe[1], 1.0, IRON, pz, { edge: true });
+  px.dot(...pe[0], STEELB, pz + 0.07, { fix: 3 }); px.dot(...pe[1], STEELB, pz + 0.07, { fix: 3 });
   if (vv) {
-    px.line(sx - 9.6, py - 2.4, sx, py + 1.6, CORD, pz + 0.02, { unlit: true }); px.line(sx, py + 1.6, sx + 9.6, py - 2.4, CORD, pz + 0.02, { unlit: true });   // the string drawn back to the stock
-    px.capsule(sx, py + 1.2, 0.8, sx, py - 3.4, 0.5, BOLT, pz + 0.06); px.dot(sx, py - 3.8, STEELB, pz + 0.08, { fix: 3 });   // the bolt's head
+    const sp = at(len * 0.5, 0);
+    px.line(...pe[0], ...sp, CORD, pz + 0.02, { unlit: true }); px.line(...sp, ...pe[1], CORD, pz + 0.02, { unlit: true });
+    px.capsule(...at(len * 0.3, 0), 0.7, ...at(len + 3, 0), 0.5, BOLT, pz + 0.06); px.dot(...at(len + 3.4, 0), STEELB, pz + 0.08, { fix: 3 });
   }
   px.tag(null);
 
@@ -148,8 +151,8 @@ const make = (s) => (px, F) => {
   // ---- the arms. FRONT: both hands on the arbalest (right on the stock below the prod, left under the prod). BEHIND: both
   // hang at his sides, swinging forward (the back of each arm, the hand low and a little in).
   const sw = Math.cos(ph * TAU) * 0.45;
-  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? [sx + rs * 0.8, py + 8.4] : [rs * 7 + sx, shY + 11 - sw * 1.6]];
-  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? [sx + ls * 3.2, py + 2.2] : [ls * 7 + sx, shY + 11 + sw * 1.6]];
+  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? at(len * 0.16, 0) : [rs * 7 + sx, shY + 11 - sw * 1.6]];
+  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? at(len * 0.62, 0) : [ls * 7 + sx, shY + 11 + sw * 1.6]];
   for (const arm of [aL, aR]) {
     px.part(); px.tag("arm");
     px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, 8, { cast: 2 });

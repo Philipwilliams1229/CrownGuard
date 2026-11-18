@@ -42,7 +42,7 @@ const LEG = { M: { m: IVORY }, W: { m: IVORY, bias: 1 }, m: { m: IVORY, bias: -1
 const look = () => ({
   front: FRONT_H, back: BACK_H, blink: FRONT_H, LEG, ay: 10, ball: [6.5, 5.5, 6.6, 6.6],
   plate: IVORY, mail: IVMAIL, cop: GOLD, rim: IVORY, trim: GOLD, coat: COAT, hem: GOLD, sun: GOLD, backCross: false,
-  plume: null, weapon: "mace", wood: WOOD, shield: "sign", holy: SILVER,
+  plume: null, weapon: "mace", wood: WOOD, shield: "kite", rim: GOLD, field: COAT, shieldSun: true,
 });
 const set = knightViews({ NAME: "paladin", BOX, BONES, walk: CLIPS.walk, W: 1, look });
 export const FRONT = set.FRONT, BACK = set.BACK;

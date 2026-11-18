@@ -77,9 +77,11 @@ export const knightViews = (C) => {
         px.poly([S(-4.6, -6.2), S(4.6, -6.2), S(4.9, 0.6), S(0, 8), S(-4.9, 0.6)], L.rim, zk, { round: 0.6, cast: 2 });
         if (s > 0) {
           px.poly([S(-3.5, -5.1), S(3.5, -5.1), S(3.7, 0.3), S(0, 6.3), S(-3.7, 0.3)], L.field, zk + 0.02, { round: 0.6 });
-          if (L.shieldCross) { px.line(...S(0, -4.4), ...S(0, 4.4), L.shieldCross, zk + 0.05); px.line(...S(-2.6, -1.6), ...S(2.6, -1.6), L.shieldCross, zk + 0.05); }
+          if (L.shieldSun) { /* the sun is drawn below */ }
+          else if (L.shieldCross) { px.line(...S(0, -4.4), ...S(0, 4.4), L.shieldCross, zk + 0.05); px.line(...S(-2.6, -1.6), ...S(2.6, -1.6), L.shieldCross, zk + 0.05); }
           else { px.line(...S(-2.4, -2.6), ...S(0, -0.6), CREAM, zk + 0.05); px.line(...S(0, -0.6), ...S(2.4, -2.6), CREAM, zk + 0.05); }
-          px.dot(...S(0, -0.2), L.trim, zk + 0.1, { fix: 3 });
+          if (!L.shieldSun) px.dot(...S(0, -0.2), L.trim, zk + 0.1, { fix: 3 });
+          if (L.shieldSun) { px.ellipse(...S(0, -0.6), 2.3, 2.3, L.trim, zk + 0.08, { noLine: true }); px.ellipse(...S(0, -0.6), 1.1, 1.1, L.coat, zk + 0.1, { noLine: true }); }
         } else {
           px.poly([S(-3.5, -5.1), S(3.5, -5.1), S(3.7, 0.3), S(0, 6.3), S(-3.7, 0.3)], LEATHER, zk + 0.02, { round: 0.6 });
           px.line(...S(-3, -2.4), ...S(3, -2.4), DARK, zk + 0.05); px.line(...S(-2.6, 2.2), ...S(2.6, 2.2), DARK, zk + 0.05);
@@ -145,7 +147,10 @@ export const knightViews = (C) => {
       px.part();
       if (hw) {
         px.capsule(...B(1.8, -2.4), 0.8, ...B(1.8, 2.4), 0.8, STEEL, 5.22, { edge: true });
-        px.capsule(...B2(2.5), 1.2, ...B2(16), 1, BLADE, 3.9, { edge: true });
+        // the blade stands up behind his right shoulder: the arm, pauldron and torso hide its lower part, the top peeks over
+        const t3 = rs * 0.16, d3 = [Math.sin(t3), -Math.cos(t3)], B3 = (t) => [H1[0] + d3[0] * t, H1[1] + d3[1] * t];
+        px.capsule(...B3(2.5), 1.2, ...B3(18), 1, BLADE, 3.9, { edge: true });
+        px.capsule(...B3(18), 1, ...B3(20.2), 0.3, BLADE, 3.9, { edge: true });
       } else if (L.weapon === "mace") {
         px.capsule(...B2(0), 0.9, ...B2(11), 0.9, L.wood, 3.9, { edge: true });
         px.ellipse(...B2(15), 3.2, 3.2, L.trim, 3.92, { edge: true });

@@ -123,18 +123,27 @@ const make = (s) => (px, F, o = {}) => {
   const ang = p.aN[0] * 0.5, rSh = [rs * 5.4 + sx, shY], rEl = [rs * 7.2 + sx, shY + 4.6], rHd = [rs * 8 + sx, shY + 8 + s * ang * 1.4 + (yeo ? 0 : 0.6)];
   const wx = rHd[0] + rs * 0.4;
   px.part(); px.tag("weapon");
-  if (!yeo) {   // the pitchfork, upright; the head half-turned so the three tines read
-    const butt = [wx - rs * 0.4, rHd[1] + 12], top = [wx - rs * 1.4 + (ph > 0.5 ? 0 : 0), rHd[1] - 22];
-    px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, ASH, 8.2, { edge: true });
+  if (!yeo) {   // the pitchfork, upright beside him: ONE straight ash haft through the closed fist (the side view's 42 long,
+    // gripped 17 up from the butt), a small iron socket and the side view's three tines, the middle one the tallest
+    const hx0 = Math.round(rHd[0]), hy0 = rHd[1], butt = hy0 + 15, top = hy0 - 23;
+    px.capsule(hx0, butt, 0.95, hx0, top, 0.95, ASH, 8.2, { edge: true });
     px.part();
-    const tx = Math.round(top[0]), ty = Math.round(top[1]);   // three tines, the same every frame: a socket, a crossbar, two outer tines and a taller middle one
-    px.capsule(tx, ty + 3.4, 1.2, tx, ty - 0.6, 1.2, IRONK, 8.25);
-    px.rect(tx - 3, ty - 1, 7, 1.4, IRON, 8.26, { edge: true });
-    px.rect(tx - 3, ty - 9, 1, 8.6, IRON, 8.27, { noLine: true }); px.rect(tx + 3, ty - 9, 1, 8.6, IRON, 8.27, { noLine: true }); px.rect(tx, ty - 11, 1, 10.6, IRON, 8.27, { noLine: true });
-    px.dot(tx - 3, ty - 9.4, IRON, 8.28); px.dot(tx + 3, ty - 9.4, IRON, 8.28); px.dot(tx, ty - 11.4, IRON, 8.28);
-  } else if (!vv) {   // from behind the blade runs forward, hidden by his body; the grip's end and the pommel show below the fist
+    const ty = Math.round(top);   // the same head every frame: socket, a crossbar, two outer tines and a taller middle one
+    px.capsule(hx0, ty + 1.6, 1.05, hx0, ty - 0.6, 1.05, IRONK, 8.25);
+    px.capsule(hx0 - 3, ty - 1, 0.6, hx0 + 3, ty - 1, 0.6, IRON, 8.26, { edge: true });
+    px.part();
+    px.rect(hx0 - 3, ty - 7, 1, 6, IRON, 8.27, { noLine: true }); px.rect(hx0 + 3, ty - 7, 1, 6, IRON, 8.27, { noLine: true });
+    px.rect(hx0, ty - 8, 1, 7, IRON, 8.27, { noLine: true });
+    px.dot(hx0 - 3, ty - 7.4, IRONK, 8.28); px.dot(hx0 + 3, ty - 7.4, IRONK, 8.28); px.dot(hx0, ty - 8.4, IRONK, 8.28);
+  } else if (!vv) {   // from behind: the grip's end and the pommel below the fist; the blade stands up in front of him, so the
+    // torso and arm hide its lower part and only its upper blade peeks above / behind his right shoulder (z 3.9)
     px.capsule(wx, rHd[1] + 0.5, 0.9, wx, rHd[1] + 3, 0.9, LEATHER, 8.2);
     px.ellipse(wx, rHd[1] + 3.8, 1.1, 1.1, IRONK, 8.22);
+    px.part();
+    const b0 = [wx - rs * 1.2, rHd[1] - 1.5], b1 = [rs * 7.6 + sx, shY - 9.5];   // from the fist's thumb side up behind the shoulder
+    const d3 = [b1[0] - b0[0], b1[1] - b0[1]], L3 = Math.hypot(...d3), B3 = (t) => [b0[0] + d3[0] * t / L3, b0[1] + d3[1] * t / L3];
+    px.capsule(...B3(0), 1.15, ...B3(L3 - 2.2), 0.95, BLADE, 3.9, { edge: true });
+    px.capsule(...B3(L3 - 2.2), 0.95, ...B3(L3), 0.3, BLADE, 3.9, { edge: true });
   } else {      // the short sword upright from the fist, a cross guard, a pommel
     const sy = rHd[1], tilt = rs * 0.1;
     px.capsule(wx, sy - 2, 1.15, wx + tilt * 14, sy - 15, 0.95, BLADE, 8.2, { edge: true });
@@ -148,7 +157,10 @@ const make = (s) => (px, F, o = {}) => {
   px.part(); px.tag("nearArm");
   px.capsule(rSh[0], rSh[1] + 0.3, 2.2, rEl[0], rEl[1], 1.9, JERKIN, 8, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SKIN, 8, { cast: 2 });
-  px.part(); px.ellipse(rHd[0], rHd[1], 1.8, 1.7, SKIN, 8.6); px.tag(null);
+  const fx0 = yeo ? rHd[0] : Math.round(rHd[0]);
+  px.part(); px.ellipse(fx0, rHd[1], 1.8, 1.7, SKIN, 8.6);
+  if (!yeo) px.toneLine(fx0 - 1, rHd[1] + 0.4, fx0 + 1, rHd[1] + 0.4, -1, px._pid);   // the fingers closed over the haft
+  px.tag(null);
 
   // ---- the head and its hat
   px.part();

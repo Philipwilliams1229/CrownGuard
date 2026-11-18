@@ -116,7 +116,7 @@ const make = (s) => (px, F, o = {}) => {
   const sh = [tx + rs * 7.4, chestY + 0.8], elb = [tx + rs * 9.8, chestY + 6.6], sw = a * 0.5 * s;
   const hd = [tx + rs * 10.4, chestY + 11.6 + sw * 0.5];
   const lean = rs * 0.07 + sw * 0.01, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
-  const fk = s > 0 ? 1 : 0.5;   // from behind the pole leans away from us: foreshortened
+  const fk = 1;   // as tall from behind as in front; its lower part is behind him   // from behind the pole leans away from us: foreshortened
   const Bh = (t, w = 0) => [hd[0] + d[0] * t * fk + nr[0] * w * fk, hd[1] + d[1] * t * fk + nr[1] * w * fk];   // t up the shaft from the fist, w across it
   const bz = s > 0 ? 6.25 : 5.5, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
   px.part(); px.tag("halb");

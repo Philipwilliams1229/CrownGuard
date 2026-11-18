@@ -44,7 +44,9 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
      IN FRONT of him (toward where he faces, away from us) is hidden behind his torso, arm or
      cloak; the parts that stick out PAST his outline still show (a spear's shaft above his
      shoulder and below his fist, an axe head or blade past his hip, a pommel). Never delete
-     a weapon. Never stand a blade up beside the head as if held backwards.
+     a weapon. Never stand a blade up beside the head as if held backwards. A sword carried
+     upright in front DOES peek over his right shoulder from behind (owner, second notes): a
+     little of the blade's upper part shows above/behind the shoulder, the rest hidden by him.
   3. FEET STAY CONNECTED: in every frame of both views each foot joins its leg (no gap,
      no loose boot or dark blob below a hem); a lifted foot still hangs from its shin.
      Check every frame at zoom 4, not just frame 0.
