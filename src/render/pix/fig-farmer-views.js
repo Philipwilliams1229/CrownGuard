@@ -130,16 +130,19 @@ const make = (s) => (px, F, o = {}) => {
   const WZ = vv ? 8.2 : 1.0, WE = vv;   // the held weapon: in front over the arm; from behind at 1.0, no edge
   if (!yeo) {   // the pitchfork, upright beside him: ONE straight ash haft through the closed fist (the side view's 42 long,
     // gripped 17 up from the butt), a small iron socket and the side view's three tines, the middle one the tallest
-    const hx0 = Math.round(rHd[0]), hy0 = rHd[1], butt = hy0 + 15, top = hy0 - 23;
-    px.capsule(hx0, butt, 0.95, hx0, top, 0.95, ASH, WZ, { edge: WE });
+    // the SIDE view's fork exactly (fig-farmer.js): haft 42 long, r 0.95, gripped 17 up from the butt; the head built on
+    // the haft's axis u and its cross axis v (side: socket -3.4..0.6 r 1.2, crossbar +-3 r 0.8, outer tines to 8.4, middle
+    // to 10.2), stood upright here: u straight up, v across the screen, so the head faces us the same shape
+    const hx0 = Math.round(rHd[0]), u = [0, -1], v = [1, 0], hg = 17, LONG = 42;
+    const butt = [hx0, rHd[1] + hg], top = [hx0, rHd[1] + hg - LONG];
+    const at = (a, b) => [top[0] + u[0] * a + v[0] * b, top[1] + u[1] * a + v[1] * b];
+    px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, ASH, WZ, { edge: WE });
     px.part();
-    const ty = Math.round(top);   // the same head every frame: socket, a crossbar, two outer tines and a taller middle one
-    px.capsule(hx0, ty + 1.6, 1.05, hx0, ty - 0.6, 1.05, IRONK, WZ + 0.05);
-    px.capsule(hx0 - 3, ty - 1, 0.6, hx0 + 3, ty - 1, 0.6, IRON, WZ + 0.06, { edge: WE });
-    px.part();
-    px.rect(hx0 - 3, ty - 7, 1, 6, IRON, WZ + 0.07, { noLine: true }); px.rect(hx0 + 3, ty - 7, 1, 6, IRON, WZ + 0.07, { noLine: true });
-    px.rect(hx0, ty - 8, 1, 7, IRON, WZ + 0.07, { noLine: true });
-    px.dot(hx0 - 3, ty - 7.4, IRONK, WZ + 0.08); px.dot(hx0 + 3, ty - 7.4, IRONK, WZ + 0.08); px.dot(hx0, ty - 8.4, IRONK, WZ + 0.08);
+    px.capsule(...at(-3.4, 0), 1.2, ...at(0.6, 0), 1.2, IRONK, WZ + 0.05);
+    px.capsule(...at(0.4, -3), 0.8, ...at(0.4, 3), 0.8, IRON, WZ + 0.06, { edge: WE });
+    px.capsule(...at(0.4, -3), 0.7, ...at(8.4, -3), 0.5, IRON, WZ + 0.06, { edge: WE });
+    px.capsule(...at(0.4, 3), 0.7, ...at(8.4, 3), 0.5, IRON, WZ + 0.06, { edge: WE });
+    px.capsule(...at(0.4, 0), 0.8, ...at(10.2, 0), 0.4, IRON, WZ + 0.07, { edge: WE });
   } else if (!vv) {   // from behind: the grip's end and the pommel below the fist; the blade stands up in front of him, so the
     // torso and arm hide its lower part and only its upper blade peeks above / behind his right shoulder (z 1.0)
     px.capsule(wx, rHd[1] + 1, 0.9, wx, rHd[1] + 3.6, 0.9, LEATHER, 1.0, { cast: 0 });
