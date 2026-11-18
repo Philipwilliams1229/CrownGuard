@@ -273,6 +273,7 @@ const clipFrame = (d, sheet, frame) => {
 export const isViewSheet = (sheet) => sheet === "walkFront" || sheet === "walkBack";
 export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
   const d = PIX[type];
+  warmType(type);
   // the front / back views: their own figure, the walk in step with the side one, never mirrored
   if (isViewSheet(sheet) && d.views) {
     const vf = sheet === "walkFront" ? d.views.front : d.views.back, c = vf.CLIPS.walk;
@@ -286,26 +287,27 @@ export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
 
 // Baking ahead. A frame is baked the first time the board asks for it: under a
 // millisecond for most figures, 5-15 ms for the dragon (measured on the dev Mac).
-// So that no figure hitches the first time it walks on, the walks are baked in
-// the quiet moments after the game loads: a few milliseconds at a time, the
-// biggest figures first, both facings. Anything not reached yet still bakes on demand.
-let warming = false;
-export const warmPix = () => {
-  if (warming || typeof document === "undefined") return;
-  warming = true;
-  const jobs = [];
-  for (const type of Object.keys(PIX).sort((a, b) => PIX[b].fig.BOX.w * PIX[b].fig.BOX.h - PIX[a].fig.BOX.w * PIX[a].fig.BOX.h)) {
-    const d = PIX[type], n = d.fig.CLIPS.walk.n;
-    for (const flip of [false, true]) for (let f = 0; f < n; f++) jobs.push([d, f, flip]);
-  }
-  const later = (fn) => (typeof requestIdleCallback === "function" ? requestIdleCallback(fn, { timeout: 400 }) : setTimeout(fn, 60));
-  const step = () => {
-    const t0 = performance.now();
-    while (jobs.length && performance.now() - t0 < 4) { const [d, f, flip] = jobs.shift(); bakeFrame(d.fig, "walk", f, { flip, variant: d.variant }); }
-    if (jobs.length) later(step);
-  };
-  setTimeout(() => later(step), 1500);
+// So a figure doesn't hitch through its first steps, the FIRST time a type is asked
+// for, the rest of its walk (both facings) is baked in the quiet moments after, a
+// few milliseconds at a time. Only the figures this battle actually shows: warming
+// every figure's walk up front held ~460 MB on a phone (2026-11-18 crash).
+const warmed = new Set(), jobs = [];
+let warmRunning = false;
+const later = (fn) => (typeof requestIdleCallback === "function" ? requestIdleCallback(fn, { timeout: 400 }) : setTimeout(fn, 60));
+const warmStep = () => {
+  const t0 = performance.now();
+  while (jobs.length && performance.now() - t0 < 4) { const [d, f, flip] = jobs.shift(); bakeFrame(d.fig, "walk", f, { flip, variant: d.variant }); }
+  if (jobs.length) later(warmStep); else warmRunning = false;
 };
+const warmType = (type) => {
+  if (warmed.has(type) || typeof document === "undefined") return;
+  warmed.add(type);
+  const d = PIX[type], n = d.fig.CLIPS.walk.n;
+  for (const flip of [false, true]) for (let f = 0; f < n; f++) jobs.push([d, f, flip]);
+  if (!warmRunning) { warmRunning = true; later(warmStep); }
+};
+// kept for draw.js: nothing to do up front now (pixRec warms each type on first sight)
+export const warmPix = () => {};
 
 // Where an attack clip stands, from the attack clock: `until` ms to the next
 // blow, `rate` ms between blows. The wind-up is timed so the clip's strike

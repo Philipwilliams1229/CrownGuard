@@ -246,7 +246,12 @@ export const ashSheet = () => sheet("ashfall1", 150, 130, (set, w, h) => {   // 
 const put = (G, x, y, s, k, a = 255) => { for (let j = 0; j < s; j++) for (let i = 0; i < s; i++) G.add(x + i - (s >> 1), y + j - (s >> 1), k, a); };
 // A forked bolt from the board's top down to (x, y): baked once per strike.
 // `hot` is the white flash frame (all white, a wider halo).
-export const boltSprite = (x, y, seed, hot) => memo(`bolt|${Math.round(x)}|${Math.round(y)}|${seed}|${hot ? 1 : 0}`, () => {
+// Each stroke is its own sprite, up to the board's height, seen for under a second: they
+// keep their own small cache (BOLTS, the last few) instead of filling MEMO, which a storm
+// level's ~150 strokes used to grow by hundreds of MB and then clear whole, fog and all.
+const BOLTS = new Map();
+const boltMemo = (key, make) => { let s = BOLTS.get(key); if (!s) { s = make(); BOLTS.set(key, s); if (BOLTS.size > 8) BOLTS.delete(BOLTS.keys().next().value); } return s; };
+export const boltSprite = (x, y, seed, hot) => boltMemo(`bolt|${Math.round(x)}|${Math.round(y)}|${seed}|${hot ? 1 : 0}`, () => {
   const top = -12, x0 = x + (h2(seed, 1, 71) - 0.5) * 70;
   const pts = [[x0, top]], n = 14;
   for (let i = 1; i < n; i++) {

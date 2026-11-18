@@ -237,7 +237,7 @@ const warm = (kind) => {
       () => { if (NEED.some((v) => v > 0)) fogLandWide(); }, () => { if (NEED.some((v) => v > 0)) B.fogShafts(B.FOG_WIDE); }],
     storm: [B.stormShade, () => { B.rainFar(0); B.rainMid(0); B.rainMid(3); }, () => [0, 1, 2].forEach((v) => [0, 1, 2, 3].forEach((l) => B.rainDrop(v, l))),
       B.rainSpray, B.rainCurtain, B.floodTex, wetRoadArt, () => { if (RIVERS.length) siltArt(); }, waterSpots, riverLines,
-      () => puddles().forEach((p) => { for (let wu = 4; wu <= p.wu; wu += 2) B.puddle(wu, p.v, "road"); B.puddle(wu, p.v, "grass"); })],
+      () => puddles().forEach((p) => { for (let wu = 4; wu <= p.wu; wu += 2) B.puddle(wu, p.v, p.mud ? "mud" : p.edge ? "grass" : "road"); })],
     blizzard: [() => B.snowDrift(false), () => B.snowDrift(true), () => B.snowSheet(false),
       ...["t", "b", "l", "r"].flatMap((sd) => [1, 2, 3, 4].map((i) => () => B.frostStrip(sd, FROST_D[sd], i / 4)))],
     eruption: [B.ashHaze, B.ashSheet, () => { for (let v = 0; v < 3; v++) for (let f = 0; f < 8; f++) B.boulder(ROCK_R, v, f); }],
@@ -612,6 +612,13 @@ const boltFlash = (g) => {
 };
 const boltSeed = (x, y) => (Math.round(x) * 13 + Math.round(y) * 7) | 0;
 // strikes remembered for their scorch (render-side, cosmetic)
+// (owner, 2026-11-18: the marks were "way too much and last for too long": once a
+// scorch was half the stroke's 45 blast, held 3.5 s, gone at 4.5 s; cracks lived 3.6 s)
+const SCORCH_SIZE = 0.3;   // of the stroke's blast radius (was 0.5)
+const SCORCH_LIFE = 2.0;   // s until gone (was 4.5)
+const SCORCH_FADE = 0.9;   // s of fading at the end
+const SCORCH_A = 0.7;      // at most this strong (was 1)
+const CRACK_LIFE = 1.4;    // s the hot cracks take to cool and go (was 3.6)
 const SEEN = new WeakSet();
 let SCORCH = [];
 
@@ -656,9 +663,9 @@ const stormGround = (ctx, g, w) => {
   for (const fx of g.effects) {
     if (fx.type !== "wxbolt" || SEEN.has(fx)) continue;
     SEEN.add(fx);
-    SCORCH.push({ x: fx.x, y: fx.y, r: Math.round(fx.r * 0.5), v: boltSeed(fx.x, fx.y) & 3, t: t - (fx.life - fx.ttl) / 1000 });
+    SCORCH.push({ x: fx.x, y: fx.y, r: Math.max(6, Math.round(fx.r * SCORCH_SIZE)), v: boltSeed(fx.x, fx.y) & 3, t: t - (fx.life - fx.ttl) / 1000 });
   }
-  if (SCORCH.length) SCORCH = SCORCH.filter((s) => t - s.t < 4.5 && s.t <= t + 0.1);
+  if (SCORCH.length) SCORCH = SCORCH.filter((s) => t - s.t < SCORCH_LIFE && s.t <= t + 0.1);
   const flash = boltFlash(g);
   // the soaked road: its stone darkens, then holds the storm's sky (and the flash)
   if (wet > 0.02) {
@@ -693,7 +700,7 @@ const stormGround = (ctx, g, w) => {
   if (F && F.length) { ctx.save(); clipDecks(ctx); drawFloods(ctx, g, F, rainOf(k)); ctx.restore(); }
   for (const s of SCORCH) {
     const age = t - s.t;
-    ctx.globalAlpha = step4(age < 3.5 ? 1 : (4.5 - age));
+    ctx.globalAlpha = step4(SCORCH_A * Math.min(1, (SCORCH_LIFE - age) / SCORCH_FADE));
     put(ctx, B.boltScorch(s.r, s.v), s.x, s.y + 3);
     // the afterglow: the burn still hot for a moment
     if (age < 0.9) { ctx.globalAlpha = step4(1 - age / 0.9); put(ctx, B.staticGlow(Math.round(s.r * 1.2), 2), s.x, s.y + 3); }
@@ -702,13 +709,13 @@ const stormGround = (ctx, g, w) => {
   // orange -> red -> dead; the puddles beside it steam while they last
   for (const s of SCORCH) {
     const age = t - s.t, seed = (s.v + 1) * 7 + Math.round(s.x);
-    if (age < 0 || age > 3.6) continue;
-    const heat = 1 - age / 3.6;
+    if (age < 0 || age > CRACK_LIFE) continue;
+    const heat = 1 - age / CRACK_LIFE;
     const stage = heat > 0.9 ? 0 : heat > 0.72 ? 1 : heat > 0.5 ? 2 : heat > 0.3 ? 3 : heat > 0.12 ? 4 : 5;
     // a hot bloom under the cracks while they are white-gold
-    if (age < 1.6) { ctx.globalAlpha = step4(0.8 * (1 - age / 1.6)); put(ctx, B.staticGlow(Math.round(s.r * 1.1), 1), s.x, s.y + 3); }
-    ctx.globalAlpha = age > 3.1 ? 0.6 : 1;
-    put(ctx, crackSprite(s.r, seed & 7, stage, Math.min(3, Math.floor(age * 16))), s.x, s.y + 3);
+    if (age < 0.7) { ctx.globalAlpha = step4(0.6 * (1 - age / 0.7)); put(ctx, B.staticGlow(Math.round(s.r * 1.1), 1), s.x, s.y + 3); }
+    ctx.globalAlpha = SCORCH_A * (age > CRACK_LIFE - 0.4 ? 0.6 : 1);
+    put(ctx, crackSprite(Math.max(5, Math.round(s.r * 0.8)), seed & 7, stage, Math.min(3, Math.floor(age * 16))), s.x, s.y + 3);
     ctx.globalAlpha = 1;
   }
   ctx.globalAlpha = 1;

@@ -1697,6 +1697,26 @@ Provisional, pending the owner's playtest.
   Checked headless: tier 4 gone at the 16 s cooldown with no foes, at ~40 s when
   a column held it; bowmen held foes in both it and the Crossbow Company.
 
+## The phone crash audit (2026-11-18, owner: "crashed with some pretty good progress")
+
+Fable's audit: most likely iOS killed the page for memory. Fixed the same day (not yet seen on a phone):
+- **Figure bakes** (`src/render/pix/bake.js`): a baked frame no longer keeps its sculpt buffer
+  (`px`, ~42 bytes a pixel; every walk of every figure held ~420 MB); `rimOf` re-sculpts through
+  `rec.remake()` the first time a light falls on it. The canvases are held to `BAKE_BUDGET` 96 MB,
+  oldest-asked clips dropped first (`bakeStats()`). `warmPix` no longer bakes every figure up front:
+  `pixRec` warms a type's walk the first time it is drawn. Measured ~12 MB of bakes mid-battle.
+- **Lightning** (weatherbake.js): each stroke's sprite sits in its own 8-entry `BOLTS` cache, not
+  `MEMO`. Its ground marks were cut (owner: "way too much and last for too long"): weatherfx.js
+  `SCORCH_SIZE` 0.3 (was 0.5 of the blast), `SCORCH_LIFE` 2 s (was 4.5), `SCORCH_A` 0.7,
+  `CRACK_LIFE` 1.4 s (was 3.6). Not yet looked at during a strike.
+- **Guards:** `draw()` is wrapped like `updateGame` (one fault costs a frame, logged once); boot.jsx
+  has an error boundary (`Shield`) with a Reload button.
+- **The crash recorder** (`src/native/crashlog.js`): errors (update / draw / window / promise /
+  screen) go to localStorage `cg-crash`; the battle writes a heartbeat `cg-beat` every 10 s (realm,
+  wave, bake MB); a clean leave removes it, so a beat found at launch is logged as "unclean-exit"
+  (almost always a memory kill). Settings > Progress > Crash reports copies it. It caught one bug
+  at once: the storm's warm-up threw `wu is not defined` (weatherfx.js `warm`, fixed).
+
 ## Several sessions at once
 
 The owner often runs several Claude sessions in this folder at the same

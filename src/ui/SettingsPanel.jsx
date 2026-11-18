@@ -15,6 +15,7 @@ import SoundPanel from "./SoundPanel.jsx";
 import { prefs, setPrefs, onPrefs } from "../data/prefs.js";
 import { makeSaveCode, readSaveCode, restoreSave, eraseAll } from "../data/backup.js";
 import { resetProgress } from "../data/campaign.js";
+import { crashReport, crashCount, clearCrashes } from "../native/crashlog.js";
 import "./hud/hud.css";
 import "./hud/sandbox.css";
 
@@ -78,6 +79,8 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
   const [copied, setCopied] = useState("");
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);   // { text, bad }
+  const [crashes, setCrashes] = useState(() => crashCount());
+  const [crashText, setCrashText] = useState("");
   const box = { width: "100%", boxSizing: "border-box", resize: "none", padding: "6px 8px", fontFamily: "var(--body)", fontSize: 11,
     color: "var(--text)", background: "var(--slate-dk)", border: "2px solid var(--ink)", userSelect: "text", WebkitUserSelect: "text" };
 
@@ -101,6 +104,11 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
       location.reload();
     });
   };
+  const copyCrash = async () => {
+    const r = crashReport();
+    setCrashText(r);
+    try { await navigator.clipboard.writeText(r); } catch { /* the box below shows it */ }
+  };
   const head = (t) => <div className="cg-label" style={{ marginTop: 2 }}>{t}</div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -122,6 +130,14 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
         {arm.is("restore") ? "Tap again to restore" : "Restore"}
       </button>
       {msg && <div style={{ ...say, color: msg.bad ? "#ff8a78" : "var(--text)" }}>{msg.text}</div>}
+
+      {head("Crash reports")}
+      <div style={note}>{crashes ? `${crashes} problem${crashes > 1 ? "s" : ""} noted on this device. Copy the report and send it to the developer.` : "No problems noted on this device."}</div>
+      {crashes > 0 && <div style={{ display: "flex", gap: 8 }}>
+        <button className="cg-btn" style={{ flex: 1, minHeight: 44 }} onClick={copyCrash}>Copy crash report</button>
+        <button className="cg-btn cg-btn--slate" style={{ flex: 1, minHeight: 44 }} onClick={() => { clearCrashes(); setCrashes(0); setCrashText(""); }}>Clear</button>
+      </div>}
+      {crashText && <textarea readOnly rows={4} value={crashText} style={box} onFocus={(e) => e.target.select()} aria-label="Crash report" />}
 
       {head("Start over")}
       <button className={cls("cg-btn", arm.is("campaign") && "cg-btn--gold")} style={{ minHeight: 44 }}

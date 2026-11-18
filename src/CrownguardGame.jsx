@@ -6,6 +6,8 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
+import { noteCrash, heartbeat, quietBeat } from "./native/crashlog.js";
+import { bakeStats } from "./render/pix/bake.js";
 import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
 import { music } from "./audio/music.js";
@@ -540,13 +542,18 @@ export default function Crownguard() {
       // an engine fault must cost one tick, never the picture: log it once
       // per message and carry on drawing
       try { updateGame(g, dt); }
-      catch (err) { const k = String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("updateGame failed", err); } }
+      catch (err) { const k = String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("updateGame failed", err); noteCrash("update", err); } }
       // a garrison sold mid-move takes its rally prompt with it
       const abAim = typeof g.rallyFor === "string" && g.rallyFor.startsWith("ab:");
       if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && !abAim && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
       // an ability can't take aim, nor he take a post, while the hero is down
       if ((abAim || g.rallyFor === "hero") && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
-      draw(g, canvasRef.current, bufRef);
+      // a painter's fault must cost one frame's picture, never freeze the board for good
+      try { draw(g, canvasRef.current, bufRef); }
+      catch (err) { const k = "draw:" + String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("draw failed", err); noteCrash("draw", err); } }
+      // the crash recorder's heartbeat (native/crashlog.js): only while a battle is on screen
+      if (screenRef.current === "game" && g.phase !== "lost") { const b = bakeStats(); heartbeat(now, { realm: REALM.id, faction: FACTION.id, wave: g.wave, phase: g.phase, bakeMB: Math.round(b.bytes / 1048576), clips: b.clips }); }
+      else quietBeat();
       // the weather darkens the landscape beyond the board too (render/weatherfx.js weatherVeil)
       if (veilRef.current) { const v = weatherVeil(g) || "transparent"; if (veilRef.current.style.background !== v) veilRef.current.style.background = v; }
       // and fog / mist run out over it (weatherfx.js paints them wide enough)
