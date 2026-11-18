@@ -3243,7 +3243,7 @@ export function updateGame(g, dt) {
             }
             if (next && p.kind === "orb") {
               // (a Court Wizard's bolt leaps on as an orb, homing, with a crackle between)
-              g.effects.push({ type: "bolt", pts: [[p.tx, p.ty - 6], [next.x, next.y - 6]], ttl: 160, seed: Math.random() * 10 });
+              g.effects.push({ type: "bolt", pts: [[p.tx, p.ty - 6], [next.x, next.y - 6]], ttl: 160, seed: Math.random() * 10, arcane: true });
               g.projectiles.push({
                 id: nextId(), x: p.tx, y: p.ty - 6, targetId: next.id, tx: next.x, ty: next.y, speed: 380, delay: 0,
                 dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,

@@ -733,6 +733,12 @@ const BOLT_TONES = [
   ["#3a7ad0", "#8ad0f8", "#e8f8ff"],
   ["#2e5aa8", "#6aa8e0", "#a8dcf8"],
 ];
+// a Court Wizard's orb leaping on (fx.arcane): the same bolt in the arcane orb's violets
+const ARCANE_TONES = [
+  ["#9a6ae0", "#dcc4fc", "#fff6ff"],
+  ["#7a4ac0", "#c0a0f0", "#f0e4ff"],
+  ["#5a3898", "#9a78d0", "#d4bef0"],
+];
 export const drawChain = (ctx, fx) => {
   const life = lifeOf(fx, 220), age = life - fx.ttl, p = age / life;
   if (p >= 1 || !fx.pts || fx.pts.length < 2) return;
@@ -763,7 +769,7 @@ export const drawChain = (ctx, fx) => {
       px = qx; py = qy;
     }
   }
-  const tones = BOLT_TONES[p < 0.45 ? 0 : p < 0.75 ? 1 : 2];
+  const tones = (fx.arcane ? ARCANE_TONES : BOLT_TONES)[p < 0.45 ? 0 : p < 0.75 ? 1 : 2];
   // glow edge, translucent, as one union
   ctx.save();
   ctx.globalAlpha *= p < 0.75 ? 0.45 : 0.3;
