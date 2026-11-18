@@ -75,7 +75,7 @@ const make = (s) => (px0, F, o = {}) => {
   if (s < 0) { px.part(); px.toneLine(sx + rs * 3.8, chY - 1, sx + ls * 3.6, hipY - 3.4, -1, px._pid); }
 
   // ---- the bow in her left hand, carried upright at her side ----
-  const bh = [sx + ls * 9.8, chY + 8.5 + swF], bt = 0.1 * ls;
+  const bh = [sx + ls * 8.2, chY + 8 + swF], bt = 0.1 * ls;
   const R = (x, y) => [bh[0] + x * Math.cos(bt) - y * Math.sin(bt), bh[1] + x * Math.sin(bt) + y * Math.cos(bt)];
   const top = R(-ls * 0.6, -12.5), bot = R(-ls * 0.6, 12.5), tm = R(ls * 0.5, -6.5), bm = R(ls * 0.5, 6.5), bz = s > 0 ? 6.6 : 3.4;
   px.part();
@@ -85,8 +85,8 @@ const make = (s) => (px0, F, o = {}) => {
   px.capsule(bh[0], bh[1] - 1.8, 1.2, bh[0], bh[1] + 1.8, 1.2, LEATHER, bz + 0.05);
   // her left arm to it
   px.body(1);
-  px.limb([[sx + ls * 7.2, chY + 0.4], [sx + ls * 8.6, chY + 4.4], bh], [1.9, 1.8, 1.6], TUNIC, bz + 0.1, { bias: -1 });
-  px.capsule((sx + ls * 8.6 + bh[0]) / 2, chY + 6, 1.7, bh[0], bh[1] - 0.4, 1.6, SHIRT, bz + 0.12, { wrap: true });
+  px.limb([[sx + ls * 5.6, chY + 0.4], [sx + ls * 7, chY + 4.2], bh], [1.9, 1.8, 1.6], TUNIC, bz + 0.1, { bias: -1 });
+  px.capsule((sx + ls * 7 + bh[0]) / 2, chY + 6, 1.7, bh[0], bh[1] - 0.4, 1.6, SHIRT, bz + 0.12, { wrap: true });
   px.body(0);
   px.part(); px.ellipse(bh[0], bh[1], 1.6, 1.7, SKIN, bz + 0.3);
 
@@ -105,27 +105,25 @@ const make = (s) => (px0, F, o = {}) => {
     }
   }
 
-  // the bust's edge shows a little past her sides in BACK, under the arms
-  if (s < 0) { px.part(); for (const sd of [-1, 1]) px.ellipse(sx + sd * 8, chY + 4, 2.0, 3.2, TUNIC, 3.9, { round: 0.9 }); }
   // ---- the tunic: belted, skirted to mid-thigh ----
   px.part(); const tun = px.body(1);
   const hy = hipY + 2.8, hemW = 5.2;
-  px.poly([[sx - 5.2, chY - 1.8], [sx + 5.4, chY - 1.8], [sx + 8, chY + 3.4], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 8, chY + 3.4]], TUNIC, 4, { round: 0.92 });
+  px.poly([[sx - 4.6, chY - 1.8], [sx + 4.8, chY - 1.8], [sx + 5.6, chY + 3], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 5.6, chY + 3]], TUNIC, 4, { round: 0.92 });
   px.toneLine(sx + 0.4, hipY - 0.5, sx + 0.4 + vx, hy - 0.5, -1, tun);
   px.poly([[sx - 4.3, hipY - 4.4], [sx + 4.3, hipY - 4.4], [sx + 4.3, hipY - 2.6], [sx - 4.3, hipY - 2.6]], LEATHER, 4.05, { round: 0.92 });
   if (s > 0) px.rect(sx - 1, hipY - 4.5, 2, 2, GOLD, 4.06, { fix: 3 });
   // the mantle: a short green cape over both shoulders, to a point on the chest with a gold pin (from behind: a scalloped edge)
   px.part();
   if (s > 0) {
-    px.poly([[sx - 6.4, chY - 2.6], [sx + 6.2, chY - 2.6], [sx + 8, chY + 1.2], [sx + 4.6, chY + 2], [sx + 0.6, chY + 3], [sx - 4.2, chY + 2], [sx - 8.2, chY + 1.6]], RANGER, 4.4, { round: 0.9 });
-    
+    px.poly([[sx - 5.4, chY - 2.6], [sx + 5.2, chY - 2.6], [sx + 6.2, chY + 1.4], [sx + 3.4, chY + 3.2], [sx + 0.6, chY + 4.8], [sx - 2.6, chY + 3], [sx - 6.4, chY + 1.8]], RANGER, 4.4, { round: 0.9 });
+    px.dot(sx + 0.6, chY + 2.8, GOLD, 4.5, { fix: 3 });
   } else {
-    px.poly([[sx - 7, chY - 2.6], [sx + 7, chY - 2.6], [sx + 8.2, chY + 1.6], [sx + 4.4, chY + 3.2], [sx + 0.4, chY + 2.2], [sx - 4, chY + 3.4], [sx - 8.2, chY + 1.6]], RANGER, 5.8, { round: 0.9 });
+    px.poly([[sx - 5.6, chY - 2.6], [sx + 5.6, chY - 2.6], [sx + 6.4, chY + 1.6], [sx + 3.6, chY + 3.2], [sx + 0.4, chY + 2.2], [sx - 3, chY + 3.4], [sx - 6.4, chY + 1.6]], RANGER, 5.8, { round: 0.9 });
   }
   px.body(0);
 
   // ---- the free right arm: a rolled sleeve, a pale cuff, a leather bracer; it swings a little ----
-  const sh = [sx + rs * 7.2, chY + 0.5], el = [sx + rs * 8.6, chY + 4.2 + swN * 0.3], hd = [sx + rs * 8.8, chY + 8 + swN * 0.8];
+  const sh = [sx + rs * 5.6, chY + 0.5], el = [sx + rs * 6.8, chY + 4 + swN * 0.3], hd = [sx + rs * 7, chY + 8 + swN * 0.8];
   px.part(); px.body(1);
   px.limb([sh, el, hd], [2.1, 1.9, 1.6], TUNIC, 7, { weld: 2, weldRoot: 4 });
   px.capsule(el[0], el[1], 1.8, hd[0], hd[1], 1.55, SHIRT, 7.01, { wrap: true });
@@ -138,13 +136,9 @@ const make = (s) => (px0, F, o = {}) => {
   if (s > 0) {
     const cb = cl((lag1.C[1] - C[1]) * 0.9, -1, 1);
     px.part();
-    px.ellipse(sx - 3.9, chY + 4.3 + cb, 5.1, 4.5, TUNIC, 4.7, { round: 0.95, vb: 0.45 });
-    px.ellipse(sx + 3.9, chY + 4.3 + cb, 5.1, 4.5, TUNIC, 4.7, { round: 0.95, vb: 0.45 });
-    px.toneLine(sx - 8.4, chY + 8.9 + cb, sx + 8.4, chY + 8.9 + cb, -1, px._pid);        // the soft shadow beneath
-    px.part();
-    px.poly([[sx - 3.2, chY - 2.8], [sx + 3.2, chY - 2.8], [sx + 1.6, chY + 3], [sx, chY + 5 + cb * 0.5], [sx - 1.6, chY + 3]], SKIN, 4.9, { round: 0.6 });   // the open collar: a deep V, the tunic's edge covering her either side
-    px.line(sx, chY + 1.6, sx, chY + 5.2 + cb * 0.5, EYE, 5.0, { fix: 0 });
-    px.dot(sx, chY + 6.1 + cb * 0.5, GOLD, 5.1, { fix: 3 });
+    px.ellipse(sx - 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
+    px.ellipse(sx + 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
+    px.dot(sx + 0.6, chY + 3.9, GOLD, 4.9, { fix: 3 });
   }
 
   // ---- the head ----
