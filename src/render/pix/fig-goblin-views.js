@@ -212,3 +212,115 @@ const make = (s) => (px, F, o = {}) => {
 const walk = { ...SIDE.walk };
 export const FRONT = { NAME: "goblin-front", BOX: { w: 48, h: 48, ox: 24, oy: 42 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
 export const BACK = { NAME: "goblin-back", BOX: { w: 48, h: 48, ox: 24, oy: 42 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+
+// ---- the in-betweens for turning a corner: one still pose each, facing screen RIGHT (the lead mirrors for left) ----
+// FRONT34: turned half toward the camera; BACK34: half away. A neutral mid-stride stand (near foot a little ahead).
+const F34_H = [
+  "...KKKKKKKK......",
+  "..KKKKKKKKKK.....",
+  ".KKKKKKKKKKKK....",
+  ".KKKkkkkkkkkk....",
+  ".KKkGBBBBGGBBB...",
+  ".KKGeEBGGGBEHH...",
+  ".KKGEEGGGGGEHHH..",
+  ".KKGGGGGGGGLHHHL.",
+  ".KkGGGGGGGgnLNNNN",
+  "..KgMTMTMMgnNNn..",
+  "..kGgMMMMMg.nn...",
+  "...gGGGGGGg......",
+  ".....gggg........",
+];
+const F34_B = bareOf(F34_H, { 0: "....GDDDGG.......", 1: "..GGGDGGGGGG.....", 2: ".GGLLGGGGGGGG....", 3: ".GGGGGGGGGGGG...." });
+const B34_H = [
+  "...KKKKKKKK....",
+  "..KKKKKKKKKK...",
+  ".KKKKKKKKKKKK..",
+  ".KKKKKKKsKKKK..",
+  ".KKKKKKKsKKKK..",
+  "KKKPPKKKsKKKKK.",
+  "KKKPPKKKsKKKKKG",
+  "KKKKKKKKsKKKKGG",
+  ".KKKKKKKsKKKkGn",
+  ".kKKKKKKsKKKk.n",
+  "..kkKKKKKKkk...",
+  "...kkKkkKkk....",
+  ".....kkkk......",
+];
+const B34_B = [
+  "....GDDDGG.....",
+  "..GGGDDGGGG....",
+  ".GGLLGGGGGGGG..",
+  ".GGGLGGGGGGGG..",
+  ".GGGGGGGGgGGG..",
+  ".GGGGGGGGGGGGG.",
+  ".GGGGgGGGGGGGGG",
+  ".gGGGGGGGGGGGGn",
+  "..gGGDGGDGGgGGn",
+  "...ggGGGGggG..n",
+  "....gGGGGg.....",
+  ".....ggg.......",
+  "...............",
+];
+const POSE34 = { drop: 1.2, lean: 0.3, hx: 1.2, fN: [2.2, 0], fF: [-1.8, 0], aN: [0.3, 0.85, 0], aF: [1.1, 0.9, 0], bF: [0.5, 0.7, 0] };
+
+const make34 = (back) => (px, F, o = {}) => {
+  const bare = o.variant === "bare", jerk = bare ? JERK_B : JERK, sk = F.sk, p = sk.p;
+  const hipY = sk.P[1], chestY = sk.C[1] + 1.5, hy = Math.round(sk.N[1] + 0.5), hx = 1;
+  const top = hy - 9, zb = back ? -1 : 1;
+  // the hood's point rises behind the crown and flops to screen left
+  px.part();
+  if (bare) px.poly([[hx - 2.4, top + 2.2], [hx + 2.4, top + 2.2], [hx + 1, top - 0.6], [hx - 2, top - 2.4], [hx - 1, top - 0.4]], HAIR, 5.2, { round: 0.8, floor: 1 });
+  else px.poly([[hx - 4.4, top + 3], [hx + 4, top + 3], [hx + 2.4, top - 3.2], [hx - 4.4, top - 7], [hx - 1.4, top - 5], [hx - 3, top - 1.6]], HOOD, 5.2, { round: 0.9, ny: -0.2 });
+  // ears: the near one (screen left) wide, the far one foreshortened behind the head
+  const ear = (pts, z, id) => { px.part(); const i = px._pid; px.poly(pts, SKIN, z, { bias: back ? -2 : -1, n: [0.2, -0.35, 0.9], cast: 1 }); return i; };
+  const R = (x, y) => [hx + x, hy + y];
+  ear([R(-4.6, -6.2), R(-5.4, -2.6), R(-9.4, -5.4), R(-14, -9.6), R(-9.4, -8.2)], back ? 6.6 : 5.5);
+  ear(back ? [R(5, -6.4), R(5.4, -3), R(7.6, -5), R(10, -8.4), R(7.4, -8)] : [R(4, -6.4), R(4, -3), R(6, -5.5), R(7.4, -9.6), R(5.6, -8.6)], back ? 6.6 : 5.2);
+  // the shield (his left arm): far side toward screen right in FRONT34 (3/4), its back on screen left in BACK34
+  if (!bare) {
+    if (!back) {
+      const c = [hx + 9.6, chestY + 6.2]; px.part(); px.capsule(hx + 3.6, chestY + 0.6, 1.6, hx + 7.6, chestY + 4.4, 1.5, SKIN, 3.2, { bias: -1 });
+      px.part(); const id = px._pid; px.ellipse(c[0], c[1], 2.4, 5.2, DARK, 3.4, { round: 0.6 }); px.ellipse(c[0], c[1], 1.5, 4.2, WOOD, 3.42, { round: 0.75 }); px.toneLine(c[0] - 0.4, c[1] - 4, c[0] - 0.4, c[1] + 4, -1, id);
+      px.part(); px.ellipse(c[0] + 0.8, c[1] - 0.2, 0.9, 1.3, STEEL, 3.46, { cast: 1 });
+    } else {
+      const c = [hx - 8.6, chestY + 6.2]; px.part(); px.capsule(hx - 3.6, chestY + 0.6, 1.6, hx - 6.6, chestY + 4.4, 1.5, SKIN, 3.2, { bias: -1 });
+      px.part(); const id = px._pid; px.ellipse(c[0], c[1], 3.1, 5.2, DARK, 3.4, { round: 0.6 }); px.ellipse(c[0], c[1], 2.1, 4.2, WOOD, 3.42, { round: 0.75 }); px.toneLine(c[0] - 0.6, c[1] - 4, c[0] - 0.6, c[1] + 4, -1, id);
+      px.part(); px.line(c[0] - 2.2, c[1] - 0.8, c[0] + 2.2, c[1] - 0.8, DARK, 3.46, { cast: 0 }); px.dot(c[0] - 1.4, c[1] - 3.4, STEEL, 3.46); px.dot(c[0] + 1.4, c[1] + 2.6, STEEL, 3.46);
+    }
+  } else {
+    const sx = back ? -1 : 1, h = [hx + sx * 6, chestY + 8], e = [hx + sx * 6.4, chestY + 4];
+    px.part(); px.capsule(hx + sx * 3.8, chestY + 0.6, 1.6, e[0], e[1], 1.5, SKIN, 4.6, { bias: -1 }); px.capsule(e[0], e[1], 1.5, h[0], h[1], 1.4, SKIN, 4.6, { bias: -1 });
+    px.part(); px.ellipse(h[0], h[1] + 0.3, 1.9, 1.8, SKIN, 4.7, { bias: -1 });
+  }
+  // legs: near (right) foot a little ahead
+  for (const [side, fx, fy, z, b] of [[1, hx + 3.4, -2.4, 2, -1], [-1, hx - 1.8, -1.2, 3, 0]]) {
+    const hp = [hx + side * 1.8, hipY + 0.5], kn = [(hp[0] + fx) / 2 + side * 1.1, (hp[1] + fy) / 2];
+    px.part(); px.capsule(hp[0], hp[1], 2.1, kn[0], kn[1], 1.8, SKIN, z, { bias: b }); px.capsule(kn[0], kn[1], 1.7, fx, fy, 1.3, SKIN, z, { bias: b });
+    px.part(); px.ellipse(fx + (back ? 0.3 : 1.2), fy + (back ? 0.9 : 1.1), back ? 2 : 2.7, 1.3, SKIN, z + 0.4, { bias: b });
+  }
+  // jerkin, a little narrower for the turn, and the belt
+  const c0 = chestY - 3, b0 = hipY;
+  px.part();
+  px.poly([[hx - 4.6, c0], [hx + 4.6, c0], [hx + 4.4, c0 + 3.4], [hx + 4.2, b0 + 0.2], [hx + 4.3, b0 + 2.2], [hx - 4.3, b0 + 2.2], [hx - 4.2, b0 + 0.2], [hx - 4.4, c0 + 3.4]], jerk, 4, { round: 0.92, cast: 1 });
+  for (const dx of [-3, -1.2, 1, 2.8]) px.dot(hx + dx, b0 + 2.6, jerk, 4);
+  px.poly([[hx - 4.4, b0 - 2], [hx + 4.4, b0 - 2], [hx + 4.4, b0 - 0.2], [hx - 4.4, b0 - 0.2]], DARK, 4.05, { round: 0.92 });
+  px.part();
+  if (!back) { px.dot(hx + 2.8, b0 - 1.1, STEEL, 4.2); px.dot(hx + 2.4, c0 + 2, DARK, 4.1); px.dot(hx + 2.4, c0 + 4, DARK, 4.1); }
+  else px.toneLine(hx + 1, c0 + 1, hx + 1, b0 - 2.6, -1, px._pid);
+  // the knife arm (his right): screen left in FRONT34, screen right in BACK34
+  const rs = back ? 1 : -1, sh = [hx + rs * 4.4, chestY + 0.4], elb = [hx + rs * 7.6, sh[1] + 3.8], hand = [hx + rs * 6.8, sh[1] + 7.6];
+  px.part(); px.ellipse(sh[0] - rs * 0.2, sh[1] + 0.2, 2.5, 2.3, jerk, 4.6, { cast: 0, bias: 1 });
+  px.part(); px.capsule(sh[0], sh[1] + 0.6, 1.7, elb[0], elb[1], 1.6, SKIN, 4.5, { cast: 1 }); px.capsule(elb[0], elb[1], 1.6, hand[0], hand[1], 1.5, SKIN, 4.5, { cast: 1 });
+  px.part(); px.ellipse(hand[0], hand[1], 1.8, 1.8, SKIN, 8.3);
+  px.part(); px.tag("weapon");
+  const tip = [hand[0] + rs * (back ? 2.4 : 3.2), hand[1] - (back ? 5.4 : 8)];
+  px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 1, hand[1] - 1], [tip[0] + 0.5, tip[1] + 2], [tip[0], tip[1]]], STEEL, 8.1, { fix: 3 });
+  px.line(hand[0] - 0.2, hand[1] - 1.2, tip[0], tip[1] + 1.4, STEEL, 8.12, { fix: 4 }); px.tag(null);
+  // the head
+  px.part();
+  px.stamp(back ? (bare ? B34_B : B34_H) : (bare ? F34_B : F34_H), hx, hy, LEG, back ? 6.4 : 6, { ax: back ? 6 : 4, ay: 9, ball: [back ? 7 : 8.5, 6, back ? 7.5 : 9, 7], cast: 1 });
+  return {};
+};
+const turn = { n: 1, ms: 100, loop: true, lag: 0.09, pose: () => POSE34 };
+export const FRONT34 = { NAME: "goblin-front34", BOX: { w: 48, h: 48, ox: 24, oy: 42 }, BONES: SIDE_BONES, draw: make34(false), CLIPS: { turn } };
+export const BACK34 = { NAME: "goblin-back34", BOX: { w: 48, h: 48, ox: 24, oy: 42 }, BONES: SIDE_BONES, draw: make34(true), CLIPS: { turn } };
