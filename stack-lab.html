@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Concept (2026-11-17, owner: "try giving me a sprite stacked goblin"): the goblin
+  as a sprite stack (concept/stack-goblin.js: a voxel model posed by the goblin's own
+  walk, drawn as slices turned to any heading) beside the goblin the game draws today,
+  both walking the same loop of road; and a turntable with the camera's angle on a slider.
+  /stack-lab.html?z=3&elev=35
+-->
+<html><head><meta charset="utf-8" /><title>sprite stack lab</title></head>
+<body style="background:#14171d;color:#e8e0c8;font:14px system-ui;margin:0;padding:12px">
+<div style="margin-bottom:8px"><b>Sprite-stacked goblin</b> (a test, not in the game).
+  Camera angle <input id="elev" type="range" min="15" max="85" step="5" value="35" style="vertical-align:middle"> <span id="ev"></span>
+  &nbsp; <label><input id="spin" type="checkbox" checked> turntable spins</label>
+  &nbsp; <label><input id="slow" type="checkbox"> slow motion</label></div>
+<canvas id="c" style="image-rendering:pixelated"></canvas>
+<script type="module">
+import { pixRec, vertSheet } from "/src/render/pix/pixrigs.js";
+import { vertOf, turnOf } from "/src/render/march.js";
+import { stackSprite, WALK_N, WALK_MS } from "/concept/stack-goblin.js";
+
+const Q = new URLSearchParams(location.search);
+const Z = +(Q.get("z") || 3);
+const elevIn = document.getElementById("elev"), ev = document.getElementById("ev");
+elevIn.value = Q.get("elev") || 35;
+const showElev = () => (ev.textContent = `${elevIn.value}°` + (+elevIn.value === 35 ? " (about the game's)" : +elevIn.value >= 70 ? " (near top-down)" : ""));
+showElev(); elevIn.oninput = showElev;
+
+const PW = 170, PH = 150, GAP = 8, TT = 120;
+const pts = [[24, 116], [146, 116], [146, 40], [24, 40]];
+const segs = pts.map((p, i) => { const q = pts[(i + 1) % 4]; return { p, q, len: Math.hypot(q[0] - p[0], q[1] - p[1]) }; });
+const LOOP = segs.reduce((s, g) => s + g.len, 0);
+const posAt = (d) => { d = ((d % LOOP) + LOOP) % LOOP; for (const g of segs) { if (d <= g.len) { const t = d / g.len; return [g.p[0] + (g.q[0] - g.p[0]) * t, g.p[1] + (g.q[1] - g.p[1]) * t]; } d -= g.len; } return pts[0]; };
+const smoothPos = (d) => { let x = 0, y = 0; for (let i = 0; i < 9; i++) { const p = posAt(d + (i - 4) * 3); x += p[0]; y += p[1]; } return [x / 9, y / 9]; };
+const SPEED = (4 * 3.7) / (WALK_MS / 1000);
+
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+cv.width = (PW * 2 + GAP) * Z; cv.height = (PH + 14 + 8 + TT + 14) * Z;
+
+const ground = (ox, oy, w, h) => {
+  ctx.fillStyle = "#6f9a4c"; ctx.fillRect(ox, oy, w, h);
+  ctx.fillStyle = "#5f8a40"; for (let i = 0; i < w * h / 260; i++) ctx.fillRect(ox + (i * 53) % w, oy + (i * 37 + (i % 7) * 11) % h, 1, 1);
+};
+const road = (ox) => {
+  ctx.save(); ctx.translate(ox, 0);
+  ctx.strokeStyle = "#9c7a4e"; ctx.lineWidth = 22; ctx.lineJoin = "round";
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle = "#a9875a"; ctx.lineWidth = 12; ctx.stroke();
+  ctx.fillStyle = "#7d6040"; for (let d = 0; d < LOOP; d += 9) { const p = posAt(d); ctx.fillRect(Math.round(p[0] + (d * 7.3) % 7 - 3.5), Math.round(p[1] + (d * 3.1) % 7 - 3.5), 1, 1); }
+  ctx.restore();
+};
+const shadow = (x, y) => { ctx.fillStyle = "rgba(20,24,12,0.35)"; ctx.beginPath(); ctx.ellipse(x, y + 1, 7, 2.2, 0, 0, Math.PI * 2); ctx.fill(); };
+const label = (x, y, s, gold) => { ctx.fillStyle = gold ? "#e8c070" : "#c8c0a8"; ctx.font = "8px system-ui"; ctx.fillText(s, x, y); };
+
+const today = { id: 1 };
+let spinA = 0, last = performance.now(), T = 0;
+const tick = (now) => {
+  const dt = Math.min(0.1, (now - last) / 1000) / (document.getElementById("slow").checked ? 4 : 1); last = now; T += dt;
+  const elev = +elevIn.value;
+  ctx.setTransform(Z, 0, 0, Z, 0, 0); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#14171d"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ground(0, 0, PW, PH); ground(PW + GAP, 0, PW, PH); road(0); road(PW + GAP);
+  const d = T * SPEED, p = smoothPos(d), p2 = smoothPos(d + 2), vx = p2[0] - p[0], vy = p2[1] - p[1], v = Math.hypot(vx, vy) || 1;
+  const ph = ((d / (SPEED * WALK_MS / 1000)) % 1 + 1) % 1, f = Math.floor(ph * WALK_N);
+
+  // today: the game's own goblin (side figure, up/down walk, squeeze turn)
+  today.x = p[0]; today.y = p[1];
+  if (Math.abs(vx / v) > 0.3) today.face = vx >= 0 ? 1 : -1; else today.face = today.face || 1;
+  const heading = vertOf(today), tn = turnOf(today, today.face, T * 1000);
+  const rec = pixRec("goblin", vertSheet("goblin", "walk", heading), ph * 4, tn.face < 0);
+  shadow(p[0], p[1]);
+  ctx.save(); ctx.translate(Math.round(p[0]), Math.round(p[1])); ctx.scale(tn.face < 0 ? -tn.sx : tn.sx, 1);
+  ctx.drawImage(rec.cv, -rec.ox, -rec.oy); ctx.restore();
+
+  // the stack: turns to its true heading (screen velocity back onto the ground plane)
+  const yaw = Math.atan2(vy / Math.sin((elev * Math.PI) / 180), vx);
+  const st = stackSprite(f, yaw, elev);
+  shadow(PW + GAP + p[0], p[1]);
+  ctx.drawImage(st.cv, Math.round(PW + GAP + p[0] - st.ox), Math.round(p[1] - st.oy));
+
+  ctx.fillStyle = "#14171d"; ctx.fillRect(0, PH, PW * 2 + GAP, 14);
+  label(3, PH + 10, "TODAY (the game's goblin)"); label(PW + GAP + 3, PH + 10, "SPRITE-STACKED", true);
+
+  // the turntable: walking on the spot, turning all the way round
+  const y0 = PH + 22;
+  ctx.fillStyle = "#1c2016"; ctx.fillRect(0, y0, PW * 2 + GAP, TT);
+  if (document.getElementById("spin").checked) spinA += dt * 0.9;
+  const fT = Math.floor(((T * 1000) / WALK_MS % 1) * WALK_N);
+  for (let i = 0; i < 6; i++) {
+    const a = spinA + (i * Math.PI) / 3, x = 30 + i * 58, y = y0 + 88;
+    const s = stackSprite(fT, a, elev);
+    ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(x, y + 1, 9, 9 * Math.sin((elev * Math.PI) / 180) * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(s.cv, x - s.ox, y - s.oy);
+  }
+  label(3, y0 + TT + 10, "turntable: six headings, 60 degrees apart, all from the one model");
+  requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+</script>
+</body></html>
