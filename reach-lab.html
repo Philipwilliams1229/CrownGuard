@@ -6,6 +6,7 @@
 
     /reach-lab.html?realm=greenwood&horn=0.72&scale=2&tag=x
     &horn   where along the road the example Levy horn is sounded (0..1)
+    &mode=road  the same reaches as steps along the road from the gate; &mul=2 scales them
 
   Saved to .shots/reach_<tag>.png.
 -->
@@ -72,8 +73,10 @@
       } else {
         // &mode=road: the same numbers counted as steps ALONG THE ROAD back from the gate (what a
         // foe's e.dist would read), drawn as nested stripes on the road, widest reach the widest stripe
+        const MUL = Number(q.get("mul")) || 1;   // &mul=2: the road reach scaled (an idea: double it)
+        const reach = (k) => Math.round(top(k).range * MUL);
         const stripe = (k, w) => {
-          const d0 = Math.max(0, TOTAL_LEN - top(k).range);
+          const d0 = Math.max(0, TOTAL_LEN - reach(k));
           o.save(); o.beginPath();
           for (let d = d0, i = 0; d <= TOTAL_LEN; d += 2, i++) { const [x, y] = posAt(Math.min(d, TOTAL_LEN)); i ? o.lineTo(x, y) : o.moveTo(x, y); }
           o.strokeStyle = C[k]; o.globalAlpha = 0.85; o.lineWidth = w; o.lineCap = "butt"; o.lineJoin = "round"; o.stroke(); o.restore();
@@ -85,7 +88,7 @@
         dot(gx, gy, "#ffffff");
         ends.forEach(([k, [ex, ey]], i) => {
           const txt = gateRings.find((r) => r[0] === k)[1];
-          tag(ex, ey - 14 - i * 15, `${txt}: ${top(k).range} steps`, C[k], "center");
+          tag(ex, ey - 14 - i * 15, `${txt}: ${reach(k)} steps`, C[k], "center");
         });
       }
       // where each stands (the wall's crews)
@@ -111,7 +114,7 @@
       // legend
       o.setTransform(1, 0, 0, 1, 0, 0);
       o.font = `bold ${7 * SC}px monospace`; o.textAlign = "left"; o.textBaseline = "top";
-      const lines = ROAD ? [`IDEA: reach counted in steps along the road from the gate (${q.get("realm") || "greenwood"})`, "stripe = top tier reach, square = where it ends"] : [`TODAY: reach as a circle round the gate (${q.get("realm") || "greenwood"})`, "solid ring = top tier, dashed = first tier, dots = where they stand"];
+      const lines = ROAD ? [`${Number(q.get("mul")) > 1 ? `IDEA x${q.get("mul")}: DOUBLED,` : "IDEA:"} reach counted in steps along the road from the gate (${q.get("realm") || "greenwood"})`, "stripe = top tier reach, square = where it ends"] : [`TODAY: reach as a circle round the gate (${q.get("realm") || "greenwood"})`, "solid ring = top tier, dashed = first tier, dots = where they stand"];
       o.fillStyle = "rgba(20,16,28,0.88)"; o.fillRect(6 * SC, 6 * SC, 400 * SC, 24 * SC);
       o.fillStyle = "#fff3d2"; lines.forEach((l, i) => o.fillText(l, 10 * SC, (9 + i * 10) * SC));
       await fetch(`/__shot?name=reach_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
