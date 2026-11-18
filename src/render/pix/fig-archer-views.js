@@ -108,7 +108,7 @@ const make = (s) => (px0, F, o = {}) => {
   // ---- the tunic: belted, skirted to mid-thigh ----
   px.part(); const tun = px.body(1);
   const hy = hipY + 2.8, hemW = 5.2;
-  px.poly([[sx - 4.6, chY - 1.8], [sx + 4.8, chY - 1.8], [sx + 5.6, chY + 3], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 5.6, chY + 3]], TUNIC, 4, { round: 0.92 });
+  px.poly([[sx - 4.6, chY - 1.8], [sx + 4.8, chY - 1.8], [sx + 5.9, chY + 3], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 5.9, chY + 3]], TUNIC, 4, { round: 0.92 });
   px.toneLine(sx + 0.4, hipY - 0.5, sx + 0.4 + vx, hy - 0.5, -1, tun);
   px.poly([[sx - 4.3, hipY - 4.4], [sx + 4.3, hipY - 4.4], [sx + 4.3, hipY - 2.6], [sx - 4.3, hipY - 2.6]], LEATHER, 4.05, { round: 0.92 });
   if (s > 0) px.rect(sx - 1, hipY - 4.5, 2, 2, GOLD, 4.06, { fix: 3 });
@@ -116,7 +116,7 @@ const make = (s) => (px0, F, o = {}) => {
   px.part();
   if (s > 0) {
     px.poly([[sx - 5.4, chY - 2.6], [sx + 5.2, chY - 2.6], [sx + 6.2, chY + 1.4], [sx + 3.4, chY + 3.2], [sx + 0.6, chY + 4.8], [sx - 2.6, chY + 3], [sx - 6.4, chY + 1.8]], RANGER, 4.4, { round: 0.9 });
-    px.dot(sx + 0.6, chY + 2.8, GOLD, 4.5, { fix: 3 });
+    
   } else {
     px.poly([[sx - 5.6, chY - 2.6], [sx + 5.6, chY - 2.6], [sx + 6.4, chY + 1.6], [sx + 3.6, chY + 3.2], [sx + 0.4, chY + 2.2], [sx - 3, chY + 3.4], [sx - 6.4, chY + 1.6]], RANGER, 5.8, { round: 0.9 });
   }
@@ -136,9 +136,12 @@ const make = (s) => (px0, F, o = {}) => {
   if (s > 0) {
     const cb = cl((lag1.C[1] - C[1]) * 0.9, -1, 1);
     px.part();
-    px.ellipse(sx - 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
-    px.ellipse(sx + 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
-    px.dot(sx + 0.6, chY + 3.9, GOLD, 4.9, { fix: 3 });
+    px.ellipse(sx - 2.5, chY + 2.8 + cb, 3.0, 2.7, TUNIC, 4.7, { round: 0.9, vb: 0.3 });
+    px.ellipse(sx + 2.5, chY + 2.8 + cb, 3.0, 2.7, TUNIC, 4.7, { round: 0.9, vb: 0.3 });
+    px.toneLine(sx - 5.2, chY + 5.2 + cb, sx + 5.2, chY + 5.2 + cb, -1, px._pid);        // the soft shadow beneath
+    px.part();
+    px.poly([[sx - 3, chY - 2.8], [sx + 3, chY - 2.8], [sx + 1.2, chY + 2], [sx, chY + 3.4 + cb * 0.5], [sx - 1.2, chY + 2]], SKIN, 4.9, { round: 0.6 });   // the open collar: a modest V
+    px.dot(sx, chY + 4.2 + cb * 0.5, GOLD, 5.0, { fix: 3 });
   }
 
   // ---- the head ----
