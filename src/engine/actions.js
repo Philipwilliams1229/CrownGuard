@@ -7,7 +7,7 @@ import { W, H, WALL_W, LANE_OFF, PATH_HALF } from "../data/constants.js";
 import { footOf, footsClash, footPoints, inFoot, HALL_GAP } from "./footing.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
-import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN } from "./path.js";
+import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN, lanePos } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
 import { riverMouths } from "../render/water.js";
 import { TOWERS } from "../data/towers.js";
@@ -90,6 +90,8 @@ export const startWave = (g) => {
     // the castle's works and the hero as they stood; the militia goes home
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
+    // the barricades as the wave found them (they keep their damage between waves now)
+    barricades: g.barricades ? g.barricades.map((r) => ({ ...r, segs: r.segs.map((sg) => ({ ...sg })) })) : null, spikeKey: g._spikeKey,
     militiaCd: g.militiaCd || 0,
     towerXp: { ...(g.towerXp || {}) },
     hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally }, abCd: { ...(b.abCd || {}) } } : null; })(),
@@ -212,6 +214,7 @@ export const restartWave = (g) => {
   g.enemies = []; g.projectiles = []; g.effects = []; g.blastHits = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
+  if (s.barricades) { g.barricades = s.barricades.map((r) => ({ ...r, segs: r.segs.map((sg) => ({ ...sg })) })); g._spikeKey = s.spikeKey; }
   g.militiaCd = s.militiaCd || 0;
   g.towerXp = { ...(s.towerXp || {}) };   // a retried wave earns its experience only once
   // the hero comes back as the wave found him: level, xp, and his abilities
@@ -601,6 +604,32 @@ export const buyCastleWork = (g, key) => {
 // Call the militia to a spot: a few farmers, for a while, for nothing. What
 // the horn raises (how many, how hard, how long, how soon again) is the Levy
 // works' tier, if one is built (bands.js militiaStats); none, the plain two.
+// The Masons' barricades keep their damage between waves (owner, 2026-11-18); in the build
+// phase this mends every frame whole for the guild's `repair` gold per missing health
+// (castle.js masons). barricadeRepairCost is what the button shows (0: nothing to mend).
+export const barricadeRepairCost = (g) => {
+  if (!g || g.phase !== "build" || !g.barricades?.length) return 0;
+  const tier = g.castle ? workTier(g.castle, "masons", g.castleRanks) : null;
+  if (!tier) return 0;
+  let miss = 0;
+  for (const row of g.barricades) for (const sg of row.segs) miss += Math.max(0, sg.maxHp - Math.max(0, sg.hp));
+  return miss > 0 ? Math.max(1, Math.ceil(miss * (tier.repair ?? 0.3))) : 0;
+};
+export const repairBarricades = (g) => {
+  const cost = barricadeRepairCost(g);
+  if (!cost || g.gold < cost) return false;
+  g.gold -= cost;
+  for (const row of g.barricades) for (const sg of row.segs) {
+    if (sg.hp >= sg.maxHp) continue;
+    sg.hp = sg.maxHp; sg.hitAt = undefined;
+    const [bx, by] = lanePos(row.dist, sg.lane);
+    g.effects.push({ type: "dust", x: bx, y: by, ttl: 380, r: 18 });
+  }
+  g.effects.push({ type: "coin", x: W / 2, y: 88, ttl: 1300, text: `The masons mend the barricades -${cost}`, big: true });
+  sfx.play("place");
+  return true;
+};
+
 export const callMilitia = (g, x, y) => {
   if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
   if (!g.bands) g.bands = [];

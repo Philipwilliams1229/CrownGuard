@@ -2065,6 +2065,28 @@ carry `_v` (campaign.js `WORKS_V` 2, `upgradeWorks` in loadCastle): a save witho
 archers tier of 2+ up one, so nobody loses what they bought. Re-cutting any work's tiers again:
 bump WORKS_V and add its step there.
 
+**Every castle work re-cut to four tiers** (owner, same day; the Levy unchanged; provisional, pending
+the owner's playtest; costs 10k / 12k / 15k / 25k):
+- **Gate Ballista:** one, twin, **chain harpoon** (`pin` 2000: the bolt holds its foe where it
+  stands, `e.pinUntil`, read as `held` in the movement; bosses and rams too, so the column waits),
+  **shield-breaker** (`breaker` {amp 0.25, ms 5000}: every blue pip knocked off, then the falconer's
+  mark fields `markUntil` / `markAmp`, so every blow lands 25% harder). The fire bolts are gone.
+- **Court Wizards:** one, two, bounce, **force orbs** (`push` 25: the first mark is thrown 25 road
+  steps back and released; never a boss, ram or swimmer; dmg 72).
+- **Gate Guard:** two, **four** (`guardSpots` has a 4-post line, -27..27), **braced plate** (`armor`
+  0.3 off every blow on them, a ram's crush too, via runMelee / `trample`'s `host.st.armor`; `brace`:
+  a cavalier's charge breaks on the halberd, the man keeps his feet and holds the rider), **sweeps**.
+  The thicker gate (castle life) left them for the Masons.
+- **Masons' Guild:** wood one row, wood two rows + thicker gate (+5), **iron** (300 a frame), **steel**
+  (480, +8 life, mend 3). Barricades are no longer rebuilt free each wave: set up whole at the first
+  build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
+  damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
+  the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls
+  actions.js `repairBarricades` for `repair` gold per missing health (0.3 / 0.3 / 0.25 / 0.2). A
+  retried wave restores them as the wave found them (snapshot `barricades`). Art: barricade.js
+  `mat` looks + a wreck (a Sonnet artist; `barricade-lab.html` shows them). The sims never repair.
+- Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
+
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 
 Provisional, pending the owner's playtest (sims barely move: the only
@@ -2110,7 +2132,7 @@ the shamans now walking in the thick of the warband).
   slant from her side, and leaves them stuck till the volley fades.
   `joint-lab.html?set=crown&only=heroHunter` shows the sky frames. The sims
   never fire abilities. Provisional.
-- **Masons' barricades** (owner, 2026-09-30): after every wave the Masons'
+- **Masons' barricades** (owner, 2026-09-30; since 2026-11-18 they keep their damage and are repaired for gold, see "Court Wizards" above): after every wave the Masons'
   Guild (castle works) sets spiked stake frames, one a lane, across the road
   before the Gate Guard: tier 1 one row (150 hp a frame, 5 thorns a blow),
   tier 2 a second row (280, 9); endless ranks +40%. `syncBarricades` /

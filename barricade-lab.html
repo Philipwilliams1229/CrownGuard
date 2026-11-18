@@ -15,15 +15,19 @@
   selectRealm(q.get("realm") || "thornbrook");
   const [gx, gy] = PTS[PTS.length - 1];
   const gd = nearestOnPath(GUARD_X, gy).dist;
+  // rows: whole, worn, broken, wreck; ?mat=wood|iron|steel shows one material, default all three side by side (lanes = materials)
   const g = { time: 5, barricades: [] };
-  [[0, 1], [1, 0.45], [2, 0.15]].forEach(([i, f]) => g.barricades.push({ dist: gd - 36 - i * 34, segs: [-21, 0, 21].map((lane) => ({ lane, hp: f * 240, maxHp: 240 })) }));
-  const SC = 3, cv = document.getElementById("cv");
-  const x0 = GUARD_X - 150, y0 = gy - 90, w = 190, h = 180;
+  const mats = q.get("mat") ? [q.get("mat"), q.get("mat"), q.get("mat")] : ["wood", "iron", "steel"];
+  [[0, 1], [1, 0.45], [2, 0.15], [3, 0]].forEach(([i, f]) => g.barricades.push({ dist: gd - 36 - i * 34, segs: [-21, 0, 21].map((lane, n) => ({ lane, hp: f * 240, maxHp: 240, mat: mats[n] })) }));
+  const SC = +(q.get("sc") || 3), cv = document.getElementById("cv");
+  const x0 = GUARD_X - 150, y0 = gy - 110, w = 190, h = 200;
   cv.width = w * SC; cv.height = h * SC;
   const ctx = cv.getContext("2d");
   ctx.imageSmoothingEnabled = false;
   ctx.scale(SC, SC); ctx.translate(-x0, -y0);
   ctx.drawImage(groundLayer(), 0, 0, W, H);
   drawBarricades(ctx, g);
+  const tag = q.get("tag") || "lab";
+  await fetch(`/__shot?name=bar_${tag}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
   document.getElementById("s").textContent = "DONE gate " + gx + "," + gy + " gd " + gd;
 </script></body></html>

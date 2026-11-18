@@ -802,11 +802,12 @@ const runRangedBand = (g, b, st, slots, sdtAll, tms) => {
   });
 };
 
-// The Masons' barricades (castle works, castle.js masons): after every wave
-// they set `spikes` rows of stake frames across the road in front of the Gate
-// Guard, one frame to a lane, rebuilt whole each time the build phase opens
-// (or the guild is raised). `g.barricades` is a list of rows
-// { dist, segs: [{ lane, hp, maxHp }] }, outermost first.
+// The Masons' barricades (castle works, castle.js masons): `spikes` rows of stake frames across
+// the road in front of the Gate Guard, one frame to a lane. Set up whole when the battle's first
+// build phase opens or a guild tier is bought (the key changes); after that they KEEP their damage
+// between waves (owner, 2026-11-18) and are mended for gold in the build phase (actions.js
+// repairBarricades). A broken frame (hp 0) stays in its row, drawn as a wreck, and lets foes by.
+// `g.barricades` is a list of rows { dist, segs: [{ lane, hp, maxHp, thorns, mat }] }, outermost first.
 // SPIKE_FIRST keeps the foes held at the first frame (SPIKE_FIRST + SPIKE_HOLD
 // back from the guard) out of the halberdiers' seizing reach (range x 0.92,
 // 48 at most), so the Gate Guard never walks out to a foe while a frame stands.
@@ -816,8 +817,11 @@ const LEAK_BACK = 20;
 const SPIKE_FIRST = 66, SPIKE_ROW = 34, SPIKE_HOLD = 7, SPIKE_LANES = [-LANE_OFF, 0, LANE_OFF];
 const syncBarricades = (g) => {
   const tier = g.castle && PTS.length ? workTier(g.castle, "masons", g.castleRanks) : null;
-  const key = tier ? `${tier.spikes}:${tier.spikeHp}` : "";
-  if (g.phase === "build" && (g._spikePhase !== "build" || g._spikeKey !== key)) {
+  const key = tier ? `${tier.spikes}:${tier.spikeHp}:${tier.mat}` : "";
+  if (g.phase === "build" && g._spikeKey !== key) {
+    // (a new tier: each frame comes up whole in the new material; a row that already stood keeps
+    // its share of damage, so buying mid-run is not a free repair)
+    const old = g.barricades || [];
     g.barricades = [];
     if (tier && tier.spikes) {
       const [gx, gy] = PTS[PTS.length - 1];
@@ -825,16 +829,16 @@ const syncBarricades = (g) => {
       for (let r = tier.spikes - 1; r >= 0; r--) {
         const dist = gd - SPIKE_FIRST - r * SPIKE_ROW;
         if (dist < 30) continue;
-        g.barricades.push({ dist, segs: SPIKE_LANES.map((lane) => ({ lane, hp: tier.spikeHp, maxHp: tier.spikeHp, thorns: tier.thorns })) });
+        const was = old.find((row) => Math.abs(row.dist - dist) < 1);
+        g.barricades.push({ dist, segs: SPIKE_LANES.map((lane, i) => {
+          const f = was ? Math.max(0, was.segs[i].hp) / was.segs[i].maxHp : 1;
+          return { lane, hp: tier.spikeHp * f, maxHp: tier.spikeHp, thorns: tier.thorns, mat: tier.mat || "wood" };
+        }) });
         const [bx, by] = lanePos(dist, 0);
         g.effects.push({ type: "dust", x: bx, y: by, ttl: 380, r: 22 });
       }
     }
     g._spikeKey = key;
-  }
-  g._spikePhase = g.phase;
-  if (g.barricades && g.barricades.length && g.phase !== "build") {
-    g.barricades = g.barricades.filter((row) => row.segs.some((sg) => sg.hp > 0));
   }
 };
 // a foe on foot meets a barricade: it halts before the frame in its lane and
@@ -885,7 +889,7 @@ const syncGateGuard = (g) => {
   if (!tier) { if (b) g.bands = g.bands.filter((x) => x !== b); return; }
   if (!g.bands) g.bands = [];
   const gy = PTS[PTS.length - 1][1];
-  const st = { count: tier.count, hp: tier.men, dmg: tier.dmg, rate: tier.rate, range: tier.range, unitSpeed: 80, respawnMs: 8000, sweep: tier.sweep || null };
+  const st = { count: tier.count, hp: tier.men, dmg: tier.dmg, rate: tier.rate, range: tier.range, unitSpeed: 80, respawnMs: 8000, sweep: tier.sweep || null, armor: tier.armor || 0, brace: !!tier.brace };
   if (!b) {
     b = { id: nextId(), kind: "gateguard", st, rally: { x: GUARD_X, y: gy }, units: [] };
     g.bands.push(b);
@@ -1006,7 +1010,7 @@ const RAM_KNOCK_MS = 1500, RAM_RETRAMPLE_MS = 4000;
 // he held, is thrown off the ram's path and down RAM_KNOCK_MS, and takes its
 // flank rather than its front for RAM_RETRAMPLE_MS.
 const trample = (g, host, u, ram, tms) => {
-  u.hp -= ram.crushDmg || u.hp;
+  u.hp -= ram.crushDmg ? ram.crushDmg * (1 - (host.st?.armor || 0)) : u.hp;
   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
   g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 14 });
   g.shake = Math.max(g.shake, 4);
@@ -1153,7 +1157,14 @@ const runMelee = (g, t, st, slots, sdtAll, tms) => {
             // Whoever steps up second is the one who actually holds him.
             if (holds && target.trampleLeft > 0 && !(WX.noCharge > 0 && Math.random() < WX.noCharge)) {   // (a storm's mud bogs the charge down — more often as the rain builds, weather.js)
               target.trampleLeft -= 1;
-              u.hp -= target.atk * 2;
+              u.hp -= target.atk * 2 * (1 - (st.armor || 0));
+              // braced (the Gate Guard's tier 3 on: castle.js guards `brace`): the charge breaks on the
+              // halberd, he keeps his feet and holds the rider
+              if (st.brace) {
+                target.trampleLeft = 0;
+                g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
+                if (u.hp <= 0) { killUnit(g, t, u); return; }
+              } else {
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
               g.shake = Math.max(g.shake, 3);
               releaseEnemy(g, target);
@@ -1161,6 +1172,7 @@ const runMelee = (g, t, st, slots, sdtAll, tms) => {
               u.state = "rally";
               if (u.hp <= 0) killUnit(g, t, u);
               return;
+              }
             }
             u.state = "fighting";
             u.face = target.x - u.x >= 0 ? 1 : -1;
@@ -1201,7 +1213,7 @@ const runMelee = (g, t, st, slots, sdtAll, tms) => {
                 } else {
                   const hurt = t.kind === "hero" ? heroHook(t.hero)?.hurt : null;
                   const was = u.hp;
-                  u.hp -= hurt ? hurt(g, t, u, target.atk, target) : target.atk;
+                  u.hp -= (hurt ? hurt(g, t, u, target.atk, target) : target.atk) * (1 - (st.armor || 0));   // (st.armor: the Gate Guard's plate)
                   drainOn(target, was - Math.max(0, u.hp), tms);
                   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
                   sfx.play("hit");
@@ -2023,7 +2035,7 @@ export function updateGame(g, dt) {
       // (a standing shield shrugs off every status: stun and slow do nothing to a shielded foe)
       const stunned = e.stunUntil > tms && !e.immStun && !(e.guard > 0);
       // a gryphon at war with a war-eagle hangs in the air to fight her
-      const held = (e.blockedBy && e.engaged) || !!e.airFight || !!e.seized;   // (e.seized: in a sea monster's grip, serpent.js)
+      const held = (e.blockedBy && e.engaged) || !!e.airFight || !!e.seized || e.pinUntil > tms;   // (e.pinUntil: the Gate Ballista's chain harpoon)   // (e.seized: in a sea monster's grip, serpent.js)
       // ---- the river road ----
       // A swimmer answers to the current, not the highway: it paddles to the
       // crossing, climbs the bank there, and joins the march already past
@@ -2294,7 +2306,7 @@ export function updateGame(g, dt) {
             const bk = bal.twin ? cd.shot : 0, ar2 = cd._ar || (cd._ar = {});
             if (ar2["b" + bk] == null) ar2["b" + bk] = Math.atan2(lay2 - by, lax - bx) * 180 / Math.PI;
             (cd.balAim || (cd.balAim = []))[bk] = ar2["b" + bk] * Math.PI / 180;
-            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
+            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true, pin: bal.pin || 0, breaker: bal.breaker || null });
             sfx.play("bolt");
           }
         }
@@ -2327,7 +2339,7 @@ export function updateGame(g, dt) {
           g.projectiles.push({
             id: nextId(), x: sx, y: sy, targetId: best.id, tx: best.x, ty: best.y, speed: 300, delay: 0,
             dmg: wiz.dmg, dtype: "magic", pierce: false, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
-            kind: "orb", src: null, big: !!wiz.chain, chain: wiz.chain || 0, chainRange: wiz.chainRange || 0,
+            kind: "orb", src: null, big: !!wiz.chain, chain: wiz.chain || 0, chainRange: wiz.chainRange || 0, push: wiz.push || 0,
           });
           sfx.play("zap");
         }
@@ -3228,7 +3240,22 @@ export function updateGame(g, dt) {
             sfx.play("midas");
             dealDamage(g, target, target.hp + 99999, "magic", true, false, p.src);
           } else {
+            // the Gate Ballista's shield-breaker (castle.js ballista `breaker`): the bolt knocks every
+            // blue pip off and marks the foe, so every blow lands `amp` harder for `ms`; it strikes after
+            if (p.breaker) {
+              if (target.guard > 0) { target.guard = 0; target.guardFlash = tms + 300; g.effects.push({ type: "flash", x: target.x, y: target.y - 6, ttl: 300 }); }
+              target.markAmp = Math.max(target.markUntil > tms ? target.markAmp || 0 : 0, p.breaker.amp);
+              target.markUntil = Math.max(target.markUntil || 0, tms + p.breaker.ms);
+            }
             dealDamage(g, target, p.dmg, p.dtype, p.pierce, false, p.src);
+            // its chain harpoon pins the foe where it stands
+            if (p.pin && !target.dead) target.pinUntil = Math.max(target.pinUntil || 0, tms + p.pin);
+            // a Court Wizard's orb (tier 4) throws its mark back down the road: never a boss or a ram
+            if (p.push && !target.dead && !target.boss && !target.roadBlock && !target.crush && !target.swimming) {
+              releaseEnemy(g, target);
+              target.dist = Math.max(0, target.dist - p.push);
+              g.effects.push({ type: "dust", x: target.x, y: target.y + 4, ttl: 300, r: 12 });
+            }
           }
           if (p.pierce) g.effects.push({ type: "pierce", x: p.tx, y: p.ty, ttl: 250 });
           // a Court Wizard's bounced orb bursts where it lands: the arcane blast's look (only its

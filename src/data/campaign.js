@@ -231,10 +231,15 @@ export function loadCastle(scope) {
   return upgradeWorks({ ...NO_WORKS, ...works });
 }
 // A saved castle from before a work's tiers were re-cut keeps what it bought: WORKS_V 2
-// (2026-11-18) gave the Wall Archers a new tier 2 (three bowmen), so an old tier 2 or 3 moves up one.
-const WORKS_V = 2;
+// (2026-11-18) gave the Wall Archers a new tier 2 (three bowmen), so an old tier 2 or 3 moves up one;
+// WORKS_V 3 (same day) gave the Ballista and the Gate Guard four tiers, so their old top tier (fire
+// bolts, halberd sweeps) becomes the new tier 4.
+const WORKS_V = 3;
 const upgradeWorks = (w) => {
-  if ((w._v || 1) < 2 && w.archers >= 2) w.archers += 1;
+  const v = w._v || 1;
+  if (v < 2 && w.archers >= 2) w.archers += 1;
+  if (v < 3 && w.ballista >= 3) w.ballista += 1;
+  if (v < 3 && w.guards >= 3) w.guards += 1;
   w._v = WORKS_V;
   return w;
 };

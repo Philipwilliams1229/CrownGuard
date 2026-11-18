@@ -39,6 +39,7 @@
         cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
       };
       const [gx, gy] = PTS[PTS.length - 1];
+      g.phase = "build"; updateGame(g, 1 / 60); g.phase = "combat";   // (the Masons' barricades go up in a build phase)
       FOES.forEach((type, i) => spawnAt(g, type, 1, TOTAL_LEN - Number(q.get("back") ?? 140) - i * 14, 0));
       for (const kv of (q.get("set") || "").split(",").filter(Boolean)) { const [k, v] = kv.split(":"); for (const e of g.enemies) { e[k] = Number(v); if (k === "hp") e.maxHp = Number(v); } }
       const DT = 1 / 60;

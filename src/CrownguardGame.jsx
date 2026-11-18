@@ -38,7 +38,7 @@ const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade", 
 const CREW_LABELS = { gunpowder: [["Bombs", "The bombardier"], ["Musket", "The musketeer"]] };
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, barricadeRepairCost, repairBarricades, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -591,9 +591,10 @@ export default function Crownguard() {
       const heroAbs = hb ? heroAbilities(hb.hero).map((a) => ({ id: a.id, name: a.name, aim: a.aim, aimHint: a.aimHint, desc: a.desc, ...heroAbilityState(hb, a) })) : [];
       const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}|${heroAbs.map((x) => x.state + (x.sec || "")).join(",")}|${canSwapHero(g) ? 1 : 0}${g.heroSwap ? 2 : 0}` : "";
       const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
-      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec) {
+      const repairCost = barricadeRepairCost(g);
+      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec || u.repairCost !== repairCost) {
         setUi({
-          heroKey: heroKeyUi, militiaSec,
+          heroKey: heroKeyUi, militiaSec, repairCost,
           hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0, abilities: heroAbs, canSwap: canSwapHero(g), swapping: !!g.heroSwap } : null,
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: (SANDBOX ? SANDBOX.lives : CASTLE_HP) + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
@@ -1106,6 +1107,19 @@ export default function Crownguard() {
       {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / militiaSt.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
       {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
       <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
+    </button>
+  );
+  // the Masons' barricades keep their damage between waves: in the build phase, while any frame is
+  // hurt, this mends them all for gold (two taps, as every purchase; engine/actions.js repairBarricades)
+  const repairBtn = ui.result == null && ui.phase === "build" && ui.repairCost > 0 && (
+    <button data-arm="repair" aria-label={`Repair the barricades for ${ui.repairCost} gold`} title="The masons mend every barricade"
+      className={cls("cg-btn", upArm.is("repair") && "is-on")}
+      style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px" }}
+      disabled={ui.gold < ui.repairCost}
+      onClick={() => upArm.tap("repair", () => { const g = G.current; if (g) repairBarricades(g); })}>
+      <HammerIcon size={20} />
+      <span style={{ fontSize: 11 }}>{upArm.is("repair") ? "Confirm" : "Repair"}</span>
+      <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 2 }}><CoinIcon size={10} />{ui.repairCost}</span>
     </button>
   );
   // the hero stands in the tray's foot, where only his portrait and bars fit
@@ -2143,7 +2157,7 @@ export default function Crownguard() {
             {/* foot: the hero, his talents and the militia */}
             {ui.result == null && (
               <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR / 3 }}>
-                {heroBtn}{talentBtn}{militiaBtn}
+                {heroBtn}{talentBtn}{repairBtn}{militiaBtn}
               </div>
             )}
           </div>
