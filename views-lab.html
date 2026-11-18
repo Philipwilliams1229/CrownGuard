@@ -17,7 +17,7 @@ import { vertOf, turnOf, TURN_MS, SLIVER } from "/src/render/march.js";
 import * as gob from "/src/render/pix/fig-goblin.js";
 
 const Q = new URLSearchParams(location.search);
-const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), BARE = !!Q.get("bare"), SQ = Q.get("squeeze") === "1", MID = Q.get("mid") !== "0", MID_MS = +(Q.get("midms") || 120);
+const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), BARE = !!Q.get("bare"), SQ = Q.get("squeeze") === "1";
 const VIEWS = "/src/render/pix/fig-goblin-views.js";
 const V = await import(/* @vite-ignore */ VIEWS).catch(() => null);
 const SIDE = { ...gob, NAME: "goblin" };
@@ -26,7 +26,6 @@ const variant = BARE ? "bare" : "";
 document.getElementById("t").innerHTML = `<b>Goblin with front and back views</b> (a test, not in the game). Left: today. Right: with views. ` +
   `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW === 1 ? 3 : 1}${BARE ? "&bare=1" : ""}">${SLOW === 1 ? "slow motion" : "normal speed"}</a> · ` +
   `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "" : "&bare=1"}">${BARE ? "hooded goblin" : "bare-headed goblin"}</a>` +
-  ` · <a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "&bare=1" : ""}${MID ? "&mid=0" : ""}">${MID ? "without the middle frame" : "with the middle frame"}</a>` +
   ` · <a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "&bare=1" : ""}${SQ ? "" : "&squeeze=1"}">${SQ ? "without the squeeze turn" : "with the squeeze turn"}</a>` +
   (V ? "" : ` <span style="color:#e07060">(the views are not drawn yet)</span>`);
 
@@ -38,7 +37,7 @@ const posAt = (d) => { d = ((d % LOOP) + LOOP) % LOOP; for (const g of segs) { i
 const smoothPos = (d) => { let x = 0, y = 0; for (let i = 0; i < 9; i++) { const p = posAt(d + (i - 4) * 3); x += p[0]; y += p[1]; } return [x / 9, y / 9]; };
 
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
-cv.width = (PW * 2 + GAP) * Z; cv.height = (PH + 14 + 4 * ROW + 6) * Z;
+cv.width = (PW * 2 + GAP) * Z; cv.height = (PH + 14 + 3 * ROW + 6) * Z;
 const ground = (ox) => {
   ctx.save(); ctx.translate(ox, 0);
   ctx.fillStyle = "#6f9a4c"; ctx.fillRect(0, 0, PW, PH);
@@ -77,19 +76,10 @@ const tick = (now) => {
   if (views.key === undefined) views.key = key;
   if (key !== views.key) { views.from = views.key; views.key = key; views.at = T * 1000; }
   const u = views.at === undefined || !SQ ? 1 : (T * 1000 - views.at) / TURN_MS;
-  let showKey = u < 0.5 ? views.from : views.key, sx = u < 1 ? Math.max(SLIVER, Math.abs(Math.cos(Math.PI * u))) : 1;
+  const showKey = u < 0.5 ? views.from : views.key, sx = u < 1 ? Math.max(SLIVER, Math.abs(Math.cos(Math.PI * u))) : 1;
   const x2 = PW + GAP + p[0];
   shadow(x2, p[1]);
-  // the middle frame: turning between a side view and the front or back, he passes through
-  // the three-quarter pose for MID_MS (mirrored when the side he turns from or to faces left)
-  const pair = [views.from, views.key];
-  const sideOf = pair.find((k) => k && k.startsWith("side")), endOf = pair.find((k) => k === "front" || k === "back");
-  const inMid = MID && V?.FRONT34 && views.at !== undefined && T * 1000 - views.at < MID_MS && sideOf && endOf;
-  if (inMid) {
-    const fig = endOf === "front" ? V.FRONT34 : V.BACK34, left = sideOf === "side-1";
-    blit(bakeFrame(fig, "turn", 0, { flip: left, variant }), x2, p[1], left, 1);
-    showKey = endOf + " 3/4";
-  } else if (showKey === "front" || showKey === "back") blit(bakeFrame(showKey === "front" ? V.FRONT : V.BACK, "walk", f, { variant }), x2, p[1], false, sx);
+  if (showKey === "front" || showKey === "back") blit(bakeFrame(showKey === "front" ? V.FRONT : V.BACK, "walk", f, { variant }), x2, p[1], false, sx);
   else { const left = showKey === "side-1"; blit(bakeFrame(SIDE, "walk", f, { flip: left, variant }), x2, p[1], left, sx); }
 
   ctx.fillStyle = "#14171d"; ctx.fillRect(0, PH, PW * 2 + GAP, 14);
@@ -104,22 +94,6 @@ const tick = (now) => {
     ctx.fillStyle = "#c8c0a8"; ctx.font = "7px system-ui"; ctx.fillText(name, 3, y0 + 8);
     if (fig) for (let i = 0; i < N; i++) { const rec = bakeFrame(fig, "walk", i, { variant }); ctx.drawImage(rec.cv, 6 + i * 42 - rec.ox + 24, y0 + 4 + 42 - rec.oy); }
   });
-  // the turning poses, and how they sit in a turn: side, 3/4, front | side, 3/4, back (and mirrored)
-  {
-    const y0 = PH + 16 + 3 * ROW;
-    ctx.fillStyle = "#1c2016"; ctx.fillRect(0, y0, PW * 2 + GAP, ROW - 2);
-    ctx.fillStyle = "#c8c0a8"; ctx.font = "7px system-ui"; ctx.fillText("turning a corner: side, the middle frame, then front / back", 3, y0 + 8);
-    if (V?.FRONT34) {
-      const seq = [[SIDE, "walk", false], [V.FRONT34, "turn", false], [V.FRONT, "walk", false], null, [SIDE, "walk", false], [V.BACK34, "turn", false], [V.BACK, "walk", false], null, [V.BACK34, "turn", true], [V.FRONT34, "turn", true]];
-      let x = 6;
-      for (const it of seq) {
-        if (!it) { x += 10; continue; }
-        const [fig, clip, left] = it, rec = bakeFrame(fig, clip, 0, { flip: left, variant });
-        ctx.save(); ctx.translate(x + 18, y0 + 46); if (left) ctx.scale(-1, 1); ctx.drawImage(rec.cv, -rec.ox, -rec.oy); ctx.restore();
-        x += 32;
-      }
-    }
-  }
   requestAnimationFrame(tick);
 };
 requestAnimationFrame(tick);

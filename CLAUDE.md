@@ -255,7 +255,9 @@ src/render/march.js, a facing change is the plain one-frame flip again.
 **Front and back views** (same day, owner: "front and back views look great"): the goblin's
 FRONT (walking down) and BACK (walking up) walks are drawn, `src/render/pix/fig-goblin-views.js`
 (brief `art/briefs/goblin-views.md`, a Sonnet artist), NOT yet wired into the game;
-`views-lab.html` shows them. A sprite-stacked goblin was tried first and set aside
+`views-lab.html` shows them. Three-quarter turning poses at the corners were drawn and
+rejected the same day (owner: "it was better before. Lets leave it as just side, front, and
+back"): a view change is a plain switch; don't add in-between turn frames unasked. A sprite-stacked goblin was tried first and set aside
 (`stack-lab.html`, `concept/stack-goblin.js`: turns to any angle but reads blobby at our camera).
 The bigger option put to them and NOT started: real front / back views (a yaw in the
 skeleton plus a hand-drawn front and back head for every figure; weeks of artist work).
