@@ -11,6 +11,7 @@
 //         len that must show before splay is added), o.floorY (clamp to the ground), o.upright
 //         (0.35 rad: below this the weapon is exactly upright in all three views)
 // Returns:
+//   head(f, d, s)  a full-size point on the head: from at(f) (f in art px, e.g. len = the tip), d along, s across, unforeshortened
 //   at(f, s)  a screen point f along the weapon from the fist (f < 0: butt side), s across it
 //             (along is foreshortened, across is not, so a side file's head polygon keeps its width)
 //   dir       the unit screen direction of the tip side, fore its length factor (0..1)
@@ -47,5 +48,12 @@ export const carry = (a, view, o = {}) => {
     if (o.floorY != null && y > o.floorY) y = o.floorY;
     return [x, y];
   };
-  return { at, dir, fore, near, zTip, zButt, splayUsed: splay, cls };
+  // head(f, d, s): a point on the weapon's HEAD at full side-view size: start at at(f) (usually the tip, f = len
+  // tip, f = 1) and step d along the screen direction and s across it WITHOUT foreshortening, so a
+  // side file's head polygon keeps its real size even when the haft is seen nearly end-on (orc pilot)
+  const head = (fAlong, d = 0, s = 0) => {
+    const b = at(fAlong);
+    return [b[0] + dir[0] * d - dir[1] * s, b[1] + dir[1] * d + dir[0] * s];
+  };
+  return { at, head, dir, fore, near, zTip, zButt, splayUsed: splay, cls };
 };

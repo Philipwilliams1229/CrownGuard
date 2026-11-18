@@ -157,7 +157,7 @@ z: BACK far side 1.0 (the BACK stack), BACK near side 4.6 (over the arms, under 
 near side on top (over its own arm and shoulder), FRONT far side under the legs. Draw the weapon as
 two segments, tip side and butt side, split at the fist; the fist closes over the haft (rule 4).
 The HEAD (axe head, club end, blade tip, lance head and pennon) is never foreshortened: full
-side-view size, only the haft shortens (build head polygons with `at(f, s)`).
+side-view size, only the haft shortens (build head polygons with `head(L, d, s)`, L the fist-to-tip length in art px: unforeshortened offsets from the tip; `at(f, s)` alone squashes a head seen end-on). Worked examples: fig-orc-views.js (slanted axe), fig-ironclad-views.js (upright sword), fig-cavalier-views.js (couched lance). K 0.5 and damping 0.35 were checked on the pilots.
 
 Hard cases: slanted/level in FRONT (an axe at 60-90 degrees): the end-on glyph, haft 0.4-0.5 L
 down-and-outboard, full-size head clear of the face. Couched lance FRONT: shaft down-and-out with

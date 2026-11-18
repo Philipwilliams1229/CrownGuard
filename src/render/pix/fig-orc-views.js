@@ -6,6 +6,7 @@
 // (the same n / ms / phase), forward = DOWN the screen in front, UP behind (FWD 0.4 a px of stride).
 // One sun, upper left, both views unmirrored.
 import { mat, flat } from "./pix.js";
+import { carry, damp } from "./carry.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-orc.js";
 
 const SKIN = mat("#5a8a3c"), HAIR = mat("#2e1e16"), HIDE = mat("#6e523a"), DARK = mat("#3e2c22"), FUR = mat("#9a8462"), BOOT = mat("#4a382c");
@@ -150,7 +151,8 @@ const make = (s) => (px, F) => {
 
   // the near arm (his right, screen side rs): bracer, green fist round the axe's haft, hide pauldron
   {
-    const [sp, el, hd] = armOf(rs, aN, shY + tilt * rs * 0.6);
+    const [sp, el, hd0] = armOf(rs, aN, shY + tilt * rs * 0.6);
+    const hd = [hd0[0], sk.hdN[1] + 0.4];                       // the fist at the side view's hand HEIGHT (waist)
     px.part(); px.tag("nearArm");
     px.capsule(sp[0], sp[1] + 1, 4.4, el[0], el[1], 3.8, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
     px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.9, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
@@ -158,16 +160,22 @@ const make = (s) => (px, F) => {
     px.capsule(b0[0], b0[1], 3.9, b1[0], b1[1], 4.1, DARK, K ? 4.31 : 7.95, { cast: K ? 0 : 1 });
     px.dot(...mix(b0, b1, 0.25), IRON, K ? 4.32 : 7.96, { fix: 4 }); px.dot(...mix(b0, b1, 0.8), IRON, K ? 4.32 : 7.96, { fix: 4 });
     px.tag(null);
-    // the axe stands up by his side, beard out: an oak haft through the fist, a bearded steel head above it
-    const t = -rs * 0.12 + vx * 0.05, A = (f, o) => [hd[0] + t * f + rs * o, hd[1] + f * 0.8], H = 9;   // hangs at his side, head down by the thigh
+    // ONE axe pose (carry.js): the side walk's own angle (forearm + AGRIP 1.3, as fig-orc.js axeOf), damped. Level-ish
+    // forward, so FRONT is the end-on glyph (haft out and down, head full size, beard down) and BACK rises behind the
+    // arm and hide pauldron with the head over his right shoulder, a short butt stub below the fist.
+    const fa = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])) - 1.3, a = damp(fa, 1.176);
+    const C = carry(a, s, { rs, hand: hd, len: 20.5, butt: 4.5, K: 0.5, splay: K ? 0.17 : 0, zTop: 8.2 });
+    const H = 16.5, zT = C.zTip, zB = C.zButt, tipAt = C.at(H, 0), pr = [-C.dir[1], C.dir[0]];
+    const A = (f, o) => (f < H - 6.5 ? C.at(f, rs * o) : [tipAt[0] + C.dir[0] * (f - H) + pr[0] * rs * o, tipAt[1] + C.dir[1] * (f - H) + pr[1] * rs * o]);   // the head is never foreshortened
     px.part(); px.tag("weapon");
-    px.capsule(...A(-3, 0), 1.05, ...A(H + 3.4, 0), 1.05, WOOD, K ? 1 : 8.1, { edge: !K });
+    px.capsule(...A(-4.5, 0), 1.05, ...A(0, 0), 1.05, WOOD, zB, { edge: !K });
+    px.capsule(...A(0, 0), 1.05, ...A(H + 3.4, 0), 1.05, WOOD, zT, { edge: !K });
     px.part();
-    px.poly([A(H - 2.4, 0.6), A(H - 3.6, 4.4), A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.6, 3.4), A(H + 2.8, 0.6)], STEEL, K ? 1.02 : 8.12, { fix: 2 });
-    px.poly([A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.9, 5.6), A(H + 1.8, 7.4), A(H - 1.4, 7.9), A(H - 4.2, 7)], STEEL, K ? 1.02 : 8.13, { fix: 4 });
-    px.poly([A(H - 2.4, 0.6), A(H - 3.3, 3.4), A(H + 3.3, 3), A(H + 2.8, 0.6)], STEEL, K ? 1.02 : 8.13, { fix: 1 });
-    px.poly([A(H - 1.8, -0.8), A(H + 2.2, -0.8), A(H + 1.8, -3), A(H - 1.4, -3)], IRON, K ? 1.03 : 8.12, { fix: 2 });
-    px.poly([A(H - 2.4, -1.2), A(H + 2.8, -1.2), A(H + 2.8, 1.2), A(H - 2.4, 1.2)], IRON, K ? 1.03 : 8.14, { fix: 1 });
+    px.poly([A(H - 2.4, 0.6), A(H - 3.6, 4.4), A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.6, 3.4), A(H + 2.8, 0.6)], STEEL, zT + 0.02, { fix: 2 });
+    px.poly([A(H - 5, 8.6), A(H - 1.4, 9.6), A(H + 2.4, 9), A(H + 5.4, 6.6), A(H + 3.9, 5.6), A(H + 1.8, 7.4), A(H - 1.4, 7.9), A(H - 4.2, 7)], STEEL, zT + 0.03, { fix: 4 });
+    px.poly([A(H - 2.4, 0.6), A(H - 3.3, 3.4), A(H + 3.3, 3), A(H + 2.8, 0.6)], STEEL, zT + 0.03, { fix: 1 });
+    px.poly([A(H - 1.8, -0.8), A(H + 2.2, -0.8), A(H + 1.8, -3), A(H - 1.4, -3)], IRON, zT + 0.02, { fix: 2 });
+    px.poly([A(H - 2.4, -1.2), A(H + 2.8, -1.2), A(H + 2.8, 1.2), A(H - 2.4, 1.2)], IRON, zT + 0.04, { fix: 1 });
     px.tag(null);
     px.part();
     px.ellipse(hd[0], hd[1] + (K ? 1 : 0), K ? 2.5 : 3.2, K ? 2.5 : 3.2, SKIN, K ? 3.56 : 8.3);

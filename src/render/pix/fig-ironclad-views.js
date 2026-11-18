@@ -5,6 +5,7 @@
 // daubed kite shield, which faces the camera in FRONT and shows only its back and rim beyond his flank from BEHIND.
 // Feet, bob and arm swing come from the side walk's pose; forward is DOWN the screen in front, UP behind.
 import { mat, flat } from "./pix.js";
+import { carry } from "./carry.js";
 import { CLIPS as SIDE, BONES as SIDE_BONES } from "./fig-ironclad.js";
 
 const SKIN = mat("#5a8a3c"), PLATE = mat("#7a808c", { contrast: 1.3 }), IRON = mat("#4a4e58", { contrast: 1.1 });
@@ -172,7 +173,8 @@ const make = (s) => (px, F) => {
 
   // the near arm (his right): bare above the elbow, a riveted vambrace, a green fist round the falchion's grip; the spiked pauldron
   {
-    const [sp, el, hd] = armOf(rs, aN, shY + tilt * rs * 0.6);
+    const [sp, el0, hd0] = armOf(rs, aN, shY + tilt * rs * 0.6);
+    const hd = [rs * 13.8 + sx, sk.hdN[1] + 0.4], el = [rs * 14.6 + sx, el0[1] + 1.2];   // the fist at the side view's chest height
     px.part(); px.tag("nearArm");
     px.capsule(sp[0], sp[1] + 1, 4.4, el[0], el[1], 3.8, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
     px.capsule(el[0], el[1], 3.6, hd[0], hd[1], 3.7, SKIN, K ? 4.3 : 7.9, { cast: K ? 0 : 1 });
@@ -182,15 +184,20 @@ const make = (s) => (px, F) => {
     px.dot(...mix(v0, v1, 0.2), IRON, K ? 4.32 : 7.96, { fix: 0 }); px.dot(...mix(v0, v1, 0.85), IRON, K ? 4.32 : 7.96, { fix: 0 });
     px.tag(null);
     // the falchion stands up by his side, point out and up: a leather grip, a cross-guard, the broad blade, belly outward
-    const t = rs * 0.2 + vx * 0.1, A = s > 0 ? (f, o = 0) => [hd[0] + t * f + rs * o, hd[1] - f] : (f, o = 0) => [hd[0] - rs * 0.1 * f + rs * o, hd[1] + f * 0.75], bz = K ? 1 : 8.1;   // from behind it hangs point down at his side, behind the hip
+    // ONE pose (carry.js): the side walk holds it ~13 degrees off upright, so it stays upright in all three views: in BACK it
+    // rises from the chest-high fist behind the arm and pauldron (z 1.0) and shows over his right shoulder, a pommel below.
+    const C = carry(0.2268, s, { rs, hand: hd, len: 23, butt: 3.8 }), A = (f, o = 0) => C.at(f, rs * o);
+    const bz = s > 0 ? 8.1 : C.zTip, zb = s > 0 ? 8.1 : C.zButt;
     px.part(); px.tag("blade");
-    px.poly([A(5, -1.1), A(19.8, -1.5), A(23, 0.3), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)].map(([x, y]) => [x, y]), BLADE, bz, { fix: 2, edge: !K });
+    px.poly([A(5, -1.1), A(19.8, -1.5), A(23, 0.3), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)], BLADE, bz, { fix: 2, edge: !K });
     px.poly([A(5, 0.6), A(15, 1.7), A(21.6, 1.4), A(21.8, 2.3), A(15, 2.5), A(5, 1.4)], BLADE, bz + 0.01, { fix: 4 });
     px.poly([A(5, -1.1), A(19.8, -1.5), A(19.4, -0.7), A(5, -0.4)], BLADE, bz + 0.01, { fix: 1 });
     px.part();
-    px.capsule(...A(-3.2), 1, ...A(3.4), 1, LEATHER, bz + 0.02);
+    px.capsule(...A(0), 1, ...A(3.4), 1, LEATHER, bz + 0.02);
     px.capsule(...A(4.2, -3), 1, ...A(4.2, 3.6), 1, IRON, bz + 0.05, { edge: !K });
-    px.ellipse(...A(-3.8), 1.4, 1.4, IRON, bz + 0.05);
+    px.part();
+    px.capsule(...A(-3.2), 1, ...A(0), 1, LEATHER, zb + 0.02);
+    px.ellipse(...A(-3.8), 1.4, 1.4, IRON, zb + 0.05);
     px.tag(null);
     px.part();
     px.ellipse(hd[0], hd[1] + (K ? 1 : 0), K ? 2.3 : 2.9, K ? 2.6 : 3.4, SKIN, K ? 3.56 : 8.3);

@@ -18,6 +18,7 @@ import { mat, flat } from "./pix.js";
 import { solveBeast, QUAD } from "./beast.js";
 import { HUMAN, ik } from "./rig.js";
 import { CLIPS as SIDE } from "./fig-cavalier.js";
+import { carry, damp } from "./carry.js";
 
 const COAT = mat("#51444c", { contrast: 1.15 }), SOCK = mat("#d8d0c0"), MANE = mat("#2a2228", { contrast: 1.1 }), HOOF = mat("#2e2428", { floor: 1 });
 const MUZ = mat("#7a6a72"), EYE = flat("#e8b84a"), GLINT = flat("#fff4c0"), NOSTRIL = flat("#241a20"), WHITE = flat("#f2ecdc"), FLARE = flat("#c85a5a");
@@ -357,39 +358,38 @@ const make = (s) => (px, F, o = {}) => {
   const hand = [nS * 6.2 + (s > 0 ? -0.4 : 0.4), C[1] + 7.6];
   const arm = ik(sNs[0], sNs[1], hand[0], hand[1], 5.6, 5.4, 1);
   const el = [nS * 8.6, (sNs[1] + hand[1]) / 2 + 0.6];
-  const pen = (a, fl) => {
-    px.part();
-    px.poly([a, [a[0] + 1.6, a[1] + 3 + fl * 0.3], [a[0] + 7 + fl * 1.2, a[1] + 5 + fl], [a[0] + 10.6 + fl, a[1] + 3.6], [a[0] + 6.4 + fl * 0.6, a[1] + 1.8], [a[0] + 3, a[1] + 0.4]], L.OX, 13.2, { round: 0.6, cast: 1 });
-    px.line(a[0] + 1, a[1] + 1.4, a[0] + 7.6 + fl, a[1] + 4.2, BRASS, 13.24, { noLine: true });
-  };
+  // ONE lance pose (art/briefs/views-artist.md "One weapon pose"): the side file's lance, a = la + PI/2 (about 90 deg: couched level), damped,
+  // projected by carry(): FRONT it comes at us, shaft down-and-out with ~15 deg of splay over the horse, head and pennon at FULL size;
+  // BACK it rises past his shoulder beside the helm (behind him, z 1.0), a short butt stub below the fist.
   const fl = cl(Math.sin(ph * TAU * 2) * 1.2 + vx * 0.6, -2.4, 2.4);
+  const LANCE_L = 44, LANCE_B = 11, lrs = nS;
+  const cr = carry(damp((p.lance ?? 0) + Math.PI / 2, Math.PI / 2 - 0.05), s, { rs: lrs, hand, len: LANCE_L, butt: LANCE_B, splay: 0.26, floorY: -0.5 });
+  const P = cr.at(LANCE_L), du = cr.dir, dn = [-du[1], du[0]];
+  const full = (f0, s0) => [P[0] + du[0] * (f0 - 44) + dn[0] * s0, P[1] + du[1] * (f0 - 44) + dn[1] * s0];   // full-size side-view points round the tip (f0 as the side file's: 44 = the point)
+  const banded = (A, B, z, r0, r1, n) => { for (let i = 0; i < n; i++) { const a2 = mix(A, B, i / n), c2 = mix(A, B, (i + 1) / n); px.capsule(a2[0], a2[1], r0 + (r1 - r0) * i / n, c2[0], c2[1], r0 + (r1 - r0) * (i + 1) / n, i % 2 ? CREAM : L.OX, z, { cast: s > 0 ? 1 : 0 }); } };
+  const headAndPennon = (z, outward) => {
+    px.part();
+    px.capsule(...full(33.6), 1.3, ...full(35), 1.3, IRONK, z, { floor: 1, cast: 0 });
+    px.poly([full(35, -1.2), full(37.4, -2), full(44, 0), full(37.4, 2), full(35, 1.2)], STEELB, z + 0.1, { fix: 3, cast: 0 });
+    px.line(...full(36, -1), ...full(43, -0.2), STEELB, z + 0.12, { fix: 4, noLine: true });
+    px.part();                                                              // the pennon, side-view size, streaming outboard and down
+    const q = full(31.6, 0.6), sx = lrs, f2 = fl;
+    px.poly([q, [q[0] + sx * 0.6, q[1] + 3.4], [q[0] + sx * (7 + f2 * 1.2), q[1] + 5.6 + f2], [q[0] + sx * (11.4 + f2), q[1] + 4], [q[0] + sx * (7 + f2 * 0.6), q[1] + 1.8], [q[0] + sx * 3, q[1] + 0.4]], L.OX, z + 0.2, { round: 0.6, cast: 0 });
+    px.line(q[0] + sx * 1, q[1] + 1.6, q[0] + sx * (8 + f2), q[1] + 4.4, BRASS, z + 0.24, { noLine: true });
+  };
   if (s > 0) {
-    // the lance comes at us: its butt rides behind his shoulder (hidden by him), the banded shaft runs from the hand down toward us, the steel head and pennon beside the horse's head
-    px.part();
-    const bt = [nS * 3.4, C[1] - 7], tp = [nS * 12.6, Hp[1] + 11.4 + by * 0.1];
-    const segs = [[bt, hand, 7.5], [hand, tp, 13]];
-    for (const [A, B, z] of segs) for (let i = 0; i < 4; i++) {
-      const a = mix(A, B, i / 4), c = mix(A, B, (i + 1) / 4);
-      px.capsule(a[0], a[1], z > 10 ? 1.1 + i * 0.12 : 1, c[0], c[1], z > 10 ? 1.1 + (i + 1) * 0.12 : 1, i % 2 ? CREAM : L.OX, z, { cast: 1 });
-    }
-    px.part();
-    const d = [tp[0] - hand[0], tp[1] - hand[1]], dl = Math.hypot(d[0], d[1]), u = [d[0] / dl, d[1] / dl], nn = [-u[1], u[0]], hd = [tp[0] + u[0] * 6, tp[1] + u[1] * 6];
-    px.capsule(tp[0] - u[0] * 0.8, tp[1] - u[1] * 0.8, 1.7, tp[0] + u[0] * 0.8, tp[1] + u[1] * 0.8, 1.7, IRONK, 13.3, { floor: 1 });
-    px.poly([[tp[0] + nn[0] * 1.6, tp[1] + nn[1] * 1.6], [hd[0] + nn[0] * 0.3, hd[1] + nn[1] * 0.3], [hd[0] + u[0] * 1.6, hd[1] + u[1] * 1.6], [hd[0] - nn[0] * 0.3, hd[1] - nn[1] * 0.3], [tp[0] - nn[0] * 1.6, tp[1] - nn[1] * 1.6]], STEELB, 13.4, { fix: 3 });
-    px.line(tp[0], tp[1] + 0.5, hd[0], hd[1], STEELB, 13.42, { fix: 4, noLine: true });
+    const bu = cr.at(-LANCE_B);
+    px.part(); banded(bu, hand, 7.5, 1, 1, 2);                                // the butt: a short stub up behind his arm
+    px.part(); banded(hand, mix(hand, P, 0.84), 13, 1.1, 1.5, 5);              // the banded shaft, over the horse
+    headAndPennon(13.3, true);
   } else {
-    // from behind the lance stays in the same fist at its true depth: the butt and the shaft below the fist stick out past his hip and show; the shaft running forward goes up behind his body and the horse's neck (low z, hidden)
-    const bt = [hand[0] + nS * 1.8, hand[1] + 7.4], fw2 = [hand[0] - nS * 3.6, hand[1] - 12];
+    const bu = cr.at(-LANCE_B);
+    px.part(); banded(bu, hand, 8.1, 1.5, 1.4, 2);                             // the butt stub below the fist, over the cloth, under his trunk
     px.part();
-    for (let i = 0; i < 2; i++) {
-      const a = mix(bt, hand, i / 2), c = mix(bt, hand, (i + 1) / 2);
-      px.capsule(a[0], a[1], 1.5, c[0], c[1], 1.4, i % 2 ? CREAM : L.OX, 10.4, { cast: 1 });
-    }
-    px.part();
-    px.capsule(hand[0], hand[1], 1.3, fw2[0], fw2[1], 1.1, CREAM, 7.4, { cast: 1 });
-    px.part();
-    px.ellipse(bt[0], bt[1] + 0.6, 2.3, 1.9, IRONK, 10.6, { floor: 1 });
-    px.dot(bt[0] - 0.4, bt[1] + 0.2, STEELB, 10.7, { fix: 4 });
+    px.ellipse(bu[0], bu[1] + 0.6, 2.2, 1.8, IRONK, 8.2, { floor: 1 });
+    px.dot(bu[0] - 0.4, bu[1] + 0.2, STEELB, 8.3, { fix: 4 });
+    px.part(); banded(hand, mix(hand, P, 0.84), cr.zTip, 1.1, 1.3, 5);          // the shaft rising past the shoulder, behind him (low z: only what sticks out shows)
+    headAndPennon(cr.zTip, true);
   }
   px.part();
   px.limb([[sNs[0], sNs[1] + 0.6], el, hand], [2.4, 2.1, 1.7], L.IRON, 10.5, { cast: 1 });
