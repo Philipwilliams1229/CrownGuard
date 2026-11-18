@@ -977,6 +977,18 @@ Fable 5.2 (up to ~140 calls each). From now on:
   look-fix passes, the browser once at the end. The lead checks shots before the owner sees
   them; only finished work goes to the owner.
 - Fewer leads: one Opus lead per area at a time; archive finished lead sessions.
+- **Studio rules from the views pass** (2026-11-18, the advisor's study of every owner note,
+  art/briefs/views-notes-log.md): every artist follows the standing rules now in
+  `.claude/agents/artist.md` (hide by drawing never deleting; one pose read from the approved
+  drawing; every frame and variant, whole figure, zoom 1 too; "NOT CHECKED" / "BLOCKED", never a
+  shrugged weak spot; fix the same fault everywhere; stay inside the repo). The views brief ends
+  with a mandatory "Before you report" self-check. The lead's review: never ship a weak spot
+  silently (fix, send back, or ask the owner); look at the board-size strip first; classify each
+  owner note and turn it into a rule for all figures before the next preview; if a fault class
+  returns twice, stop and get a diagnosis; preview in small batches after a pilot figure.
+  scripts/views-render.mjs now shows the whole BOX and all frames by default (it used to crop at
+  the waist). Proposed, not built: scripts/views-check.mjs (islands, head clear, BACK stack, weapon
+  present / in hand / matching the side) and scripts/views-sheet.mjs (contact sheet).
 
 ## Default way of working: a team of parallel agents
 

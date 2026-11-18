@@ -6,6 +6,12 @@ The goblin is done and in the game (owner: "front and back views look great"). Y
 same for the figures your task names. Side, front and back ONLY: no three-quarter or
 in-between poses (the owner tried them and turned them down).
 
+## Read these two sections FIRST (they override anything older below)
+"The BACK stack" and "One weapon pose", at the end of this file, are rules 0 and 1 of every view:
+the BACK view gets its own depth stack (in BACK higher z is BEHIND him), and every held thing has ONE
+pose read from the side clip (carry.js). Where an older line below disagrees (rule 2's "mostly
+hidden", "never a blade beside the head"), those two sections win.
+
 ## Read first
 1. `art/briefs/figure-artist.md` (rules, how to look, report) and `art/briefs/goblin-views.md`
    (the goblin's brief: the same job, read it as the detailed spec).
@@ -32,7 +38,7 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
 - Every `variant` the figure has (handed in as `o.variant`) drawn in both views. Ignore
   "revived" and "white" (the game makes those from any frame) and `@<deg>` aim suffixes.
 - Hands: facing the camera his RIGHT hand is on SCREEN LEFT; from behind on SCREEN RIGHT.
-  Weapons and shields keep their hands. A two-handed weapon is held across the body.
+  Weapons and shields keep their hands.
 - Same height and build as the side view; one sun upper LEFT of the screen in both views
   (they are drawn unmirrored); one-pixel tinted outline; cast shadows between parts.
 - **Owner's rules (2026-11-17), checked on every figure:**
@@ -73,7 +79,7 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
   the side walk's own character.
 
 ## Look at it
-- `node scripts/views-render.mjs fig=<name> zoom=4 frames=0,2,4,6 tag=vw_<name>` (rows:
+- `node scripts/views-render.mjs fig=<name> zoom=4 crop=0,0,<W>,<H> tag=vw_<name>` (ALL frames; crop = your BOX so feet and tips show; rows:
   side, FRONT, BACK; `variant=`, `rows=0,1,2`, `crop=x,y,w,h`). Also zoom 2 for the board read.
 - The lead's lab: `http://localhost:5173/views-lab.html?fig=<PIX type>&z=2` walks it round a
   loop. You may open it ONCE at the end in your OWN tab (tabs_create; close it after).
@@ -172,3 +178,24 @@ hand goes on the haft only where the side walk has one.
 **The "not held backwards" test, every frame:** for a forward weapon in BACK the tip side is never
 below the fist, never drawn over the body, never edged or cast. In FRONT the tip is the nearest
 thing, never behind his legs. The approved goblin's knife stays as it is unless the owner asks.
+
+## Before you report (all of it; answer each in the report)
+1. Render ALL frames, all variants, the whole BOX (no crop that cuts feet or a weapon tip), rows
+   side / FRONT / BACK at zoom 4, and the same at zoom 1 (board size). Answer yes / no each:
+   a. Feet: every frame, each foot joined to its leg, on the side row's ground line?
+   b. Fist: every frame, the haft enters and leaves the fist, fingers over it?
+   c. Same weapon: next to the side row, same hand height, same lean, same length class, head the
+      same size? Nothing missing in any view or variant?
+   d. Head clear: nothing crosses the face (FRONT) or the back of the head (BACK) in any frame?
+   e. BACK: no arm, hand or weapon lying ON the back; arms at the sides?
+   f. Zoom 1: can you tell the three views apart, find the face in FRONT, and name the figure from
+      the BACK silhouette alone?
+2. The head alone at zoom 8, FRONT: eyes level and looking the same way, no stray dark pixel, not a
+   mirrored half.
+3. After a fix round: before / after side by side; nothing else changed.
+A "no" is fixed, or reported as BLOCKED. Never as a weak spot.
+
+## Fix rounds
+For an owner note: quote it, name the fault class (depth order, weapon pose, head zone,
+attachment, face grid, silhouette), render before and after of all frames, list what else changed
+(it should be nothing), and check your other figures for the same fault.
