@@ -59,14 +59,35 @@
       const C = { archers: "#f0d27a", ballista: "#e0574c", wizards: "#c8a4f0", guards: "#8ab8e0", levy: "#9ad06a" };
       // the three that measure from the gate: rings round the gate, labels where each ring crosses the road's side
       const gateRings = [["ballista", "Ballista: most health left"], ["wizards", "Wizards: most armour, then nearest"], ["archers", "Archers: nearest to the gate"]];
-      for (const [k] of gateRings) { ring(gx, gy, first(k).range, C[k], true); ring(gx, gy, top(k).range, C[k], false); }
-      // (equal reaches hide each other: the wizards' top ring goes on top again in long dashes)
-      if (top("wizards").range === top("archers").range) { o.save(); o.beginPath(); o.arc(gx, gy, top("wizards").range, 0, Math.PI * 2); o.strokeStyle = C.wizards; o.lineWidth = 2; o.setLineDash([12, 10]); o.stroke(); o.restore(); }
-      dot(gx, gy, "#ffffff");
-      gateRings.forEach(([k, txt], i) => {
-        const a = -Math.PI * (0.62 + i * 0.075), r = top(k).range;
-        tag(gx + Math.cos(a) * r, gy + Math.sin(a) * r, `${txt}  ${first(k).range}–${top(k).range}`, C[k], "center");
-      });
+      const ROAD = q.get("mode") === "road";
+      if (!ROAD) {
+        for (const [k] of gateRings) { ring(gx, gy, first(k).range, C[k], true); ring(gx, gy, top(k).range, C[k], false); }
+        // (equal reaches hide each other: the wizards' top ring goes on top again in long dashes)
+        if (top("wizards").range === top("archers").range) { o.save(); o.beginPath(); o.arc(gx, gy, top("wizards").range, 0, Math.PI * 2); o.strokeStyle = C.wizards; o.lineWidth = 2; o.setLineDash([12, 10]); o.stroke(); o.restore(); }
+        dot(gx, gy, "#ffffff");
+        gateRings.forEach(([k, txt], i) => {
+          const a = -Math.PI * (0.62 + i * 0.075), r = top(k).range;
+          tag(gx + Math.cos(a) * r, gy + Math.sin(a) * r, `${txt}  ${first(k).range}–${top(k).range}`, C[k], "center");
+        });
+      } else {
+        // &mode=road: the same numbers counted as steps ALONG THE ROAD back from the gate (what a
+        // foe's e.dist would read), drawn as nested stripes on the road, widest reach the widest stripe
+        const stripe = (k, w) => {
+          const d0 = Math.max(0, TOTAL_LEN - top(k).range);
+          o.save(); o.beginPath();
+          for (let d = d0, i = 0; d <= TOTAL_LEN; d += 2, i++) { const [x, y] = posAt(Math.min(d, TOTAL_LEN)); i ? o.lineTo(x, y) : o.moveTo(x, y); }
+          o.strokeStyle = C[k]; o.globalAlpha = 0.85; o.lineWidth = w; o.lineCap = "butt"; o.lineJoin = "round"; o.stroke(); o.restore();
+          const [ex, ey] = posAt(d0);
+          o.save(); o.fillStyle = "#14101c"; o.fillRect(ex - 5, ey - 5, 10, 10); o.fillStyle = C[k]; o.fillRect(ex - 4, ey - 4, 8, 8); o.restore();
+          return [ex, ey];
+        };
+        const ends = [["ballista", 30], ["wizards", 20], ["archers", 10]].map(([k, w]) => [k, stripe(k, w)]);
+        dot(gx, gy, "#ffffff");
+        ends.forEach(([k, [ex, ey]], i) => {
+          const txt = gateRings.find((r) => r[0] === k)[1];
+          tag(ex, ey - 14 - i * 15, `${txt}: ${top(k).range} steps`, C[k], "center");
+        });
+      }
       // where each stands (the wall's crews)
       for (const s of ballistaSpots(gy, true)) dot(s[0], s[1] - 10, C.ballista);
       for (const s of wizardSpots(gy, top("wizards").count, top("archers").count)) dot(s[0], s[1] - 10, C.wizards);
@@ -90,8 +111,8 @@
       // legend
       o.setTransform(1, 0, 0, 1, 0, 0);
       o.font = `bold ${7 * SC}px monospace`; o.textAlign = "left"; o.textBaseline = "top";
-      const lines = ["Castle works' reach, every work at its top tier", "solid ring = top tier, dashed = first tier, dots = where they stand"];
-      o.fillStyle = "rgba(20,16,28,0.88)"; o.fillRect(6 * SC, 6 * SC, 300 * SC, 24 * SC);
+      const lines = ROAD ? [`IDEA: reach counted in steps along the road from the gate (${q.get("realm") || "greenwood"})`, "stripe = top tier reach, square = where it ends"] : [`TODAY: reach as a circle round the gate (${q.get("realm") || "greenwood"})`, "solid ring = top tier, dashed = first tier, dots = where they stand"];
+      o.fillStyle = "rgba(20,16,28,0.88)"; o.fillRect(6 * SC, 6 * SC, 400 * SC, 24 * SC);
       o.fillStyle = "#fff3d2"; lines.forEach((l, i) => o.fillText(l, 10 * SC, (9 + i * 10) * SC));
       await fetch(`/__shot?name=reach_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
       document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/reach_${TAG}.png`;
