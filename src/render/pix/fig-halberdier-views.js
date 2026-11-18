@@ -151,5 +151,5 @@ const make = (s) => (px, F, o = {}) => {
 };
 
 const walk = { ...SIDE.walk };
-export const FRONT = { NAME: "halberdier-front", BOX: { w: 64, h: 82, ox: 32, oy: SIDE_BOX.oy }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "halberdier-back", BOX: { w: 64, h: 82, ox: 32, oy: SIDE_BOX.oy }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const FRONT = { NAME: "halberdier-front", BOX: { w: 64, h: 86, ox: 32, oy: SIDE_BOX.oy }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
+export const BACK = { NAME: "halberdier-back", BOX: { w: 64, h: 86, ox: 32, oy: SIDE_BOX.oy }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };

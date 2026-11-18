@@ -248,6 +248,6 @@ const make = (s) => (px, F, o = {}) => {
   if (o.variant !== "loose") { if (s > 0) rider(px, F, s, r.b, r.sx, r.hump); else riderBack(px, F, r.b, r.sx); }
   return {};
 };
-export const BOX = { w: 48, h: 76, ox: 24, oy: 62 };
+export const BOX = { w: 52, h: 78, ox: 26, oy: 64 };   // was 48 x 76 at (24, 62): the snout and a tusk ran off the edges (views-check)
 export const FRONT = { NAME: "boar-front", BOX, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk: { ...SIDE.walk } } };
 export const BACK = { NAME: "boar-back", BOX, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk: { ...SIDE.walk } } };

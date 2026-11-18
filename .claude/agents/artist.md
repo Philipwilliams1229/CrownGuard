@@ -32,6 +32,8 @@ front/back views pass, art/briefs/views-notes-log.md):
 - Look at EVERY frame of EVERY variant before you report, the whole figure in frame (feet and
   weapon tip visible), once zoomed and once at board size (zoom 1). A frame you did not look at
   is not done: say so as "NOT CHECKED", never as a weak spot.
+- Front / back views: `node scripts/views-check.mjs only=<types>` must pass (no FAIL) before you
+  report; paste its output.
 - Run the checks the brief names. A failing check is not reportable work: fix it, or stop and
   ask the lead with the check's output.
 - A weak spot is either fixed or reported as BLOCKED with what you tried and what you need.

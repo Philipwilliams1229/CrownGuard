@@ -171,5 +171,5 @@ const make = (s) => (px, F, o = {}) => {
 };
 
 const walk = { ...SIDE.walk };
-export const FRONT = { NAME: "unhorsed-front", BOX: { w: 56, h: 84, ox: 28, oy: 80 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "unhorsed-back", BOX: { w: 56, h: 84, ox: 28, oy: 80 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const FRONT = { NAME: "unhorsed-front", BOX: { w: 56, h: 88, ox: 28, oy: 80 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
+export const BACK = { NAME: "unhorsed-back", BOX: { w: 56, h: 88, ox: 28, oy: 80 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };

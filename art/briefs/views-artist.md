@@ -180,6 +180,11 @@ below the fist, never drawn over the body, never edged or cast. In FRONT the tip
 thing, never behind his legs. The approved goblin's knife stays as it is unless the owner asks.
 
 ## Before you report (all of it; answer each in the report)
+0. Run the checker and paste its lines for your figures: `node scripts/views-check.mjs only=<your PIX
+   types>`. Every FAIL is fixed before you report (islands, ground, box, legend, face, spine, stack,
+   clip); a "warn missing" colour is either fixed or explained in one line. It cannot judge looks: the
+   checks below still stand. `node scripts/views-sheet.mjs only=<types>` draws the board-size strip
+   first, failing frames boxed red (.shots/views-sheet/<type>.png).
 1. Render ALL frames, all variants, the whole BOX (no crop that cuts feet or a weapon tip), rows
    side / FRONT / BACK at zoom 4, and the same at zoom 1 (board size). Answer yes / no each:
    a. Feet: every frame, each foot joined to its leg, on the side row's ground line?

@@ -987,8 +987,19 @@ Fable 5.2 (up to ~140 calls each). From now on:
   owner note and turn it into a rule for all figures before the next preview; if a fault class
   returns twice, stop and get a diagnosis; preview in small batches after a pilot figure.
   scripts/views-render.mjs now shows the whole BOX and all frames by default (it used to crop at
-  the waist). Proposed, not built: scripts/views-check.mjs (islands, head clear, BACK stack, weapon
-  present / in hand / matching the side) and scripts/views-sheet.mjs (contact sheet).
+  the waist). **The views checker is built** (2026-11-18, owner: "Yes, build them"):
+  `node scripts/views-check.mjs [only=]` bakes every views figure (side / FRONT / BACK, every frame, its
+  variant) recording which drawing call owns each pixel (scripts/lib/views-cases.mjs) and FAILs: islands
+  (loose pieces, feet off legs), ground (floating), box (cut off at the BOX edge), legend (stamp letters
+  with no legend), face (a pauldron / shield / haft over the FRONT face), spine and stack (BACK arms
+  across the back or drawn over the head's depth: the old side stack). warn: a colour the side shows that
+  neither view ever does (a dropped weapon). Exit 1 on any FAIL. Run on the commit before the BACK-stack
+  rebuild (`CG_ROOT=<a copy of an old src>`) it fails 41 figures, every one the owner flagged; today it
+  fails 4 (rafter's spear and the thrall's axe over the face, the frost giant's pauldron in one frame, the
+  necromancer's hood tip loose from behind). Owner-chosen exceptions live in its `ACCEPTED` table, never
+  per-figure thresholds. `node scripts/views-sheet.mjs [only=] [fails=1]` is the contact sheet
+  (.shots/views-sheet/: board size first, failing frames boxed red). Artists run both before reporting.
+  Not checked by machine: weapon in the fist and matching the side pose (needs tags), looks.
 
 ## Default way of working: a team of parallel agents
 

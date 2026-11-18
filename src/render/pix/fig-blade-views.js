@@ -313,6 +313,6 @@ const make = (s) => (px, F, o = {}) => {
 };
 
 const walk = { ...SIDE.walk };
-const BOX = { w: 48, h: 62, ox: 24, oy: SIDE_BOX.oy - 2 };
+const BOX = { w: 48, h: 66, ox: 24, oy: SIDE_BOX.oy - 2 };   // h 62 -> 66: the striding foot ran off the bottom (views-check)
 export const FRONT = { NAME: "blade-front", BOX, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
 export const BACK = { NAME: "blade-back", BOX, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };

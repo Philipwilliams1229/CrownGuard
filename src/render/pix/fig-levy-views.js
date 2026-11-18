@@ -223,8 +223,8 @@ const make = (s) => (px, F, o = {}) => {
 };
 
 const walk = { ...SIDE.walk };
-export const FRONT = { NAME: "levy-front", BOX: { w: 52, h: 84, ox: 26, oy: 80 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "levy-back", BOX: { w: 52, h: 84, ox: 26, oy: 80 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+export const FRONT = { NAME: "levy-front", BOX: { w: 52, h: 90, ox: 26, oy: 84 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
+export const BACK = { NAME: "levy-back", BOX: { w: 52, h: 90, ox: 26, oy: 84 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
 
 // a straight sword in the fist along a carry() pose: the butt side (grip to pommel) and the tip side (grip stub, crossguard, blade)
 // shape: [[along, across], ...] the blade outline from the fist; guard: [along, half-width]; pommel: how far behind the fist
