@@ -2083,7 +2083,7 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   and a **net launcher** (owner's pick of four ideas; `net` {every 6000, ms 4000, range 300}: the flier
   nearest the gate, never a boss, is dragged onto the road for 4 s with `flying` off (`e.netUntil`,
   update.js castle works; it lands stunned 0.6 s), so the barricade, the halberdiers and ground-only
-  halls all reach it; fx.js drawStatus draws the rope mesh; `sim.mjs` prints `netted`). Barricades are no longer rebuilt free each wave: set up whole at the first
+  halls all reach it; rigs.js `netify` draws the net as a "net" look of the figure's own frame (strands every 7 art px, a dotted rope rim), so it hugs every silhouette; `sim.mjs` prints `netted`). Barricades are no longer rebuilt free each wave: set up whole at the first
   build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
   damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
   the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls
