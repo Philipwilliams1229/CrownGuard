@@ -113,7 +113,7 @@ const make = (s) => (px, F) => {
   // ---- the trunk: a hide cuirass, broad at the shoulder
   const c0 = chestY - 2;
   px.part(); const bodyId = px._pid;
-  px.poly([[sx - 8, c0], [sx + 8, c0], [sx + 8.2, c0 + 6], [hx + 7, hipY - 7], [hx + 6.6, hipY + 0.4], [hx - 6.6, hipY + 0.4], [hx - 7, hipY - 7], [sx - 8.2, c0 + 6]], HIDE, 4, { round: 0.92, cast: 1, floor: 1 });
+  px.poly([[sx - 9.4, c0], [sx + 9.4, c0], [sx + 9.6, c0 + 6], [hx + 7, hipY - 7], [hx + 6.6, hipY + 0.4], [hx - 6.6, hipY + 0.4], [hx - 7, hipY - 7], [sx - 9.6, c0 + 6]], HIDE, 4, { round: 0.92, cast: 1, floor: 1 });
   if (s > 0) {
     px.toneLine(sx, c0 + 5, hx, hipY - 5, -1, bodyId);                                    // the lacing down the front
     px.toneLine(sx - 5.5, c0 + 9.6, sx + 5.5, c0 + 9.4, -1, bodyId);                       // under the chest plate
@@ -142,8 +142,8 @@ const make = (s) => (px, F) => {
 
   // ---- the fur mantle over both shoulders, tufted along its edge
   px.part();
-  px.ellipse(sx, c0 + 0.6, 10.2, 3.8, FUR, 4.4, { cast: 1 });
-  for (let i = 0; i < 7; i++) px.dot(sx - 9 + i * 3, c0 + 3.4 + (i % 2) * 0.8, FUR, 4.4);
+  px.ellipse(sx, c0 + 0.6, 11.6, 3.8, FUR, 4.4, { cast: 1 });
+  for (let i = 0; i < 7; i++) px.dot(sx - 10.2 + i * 3.4, c0 + 3.4 + (i % 2) * 0.8, FUR, 4.4);
 
   // ---- the head: horns, ears, helm, face (or the back of the helm and a bare skull)
   const ex = cl(-vx * 1.3 - vx2 * 0.9, -2.5, 2.5), ey = cl(-vy * 1.3 - vy2 * 0.9 - (p.ear || 0) * 1.6, -2.5, 2.5);
@@ -169,7 +169,7 @@ const make = (s) => (px, F) => {
 
   // ---- the free right arm: a gold armband, a studded wristband; swings, the hand rising and falling a little
   {
-    const ang = p.aN[0], sh0 = [hx + rs * 8.6, c0 + 3], hd = [hx + rs * 10.6, hipY - 1 + s * ang * 2.6], el = [hx + rs * 10, (sh0[1] + hd[1]) / 2 + 0.6];
+    const ang = p.aN[0], sh0 = [hx + rs * 10.6, c0 + 3], hd = [hx + rs * 12, hipY - 1 + s * ang * 2.6], el = [hx + rs * 11.6, (sh0[1] + hd[1]) / 2 + 0.6];
     px.part();
     px.capsule(sh0[0], sh0[1], 3.2, el[0], el[1], 2.9, SKIN, 7.9, { cast: 1 });
     px.capsule(el[0], el[1], 2.8, hd[0], hd[1], 2.7, SKIN, 7.9, { cast: 1 });
@@ -185,7 +185,7 @@ const make = (s) => (px, F) => {
   }
   // ---- the left arm, bent to the pole: the upper arm down from the shoulder, the fist round the pole
   {
-    const sh0 = [hx + ls * 8.6, c0 + 3], el = [hx + ls * 11.6, handL[1] + 0.8];
+    const sh0 = [hx + ls * 10.6, c0 + 3], el = [hx + ls * 12.4, handL[1] + 0.8];
     px.part();
     px.capsule(sh0[0], sh0[1], 3.2, el[0], el[1], 2.9, SKIN, 7.9, { bias: -1, cast: 1 });
     px.capsule(el[0], el[1], 2.8, handL[0], handL[1], 2.6, SKIN, 7.9, { bias: -1, cast: 1 });

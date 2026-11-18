@@ -118,7 +118,7 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the pauldrons: layered and riveted on the sword arm (his right, screen side rs), plainer on the left
   for (const [side, big] of [[ls, 0], [rs, 1]]) {
     px.part();
-    const sc2 = [side * 6.4 + sx, shY + 0.4];
+    const sc2 = [side * 7.4 + sx, shY + 1.4];
     px.ellipse(sc2[0], sc2[1], 4.6, 3.8, PLATE, 6.5, { cast: 1 });
     if (big) { px.ellipse(sc2[0], sc2[1] + 2.2, 3.7, 2.8, PLATE, 6.52, { cast: 1 }); px.line(sc2[0] - 3.8, sc2[1] + 1.8, sc2[0] + 3.8, sc2[1] + 1.8, BRASS, 6.55, { noLine: true }); }
     px.dot(sc2[0] - 1, sc2[1] - 1.4, STEELB, 6.56, { fix: 4 }); px.dot(sc2[0] + 1.6, sc2[1] - 0.6, STEELB, 6.56, { fix: 4 });
@@ -127,13 +127,13 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the arms: plate vambraces over padded sleeves; the sword hand in FRONT
   const rEl = [rs * 8 + sx, shY + 7.2], hdY = shY + 8.2 + vy * 0.3, hand = [rs * 6.4 + sx, hdY - (s > 0 ? 1.2 : 0)];
   px.part();
-  px.capsule(rs * 6.2 + sx, shY + 1.2, 2.5, rEl[0], rEl[1], 2.3, PAD, 5, { cast: 2 });
+  px.capsule(rs * 7 + sx, shY + 1.8, 2.5, rEl[0], rEl[1], 2.3, PAD, 5, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 2.3, hand[0], hand[1], 2.0, PLATE, 5, { cast: 2 });
   px.ellipse(rEl[0], rEl[1], 2.2, 2.2, PLATE, 5.05, { cast: 1 });
   
   const lEl = [ls * 8.6 + sx, shY + 8], lh = [ls * 8.6 + sx, shY + 11.6];
   px.part();
-  px.capsule(ls * 6.2 + sx, shY + 1.2, 2.5, lEl[0], lEl[1], 2.3, PAD, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
+  px.capsule(ls * 7 + sx, shY + 1.8, 2.5, lEl[0], lEl[1], 2.3, PAD, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
   px.capsule(lEl[0], lEl[1], 2.3, lh[0], lh[1], 2.0, PLATE, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
 
   // ---- the longsword, FRONT only: the blade stands up before his right shoulder, the point toward us a little

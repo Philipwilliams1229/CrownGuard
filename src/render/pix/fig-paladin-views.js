@@ -2,7 +2,7 @@
 // Same drawer as the garrison knight (fig-garrison-views.js `knightViews`): ivory plate and gold,
 // a closed flat-topped great helm (front: the gilt cross-slit with breathing holes; back: a gilt
 // seam and rivets), the gold-flanged mace in the right fist (screen left in front), the ringed
-// silver holy sign held up in the left. From behind the mace is hidden by the body (owner's rule).
+// silver sun-staff held up in the left. From behind the mace is hidden by the body (owner's rule).
 import { mat, flat } from "./pix.js";
 import { knightViews } from "./fig-garrison-views.js";
 import { CLIPS, BONES, BOX } from "./fig-paladin.js";
@@ -17,10 +17,10 @@ const FRONT_H = [
   ".MWMMMMMMMMM.",
   ".mmmmmmmmmmm.",
   ".GGGGGGGGGGG.",
-  ".MKKKKGKKKKM.",
-  ".MMMMMGMMMMM.",
-  ".MMKMMGMMKMM.",
-  ".MMMMMGMMMMM.",
+  ".MKKKKKKKKKM.",
+  ".MMMMMMMMMMM.",
+  ".MMMMMMMMMMM.",
+  ".MMMMMMMMMMM.",
   "..mMMMMMMMm..",
   "..ccccccccc..",
 ];
@@ -29,19 +29,19 @@ const BACK_H = [
   ".MMMMMMMMMMM.",
   ".MWWMMMMMMMM.",
   ".MWMMMMMMMMM.",
-  ".mmmmGmmmmmm.",
+  ".mmmmmmmmmmm.",
   ".GGGGGGGGGGG.",
-  ".MMMMMGMMMMM.",
-  ".MMGMMGMMGMM.",
-  ".MMMMMGMMMMM.",
-  ".MMMMMGMMMMM.",
+  ".MMMMMMMMMMM.",
+  ".MMGMMMMMGMM.",
+  ".MMMMMMMMMMM.",
+  ".MMMMMMMMMMM.",
   "..mMMMMMMMm..",
   "..ccccccccc..",
 ];
 const LEG = { M: { m: IVORY }, W: { m: IVORY, bias: 1 }, m: { m: IVORY, bias: -1 }, G: { m: GOLD, fix: 3 }, K: { m: SLIT }, c: { m: IVMAIL } };
 const look = () => ({
   front: FRONT_H, back: BACK_H, blink: FRONT_H, LEG, ay: 10, ball: [6.5, 5.5, 6.6, 6.6],
-  plate: IVORY, mail: IVMAIL, cop: GOLD, rim: IVORY, trim: GOLD, coat: COAT, hem: GOLD, cross: GOLD, backCross: false,
+  plate: IVORY, mail: IVMAIL, cop: GOLD, rim: IVORY, trim: GOLD, coat: COAT, hem: GOLD, sun: GOLD, backCross: false,
   plume: null, weapon: "mace", wood: WOOD, shield: "sign", holy: SILVER,
 });
 const set = knightViews({ NAME: "paladin", BOX, BONES, walk: CLIPS.walk, W: 1, look });

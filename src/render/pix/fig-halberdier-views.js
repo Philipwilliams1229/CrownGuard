@@ -122,7 +122,7 @@ const make = (s) => (px, F, o = {}) => {
   px.stamp(rows, hx, hy, LEG, 6, { ax: 6, ay: 12, cast: 2, ball: [6.5, 4, 7, 7] });
 
   // the halberd in his right hand: haft upright at his side, butt off the flags, the axe blade outward
-  const hdx = rs * 8 + sx, hdy = sk.hdN[1] + (s > 0 ? 0 : 0), a = Math.cos(ph * TAU) * 0.035;
+  const hdx = rs * (s > 0 ? 8 : 6.9) + sx, hdy = sk.hdN[1] + (s > 0 ? 0 : 0), a = Math.cos(ph * TAU) * 0.035;
   const butt = [hdx - 32 * Math.sin(a) * -0, hdy + 32], top = [hdx + 64 * Math.sin(a) * 0, hdy + 32 - 64];
   const kb = s > 0 ? 1 : 0.5, bz = s > 0 ? 7.06 : 6.9;     // from behind the blade runs forward, away from us: mostly hidden behind the haft
   const at = (u, b) => [top[0] + rs * b * (b > 0 ? kb : 1), top[1] - u];
@@ -138,12 +138,15 @@ const make = (s) => (px, F, o = {}) => {
 
   // the near arm (his right): mail sleeve to a leather cuff, his fist on the haft
   {
-    const sh = [rs * 5.3 + sx, chestY + 1.2], hd = [hdx, hdy + 2], el = [rs * 8.4 + sx, (sh[1] + hd[1]) / 2 + 0.5];
+    const sh = [rs * 5.3 + sx, chestY + 1.2];
+    // FRONT: the forearm comes up to the haft. BACK: the arm hangs straight down at his side to the haft, the back of the fist toward us, thumb inward
+    const hd = s > 0 ? [hdx, hdy + 2] : [hdx, chestY + 9.5 + (sk.hdN[1] + 35) * 0.3], el = s > 0 ? [rs * 8.4 + sx, (sh[1] + hd[1]) / 2 + 0.5] : [rs * 6.6 + sx, chestY + 5.2];
     px.part();
-    px.capsule(sh[0], sh[1], 2.3, el[0], el[1], 2.1, MAIL, 8, { cast: 2 });
-    px.capsule(el[0], el[1], 2.1, hd[0], hd[1], 1.8, MAIL, 8, { cast: 2 });
-    px.capsule(el[0] * 0.28 + hd[0] * 0.72, el[1] * 0.28 + hd[1] * 0.72, 1.9, el[0] * 0.16 + hd[0] * 0.84, el[1] * 0.16 + hd[1] * 0.84, 1.9, LEATHER, 8.02);
+    px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, MAIL, 8, { cast: 2 });
+    px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, MAIL, 8, { cast: 2 });
+    px.capsule(el[0] * 0.28 + hd[0] * 0.72, el[1] * 0.28 + hd[1] * 0.72, 2.0, el[0] * 0.16 + hd[0] * 0.84, el[1] * 0.16 + hd[1] * 0.84, 2.0, LEATHER, 8.02);
     px.part(); px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 8.2);
+    if (s < 0) px.dot(hd[0] - rs * 1.6, hd[1] - 0.6, SKIN, 8.25, { bias: -1 });   // the thumb, inward
   }
   return {};
 };

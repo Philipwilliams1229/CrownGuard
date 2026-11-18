@@ -125,7 +125,7 @@ const make = (s) => (px, F) => {
 
   // ---- the drum on his left arm: held across and a little out, seen almost edge-on (a thin hoop, a sliver of hide)
   {
-    const sh = [sx + ls * 6.2, c0 + 3], dxc = hx + ls * 8.6, dyc = c0 + 11 - (p.dlift || 0), hd = [dxc - ls * 1.2, dyc + 5.6], el = [sx + ls * 9, (sh[1] + hd[1]) / 2];
+    const sh = [sx + ls * 8, c0 + 3], dxc = hx + ls * 8.6, dyc = c0 + 11 - (p.dlift || 0), hd = [dxc - ls * 1.2, dyc + 5.6], el = [sx + ls * 9, (sh[1] + hd[1]) / 2];
     px.part();
     px.capsule(sh[0], sh[1], 2.3, el[0], el[1], 2, TUNIC_L, 7.4, { bias: -1, cast: 1 });
     px.capsule(el[0], el[1], 2, hd[0], hd[1], 1.7, TUNIC_L, 7.4, { bias: -1, cast: 1 });
@@ -135,12 +135,12 @@ const make = (s) => (px, F) => {
     px.ellipse(dxc + rs * 0.7, dyc, 1.4, Rr * 0.84, HIDE, 7.62, { round: 0.6 });
     px.toneLine(dxc - 1.4, dyc - Rr * 0.7, dxc - 1.4, dyc + Rr * 0.7, -1, did);
     px.part();
-    px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 7.8, { bias: -1 });
+    if (s > 0) px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 7.8, { bias: -1 });   // from behind the hand is hidden by the drum
   }
 
   // ---- the near arm (his right): a sleeve and a leather cuff, the beater held up in the fist, falling on the beat
   {
-    const lift = cl((p.aN[0] - 1.0) * 8, 0, 4), sh = [sx + rs * 7, c0 + 3], hd = [sx + rs * 8.6, hipY - 1 - lift + s * 0.6], el = [sx + rs * 9.2, (sh[1] + hd[1]) / 2 - 0.4];
+    const lift = cl((p.aN[0] - 1.0) * 8, 0, 4), sh = [sx + rs * 8.2, c0 + 3], hd = [sx + rs * 9.4, hipY - 1 - lift + s * 0.6], el = [sx + rs * 9.8, (sh[1] + hd[1]) / 2 - 0.4];
     px.part(); px.tag("nearArm");
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.2, TUNIC_L, 7.9, { cast: 1 });
     px.capsule(el[0], el[1], 2.2, hd[0], hd[1], 1.9, TUNIC_L, 7.9, { cast: 1 });

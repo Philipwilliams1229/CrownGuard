@@ -131,7 +131,7 @@ const make = (s) => (px, F) => {
   // the mace: upright in the right fist before him (front); from behind only its pommel shows at the hip
   {
     // front: out at his side; behind: the same mace at true depth, its head leaning in behind the body (hidden), haft and pommel past the fist showing
-    const tilt = s > 0 ? rs * 0.62 + (p.wrist || 0) * 0.3 : -rs * 0.38, zo = s > 0 ? 0 : -3.6, d = [Math.sin(tilt), -Math.cos(tilt)], nr = [-d[1], d[0]];
+    const tilt = s > 0 ? rs * 0.62 + (p.wrist || 0) * 0.3 : -rs * 0.38, zo = s > 0 ? 1.1 : -3.6, d = [Math.sin(tilt), -Math.cos(tilt)], nr = [-d[1], d[0]];
     const B = (t, o = 0) => [handN[0] + d[0] * t + nr[0] * o, handN[1] + d[1] * t + nr[1] * o];
     const hd = B(15);
     px.part(); px.tag("mace");

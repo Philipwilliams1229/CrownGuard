@@ -129,7 +129,7 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the left arm (staff side): a long thin arm in a belled sleeve, the fist round the shaft
   {
-    const sh = [ls * 4.4 + sx, chestY + 0.8], el = [ls * 7.6 + sx * 0.8, chestY + 8.4], fist = [SX, hgY], wr = mix(el, fist, 0.7);
+    const sh = [ls * 6 + sx, chestY + 0.8], el = [ls * 8.4 + sx * 0.8, chestY + 8.4], fist = [SX, hgY], wr = mix(el, fist, 0.7);
     px.part();
     px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, COWL, 4.6, { bias: -1 });
     px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.8, COWL, 4.6, { bias: -1 });
@@ -149,9 +149,9 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the robe: narrow shoulders to a torn hem
   px.part(); const robeId = px._pid;
-  px.poly([[sx - 4.2, top], [sx + 4.3, top], [sx + 5, chestY + 3], [hx + 4.7, hipY - 2],
+  px.poly([[sx - 5.4, top], [sx + 5.4, top], [sx + 5.6, chestY + 3], [hx + 4.7, hipY - 2],
     ...TAT.map(([t, dp]) => [hm(t) + (dp < 1 ? tipD : tipD * 0.4), hemY - dp]),
-    [hx - 4.7, hipY - 2], [sx - 5.2, chestY + 3]], ROBE, 4, { round: 0.9, cast: 1, edge: true });
+    [hx - 4.7, hipY - 2], [sx - 5.6, chestY + 3]], ROBE, 4, { round: 0.9, cast: 1, edge: true });
   px.toneLine(hx - 2, hipY + 2, hm(0.3), hemY - 5, -1, robeId);
   px.toneLine(hx - 4, hipY + 4, hm(0.1), hemY - 5, 1, robeId);
   px.toneLine(hx + 3, hipY + 1, hm(0.86), hemY - 5, 1, robeId);
@@ -172,7 +172,7 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the right arm (free): long and thin in a belled sleeve with a violet cuff, bony fingers hanging
   {
     const ang = p.aN[0];
-    const sh = [rs * 4.4 + sx, chestY + 0.8], el = [rs * 7.2 + sx * 0.8, chestY + 8.4], hand = [rs * 6.6 + sx * 0.8, chestY + 15.6 + s * ang * 2.2], wr = mix(el, hand, 0.76);
+    const sh = [rs * 6 + sx, chestY + 0.8], el = [rs * 8 + sx * 0.8, chestY + 8.4], hand = [rs * 7.4 + sx * 0.8, chestY + 15.6 + s * ang * 2.2], wr = mix(el, hand, 0.76);
     px.part(); px.tag("nearArm");
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.3, COWL, 8, { cast: 2 });
     px.capsule(el[0], el[1], 2.3, wr[0], wr[1], 3, COWL, 8, { cast: 2 });
@@ -181,7 +181,7 @@ const make = (s) => (px, F, o = {}) => {
     const hb = [Math.round(hand[0]) + 0.5, Math.round(hand[1] + 1.4) + 0.5];
     px.part();
     px.ellipse(hb[0], hb[1], 1.7, 1.5, SKIN, 9.5, { cast: 1 });
-    for (let i = -1; i <= 1; i++) {
+    for (let i = -1; i <= 1; i += (s > 0 ? 1 : 2)) {
       const a = Math.PI / 2 + i * 0.4, L = 3;
       px.line(hb[0], hb[1] + 0.6, hb[0] + Math.cos(a) * L, hb[1] + 0.6 + Math.sin(a) * L, SKIN, 9.5, { bias: i > 0 ? -1 : 0 });
     }

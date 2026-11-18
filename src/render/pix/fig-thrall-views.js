@@ -196,7 +196,7 @@ const make = (s) => (px, F) => {
   px.ellipse(hd[0], hd[1], 1.9, 2, SKIN, 8.3);
   px.tag(null);
   px.part();
-  px.ellipse(sx + rs * 5, shY - 0.4, 4.2, 3.6, FURW, 8, { cast: 1 });
+  px.ellipse(sx + rs * 8, shY + 0.4, 3.6, 3.4, FURW, 8, { cast: 1 });
 
   // the head
   px.part();

@@ -59,15 +59,14 @@ export const knightViews = (C) => {
         const zs = s > 0 ? 6.6 : 3.4, gx = h2[0], gy = h2[1] * KS === 0 ? 0 : h2[1];
         px.part();
         const big = C.sign || 1;
-        px.line(gx, gy - 8 * big, gx, gy - 0.4, L.holy, zs);
-        px.line(gx - 2.2 * big, gy - 5.8 * big, gx + 2.2 * big, gy - 5.8 * big, L.holy, zs);
-        px.ellipse(gx, gy - 5.8 * big, 1.9 * big, 1.9 * big, L.trim, zs - 0.05, { noLine: true });
-        if (s < 0) px.ellipse(gx, gy - 5.8 * big, 0.9, 0.9, L.holy, zs + 0.02, { noLine: true });
+        px.line(gx, gy - 6 * big, gx, gy - 0.4, L.holy, zs);
+        px.ellipse(gx, gy - 6.4 * big, 2.9 * big, 2.9 * big, L.trim, zs - 0.05, { noLine: true });
+        px.ellipse(gx, gy - 6.4 * big, 1.6 * big, 1.6 * big, L.holy, zs + 0.02, { noLine: true });
         px.part(); px.ellipse(gx, gy + 0.2, 1.7 * RW, 1.7 * RW, L.mail, zs + 0.1, { bias: -1 });
       } else {
         px.part();
-        px.capsule(sh0[0], sh0[1], 2 * RW, el[0], el[1], 1.9 * RW, L.plate, 3.6, { bias: -1 });
-        px.capsule(el[0], el[1], 1.9 * RW, hd[0], hd[1], 1.7 * RW, L.plate, 3.6, { bias: -1 });
+        px.capsule(sh0[0], sh0[1], 2 * RW, el[0], el[1], 1.9 * RW, L.plate, s > 0 ? 3.6 : 4.55, { bias: -1 });
+        px.capsule(el[0], el[1], 1.9 * RW, hd[0], hd[1], 1.7 * RW, L.plate, s > 0 ? 3.6 : 4.55, { bias: -1 });
         // the kite: face-on in front; from behind its back, seen mostly edge-on past the body
         const k = C.shK || 1, xs = (s > 0 ? 0.9 : 0.5) * k, ys = 0.95 * k;
         const scx = tx + ls * (s > 0 ? 7.4 : 8.2) * W, scy = sk.hdF[1] * 0.7 + sk.eF[1] * 0.3 + (s > 0 ? 3.2 : 0.8) * W;   // carried low: the top stays under the chin
@@ -113,6 +112,7 @@ export const knightViews = (C) => {
     px.poly([[tx - 3.8 * W, yC - 1.2 * W], [tx + 3.8 * W, yC - 1.2 * W], [tx + 4.9 * W, yC + 3.3 * W], [hx + 4.7 * W, yP - 2.6 * W], [hx + 5.4 * W, hemY], [hx + 1 * W, hemY], [hx, hemY - 2.4 * W], [hx - 1 * W, hemY], [hx - 5.4 * W, hemY], [hx - 4.7 * W, yP - 2.6 * W], [tx - 4.9 * W, yC + 3.3 * W]], L.coat, 4.2, { round: 0.9, cast: 2 });
     px.line(hx - 5 * W, hemY - 0.7, hx - 1.2 * W, hemY - 0.7, L.hem, 4.22); px.line(hx + 1.2 * W, hemY - 0.7, hx + 5 * W, hemY - 0.7, L.hem, 4.22);
     if (s > 0) {
+      if (L.sun) { px.ellipse(tx + 0.4, yC + 2.8 * W, 2.3 * RW, 2.3 * RW, L.sun, 4.25, { noLine: true }); px.ellipse(tx + 0.4, yC + 2.8 * W, 1.1 * RW, 1.1 * RW, L.coat, 4.27, { noLine: true }); }
       if (L.cross) { px.line(tx, yC - 0.2 * W, hx, yC + 5.4 * W, L.cross, 4.25); px.line(tx - 2.2 * W, yC + 1.8 * W, tx + 2.2 * W, yC + 1.8 * W, L.cross, 4.25); }
     } else {
       px.toneLine(tx, yC + 0.5 * W, hx, hemY - 1.4, -1, coat);
@@ -182,8 +182,8 @@ export const knightViews = (C) => {
     // the pauldrons, both shoulders
     for (const sd of [rs, ls]) {
       px.part();
-      px.ellipse(tx + sd * 5.5 * W, sk.sN[1] - 0.2 * W, 3.3 * RW, 3 * RW, L.plate, 4.8, { cast: 2 });
-      px.line(tx + sd * 5.5 * W - 2.7 * RW, sk.sN[1] + 2.1 * W, tx + sd * 5.5 * W + 2.7 * RW, sk.sN[1] + 2.1 * W, L.hem, 4.82);
+      px.ellipse(tx + sd * 6 * W, sk.sN[1] - 0.2 * W, 3.2 * RW, 3 * RW, L.plate, 4.8, { cast: 2 });
+      px.line(tx + sd * 6 * W - 2.7 * RW, sk.sN[1] + 2.1 * W, tx + sd * 6 * W + 2.7 * RW, sk.sN[1] + 2.1 * W, L.hem, 4.82);
     }
 
     // ---- the head (stamped at the board's scale: the Champion's grid is drawn small already)

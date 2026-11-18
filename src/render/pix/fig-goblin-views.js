@@ -92,19 +92,19 @@ const make = (s) => (px, F, o = {}) => {
   // far side first. The shield (his left, screen side ls): in FRONT seen nearly edge-on beside him, carried forward;
   // from BEHIND its back: dark rim, planks, a strap, the boss's rivets, mostly beyond his body.
   const shY = chestY + 0.4 - tilt * ls * rs * -1;
-  const shL = [ls * 4.3 + sx, shY], shR = [rs * 4.3 + sx, shY - 0.5 * tilt * 0 + tilt];
+  const shL = [ls * 5.6 + sx, shY], shR = [rs * 5.6 + sx, shY - 0.5 * tilt * 0 + tilt];
   if (bare) {
-    const ang = (p.bF || [0.5, 0.8, 0])[0], hand = [ls * 6.6 + sx, shL[1] + 7.2 + s * ang * 2.0], el = [ls * 7.2 + sx, shL[1] + 3.6];
+    const ang = (p.bF || [0.5, 0.8, 0])[0], hand = [ls * 7.4 + sx, shL[1] + 7.2 + s * ang * 2.0], el = [ls * 8 + sx, shL[1] + 3.6];
     px.part();
     px.capsule(shL[0], shL[1], 1.6, el[0], el[1], 1.5, SKIN, 4.6, { bias: -1 });
     px.capsule(el[0], el[1], 1.5, hand[0], hand[1], 1.4, SKIN, 4.6, { bias: -1 });
     px.part();
     px.ellipse(hand[0], hand[1] + 0.3, 1.9 + s * ang * 0.3, 1.8, SKIN, 4.7, { bias: -1 });
   } else {
-    const c = [ls * 8 + sx, shL[1] + 7.6];
+    const c = [ls * 8.8 + sx, shL[1] + 7.6];
     px.part();
     const zs = s > 0 ? 7.4 : 3.2;
-    px.capsule(shL[0], shL[1], 1.6, ls * 6.8 + sx, shL[1] + 4.4, 1.5, SKIN, zs - 0.2, { bias: -1 });
+    px.capsule(shL[0], shL[1], 1.6, ls * 7.6 + sx, shL[1] + 4.4, 1.5, SKIN, zs - 0.2, { bias: -1 });
     px.part(); const id = px._pid;
     px.ellipse(c[0], c[1], 3.1, 5.2, DARK, zs, { round: 0.6 });
     px.ellipse(c[0], c[1], 2.1, 4.2, WOOD, zs + 0.02, { round: 0.75 });
@@ -166,9 +166,9 @@ const make = (s) => (px, F, o = {}) => {
   // the jerkin: a hunched barrel to a ragged hem, belt round it
   const c0 = chestY - 3, b0 = hipY;
   px.part();
-  px.poly([[sx - 5.2, c0], [sx + 5.2, c0], [sx + 5, c0 + 3.4], [hx + 4.7, b0 + 0.2], [hx + 4.8, b0 + 2.2], [hx - 4.8, b0 + 2.2], [hx - 4.7, b0 + 0.2], [sx - 5, c0 + 3.4]], jerk, 4, { round: 0.92, cast: 1 });
+  px.poly([[sx - 6.3, c0], [sx + 6.3, c0], [sx + 6.1, c0 + 3.4], [hx + 5.4, b0 + 0.2], [hx + 5.4, b0 + 2.2], [hx - 5.4, b0 + 2.2], [hx - 5.4, b0 + 0.2], [sx - 6.1, c0 + 3.4]], jerk, 4, { round: 0.92, cast: 1 });
   for (const dx of [-3.4, -1.6, 0.6, 3.2]) px.dot(hx + dx, b0 + 2.6, jerk, 4);
-  px.poly([[hx - 4.9, b0 - 2], [hx + 4.9, b0 - 2], [hx + 4.9, b0 - 0.2], [hx - 4.9, b0 - 0.2]], DARK, 4.05, { round: 0.92 });
+  px.poly([[hx - 5.5, b0 - 2], [hx + 5.5, b0 - 2], [hx + 5.5, b0 - 0.2], [hx - 5.5, b0 - 0.2]], DARK, 4.05, { round: 0.92 });
   px.part();
   if (s > 0) {
     px.dot(hx, b0 - 1.1, STEEL, 4.2);                                       // buckle
@@ -179,7 +179,7 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // the near arm (his right, screen side rs): the knife in its fist. Forward swing = the hand lower and bigger in front.
-  const ang = p.aN[0], hand = [rs * 6.8 + sx, shR[1] + 7.4 + s * ang * 2.4], elb = [rs * 7.8 + sx, shR[1] + 3.8];
+  const ang = p.aN[0], hand = [rs * 7.6 + sx, shR[1] + 7.4 + s * ang * 2.4], elb = [rs * 8.6 + sx, shR[1] + 3.8];
   const hr = cl(1.7 + s * ang * 0.5, 1.4, 2.3);
   px.part();
   px.ellipse(shR[0] - rs * 0.2, shR[1] + 0.2, 2.5, 2.3, jerk, 4.6, { cast: 0, bias: 1 });

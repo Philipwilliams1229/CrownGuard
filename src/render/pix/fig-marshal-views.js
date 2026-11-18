@@ -181,7 +181,14 @@ const make = (s) => (px, F) => {
     px.ellipse(hand[0], hand[1], 2.4, 2.4, PLATEK, z + 0.2, { weld: 2 }); px.body(0);
   };
   if (s > 0) arm(ls, [lx, farY], 8, -1, rs > 0 ? 1 : -1);
-  else { px.part(); px.ellipse(lx + rs * 0.5, farY + 1, 2.2, 2.2, PLATEK, 8.2, { bias: -1 }); }      // from behind only his left fist shows on the shaft
+  else {
+    // from behind his left arm hangs at his side, swinging forward; only its upper and lower plate show, the hand is in front of him
+    const sh = [sx + ls * 7.6, shY + 0.3], el = [sx + ls * 10, shY + 8.6], wr = [sx + ls * 9, shY + 15.6 + (p.aF[0] - 0.9) * -3];
+    px.part(); px.body(1);
+    px.limb([sh, el, wr], [3, 2.7, 2.3], PAD, 8, { bias: -1 });
+    px.capsule(el[0], el[1], 2.7, wr[0], wr[1], 2.3, PLATE, 8.01, { wrap: true });
+    px.ellipse(el[0], el[1], 2.7, 2.7, PLATE, 8.05, { weld: 2 }); px.body(0);
+  }      // from behind only his left fist shows on the shaft
   px.tag("nearArm"); arm(rs, [lx, nearY], 9, 0, rs > 0 ? -1 : 1); px.tag(null);
   // the pauldrons: two layers, spiked, brass-edged, on BOTH shoulders
   for (const side of [rs, ls]) {

@@ -74,10 +74,10 @@ const make = (s) => (px0, F, o = {}) => {
   // ---- the cape: behind him in front (its two edges and the red between the legs), the whole back from behind ----
   const t1 = vx * 1.4, t2 = vx * 2 + vx2 * 1.6;
   px.part();
-  if (s > 0) px.poly([[sx - 5.6, chY - 1.8], [sx + 5.6, chY - 1.8], [sx + 6.6, hipY + 3], [sx + 6.6 + t2 * 0.4, -9.6], [sx + 3.4 + t2 * 0.6, -8.2], [sx - 0.5 + t2 * 0.5, -9.4], [sx - 3.4 + t2 * 0.6, -8.2], [sx - 6.6 + t2 * 0.4, -9.6], [sx - 6.6, hipY + 3]], RED_D, 0.5, { round: 0.85 });
+  if (s > 0) px.poly([[sx - 7, chY - 1.8], [sx + 7, chY - 1.8], [sx + 8, hipY + 3], [sx + 8 + t2 * 0.4, -9.6], [sx + 4 + t2 * 0.6, -8.2], [sx - 0.5 + t2 * 0.5, -9.4], [sx - 4 + t2 * 0.6, -8.2], [sx - 8 + t2 * 0.4, -9.6], [sx - 8, hipY + 3]], RED_D, 0.5, { round: 0.85 });
   else {
     const cid = px._pid;
-    px.poly([[sx - 5.4, chY - 2.2], [sx + 5.4, chY - 2.2], [sx + 6.4, chY + 4], [sx + 7.4 + t1, hipY + 4], [sx + 7.6 + t2, -8], [sx + 4.2 + t2 * 0.8, -6.4], [sx + 0.2 + t2 * 0.6, -8.6], [sx - 3.8 + t2 * 0.8, -6.2], [sx - 7.6 + t2, -8], [sx - 7.4 + t1, hipY + 4], [sx - 6.4, chY + 4]], RED_D, 5.2, { round: 0.9, cast: 1 });
+    px.poly([[sx - 6.8, chY - 2.2], [sx + 6.8, chY - 2.2], [sx + 7.6, chY + 4], [sx + 8.4 + t1, hipY + 4], [sx + 8.6 + t2, -8], [sx + 4.2 + t2 * 0.8, -6.4], [sx + 0.2 + t2 * 0.6, -8.6], [sx - 3.8 + t2 * 0.8, -6.2], [sx - 8.6 + t2, -8], [sx - 8.4 + t1, hipY + 4], [sx - 7.6, chY + 4]], RED_D, 5.2, { round: 0.9, cast: 1 });
     px.toneLine(sx - 2.2, chY + 2, sx - 2.6 + t2 * 0.6, -7, -1, cid);
     px.toneLine(sx + 2.6, chY + 3, sx + 3.2 + t2 * 0.7, -7.4, -1, cid);
     px.toneLine(sx - 5.6, hipY - 2, sx - 6 + t2 * 0.9, -7.6, -1, cid);
@@ -87,10 +87,10 @@ const make = (s) => (px0, F, o = {}) => {
   }
 
   // ---- the kite shield on his left arm ----
-  const shC = [ls * 8.3 + sx, chY + (s > 0 ? 9.2 : 7) + swingF * 0.4], tl = 0;
+  const shC = [ls * 10.6 + sx, chY + (s > 0 ? 9.2 : 7) + swingF * 0.4], tl = 0;
   const S = (x, y) => [shC[0] + x, shC[1] + y];
   px.part();
-  px.limb([[ls * 5.2 + sx, chY + 0.4], [ls * 7.4 + sx, chY + 3.6], [shC[0] - ls * 0.4, shC[1] + 0.4]], [2.1, 2, 1.8], STEEL, s > 0 ? 1 : 3.4, { bias: -1 });
+  px.limb([[ls * 7.2 + sx, chY + 0.6], [ls * 9.2 + sx, chY + 4], [shC[0] - ls * 0.4, shC[1] + 0.4]], [2.1, 2, 1.8], STEEL, s > 0 ? 1 : 3.4, { bias: -1 });
   px.part(); const shid = px._pid;
   const zs = s > 0 ? 5.6 : 3.5;
   px.poly([S(-4.6, -6.4), S(4.6, -6.4), S(4.9, 0.6), S(0, 8.2), S(-4.9, 0.6)], GOLD, zs, { round: 0.6, cast: 2 });
@@ -125,7 +125,7 @@ const make = (s) => (px0, F, o = {}) => {
 
   // ---- the body: breastplate, belt, the surcoat's skirt over the hips ----
   px.body(1);
-  px.poly([[sx - 4.8, chY - 1.6], [sx + 5, chY - 1.6], [sx + 6.2, chY + 3.5], [sx + 4.8, hipY - 2.6], [sx - 4.8, hipY - 2.6], [sx - 6, chY + 3.5]], STEEL, 4, { round: 0.92, ny: -0.12, weld: 2 });
+  px.poly([[sx - 6, chY - 1.6], [sx + 6.2, chY - 1.6], [sx + 7.4, chY + 3.5], [sx + 5.4, hipY - 2.6], [sx - 5.4, hipY - 2.6], [sx - 7.2, chY + 3.5]], STEEL, 4, { round: 0.92, ny: -0.12, weld: 2 });
   const hy = hipY + 3.6;
   const skirtZ = s > 0 ? 4.2 : 4.1;
   px.poly([[sx - 4.9, hipY - 3], [sx + 4.7, hipY - 3], [sx + 6.2, hy], [sx + 3.6, hy + 0.9], [sx + 0.4 + vx, hy], [sx - 3, hy + 0.9], [sx - 6.2, hy]], RED, skirtZ, { round: 0.9, cast: 0 });
@@ -163,10 +163,10 @@ const make = (s) => (px0, F, o = {}) => {
   }
 
   // ---- the sword in his right fist and the arm over it: the blade stands up beside the head ----
-  const sh = [rs * 5.2 + sx, chY + 0.5], el = [rs * 7.6 + sx, chY + 3.8 + swing * 0.3], hd = [rs * 8.2 + sx, chY + 7 + swing];
+  const sh = [rs * 7.2 + sx, chY + 0.6], el = [rs * 9.2 + sx, chY + 4 + swing * 0.3], hd = [rs * 9.8 + sx, chY + 7 + swing];
   const ang = s > 0 ? rs * 0.1 : rs * 2.7, d = [Math.sin(ang), -Math.cos(ang)], nrm = [-d[1], d[0]];
   const B = (t, q = 0) => [hd[0] + d[0] * t + nrm[0] * q, hd[1] + d[1] * t + nrm[1] * q];
-  const bz = s > 0 ? 7.2 : 3.0, kb = s > 0 ? 1 : 0.7;   // from behind the blade lies down and forward, mostly hidden: grip and a tip past the hip
+  const bz = s > 0 ? 8.4 : 3.0, kb = s > 0 ? 1 : 0.7;   // from behind the blade lies down and forward, mostly hidden: grip and a tip past the hip
   px.part(); px.tag("sword");
   px.capsule(...B(3.4), 1.05, ...B(3.4 + 12.1 * kb), 0.9, BLADE, bz, { edge: true });
   px.capsule(...B(3.4 + 12.1 * kb), 0.9, ...B(5.5 + 12.1 * kb), 0.3, BLADE, bz, { edge: true });
@@ -178,13 +178,13 @@ const make = (s) => (px0, F, o = {}) => {
   px.part(); px.tag("nearArm");
   px.limb([sh, el, hd], [2.2, 2.1, 1.9], STEEL, 7.4, { weld: 2, weldRoot: 4 });
   px.ellipse(el[0], el[1], 1.8, 1.8, STEEL, 7.42, { vb: 0.25, weld: 2 });
-  px.ellipse(hd[0], hd[1], 1.8, 1.9, MAIL, 7.6, { weld: 1.5 });
+  px.ellipse(hd[0], hd[1], 1.8, 1.9, MAIL, 8.7, { weld: 1.5 });
   px.tag(null);
-  px.ellipse(sh[0] - rs * 0.2, sh[1] - 0.6, 3.7, 3.2, STEEL, 8.1, { weld: 2 });
-  px.line(sh[0] - 3, sh[1] + 2, sh[0] + 2.6, sh[1] + 2, GOLD, 8.12);
+  px.ellipse(sh[0] - rs * 0.2, sh[1] - 0.2, 3.7, 3.2, STEEL, 8.1, { weld: 2 });
+  px.line(sh[0] - 3, sh[1] + 2.4, sh[0] + 2.6, sh[1] + 2.4, GOLD, 8.12);
   // the far pauldron too, over the shield arm's shoulder
-  px.ellipse(ls * 5.2 + sx + ls * 0.2, chY - 0.2, 3.7, 3.2, STEEL, 8.1, { weld: 2 });
-  px.line(ls * 5.2 + sx - 3, chY + 1.6, ls * 5.2 + sx + 2.6, chY + 1.6, GOLD, 8.12);
+  px.ellipse(ls * 7.2 + sx + ls * 0.2, chY + 0.3, 3.7, 3.2, STEEL, 8.1, { weld: 2 });
+  px.line(ls * 7.2 + sx - 3, chY + 2.1, ls * 7.2 + sx + 2.6, chY + 2.1, GOLD, 8.12);
   px.body(0);
   return {};
 };

@@ -99,24 +99,26 @@ const make = (s) => (px, F, o = {}) => {
   px.line(tx - 3, chestY - 1.4, tx + 3, chestY - 1.4, GOLD, 4.5);                                // the gorget's gold edge
 
   // the far arm (his LEFT, screen side ls): the hand on his hip, the elbow out; a pauldron with one spike
-  const shL = [tx + ls * 6.2, chestY + 0.4], elL = [tx + ls * 10.6, chestY + 7.4], hpL = [hx + ls * 4.9, hipY - 4];
+  const PX = 8.2, PY = chestY + 1;   // the pauldrons sit OUT past the head (never over the face)
+  const shL = [tx + ls * 7.4, chestY + 0.8], elL = s > 0 ? [tx + ls * 10.8, chestY + 7.4] : [tx + ls * 9.4, chestY + 7.4], hpL = s > 0 ? [hx + ls * 4.9, hipY - 4] : [tx + ls * 9.8, chestY + 13.6 - a * 0.6 * s];
   px.part();
   px.capsule(shL[0], shL[1], 2.3, elL[0], elL[1], 2.2, STEEL_D, 4.6, { bias: -1, cast: 0 });
   px.capsule(elL[0], elL[1], 2.2, hpL[0], hpL[1], 1.9, STEEL, 4.6, { bias: -1, cast: 0 });
   px.ellipse(elL[0], elL[1], 1.9, 1.9, STEEL, 4.62, { vb: 0.25 });
   px.ellipse(hpL[0], hpL[1], 1.8, 1.7, STEEL_D, 4.8);
   px.part();
-  px.ellipse(shL[0] + ls * 0.4, shL[1] - 0.4, 3.9, 3.4, STEEL_D, 8.1, { cast: 0 });
-  px.line(shL[0] - 3, shL[1] + 2, shL[0] + 3, shL[1] + 2, GOLD, 8.12);
-  px.poly([[shL[0] - 1.2, shL[1] - 2], [shL[0] + 1.2, shL[1] - 2], [shL[0] + ls * 0.8, shL[1] - 6.8]], STEEL_D, 8.14, { edge: true });
+  const pL = [tx + ls * PX, PY];
+  px.ellipse(pL[0], pL[1] - 0.4, 3.9, 3.4, STEEL_D, 6.0, { cast: 0 });
+  px.line(pL[0] - 3, pL[1] + 2, pL[0] + 3, pL[1] + 2, GOLD, 6.02);
+  px.poly([[pL[0] - 1.2, pL[1] - 2], [pL[0] + 1.2, pL[1] - 2], [pL[0] + ls * 0.8, pL[1] - 6.8]], STEEL_D, 6.04, { edge: true });
 
   // the halberd in his right hand: carried upright, a touch outboard, the butt below the fist; the crescent turned outboard
-  const sh = [tx + rs * 6.2, chestY + 0.4], elb = [tx + rs * 9.6, chestY + 6.6], sw = a * 0.5 * s;
+  const sh = [tx + rs * 7.4, chestY + 0.8], elb = [tx + rs * 9.8, chestY + 6.6], sw = a * 0.5 * s;
   const hd = [tx + rs * 10.4, chestY + 11.6 + sw * 0.5];
   const lean = rs * 0.07 + sw * 0.01, d = [Math.sin(lean), -Math.cos(lean)], nr = [-d[1], d[0]];
-  const fk = s > 0 ? 1 : 0.38;   // from behind the pole leans away from us: foreshortened
+  const fk = s > 0 ? 1 : 0.5;   // from behind the pole leans away from us: foreshortened
   const Bh = (t, w = 0) => [hd[0] + d[0] * t * fk + nr[0] * w * fk, hd[1] + d[1] * t * fk + nr[1] * w * fk];   // t up the shaft from the fist, w across it
-  const bz = 6.25, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
+  const bz = s > 0 ? 6.25 : 5.5, o1 = rs;                                                                   // o1: the side of the shaft the crescent hangs on (screen outboard)
   px.part(); px.tag("halb");
   px.capsule(...Bh(-9), 1.1, ...Bh(36), 1.05, WOOD, bz, { edge: true });
   px.capsule(...Bh(-9), 1.5, ...Bh(-7.6), 1.5, STEEL_D, bz + 0.02);
@@ -136,18 +138,19 @@ const make = (s) => (px, F, o = {}) => {
   px.tag(null);
   // the right arm over it: vambrace, gauntlet round the haft, the great spiked pauldron
   px.part(); px.tag("nearArm");
-  px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, 6.2, { cast: 0 });
-  px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, 6.2, { cast: 0 });
-  px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, 6.22, { vb: 0.25 });
+  px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, s > 0 ? 6.2 : 5.2, { cast: 0 });
+  px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, s > 0 ? 6.2 : 5.2, { cast: 0 });
+  px.ellipse(elb[0], elb[1], 1.9, 1.9, STEEL, s > 0 ? 6.22 : 5.22, { vb: 0.25 });
   px.ellipse(hd[0], hd[1], 2.1, 2.0, STEEL_D, 6.5);
   px.line(hd[0] - 1.8, hd[1] - 0.8, hd[0] + 1.8, hd[1] - 0.8, STEEL, 6.52, { fix: 1, noLine: true });   // the fingers over the haft
   px.line(hd[0] - 1.4, hd[1] + 0.8, hd[0] + 1.4, hd[1] - 1, GOLD, 6.55);
   px.tag(null);
   px.part();
-  px.ellipse(sh[0] - rs * 0.2, sh[1] - 0.4, 4.0, 3.3, STEEL, 8.1, { cast: 1 });
-  px.line(sh[0] - 3, sh[1] + 2.2, sh[0] + 3, sh[1] + 2.2, GOLD, 8.12);
-  px.poly([[sh[0] - 2, sh[1] - 2], [sh[0] + 0.4, sh[1] - 2], [sh[0] - 1.6, sh[1] - 7.6]], STEEL, 8.14, { edge: true });
-  px.poly([[sh[0] + 0.8, sh[1] - 1.8], [sh[0] + 3.2, sh[1] - 1.8], [sh[0] + 3.6, sh[1] - 6]], STEEL, 8.14, { edge: true });
+  const pR = [tx + rs * PX, PY];
+  px.ellipse(pR[0], pR[1] - 0.4, 4.0, 3.3, STEEL, 6.0, { cast: 1 });
+  px.line(pR[0] - 3, pR[1] + 2.2, pR[0] + 3, pR[1] + 2.2, GOLD, 6.02);
+  px.poly([[pR[0] - 2, pR[1] - 2], [pR[0] + 0.4, pR[1] - 2], [pR[0] - 1.6, pR[1] - 7.6]], STEEL, 6.04, { edge: true });
+  px.poly([[pR[0] + 0.8, pR[1] - 1.8], [pR[0] + 3.2, pR[1] - 1.8], [pR[0] + 3.6, pR[1] - 6]], STEEL, 6.04, { edge: true });
 
   // the head: sallet and its horsehair crest. From the front the plume rises over the dome and falls behind it; from behind it
   // runs as a broad red ridge down the back of the dome and streams past the nape, a beat behind the bob.

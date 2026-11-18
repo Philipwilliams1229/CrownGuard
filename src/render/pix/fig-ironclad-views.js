@@ -68,7 +68,7 @@ const make = (s) => (px, F) => {
   const vx = cl((sx - sx1) * 1.3, -2.5, 2.5), vx2 = cl((sx1 - sx2) * 1.3, -2.5, 2.5);
   const tilt = 0.5 * Math.sin(ph * TAU);
   const shY = chY - 1.4, aF = p.aF[0], aN = p.aN[0];
-  const armOf = (side, ang, sh) => [[side * 10.4 + sx, sh], [side * 12 + sx, sh + 8.4], [side * 12.2 + sx, sh + 15.4 + s * ang * 2.4]];
+  const armOf = (side, ang, sh) => [[side * 12.8 + sx, sh + 0.8], [side * 13.4 + sx, sh + 8.8], [side * 13.6 + sx, sh + 15.4 + s * ang * 2.4]];
 
   // the far arm (his left): bare above the elbow, a vambrace, the fist behind the shield
   {
@@ -81,7 +81,7 @@ const make = (s) => (px, F) => {
     px.part();
     px.ellipse(sp[0] + ls * 0.8, sp[1] - 0.6, 5.4, 4.3, PLATE, 4.8, { bias: -1, cast: 1 });
     // the kite shield: FRONT shows its face (rim, field, red-daubed point, boss); BEHIND its back edge past his flank
-    const c = [ls * 10.4 + sx, chY + 15.8 + tilt * 0.4];
+    const c = [ls * 11.4 + sx, chY + 15.8 + tilt * 0.4];
     const S = (x, y) => [c[0] + x * 0.8, c[1] + y * 0.8];
     if (s > 0) {
       px.part();
@@ -95,7 +95,7 @@ const make = (s) => (px, F) => {
       px.dot(...S(-0.6, -3.4), PLATE, 5.56, { fix: 4 });
       for (const [x, y] of [[-3.8, -8], [3.8, -8], [-4.6, 0], [4.6, 0]]) px.dot(...S(x, y), PLATE, 5.56, { fix: 4 });
     } else {
-      const cb = [ls * 12.4 + sx, c[1] + 0.5], B = (x, y) => [cb[0] + x, cb[1] + y];
+      const cb = [ls * 14.4 + sx, c[1] + 0.5], B = (x, y) => [cb[0] + x, cb[1] + y];
       px.part();
       px.poly([B(-2.4, -10), B(2.4, -10), B(3, 1), B(0, 14), B(-3, 1)], IRON, 3.4, { round: 0.6, cast: 1 });
       px.part();

@@ -15,7 +15,7 @@ const CLOG = mat("#4a3220", { contrast: 1.2, floor: 1 }), ROPE = mat("#b49a64"),
 const BLADE = mat("#d0d4dc", { contrast: 1.35 }), LEATHER = mat("#5a3c28"), OAK = mat("#8a5e34", { contrast: 1.15 });
 
 const LEG = {
-  H: { m: STRAW }, h: { m: STRAWD }, b: { m: BAND }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, B: { m: BROW, fix: 1 },
+  H: { m: STRAW }, h: { m: STRAWD }, b: { m: BAND }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 }, B: { m: BROW, fix: 1 },
   E: { m: EYE }, e: { m: SKIN, fix: 0 }, z: { m: STUB, fix: 1 }, l: { m: STUB, fix: 2 }, r: { m: HAIRN }, w: { m: STRAWD, fix: 1 },
 };
 // FRONT: the broad brim shades the brow; two dark eyes, nose down the middle, stubble on the jaw, lips; hair at the sides. 15 wide, centre 7.
@@ -79,7 +79,6 @@ const make = (s) => (px, F, o = {}) => {
     px.part();
     if (vv) { px.dot(bx, by, IRON, bz + 0.1, { fix: 4 }); px.dot(bx + 1, by + 0.4, IRONK, bz + 0.1, { fix: 2 }); }
     else { px.line(bx - 2.6, by - 0.4, bx + 2.6, by - 0.4, LEATHER, bz + 0.1); px.dot(bx - 2.4, by - 2.2, IRONK, bz + 0.1); px.dot(bx + 2.4, by + 1.8, IRONK, bz + 0.1); }
-    if (vv) { px.part(); px.ellipse(lHd[0], lHd[1] + 0.4, 1.7, 1.7, SKIN, 8.8); }
   }
 
   // ---- legs: breeches, wraps, clogs. Forward is down the screen in front, up it from behind.
@@ -126,30 +125,30 @@ const make = (s) => (px, F, o = {}) => {
   px.part(); px.tag("weapon");
   if (!yeo) {   // the pitchfork, upright; the head half-turned so the three tines read
     const butt = [wx - rs * 0.4, rHd[1] + 12], top = [wx - rs * 1.4 + (ph > 0.5 ? 0 : 0), rHd[1] - 22];
-    px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, ASH, 7.2, { edge: true });
+    px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, ASH, 8.2, { edge: true });
     px.part();
-    px.capsule(top[0], top[1] + 3.4, 1.2, top[0], top[1] - 0.6, 1.2, IRONK, 7.25);
-    px.capsule(top[0] - 2.4, top[1] - 0.4, 0.8, top[0] + 2.4, top[1] - 0.4, 0.8, IRON, 7.26, { edge: true });
-    px.capsule(top[0] - 2.4, top[1] - 0.4, 0.7, top[0] - 2.4, top[1] - 7.6, 0.5, IRON, 7.26, { edge: true });
-    px.capsule(top[0] + 2.4, top[1] - 0.4, 0.7, top[0] + 2.4, top[1] - 7.6, 0.5, IRON, 7.26, { edge: true });
-    px.capsule(top[0], top[1] - 0.4, 0.8, top[0], top[1] - 9.4, 0.4, IRON, 7.27, { edge: true });
+    const tx = Math.round(top[0]), ty = Math.round(top[1]);   // three tines, the same every frame: a socket, a crossbar, two outer tines and a taller middle one
+    px.capsule(tx, ty + 3.4, 1.2, tx, ty - 0.6, 1.2, IRONK, 8.25);
+    px.rect(tx - 3, ty - 1, 7, 1.4, IRON, 8.26, { edge: true });
+    px.rect(tx - 3, ty - 9, 1, 8.6, IRON, 8.27, { noLine: true }); px.rect(tx + 3, ty - 9, 1, 8.6, IRON, 8.27, { noLine: true }); px.rect(tx, ty - 11, 1, 10.6, IRON, 8.27, { noLine: true });
+    px.dot(tx - 3, ty - 9.4, IRON, 8.28); px.dot(tx + 3, ty - 9.4, IRON, 8.28); px.dot(tx, ty - 11.4, IRON, 8.28);
   } else if (!vv) {   // from behind the blade runs forward, hidden by his body; the grip's end and the pommel show below the fist
     px.capsule(wx, rHd[1] + 0.5, 0.9, wx, rHd[1] + 3, 0.9, LEATHER, 8.2);
     px.ellipse(wx, rHd[1] + 3.8, 1.1, 1.1, IRONK, 8.22);
   } else {      // the short sword upright from the fist, a cross guard, a pommel
     const sy = rHd[1], tilt = rs * 0.1;
-    px.capsule(wx, sy - 2, 1.15, wx + tilt * 14, sy - 15, 0.95, BLADE, 7.2, { edge: true });
-    px.capsule(wx + tilt * 14, sy - 15, 0.95, wx + tilt * 16, sy - 17.4, 0.3, BLADE, 7.2, { edge: true });
+    px.capsule(wx, sy - 2, 1.15, wx + tilt * 14, sy - 15, 0.95, BLADE, 8.2, { edge: true });
+    px.capsule(wx + tilt * 14, sy - 15, 0.95, wx + tilt * 16, sy - 17.4, 0.3, BLADE, 8.2, { edge: true });
     px.part();
-    px.capsule(wx, sy + 0.4, 0.9, wx, sy - 2, 0.9, LEATHER, 7.22);
-    px.capsule(wx - 2.4, sy - 2.2, 0.75, wx + 2.4, sy - 2.2, 0.75, IRONK, 7.25, { edge: true });
-    px.ellipse(wx, sy + 1.6, 1.0, 1.0, IRONK, 7.25);
+    px.capsule(wx, sy + 0.4, 0.9, wx, sy - 2, 0.9, LEATHER, 8.22);
+    px.capsule(wx - 2.4, sy - 2.2, 0.75, wx + 2.4, sy - 2.2, 0.75, IRONK, 8.25, { edge: true });
+    px.ellipse(wx, sy + 1.6, 1.0, 1.0, IRONK, 8.25);
   }
   px.tag(null);
   px.part(); px.tag("nearArm");
   px.capsule(rSh[0], rSh[1] + 0.3, 2.2, rEl[0], rEl[1], 1.9, JERKIN, 8, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SKIN, 8, { cast: 2 });
-  px.part(); px.ellipse(rHd[0], rHd[1], 1.8, 1.7, SKIN, 8.3); px.tag(null);
+  px.part(); px.ellipse(rHd[0], rHd[1], 1.8, 1.7, SKIN, 8.6); px.tag(null);
 
   // ---- the head and its hat
   px.part();

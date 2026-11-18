@@ -69,24 +69,24 @@ const make = (s) => (px, F, o = {}) => {
   if (s > 0) {
     // trigger hand at his right hip-chest, fore hand up under the tiller near the nose
     const rh = [rs * 3.4 + sx, shY + 10.6 + vy * 0.3];
-    const nose = [hx + ls * 1.2, shY + 2.2], butt = [hx + rs * 4.6, hipY - 1.6];
-    const lh = [nose[0] + (rh[0] - nose[0]) * 0.3, nose[1] + (rh[1] - nose[1]) * 0.3 + 0.6];   // the fore hand closes round the tiller
+    const nose = [hx + ls * 0.8, shY + 3.4], butt = [hx + rs * 4.6, hipY - 1.6];
+    const lh = [nose[0] + (rh[0] - nose[0]) * 0.42, nose[1] + (rh[1] - nose[1]) * 0.42 + 0.4];   // the fore hand closes round the tiller
     px.part(); px.tag("stock");
     px.capsule(butt[0], butt[1], 1.9, rh[0] + 0.4, rh[1] + 0.4, 1.6, WOOD, 6.5, { edge: true });
-    px.capsule(rh[0] + 0.4, rh[1] + 0.4, 1.5, nose[0], nose[1], 1.1, WOOD, 6.5, { edge: true });
+    px.capsule(rh[0] + 0.4, rh[1] + 0.4, 1.7, nose[0], nose[1], 1.9, WOOD, 6.5, { edge: true });
     px.capsule(hx + (nose[0] - hx) * 0.3 + (rh[0] - hx) * 0.1 + 0.2, nose[1] + 4.6, 1.4, hx + (nose[0] - hx) * 0.3 + (rh[0] - hx) * 0.1 + 0.2, nose[1] + 6.4, 1.4, IRON, 6.53);   // the band
     px.part(); px.tag("prod");
     // the prod, a bowed steel lath across the nose: ends bowed back toward him and down
-    const e0 = [nose[0] - 8.4, nose[1] + 2.4], e1 = [nose[0] + 8.4, nose[1] + 2.4], mid0 = [nose[0] - 4.2, nose[1] - 0.2], mid1 = [nose[0] + 4.2, nose[1] - 0.2];
-    px.capsule(nose[0], nose[1] - 0.6, 1.5, mid0[0], mid0[1], 1.3, IRON, 6.6, { edge: true }); px.capsule(mid0[0], mid0[1], 1.3, e0[0], e0[1], 0.8, IRON, 6.6, { edge: true });
-    px.capsule(nose[0], nose[1] - 0.6, 1.5, mid1[0], mid1[1], 1.3, IRON, 6.6, { edge: true }); px.capsule(mid1[0], mid1[1], 1.3, e1[0], e1[1], 0.8, IRON, 6.6, { edge: true });
+    const e0 = [nose[0] - 9.6, nose[1] - 0.6], e1 = [nose[0] + 9.6, nose[1] - 0.6], mid0 = [nose[0] - 4.8, nose[1] + 1.2], mid1 = [nose[0] + 4.8, nose[1] + 1.2];
+    px.capsule(nose[0], nose[1] + 0.4, 1.9, mid0[0], mid0[1], 1.6, IRON, 6.6, { edge: true }); px.capsule(mid0[0], mid0[1], 1.6, e0[0], e0[1], 1.0, IRON, 6.6, { edge: true });
+    px.capsule(nose[0], nose[1] + 0.4, 1.9, mid1[0], mid1[1], 1.6, IRON, 6.6, { edge: true }); px.capsule(mid1[0], mid1[1], 1.6, e1[0], e1[1], 1.0, IRON, 6.6, { edge: true });
     px.dot(e0[0], e0[1], STEELB, 6.7, { fix: 3 }); px.dot(e1[0], e1[1], STEELB, 6.7, { fix: 3 });
     px.part(); px.ellipse(nose[0], nose[1] + 0.6, 1.5, 1.8, IRONK, 6.62, { noLine: true });                                         // the stirrup ring
     px.tag("string"); px.part();
-    const nut = [nose[0], nose[1] + 5.4];
-    px.line(e0[0], e0[1], nut[0], nut[1], CORD, 6.7, { unlit: true }); px.line(e1[0], e1[1], nut[0], nut[1], CORD, 6.7, { unlit: true });
+    const nut = [nose[0], nose[1] + 6.6];
+    px.line(e0[0], e0[1], e1[0], e1[1], CORD, 6.7, { unlit: true }); px.line(nose[0], nose[1] - 0.6, nut[0], nut[1] - 2.4, CORD, 6.7, { unlit: true });
     px.tag("bolt"); px.part();
-    px.dot(nose[0], nose[1] - 2.2, STEELB, 6.75, { fix: 4 }); px.dot(nose[0], nose[1] - 1, BOLT, 6.74, { fix: 2 });                // the bolt's head pointing at us
+    px.dot(nose[0], nose[1] - 2.4, STEELB, 6.75, { fix: 4 }); px.dot(nose[0], nose[1] - 1.2, BOLT, 6.74, { fix: 2 }); px.dot(nose[0], nose[1] - 0.2, BOLT, 6.74, { fix: 2 });                // the bolt's head pointing at us
     px.tag(null);
     // the far (left) arm up to the tiller, the near (right) to the grip
     px.part(); px.tag("farHand");
@@ -103,8 +103,9 @@ const make = (s) => (px, F, o = {}) => {
     // from behind both arms reach forward round him: the sleeves show, the hands are hidden by the sides
     for (const side of [rs, ls]) {
       px.part();
-      px.capsule(...sh(side), 2.1, side * 7.4 + sx, shY + 7.2 + (side === rs ? vy * 0.3 : bw), 2.0, PAD, 4.6, { cast: 1 });
-      px.capsule(side * 7.4 + sx, shY + 7.2, 1.9, side * 5.8 + sx, shY + 9.2 + (side === rs ? 0 : bw), 1.7, PAD, 4.6, { cast: 1 });
+      px.capsule(...sh(side), 2.2, side * 7.6 + sx, shY + 7.6, 2.1, PAD, 4.6, { cast: 1 });
+      px.capsule(side * 7.6 + sx, shY + 7.6, 2.0, side * 7.6 + sx, shY + 11.2 + (side === rs ? bw : -bw), 1.8, PAD, 4.6, { cast: 1 });
+      px.part(); px.ellipse(side * 7.6 + sx, shY + 12.2 + (side === rs ? bw : -bw), 1.7, 1.7, LEATHER, 4.65);
     }
   }
 

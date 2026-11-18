@@ -12,7 +12,7 @@ const SKIN = mat("#e0b088"), EYE = flat("#2a1c2c"), LIP = flat("#a8685a"), BROW 
 const IRON = mat("#727c92", { contrast: 1.25 }), IRONK = mat("#3c4048", { contrast: 1.1 }), STEELB = mat("#c4c8d0", { contrast: 1.3 });
 const OX = mat("#474f5e", { contrast: 1.1 }), OXK = mat("#2a3040"), PAD = mat("#2f6b3f", { contrast: 1.15 }), PADK = mat("#1f4a2c"), PLUME = mat("#e8e2d0", { contrast: 1.2 }), LEATHER = mat("#5a3c28"), WOOD = mat("#7a5a38");
 const BRASS = mat("#c9a24a", { contrast: 1.2 }), HOSE = mat("#3c4250", { floor: 1 }), BOOT = mat("#2a2a30", { contrast: 1.2, floor: 1 });
-const FLETCH = flat("#f0ead8"), BOLT = mat("#8a6a40");
+const CORD = flat("#e8e0c4"), FLETCH = flat("#f0ead8"), BOLT = mat("#8a6a40");
 
 const LEG = {
   M: { m: IRON }, W: { m: IRON, bias: 1 }, m: { m: IRONK }, c: { m: OX }, d: { m: OXK }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 },
@@ -62,24 +62,26 @@ const make = (s) => (px, F) => {
   const vxs = cl(sk.C[0] - F.lag1.C[0], -2, 2), shY = chestY - 0.4, hem = hipY + 6;
   const bob = Math.cos(ph * TAU * 2) * 0.4;
 
-  // the arbalest's line: butt at the right hip, nose up toward the left shoulder
-  const B = [rs * 7 + sx, chestY + 15 + bob], T = [ls * 6.4 + sx, chestY + 6.4 + bob];
-  const len = Math.hypot(T[0] - B[0], T[1] - B[1]), u = [(T[0] - B[0]) / len, (T[1] - B[1]) / len], w = [u[1], -u[0]];
-  const at = (a, b) => [B[0] + u[0] * a + w[0] * b, B[1] + u[1] * a + w[1] * b];
-  const gz = vv ? 7 : 3.4;
+  // the arbalest carried nose toward us: the prod a clear horizontal steel bow across his lower chest with its
+  // string, the stock a short foreshortened wooden block hanging from its middle to his belt. (From behind it
+  // is hidden by his body except the prod's ends past his sides.)
+  const py = chestY + 4 + bob, gz = vv ? 7 : 3.4;
   px.part(); px.tag("stock");
-  px.capsule(...at(-1, 0), 1.9, ...at(len * 0.4, 0), 1.5, WOOD, gz, { edge: true });
-  px.capsule(...at(len * 0.4, 0), 1.3, ...at(len, 0), 1.0, WOOD, gz, { edge: true });
-  px.capsule(...at(len * 0.46, 0), 1.35, ...at(len * 0.56, 0), 1.35, IRON, gz + 0.03);
+  px.capsule(sx + rs * 0.6, py + 1, 1.7, sx + rs * 0.8, py + 9, 1.4, WOOD, gz, { edge: true });
+  px.capsule(sx + rs * 0.8, py + 9, 1.4, sx + rs * 0.9, hipY - 3, 1.9, WOOD, gz, { edge: true });
+  px.rect(sx + rs * 0.6 - 2, py + 4.4, 4, 1.2, IRON, gz + 0.03, { noLine: true });
+  const pz = vv ? 8.3 : 3.4;
   px.tag("prod"); px.part();
-  const pe = [-1, 1].map((q) => at(len - 2.4, q * 8.4));
-  px.capsule(...at(len - 1, 0), 1.5, ...at(len - 3, 4.2), 1.2, IRON, gz + 0.05, { edge: true });
-  px.capsule(...at(len - 3, 4.2), 1.2, ...pe[1], 0.8, IRON, gz + 0.05, { edge: true });
-  px.capsule(...at(len - 1, 0), 1.5, ...at(len - 3, -4.2), 1.2, IRON, gz + 0.05, { edge: true });
-  px.capsule(...at(len - 3, -4.2), 1.2, ...pe[0], 0.8, IRON, gz + 0.05, { edge: true });
-  px.dot(...pe[0], STEELB, gz + 0.07, { fix: 3 }); px.dot(...pe[1], STEELB, gz + 0.07, { fix: 3 });
+  px.capsule(sx - 1, py, 1.9, sx - 5.4, py - 0.4, 1.3, IRON, pz + 0.05, { edge: true });
+  px.capsule(sx + 1, py, 1.9, sx + 5.4, py - 0.4, 1.3, IRON, pz + 0.05, { edge: true });
+  px.capsule(sx - 5.4, py - 0.4, 1.7, sx - 9.6, py - 2.4, 0.9, IRON, pz + 0.05, { edge: true });
+  px.capsule(sx + 5.4, py - 0.4, 1.7, sx + 9.6, py - 2.4, 0.9, IRON, pz + 0.05, { edge: true });
+  px.dot(sx - 9.6, py - 2.4, STEELB, pz + 0.07, { fix: 3 }); px.dot(sx + 9.6, py - 2.4, STEELB, pz + 0.07, { fix: 3 });
+  if (vv) {
+    px.line(sx - 9.6, py - 2.4, sx, py + 1.6, CORD, pz + 0.02, { unlit: true }); px.line(sx, py + 1.6, sx + 9.6, py - 2.4, CORD, pz + 0.02, { unlit: true });   // the string drawn back to the stock
+    px.capsule(sx, py + 1.2, 0.8, sx, py - 3.4, 0.5, BOLT, pz + 0.06); px.dot(sx, py - 3.8, STEELB, pz + 0.08, { fix: 3 });   // the bolt's head
+  }
   px.tag(null);
-  if (!vv) { px.part(); px.capsule(...at(-1, 0), 1.9, ...at(len * 0.22, 0), 1.5, WOOD, 8.4, { edge: true }); }
 
   // ---- legs: hose, boots with the turned cuff. Forward is down the screen in front, up it behind.
   for (const [f, side, z] of [[p.fF, ls, 2], [p.fN, rs, 3]]) {
@@ -143,16 +145,16 @@ const make = (s) => (px, F) => {
   px.stamp(vv ? (p.blink ? BLINK : FRONT_H) : BACK_H, hx, hy, LEG, 6, { ax: 7, ay: 12, ball: [8, 6, 8, 7], cast: 2 });
   px.part(); px.dot(hx + (vv ? 0 : 0), hy - 12, BRASS, 6.2, { fix: 3 });
 
-  // ---- the arms: right on the grip, left under the fore-end (in front); from behind they hang forward round the body
-  const gR = at(len * 0.3, 0), gL = at(len * 0.7, 0);
-  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6.2], vv ? gR : at(len * 0.1, 0)];
-  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? gL : gL];
-  for (const [arm, z] of [[aL, 8], [aR, 8.1]]) {
+  // ---- the arms. FRONT: both hands on the arbalest (right on the stock below the prod, left under the prod). BEHIND: both
+  // hang at his sides, swinging forward (the back of each arm, the hand low and a little in).
+  const sw = Math.cos(ph * TAU) * 0.45;
+  const aR = [[rs * 5.4 + sx, shY], [rs * 7.6 + sx, shY + 6], vv ? [sx + rs * 0.8, py + 8.4] : [rs * 7 + sx, shY + 11 - sw * 1.6]];
+  const aL = [[ls * 5.4 + sx, shY], [ls * 7.6 + sx, shY + 5.4], vv ? [sx + ls * 3.2, py + 2.2] : [ls * 7 + sx, shY + 11 + sw * 1.6]];
+  for (const arm of [aL, aR]) {
     px.part(); px.tag("arm");
-    px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, z, { cast: 2 });
-    const fz = vv || arm === aR ? z : 3.3;   // from behind the left forearm and hand go round in front of him: behind the torso
-    px.capsule(arm[1][0], arm[1][1], 1.9, arm[2][0], arm[2][1], 1.6, PADK, arm === aR && !vv ? 8.5 : fz, { cast: 2 });
-    px.part(); px.ellipse(arm[2][0], arm[2][1], 1.7, 1.7, SKIN, (arm === aR && !vv ? 8.5 : fz) + 0.3); px.tag(null);
+    px.capsule(arm[0][0], arm[0][1] + 0.3, 2.2, arm[1][0], arm[1][1], 1.9, PAD, 8, { cast: 2 });
+    px.capsule(arm[1][0], arm[1][1], 1.9, arm[2][0], arm[2][1], 1.6, PADK, 8.1, { cast: 2 });
+    px.part(); px.ellipse(arm[2][0], arm[2][1], 1.7, 1.7, SKIN, 8.6); px.tag(null);
   }
   return {};
 };

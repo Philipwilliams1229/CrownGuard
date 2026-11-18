@@ -116,7 +116,7 @@ const make = (s) => (px, F, o = {}) => {
   const lifted = (p.fN ? p.fN[1] : 0) - (p.fF ? p.fF[1] : 0);        // which foot is up lifts that side of the hem
   px.part(); const robeId = px._pid;
   const hem = TAT.map(([t, dp], i) => [sx + hw - t * hw * 2 + (dp < 1 ? tipD : tipD * 0.4), hemY - dp - Math.max(0, (rs > 0 ? lifted : -lifted)) * (t < 0.5 ? 0 : 0.35) * 0 + (i % 2 ? 0 : 0)]);
-  px.poly([[sx - 4.4, top], [sx + 4.4, top], [sx + 5.6, chestY + 4], [sx + 6.4, hipY - 1], [sx + hw + 0.4, hemY - 1], ...hem, [sx - hw - 0.4, hemY - 1], [sx - 6.4, hipY - 1], [sx - 5.6, chestY + 4]], ROBE, 4, { round: 0.9, cast: 1, edge: true });
+  px.poly([[sx - 6.4, top], [sx + 6.4, top], [sx + 7, chestY + 4], [sx + 6.4, hipY - 1], [sx + hw + 0.4, hemY - 1], ...hem, [sx - hw - 0.4, hemY - 1], [sx - 6.4, hipY - 1], [sx - 7, chestY + 4]], ROBE, 4, { round: 0.9, cast: 1, edge: true });
   px.toneLine(sx - 3, hipY + 2, sx - 4.6, hemY - 5, -1, robeId);
   px.toneLine(sx + 3.6, hipY + 2, sx + 5.6, hemY - 5, 1, robeId);
   px.part();
@@ -143,15 +143,15 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // ---- the arms: belled sleeves. Right (lantern) hangs, left (crook) is up on the shaft.
-  const fistN = [hx + rs * 6.8, sk.hdN[1] + 1], fistF = [cx + ls * (s > 0 ? 0 : 0), clamp(sk.hdF[1], chestY + 5, hipY)];
+  const fistN = [hx + rs * 8, sk.hdN[1] + 1], fistF = [cx + ls * (s > 0 ? 0 : 0), clamp(sk.hdF[1], chestY + 5, hipY)];
   const arm = (sh, el, hd, z, bias) => {
     px.part();
     px.capsule(sh[0], sh[1], 2, el[0], el[1], 1.9, COWL, z, { bias, cast: 2 });
     px.capsule(el[0], el[1], 1.9, hd[0], hd[1] - 0.6, 2.5, COWL, z, { bias, cast: 2 });
     px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.6, 1.6, BONE, z + 0.4, { bias });
   };
-  const shN = [hx + rs * 4.6, chestY + 0.4], shF = [hx + ls * 4.6, chestY + 0.4];
-  const elN = [hx + rs * 7.8, (chestY + fistN[1]) / 2 + 0.6], elF = [hx + ls * 7.4, (chestY + fistF[1]) / 2 + 0.6];
+  const shN = [hx + rs * 6.6, chestY + 0.4], shF = [hx + ls * 6.6, chestY + 0.4];
+  const elN = [hx + rs * 8.8, (chestY + fistN[1]) / 2 + 0.6], elF = [hx + ls * 8.4, (chestY + fistF[1]) / 2 + 0.6];
   const nearZ = s > 0 ? 8 : 5.8;
   arm(shF, elF, [cx, fistF[1]], nearZ, -1);
   arm(shN, elN, fistN, nearZ, 0);

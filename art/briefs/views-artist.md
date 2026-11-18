@@ -52,6 +52,15 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
      closes AROUND the grip: the haft runs into the fist and out the other side (or ends in
      a pommel just past it), the fingers drawn OVER the haft. Never a weapon floating beside,
      above or behind a hand, and never a hand hanging empty under a weapon.
+  5. SHOULDERS OUTBOARD (owner's notes, same day): in FRONT and BACK the shoulders and
+     pauldrons sit OUT to the sides of the head and never slide over the face or the back of
+     the head as he walks; widen the torso a little if they must. A weapon or hand held in
+     front of him is drawn IN FRONT of its shoulder and arm, never behind them.
+  6. ARMS FROM BEHIND (owner's notes): in BACK both arms hang at his sides and swing FORWARD,
+     so what you see is the back of each upper arm and the parts in front of the torso are
+     hidden by it. An arm must never look bent backwards, crossed behind the back, or like the
+     FRONT view's hand pasted on (mirror the hand: from behind you see its back, thumb inward).
+     His right arm is screen right, his left screen left.
 - FRONT: the face is the read (eyes, brow, mouth, the figure's signature feature); the
   silhouette must say "this figure" at board size (an art pixel is half a board pixel).
 - BACK: no face; the back of the head / helmet / hood with a seam, patch or detail so it is

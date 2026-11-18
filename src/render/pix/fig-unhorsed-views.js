@@ -111,7 +111,7 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the pauldrons of blued plate
   for (const side of [ls, rs]) {
     px.part();
-    const q = [side * 6.4 + sx, shY + 0.2];
+    const q = [side * 7.4 + sx, shY + 1.2];
     px.ellipse(q[0], q[1], 4.4, 3.8, IRON, 6.5, { cast: 1 });
     px.line(q[0] - 3.2, q[1] + 1.6, q[0] + 3.6, q[1] + 1.6, IRONK, 6.52, { fix: 1 });
     px.dot(q[0] - 0.6, q[1] - 1.6, STEELB, 6.54, { fix: 4 });
@@ -120,12 +120,12 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the arms
   const rEl = [rs * 8 + sx, shY + 7.2], hand = [rs * 6.4 + sx, shY + 7.6 + vy * 0.3 - (s > 0 ? 1 : 0)];
   px.part();
-  px.capsule(rs * 6.2 + sx, shY + 1.2, 2.4, rEl[0], rEl[1], 2.1, IRON, 5, { cast: 2 });
+  px.capsule(rs * 7 + sx, shY + 1.8, 2.4, rEl[0], rEl[1], 2.1, IRON, 5, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 2.1, hand[0], hand[1], 1.8, IRON, 5, { cast: 2 });
   
   const lEl = [ls * 8.4 + sx, shY + 8], lh = [ls * 8.4 + sx, shY + 11.2];
   px.part();
-  px.capsule(ls * 6.2 + sx, shY + 1.2, 2.4, lEl[0], lEl[1], 2.1, IRON, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
+  px.capsule(ls * 7 + sx, shY + 1.8, 2.4, lEl[0], lEl[1], 2.1, IRON, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
   px.capsule(lEl[0], lEl[1], 2.1, lh[0], lh[1], 1.8, IRON, s > 0 ? 5 : 3.5, { cast: 2, bias: -1 });
 
   // ---- the arming sword, FRONT only, upright before his right shoulder

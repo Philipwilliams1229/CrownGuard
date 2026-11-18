@@ -56,7 +56,7 @@ const TAU = Math.PI * 2;
 const make = (s) => (px, F, o = {}) => {
   const rs = -s, ls = s;                                     // screen side of his right (string hand) and left (bow)
   const { sk, ph } = F, p = sk.p;
-  const sx = rs * 0.7 * Math.sin(ph * TAU), hx = Math.round(sx * 0.6);
+  const sx = rs * 0.7 * Math.sin(ph * TAU), hx = Math.round(sx);
   const chestY = sk.C[1], hipY = sk.P[1], hy = Math.round(sk.N[1]) - 1;
   const vx = cl((sx - rs * 0.7 * Math.sin((ph - 0.09) * TAU)) * 1.3, -2, 2), vx2 = cl(vx * 0.7, -2, 2);
   const a = Math.cos(ph * TAU);
@@ -77,7 +77,7 @@ const make = (s) => (px, F, o = {}) => {
   // the bow arm
   const elb = [ls * 6.8 + sx, chestY + 4.6];
   px.part();
-  px.capsule(ls * 4.6 + sx, chestY + 1, 1.15, elb[0], elb[1], 1, BONE, bz - 0.2, { bias: -1 });
+  px.capsule(ls * 6.2 + sx, chestY + 1, 1.15, elb[0], elb[1], 1, BONE, bz - 0.2, { bias: -1 });
   px.capsule(elb[0], elb[1], 1, hand[0], hand[1], 0.9, BONE, bz - 0.2, { bias: -1 });
   px.ellipse(elb[0], elb[1], 1.3, 1.2, BONE, bz - 0.15, { bias: -1 });
   px.part(); px.ellipse(hand[0], hand[1], 1.5, 1.4, BONE, bz + 0.1, { bias: -1 });
@@ -135,15 +135,15 @@ const make = (s) => (px, F, o = {}) => {
     px.part();
     for (const dx of [-0.8, 1]) px.capsule(q1[0] + dx, q1[1] - 1.2, 0.8, q1[0] + dx * 1.4 + rs * 0.4, q1[1] - 4.4, 0.7, FLETCH, 5.55);
     px.part();
-    px.line(sx + rs * 4.4, chestY - 0.6, sx - rs * 3.6, chestY + 8, DARKM, 5.4, { fix: 1 });             // the sling
+    px.line(sx + rs * 6.2, chestY - 0.6, sx - rs * 3.6, chestY + 8, DARKM, 5.4, { fix: 1 });             // the sling
   }
 
   // ---- the ragged mantle over the shoulders
   px.part();
   const sw = cl(-vx * 1.2 - vx2, -2, 2);
   const mt = chestY - 2.4;
-  if (s > 0) px.poly([[sx - 6.4, mt + 0.4], [sx + 6.4, mt + 0.4], [sx + 7, mt + 4], [sx + 5.2, mt + 6], [sx + 3.6, mt + 3.8], [sx + 1.4, mt + 5.2 + sw * 0.3], [sx - 1.2, mt + 2.6], [sx - 3.4, mt + 5.4], [sx - 5.2, mt + 6.6 + sw * 0.4], [sx - 7, mt + 3.4]], RAG, 6.5, { round: 0.85, cast: 1, floor: 1 });
-  else px.poly([[sx - 6.6, mt + 0.4], [sx + 6.6, mt + 0.4], [sx + 7.2, mt + 5], [sx + 5.6, mt + 9.2], [sx + 3.6, mt + 7], [sx + 1.2, mt + 10 + sw * 0.4], [sx - 1.2, mt + 7.4], [sx - 3.4, mt + 10.4 + sw * 0.5], [sx - 5.4, mt + 7.6], [sx - 7.4, mt + 5.2]], RAG, 5, { round: 0.85, cast: 1, floor: 1 });
+  if (s > 0) px.poly([[sx - 8, mt + 0.4], [sx + 8, mt + 0.4], [sx + 8.6, mt + 4], [sx + 5.2, mt + 6], [sx + 3.6, mt + 3.8], [sx + 1.4, mt + 5.2 + sw * 0.3], [sx - 1.2, mt + 2.6], [sx - 3.4, mt + 5.4], [sx - 5.2, mt + 6.6 + sw * 0.4], [sx - 8.6, mt + 3.4]], RAG, 6.5, { round: 0.85, cast: 1, floor: 1 });
+  else px.poly([[sx - 8.2, mt + 0.4], [sx + 8.2, mt + 0.4], [sx + 8.8, mt + 5], [sx + 5.6, mt + 9.2], [sx + 3.6, mt + 7], [sx + 1.2, mt + 10 + sw * 0.4], [sx - 1.2, mt + 7.4], [sx - 3.4, mt + 10.4 + sw * 0.5], [sx - 5.4, mt + 7.6], [sx - 9, mt + 5.2]], RAG, 5, { round: 0.85, cast: 1, floor: 1 });
   px.part();
   if (s > 0) px.line(sx - 3.4, mt + 1, sx - 4.2, mt + 5, RAG2, 6.55, { fix: 0 });
   else { px.line(sx, mt + 1, sx, mt + 9, RAG2, 5.05, { fix: 0 }); px.line(sx - 3.6, mt + 2, sx - 4.4, mt + 7, RAG2, 5.05, { fix: 0 }); }
@@ -151,11 +151,11 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the string hand (his right, screen side rs): swinging low, a rag of cuff
   const rh = [rs * 6.2 + sx, chestY + 9 + a * 0.7 * s], re = [rs * 6.6 + sx, chestY + 4.4];
   px.part();
-  px.capsule(sx + rs * 4.4, chestY + 1, 1.2, re[0], re[1], 1.05, BONE, 7.8, { cast: 1 });
+  px.capsule(sx + rs * 6.2, chestY + 1, 1.2, re[0], re[1], 1.05, BONE, 7.8, { cast: 1 });
   px.capsule(re[0], re[1], 1.05, rh[0], rh[1], 0.95, BONE, 7.8, { cast: 1 });
   px.ellipse(re[0], re[1], 1.4, 1.3, BONE, 7.85);
   px.part(); px.ellipse(rh[0], rh[1], 1.5, 1.4, BONE, 8.3);
-  px.part(); px.ellipse(sx + rs * 4.6, chestY + 0.6, 1.7, 1.6, BONE, 7.9, { floor: 1 });
+  px.part(); px.ellipse(sx + rs * 6.2, chestY + 0.6, 1.7, 1.6, BONE, 7.9, { floor: 1 });
 
   // ---- the head
   px.part();

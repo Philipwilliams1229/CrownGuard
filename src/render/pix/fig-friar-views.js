@@ -102,16 +102,17 @@ const make = (s) => (px, F, o = {}) => {
   }
 
   // the far arm (his left, screen side ls): a wide sleeve hanging, the bare hand swinging a little
-  const swing = a * 0.4 * (rs > 0 ? 1 : 1), shL = [tx + ls * 5.9, chestY + 0.2];
-  const elL = [tx + ls * 8.6, chestY + 7.5], hdL = [tx + ls * 9.2, chestY + 14.6 + s * swing * 1.6 * -1];
+  const swing = a * 0.4, bk = s < 0, shL = [tx + ls * (bk ? 5.6 : 5.9), chestY + 0.2];
+  const elL = [tx + ls * (bk ? 7.2 : 8.6), chestY + 7.5], hdL = [tx + ls * (bk ? 7.4 : 9.2), chestY + 14.6 + s * swing * 1.6 * -1];
+  const az = bk ? 3.9 : 4.5;   // from behind both arms hang at his sides, under the robe's back: only the outer edge of each sleeve shows
   px.part();
-  px.capsule(shL[0], shL[1], 2.7 * S, elL[0], elL[1], 2.8 * S, HABIT, 4.5, { bias: -1, cast: 1 });
-  px.capsule(elL[0], elL[1], 2.8 * S, hdL[0], hdL[1], 2.5 * S, HABIT, 4.5, { bias: -1, cast: 1 });
-  px.part(); px.ellipse(hdL[0], hdL[1] + 2.2, 1.6 * S, 1.5 * S, SKIN, 4.7, { bias: -1 });
+  px.capsule(shL[0], shL[1], 2.7 * S, elL[0], elL[1], 2.8 * S, HABIT, az, { bias: -1, cast: 1 });
+  px.capsule(elL[0], elL[1], 2.8 * S, hdL[0], hdL[1], 2.5 * S, HABIT, az, { bias: -1, cast: 1 });
+  px.part(); px.ellipse(hdL[0], hdL[1] + 2.2, 1.6 * S, 1.5 * S, SKIN, az + 0.2, { bias: -1 });
 
   // the mace: carried upright in his right fist, a little out from the body. Haft, rope grip, gold ball, iron collar, flanges.
   const rise = -a * 0.5 * s, sh = [tx + rs * 6, chestY + 0.2];
-  const hd = [tx + rs * 9.2, chestY + 13.2 + s * rise * 0.4], elb = [tx + rs * 7.4, chestY + 6.8], zo = s > 0 ? 0 : -1.95;
+  const hd = [tx + rs * (s < 0 ? 7.6 : 9.2), chestY + 13.2 + s * rise * 0.4], elb = [tx + rs * (s < 0 ? 6.8 : 7.4), chestY + 6.8], zo = s > 0 ? 0 : -1.95;
   const dn = [-rs * 0.45, 0.5], dl = Math.hypot(dn[0], dn[1]), d = dn, nr = [-d[1] / dl, d[0] / dl];   // hangs head DOWN and forward (front: by his thigh; back: foreshortened, tucked behind the robe)
   const Bm = (t, w = 0) => [hd[0] + d[0] * t * S + nr[0] * w * S, hd[1] + d[1] * t * S + nr[1] * w * S];
   px.part(); px.tag("mace");
@@ -127,10 +128,10 @@ const make = (s) => (px, F, o = {}) => {
   px.tag(null);
   // the right sleeve up to the fist, the fist round the haft
   px.part(); px.tag("nearArm");
-  px.capsule(sh[0], sh[1] + 0.5, 2.7 * S, elb[0], elb[1], 2.6 * S, HABIT, 5.9, { cast: 2 });
-  px.capsule(elb[0], elb[1], 2.6 * S, hd[0], hd[1] + 1.2, 2.1 * S, HABIT, 5.9, { cast: 2 });
+  px.capsule(sh[0], sh[1] + 0.5, 2.7 * S, elb[0], elb[1], 2.6 * S, HABIT, s < 0 ? 3.9 : 5.9, { cast: 2 });
+  px.capsule(elb[0], elb[1], 2.6 * S, hd[0], hd[1] + 1.2, 2.1 * S, HABIT, s < 0 ? 3.9 : 5.9, { cast: 2 });
   px.part(); const ang = Math.atan2(d[0], -d[1]);
-  px.ellipse(hd[0], hd[1], 1.9 * S, 1.6 * S, SKIN, 6.1, { rot: -ang + Math.PI / 2 });       // the fist closes round the haft
+  px.ellipse(hd[0], hd[1], 1.9 * S, 1.6 * S, SKIN, s < 0 ? 3.95 : 6.1, { rot: -ang + Math.PI / 2 });       // the fist closes round the haft
   px.toneLine(hd[0] - nr[0] * 1.6 + d[0] * 0.8, hd[1] - nr[1] * 1.6 + d[1] * 0.8, hd[0] + nr[0] * 1.6 + d[0] * 0.8, hd[1] + nr[1] * 1.6 + d[1] * 0.8, -1, px._pid);   // the fingers over it
   px.tag(null);
 

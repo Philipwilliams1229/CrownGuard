@@ -142,11 +142,11 @@ const rider = (px, F, s, b, sx, hump) => {
     px.ellipse(f[0] + side * 0.4, f[1] + 0.6, 1.9, 1.2, SKIN, 8.02, { cast: 1 });
   }
   px.part();
-  px.poly([[C[0] - 4.2, C[1] - 1.6], [C[0] + 4.2, C[1] - 1.6], [C[0] + 4.4, C[1] + 2.6], [H[0] + 4.2, H[1] - 1], [H[0] + 4.4, H[1] + 1.8], [H[0] - 4.4, H[1] + 1.8], [H[0] - 4.2, H[1] - 1], [C[0] - 4.4, C[1] + 2.6]], JERK, 8.5, { round: 0.92, cast: 1 });
+  px.poly([[C[0] - 5.2, C[1] - 0.8], [C[0] + 5.2, C[1] - 0.8], [C[0] + 5.2, C[1] + 2.6], [H[0] + 4.2, H[1] - 1], [H[0] + 4.4, H[1] + 1.8], [H[0] - 4.4, H[1] + 1.8], [H[0] - 4.2, H[1] - 1], [C[0] - 5.2, C[1] + 2.6]], JERK, 8.5, { round: 0.92, cast: 1 });
   px.poly([[H[0] - 4.6, H[1] - 2.4], [H[0] + 4.6, H[1] - 2.4], [H[0] + 4.6, H[1] - 0.8], [H[0] - 4.6, H[1] - 0.8]], DARK, 8.55, { round: 0.92, floor: 1 });
   px.part();
   if (s > 0) px.dot(H[0], H[1] - 1.6, STEEL, 8.6); else px.toneLine(C[0], C[1], H[0], H[1] - 2.6, -1, px._pid);
-  const sN = [C[0] + rs * 4.6, C[1] + 0.8], sF = [C[0] + ls * 4.6, C[1] + 0.8];
+  const sN = [C[0] + rs * 5.8, C[1] + 1.2], sF = [C[0] + ls * 5.8, C[1] + 1.2];
   // the far hand (his left): in the bristles before him / down at his side from behind
   px.part();
   const fh = s > 0 ? [ls * 3, C[1] + 6.4] : [ls * 5.6, C[1] + 6.4];

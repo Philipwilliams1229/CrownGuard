@@ -74,7 +74,7 @@ const make = (s) => (px, F) => {
 
   // ---- the far arm (her left), a tone down: a wide sleeve out to the staff, a fur cuff, the fist on it
   {
-    const sh = [sx + ls * 6.4, c0 + 3], hd = [stx - ls * 0.2, hipY + 1.5], el = [sx + ls * 9.4, (sh[1] + hd[1]) / 2 - 0.5], wr = [(el[0] + hd[0]) / 2 + ls * 0.4, (el[1] + hd[1]) / 2 + 2.6];
+    const sh = [sx + ls * 7.8, c0 + 3], hd = [stx - ls * 0.2, hipY + 1.5], el = [sx + ls * 9.4, (sh[1] + hd[1]) / 2 - 0.5], wr = [(el[0] + hd[0]) / 2 + ls * 0.4, (el[1] + hd[1]) / 2 + 2.6];
     px.part();
     px.capsule(sh[0], sh[1], 2.2, el[0], el[1], 2.2, SLEEVE, 3.2, { bias: -1 });
     px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.7, SLEEVE, 3.2, { bias: -1 });
@@ -119,7 +119,7 @@ const make = (s) => (px, F) => {
 
   // ---- the near arm (her right, free): a wide sleeve and a fur cuff, the palm hanging open
   {
-    const ang = p.aN[0], sh = [sx + rs * 7, c0 + 3], hd = [sx + rs * 9.8, hipY + 2 + s * ang * 1.6], el = [sx + rs * 9.4, (sh[1] + hd[1]) / 2], wr = [(el[0] + hd[0]) / 2, (el[1] + hd[1]) / 2 + 2.4];
+    const ang = p.aN[0], sh = [sx + rs * 7.8, c0 + 3], hd = [sx + rs * 10.2, hipY + 2 + s * ang * 1.6], el = [sx + rs * 9.4, (sh[1] + hd[1]) / 2], wr = [(el[0] + hd[0]) / 2, (el[1] + hd[1]) / 2 + 2.4];
     px.part();
     px.capsule(sh[0], sh[1], 2.4, el[0], el[1], 2.4, SLEEVE, 7.9, { cast: 2 });
     px.capsule(el[0], el[1], 2.4, wr[0], wr[1], 2.9, SLEEVE, 7.9, { cast: 2 });

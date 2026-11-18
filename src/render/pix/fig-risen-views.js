@@ -47,7 +47,7 @@ const TAU = Math.PI * 2;
 const make = (s) => (px, F, o = {}) => {
   const rs = -s, ls = s;                                     // screen side of his right (sword) and left (shield)
   const { sk, ph } = F, p = sk.p;
-  const sx = rs * 0.7 * Math.sin(ph * TAU), hx = Math.round(sx * 0.6);
+  const sx = rs * 0.7 * Math.sin(ph * TAU), hx = Math.round(sx);
   const chestY = sk.C[1], hipY = sk.P[1], hy = Math.round(sk.N[1]) - 1;
   const vx = cl((sx - rs * 0.7 * Math.sin((ph - 0.09) * TAU)) * 1.3, -2, 2);
   const a = Math.cos(ph * TAU);
@@ -56,7 +56,7 @@ const make = (s) => (px, F, o = {}) => {
   const shc = [ls * 8 + sx, chestY + 6.6 + a * 0.5 * ls * rs * -1];
   const zs = s > 0 ? 6.5 : 3.2;
   px.part();
-  px.capsule(ls * 4.6 + sx, chestY + 0.8, 1.2, ls * 6.6 + sx, chestY + 4, 1.05, BONE, zs - 0.2, { bias: -1 });
+  px.capsule(ls * 6.2 + sx, chestY + 0.8, 1.2, ls * 6.6 + sx, chestY + 4, 1.05, BONE, zs - 0.2, { bias: -1 });
   px.capsule(ls * 6.6 + sx, chestY + 4, 1.05, shc[0], shc[1], 0.9, BONE, zs - 0.2, { bias: -1 });
   px.part(); const sid = px._pid;
   px.ellipse(shc[0], shc[1], s > 0 ? 3.9 : 3.5, 4.8, WOOD, zs, { round: 0.75 });
@@ -106,7 +106,7 @@ const make = (s) => (px, F, o = {}) => {
   if (s > 0) {
     for (const t of [2.4, 4.2, 6]) { px.line(sx - rw + 0.8, top + t, sx - 0.8, top + t + 0.8, GAP, 4.2); px.line(sx + rw - 0.8, top + t, sx + 0.8, top + t + 0.8, GAP, 4.2); }
     px.line(sx, top + 1.6, sx, bot - 0.4, BONE, 4.25, { fix: 3 });                                     // the breastbone
-    px.line(sx - rw, top + 1.4, sx + rw, top + 1.4, BONE, 4.25, { fix: 3 });                             // the collar bones
+    px.line(sx - 6.2, top + 1.2, sx + 6.2, top + 1.2, BONE, 4.25, { fix: 3 });                             // the collar bones
   } else {
     px.part();
     for (let t = 2.2; t < 7; t += 1.7) { px.line(sx - rw + 0.8, top + t - 0.6, sx - 0.8, top + t + 0.4, GAP, 4.2); px.line(sx + rw - 0.8, top + t - 0.6, sx + 0.8, top + t + 0.4, GAP, 4.2); }
@@ -114,6 +114,8 @@ const make = (s) => (px, F, o = {}) => {
     px.poly([[sx - 3.8, top + 2], [sx - 1.2, top + 2.4], [sx - 2.2, top + 5.6]], BONE, 4.15, { fix: 1 }); // shoulder blades
     px.poly([[sx + 3.8, top + 2], [sx + 1.2, top + 2.4], [sx + 2.2, top + 5.6]], BONE, 4.15, { fix: 1 });
   }
+  px.part();
+  for (const sd of [-1, 1]) px.ellipse(sx + sd * 6, top + 1.4, 1.7, 1.6, BONE, 4.3, { floor: 1 });
   // the neck
   px.part();
   px.capsule(sx * 0.9, top + 1.6, 1.1, hx, hy + 0.5, 1, BONE, 4.05, {});
@@ -122,9 +124,9 @@ const make = (s) => (px, F, o = {}) => {
   const ar = 0.6 * a * s * rs * -1 * -1;
   const hand = [rs * 6.8 + sx, chestY + 8.4 + ar], elb = [rs * 7 + sx, chestY + 4];
   px.part();
-  px.ellipse(sx + rs * 4.4, chestY + 0.8, 1.8, 1.6, BONE, 7.9, { floor: 1 });
+  px.ellipse(sx + rs * 6.2, chestY + 0.8, 1.8, 1.6, BONE, 7.9, { floor: 1 });
   px.part();
-  px.capsule(sx + rs * 4.4, chestY + 1, 1.2, elb[0], elb[1], 1.05, BONE, 7.8, { cast: 1 });
+  px.capsule(sx + rs * 6.2, chestY + 1, 1.2, elb[0], elb[1], 1.05, BONE, 7.8, { cast: 1 });
   px.capsule(elb[0], elb[1], 1.05, hand[0], hand[1], 0.95, BONE, 7.8, { cast: 1 });
   px.ellipse(elb[0], elb[1], 1.4, 1.3, BONE, 7.85);
   px.part(); px.tag("sword");

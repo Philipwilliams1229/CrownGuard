@@ -134,18 +134,18 @@ const make = (s) => (px, F) => {
   }
   // ---- the head
   px.part();
-  px.stamp(vv ? (p.blink ? BLINK : FRONT_H) : BACK_H, hx, hy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 6, 7, 7], cast: 2 });
+  px.stamp(vv ? (p.blink ? BLINK : FRONT_H) : BACK_H, hx, hy, LEG, 8.7, { ax: 6, ay: 10, ball: [6.5, 6, 7, 7], cast: 2 });
 
   // ---- the near arm (his right, screen side rs): pauldron, vambrace, the fist on the sword grip; the blade upright
   const rSh = [rs * 5.8 + sx, shY], rEl = [rs * 7.4 + sx, shY + 4.8], rHd = [rs * 7.8 + sx, shY + 9.6 + s * (p.aN[0] - 1.1) * 0.8];
   const wx = rHd[0], sy = rHd[1], tl = rs * 0.07;
   px.part(); px.tag("sword");
   if (vv) {
-    px.capsule(wx, sy - 2.5, 1.25, wx + tl * 14, sy - 17, 1.05, BLADE, 7.2, { edge: true });
-    px.capsule(wx + tl * 14, sy - 17, 1.05, wx + tl * 17, sy - 19.6, 0.3, BLADE, 7.2, { edge: true });
+    px.capsule(wx, sy - 2.5, 1.25, wx + tl * 14, sy - 17, 1.05, BLADE, 8.25, { edge: true });
+    px.capsule(wx + tl * 14, sy - 17, 1.05, wx + tl * 17, sy - 19.6, 0.3, BLADE, 8.25, { edge: true });
     px.part();
-    px.capsule(wx, sy + 0.8, 0.9, wx, sy - 2.2, 0.9, LEATHER, 7.22);
-    px.capsule(wx - 2.8, sy - 2.4, 0.8, wx + 2.8, sy - 2.4, 0.8, BRASS, 7.25, { edge: true });
+    px.capsule(wx, sy + 0.8, 0.9, wx, sy - 2.2, 0.9, LEATHER, 8.27);
+    px.capsule(wx - 2.8, sy - 2.4, 0.8, wx + 2.8, sy - 2.4, 0.8, BRASS, 8.3, { edge: true });
   } else {   // from behind: the blade runs forward past his hip hidden behind him; the grip's end and the brass pommel show below the fist
     px.capsule(wx, sy + 0.5, 0.9, wx, sy + 3.2, 0.9, LEATHER, 8.2);
     px.ellipse(wx, sy + 4, 1.2, 1.2, BRASS, 8.22);
@@ -156,11 +156,11 @@ const make = (s) => (px, F) => {
   px.capsule(rEl[0], rEl[1], 2.0, rHd[0], rHd[1], 1.8, PLATE, 8, { cast: 2 });
   px.ellipse(rEl[0], rEl[1], 1.7, 1.7, PLATE, 8.02, { vb: 0.25 });
   px.part(); px.tag(null);
-  px.ellipse(rSh[0] - rs * 0.2, rSh[1] - 0.4, 3.5, 3.1, PLATE, 8.1, { cast: 2 });            // pauldrons, both shoulders
-  px.ellipse(lSh[0] + ls * 0.2, lSh[1] - 0.4, 3.5, 3.1, PLATE, 8.1, { cast: 2 });
-  px.line(rSh[0] - 2.7, rSh[1] + 2.1, rSh[0] + 2.7, rSh[1] + 2.1, BRASS, 8.12);
-  px.line(lSh[0] - 2.7, lSh[1] + 2.1, lSh[0] + 2.7, lSh[1] + 2.1, BRASS, 8.12);
-  px.part(); px.ellipse(rHd[0], rHd[1], 1.8, 2.1, MAIL, 8.3);
+  px.ellipse(rSh[0] + rs * 1.0, rSh[1] + 0.4, 3.2, 2.8, PLATE, 8.1, { cast: 2 });            // pauldrons, both shoulders
+  px.ellipse(lSh[0] + ls * 1.0, lSh[1] + 0.4, 3.2, 2.8, PLATE, 8.1, { cast: 2 });
+  px.line(rSh[0] + rs - 2.6, rSh[1] + 2.7, rSh[0] + rs + 2.6, rSh[1] + 2.7, BRASS, 8.12);
+  px.line(lSh[0] + ls - 2.6, lSh[1] + 2.7, lSh[0] + ls + 2.6, lSh[1] + 2.7, BRASS, 8.12);
+  px.part(); px.ellipse(rHd[0], rHd[1], 1.8, 2.1, MAIL, 8.6);
   return {};
 };
 

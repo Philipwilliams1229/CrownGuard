@@ -119,7 +119,7 @@ const make = (s) => (px, F) => {
   px.poly([[sx - 5.4, chestY - 2.8], [sx + 5.4, chestY - 2.8], [sx + 5.8, chestY + 0.8], [sx + 1.6, chestY + 2.8], [sx - 1.6, chestY + 2.8], [sx - 5.8, chestY + 0.8]], HOOD, 5, { round: 0.9, cast: 1 });
 
   // ---- the free right arm: rolled sleeve, cuff, bracer; it swings forward as the left foot is planted
-  const sw = -a * 0.45, rSh = [rs * 5.2 + sx, shY], rEl = [rs * 6.8 + sx, shY + 5.2], rHd = [rs * 6.6 + sx, shY + 10.8 + s * sw * 2.2];
+  const sw = -a * 0.45, rSh = [rs * 5.2 + sx, shY], rEl = [rs * (vv ? 6.8 : 6.2) + sx, shY + 5.2], rHd = [rs * (vv ? 6.6 : 4.4) + sx, shY + (vv ? 10.8 + s * sw * 2.2 : 9.6 - sw * 1.6)];
   px.part(); px.tag("nearArm");
   px.capsule(rSh[0], rSh[1] + 0.3, 2.1, rEl[0], rEl[1], 1.9, TUNIC, 8, { cast: 2 });
   px.capsule(rEl[0], rEl[1], 1.9, rHd[0], rHd[1], 1.6, SHIRT, 8, { cast: 2 });

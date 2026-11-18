@@ -78,8 +78,8 @@ const make = (s) => (px, F, o = {}) => {
   const bolt = v === "bolt", loose = v === "loose" || bolt, ridden = !loose;
   const b = solveBeast(F.sk.p, Q), b1 = solveBeast(F.lag1.p, Q), b2 = solveBeast(F.lag2.p, Q), p = b.p, ph = F.ph;
   const by = cl(b.at(0, 0, 0)[1] + 30, -3, 3.4);                           // how far the back has sunk
-  const sway = cl((b.W[0] - b1.W[0]) * 0.9, -1.6, 1.6);
-  const lean = cl(by * 0.1 + Math.sin(ph * TAU) * 0.1, -0.5, 0.5);
+  const sway = cl((b.W[0] - b1.W[0]) * 0.45, -0.8, 0.8);
+  const lean = cl(by * 0.05 + Math.sin(ph * TAU) * 0.04, -0.3, 0.3);
   const hip = [0, -31 + by * 0.9];
   // near side on screen left in FRONT, right from BEHIND
   const nS = -s, fS = s;
@@ -275,7 +275,7 @@ const make = (s) => (px, F, o = {}) => {
 
   // ======== the knight ========
   const Hp = hip, sp = 9.6, C = [Hp[0] + Math.sin(lean) * sp, Hp[1] - Math.cos(lean) * sp];
-  const hx = Math.round(C[0] + sway * 0.4), hy = Math.round(C[1] - 1.8);
+  const hx = Math.round(C[0] + sway * 0.2), hy = Math.round(C[1] - 1.8);
   const vx = cl(sway * 1.4, -2.4, 2.4), tuft = cl(-vx * 1.5, -2.4, 2.4);
   const sNs = [C[0] + nS * 6, C[1] + 0.2], sFs = [C[0] + fS * 6, C[1] + 0.2];   // shoulders (near side = lance side)
 
@@ -316,13 +316,13 @@ const make = (s) => (px, F, o = {}) => {
     // its back: a dark rim, planks of leather, the arm strap and the grip, the boss's rivets
     px.part(); const sid = px._pid;
     const S = (x, y) => [shC[0] + x, shC[1] + y];
-    px.poly([S(-4.8, -6.8), S(4.8, -6.8), S(5.2, 0), S(0, 8.6), S(-5.2, 0)], IRONK, 9.3, { round: 0.6, cast: 2 });
-    px.poly([S(-3.6, -5.6), S(3.6, -5.6), S(3.9, -0.4), S(0, 6.8), S(-3.9, -0.4)], LEATHER, 9.32, { round: 0.7, cast: 0 });
+    px.poly([S(-4.8, -6.8), S(4.8, -6.8), S(5.2, 0), S(0, 8.6), S(-5.2, 0)], IRONK, 9.62, { round: 0.6, cast: 2 });
+    px.poly([S(-3.6, -5.6), S(3.6, -5.6), S(3.9, -0.4), S(0, 6.8), S(-3.9, -0.4)], LEATHER, 9.64, { round: 0.7, cast: 0 });
     px.toneLine(...S(0.2, -5.4), ...S(0.2, 6), -1, sid);
     px.part();
-    px.line(...S(-3.4, -2.8), ...S(3.4, -2.8), SADDLE, 9.4, { cast: 0 });
-    px.line(...S(-2.8, 1.6), ...S(2.8, 1.6), SADDLE, 9.4, { cast: 0 });
-    px.dot(...S(-3.6, -2.8), STEELB, 9.5, { fix: 4 }); px.dot(...S(3.6, 1.6), STEELB, 9.5, { fix: 4 });
+    px.line(...S(-3.4, -2.8), ...S(3.4, -2.8), SADDLE, 9.66, { cast: 0 });
+    px.line(...S(-2.8, 1.6), ...S(2.8, 1.6), SADDLE, 9.66, { cast: 0 });
+    px.dot(...S(-3.6, -2.8), STEELB, 9.68, { fix: 4 }); px.dot(...S(3.6, 1.6), STEELB, 9.68, { fix: 4 });
   }
 
   // the trunk: a surcoat down over the thighs and the saddle, belted; FRONT the breastplate and the emblem, BACK the plain back with its seam

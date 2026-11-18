@@ -66,9 +66,9 @@ export const draw = (px, { sk, lag1 }, o = {}) => {
   px.capsule(eF[0], eF[1], 2, hdF[0], hdF[1], 1.8, IVORY, 1, { bias: -1 });
   px.part();
   const gx = hdF[0] + 0.6, gy = hdF[1];
-  px.line(gx, gy - 8, gx, gy - 0.4, SILVER, 3.4);
-  px.line(gx - 2.2, gy - 5.8, gx + 2.2, gy - 5.8, SILVER, 3.4);
-  px.ellipse(gx, gy - 5.8, 1.9, 1.9, GOLD, 3.35, { noLine: true });
+  px.line(gx, gy - 6, gx, gy - 0.4, SILVER, 3.4);          // a staff; a gilt sun, not a cross, on top
+  px.ellipse(gx, gy - 6.4, 2.9, 2.9, GOLD, 3.35, { noLine: true });
+  px.ellipse(gx, gy - 6.4, 1.6, 1.6, SILVER, 3.4, { noLine: true });
   px.part(); px.ellipse(hdF[0] + 0.4, hdF[1] + 0.2, 1.7, 1.7, SKIN, 3.5, { bias: -1 });
 
   leg(px, hF, kF, anF, 2, -1);
@@ -82,8 +82,8 @@ export const draw = (px, { sk, lag1 }, o = {}) => {
   px.poly([[C[0] - 3.8, C[1] - 1.2], [C[0] + 4, C[1] - 1.2], [C[0] + 5.2, C[1] + 3.3], [P[0] + 4.8, P[1] - 2.6], [hemF, hy], [hemF - 2.6, hy + 0.9], [P[0] + 0.4 - vx, hy], [hemB + 2.8, hy + 0.9], [hemB, hy], [P[0] - 4.8, P[1] - 2.6], [C[0] - 5.2, C[1] + 3.3]], COAT, 4.2, { round: 0.9, cast: 2 });
   px.toneLine(P[0] + 0.8, P[1] - 1, P[0] + 0.6 - vx, hy - 0.6, -1, coat);
   px.line(hemB + 1, hy - 0.7, hemF - 1, hy - 0.7, GOLD, 4.22);
-  px.line(C[0] + 0.8, C[1] - 0.2, C[0] + 0.8, C[1] + 5.4, GOLD, 4.25);
-  px.line(C[0] - 1.4, C[1] + 1.6, C[0] + 3, C[1] + 1.6, GOLD, 4.25);
+  px.ellipse(C[0] + 1, C[1] + 2.8, 2.3, 2.3, GOLD, 4.25, { noLine: true });    // a gilt sun on the breast (no cross)
+  px.ellipse(C[0] + 1, C[1] + 2.8, 1.1, 1.1, COAT, 4.27, { noLine: true });
   px.poly([[P[0] - 4.9, P[1] - 3.4], [P[0] + 4.8, P[1] - 3.4], [P[0] + 4.9, P[1] - 1.6], [P[0] - 5, P[1] - 1.6]], LEATHER, 4.3, { round: 0.9 });
   px.rect(P[0] + 1.2, P[1] - 3.4, 2, 1.8, GOLD, 4.32, { fix: 3 });
   px.line(C[0] - 2.4, C[1] - 1.2, C[0] + 3.4, C[1] - 1.2, GOLD, 4.3);

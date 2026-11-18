@@ -109,7 +109,7 @@ const make = (s) => (px, F, o = {}) => {
 
   // ---- the left arm (staff side): wide sleeve, gold cuff, fist round the shaft. A tone down from the front.
   {
-    const sh = [ls * 4.6 + sx, chestY + 0.6], el = [ls * 8.2 + sx * 0.8, chestY + 3.8], fist = [SX, hgY];
+    const sh = [ls * 6.2 + sx, chestY + 0.6], el = [ls * 8.6 + sx * 0.8, chestY + 3.8], fist = [SX, hgY];
     px.part();
     px.capsule(sh[0], sh[1], 1.9, el[0], el[1], 2, SLEEVE, 4.5, { bias: -1 });
     px.capsule(el[0], el[1], 2, fist[0] - ls * 0.4, fist[1] - 1.2, 2.4, SLEEVE, 4.5, { bias: -1 });
@@ -138,8 +138,8 @@ const make = (s) => (px, F, o = {}) => {
   const hemY = -5.2, top = chestY - 3.3, flare = 7.3 + 0.35 * Math.abs(Math.sin(ph * TAU));
   const hemL = hx - flare + sx * 0.2, hemR = hx + flare + sx * 0.2, hm = (t) => hemL + (hemR - hemL) * t;
   px.part(); const robeId = px._pid;
-  px.poly([[sx - 4.2, top], [sx + 4.2, top + 0.2], [sx + 5.3, chestY + 3], [hx + 4.9, hipY - 1.4], [hemR, hemY - 2.2], [hemR, hemY],
-    [hemL, hemY], [hemL, hemY - 2.2], [hx - 4.9, hipY - 1.4], [sx - 5.3, chestY + 3]], ROBE, 4, { round: 0.9, cast: 1 });
+  px.poly([[sx - 5.6, top], [sx + 5.6, top + 0.2], [sx + 6, chestY + 3], [hx + 4.9, hipY - 1.4], [hemR, hemY - 2.2], [hemR, hemY],
+    [hemL, hemY], [hemL, hemY - 2.2], [hx - 4.9, hipY - 1.4], [sx - 6, chestY + 3]], ROBE, 4, { round: 0.9, cast: 1 });
   px.toneLine(hx - 1.4, hipY + 0.6, hm(0.3), hemY - 2.4, -1, robeId);
   px.toneLine(hx + 1.4, hipY + 0.4, hm(0.72), hemY - 2.4, 1, robeId);
   px.poly([[hemL, hemY - 1.9], [hemR, hemY - 1.9], [hemR, hemY], [hemL, hemY]], GOLD, 4.04, { round: 0.9 });
@@ -197,7 +197,7 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the right arm (free side), over the robe: wide sleeve, gold cuff, hand swinging
   {
     const ang = p.aN[0];
-    const sh = [rs * 4.6 + sx, chestY + 0.6], el = [rs * 7.4 + sx * 0.8, chestY + 3.8], hand = [rs * 6.8 + sx * 0.8, chestY + 7.6 + s * ang * 2.4];
+    const sh = [rs * 6.2 + sx, chestY + 0.6], el = [rs * 8.4 + sx * 0.8, chestY + 3.8], hand = [rs * 7.6 + sx * 0.8, chestY + 7.6 + s * ang * 2.4];
     const wr = [(el[0] * 0.26 + hand[0] * 0.74), (el[1] * 0.26 + hand[1] * 0.74)];
     px.part(); px.tag("nearArm");
     px.capsule(sh[0], sh[1] + 0.3, 2.1, el[0], el[1], 2.1, SLEEVE, 7.9, { cast: 2 });

@@ -51,7 +51,7 @@ const make = (s) => (px0, F, o = {}) => {
   const hipY = P[1], chY = C[1], ank = SIDE_BONES.ankle;
   const vx = cl((sx - sx1) * 2, -2.5, 2.5), vx2 = cl((sx1 - sx2) * 2, -2.5, 2.5);
   const swN = p.aN[0] * 3, swF = (p.aF[0] - 0.62) * 3;
-  const hx = Math.round(sx * 0.6), hyr = Math.round(N[1] + 0.4);
+  const hx = Math.round(sx * 0.6), hyr = Math.round(N[1] - 0.8);
   const tp = cl(vx * 2 + vx2 * 1.4, -2, 3);
 
   // ---- the cloak: its edges behind her in front, the whole back from behind ----
@@ -75,7 +75,7 @@ const make = (s) => (px0, F, o = {}) => {
   if (s < 0) { px.part(); px.toneLine(sx + rs * 3.8, chY - 1, sx + ls * 3.6, hipY - 3.4, -1, px._pid); }
 
   // ---- the bow in her left hand, carried upright at her side ----
-  const bh = [sx + ls * 7.4, chY + 8 + swF], bt = 0.1 * ls;
+  const bh = [sx + ls * 8.2, chY + 8 + swF], bt = 0.1 * ls;
   const R = (x, y) => [bh[0] + x * Math.cos(bt) - y * Math.sin(bt), bh[1] + x * Math.sin(bt) + y * Math.cos(bt)];
   const top = R(-ls * 0.6, -12.5), bot = R(-ls * 0.6, 12.5), tm = R(ls * 0.5, -6.5), bm = R(ls * 0.5, 6.5), bz = s > 0 ? 6.6 : 3.4;
   px.part();
@@ -85,8 +85,8 @@ const make = (s) => (px0, F, o = {}) => {
   px.capsule(bh[0], bh[1] - 1.8, 1.2, bh[0], bh[1] + 1.8, 1.2, LEATHER, bz + 0.05);
   // her left arm to it
   px.body(1);
-  px.limb([[sx + ls * 4.4, chY + 0.4], [sx + ls * 6.2, chY + 4.2], bh], [1.9, 1.8, 1.6], TUNIC, bz + 0.1, { bias: -1 });
-  px.capsule((sx + ls * 6.2 + bh[0]) / 2, chY + 6, 1.7, bh[0], bh[1] - 0.4, 1.6, SHIRT, bz + 0.12, { wrap: true });
+  px.limb([[sx + ls * 5.6, chY + 0.4], [sx + ls * 7, chY + 4.2], bh], [1.9, 1.8, 1.6], TUNIC, bz + 0.1, { bias: -1 });
+  px.capsule((sx + ls * 7 + bh[0]) / 2, chY + 6, 1.7, bh[0], bh[1] - 0.4, 1.6, SHIRT, bz + 0.12, { wrap: true });
   px.body(0);
   px.part(); px.ellipse(bh[0], bh[1], 1.6, 1.7, SKIN, bz + 0.3);
 
@@ -108,7 +108,7 @@ const make = (s) => (px0, F, o = {}) => {
   // ---- the tunic: belted, skirted to mid-thigh ----
   px.part(); const tun = px.body(1);
   const hy = hipY + 2.8, hemW = 5.2;
-  px.poly([[sx - 4, chY - 1.8], [sx + 4.2, chY - 1.8], [sx + 5, chY + 3], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 5, chY + 3]], TUNIC, 4, { round: 0.92 });
+  px.poly([[sx - 4.6, chY - 1.8], [sx + 4.8, chY - 1.8], [sx + 5.6, chY + 3], [sx + 3.9, hipY - 3], [sx + hemW, hy], [sx + hemW - 2.6, hy + 0.9], [sx + vx, hy], [sx - hemW + 2.6, hy + 0.9], [sx - hemW, hy], [sx - 4.2, hipY - 3], [sx - 5.6, chY + 3]], TUNIC, 4, { round: 0.92 });
   px.toneLine(sx + 0.4, hipY - 0.5, sx + 0.4 + vx, hy - 0.5, -1, tun);
   px.poly([[sx - 4.3, hipY - 4.4], [sx + 4.3, hipY - 4.4], [sx + 4.3, hipY - 2.6], [sx - 4.3, hipY - 2.6]], LEATHER, 4.05, { round: 0.92 });
   if (s > 0) px.rect(sx - 1, hipY - 4.5, 2, 2, GOLD, 4.06, { fix: 3 });
@@ -123,13 +123,23 @@ const make = (s) => (px0, F, o = {}) => {
   px.body(0);
 
   // ---- the free right arm: a rolled sleeve, a pale cuff, a leather bracer; it swings a little ----
-  const sh = [sx + rs * 4.6, chY + 0.5], el = [sx + rs * 6, chY + 4 + swN * 0.3], hd = [sx + rs * 6.4, chY + 8 + swN * 0.8];
+  const sh = [sx + rs * 5.6, chY + 0.5], el = [sx + rs * 6.8, chY + 4 + swN * 0.3], hd = [sx + rs * 7, chY + 8 + swN * 0.8];
   px.part(); px.body(1);
   px.limb([sh, el, hd], [2.1, 1.9, 1.6], TUNIC, 7, { weld: 2, weldRoot: 4 });
   px.capsule(el[0], el[1], 1.8, hd[0], hd[1], 1.55, SHIRT, 7.01, { wrap: true });
   px.capsule(el[0] * 0.5 + hd[0] * 0.5, el[1] * 0.5 + hd[1] * 0.5, 1.7, el[0] * 0.15 + hd[0] * 0.85, el[1] * 0.15 + hd[1] * 0.85, 1.55, LEATHER, 7.02, { wrap: true });
   px.body(0);
   px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.6, 1.6, SKIN, 7.3);
+
+  // the neck (a little longer than the side's: the head sits clear of the mantle) and, in front, a soft fuller chest that rides the bounce
+  px.part(); px.capsule(hx, chY - 3.4, 1.7, hx, hyr + 1.2, 1.6, SKIN, 6.0, { bias: -1 });
+  if (s > 0) {
+    const cb = cl((lag1.C[1] - C[1]) * 0.9, -1, 1);
+    px.part();
+    px.ellipse(sx - 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
+    px.ellipse(sx + 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
+    px.dot(sx + 0.6, chY + 3.9, GOLD, 4.9, { fix: 3 });
+  }
 
   // ---- the head ----
   px.part();

@@ -68,7 +68,7 @@ const make = (s) => (px, F) => {
   // far arm (his left, screen side ls): bare upper arm, a dark bracer, a green fist hanging at his side
   const shY = chY - 1.4, aF = p.aF[0], aN = p.aN[0];
   const armOf = (side, ang, sh) => {
-    const shp = [side * 10 + sx, sh], el = [side * 11.6 + sx, sh + 8.4], hd = [side * 11.8 + sx, sh + 15.6 + s * ang * 3];
+    const shp = [side * 12.6 + sx, sh], el = [side * 13 + sx, sh + 8.4], hd = [side * 13 + sx, sh + 15.6 + s * ang * 3];
     return [shp, el, hd];
   };
   {

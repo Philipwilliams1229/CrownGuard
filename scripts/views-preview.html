@@ -52,6 +52,7 @@
   <label>Show <select id="group"><option value="">Everyone</option></select></label>
   <label><input type="checkbox" id="onlyNotes" /> Only with notes</label>
   <button type="button" class="primary" id="copyAll">Copy notes for Claude</button>
+  <button type="button" id="clearLocal">Clear sent notes</button>
   <span class="status" id="dbStatus">Connecting the notes…</span>
 </header>
 <p class="intro">Every character that walks the road, as the game shows it: <b>side</b> (walking across), <b>front</b> (walking down the screen, toward you) and <b>back</b> (walking up it). They switch views mid-stride, and turn side-on whenever they fight. Open <b>Frames</b> under a figure to see each step. Leave a note under any figure (pick what it's about, write, Send): Claude reads them and answers right on the note.</p>
@@ -171,6 +172,7 @@ $("#copyAll").onclick = async () => {
   try { await navigator.clipboard.writeText(txt); s.textContent = `Copied ${all.length} note${all.length > 1 ? "s" : ""}: paste them in the chat.`; }
   catch { s.textContent = "Couldn't copy: select the box below and copy it."; let box = $("#copyBox"); if (!box) { box = document.createElement("textarea"); box.id = "copyBox"; box.style.cssText = "margin:10px 16px;width:calc(100% - 32px);min-height:120px"; document.body.insertBefore(box, $("#main")); } box.value = txt; box.select(); }
 };
+$("#clearLocal").onclick = () => { local = []; saveLocal(); state.notes = merged(); renderNotes(); $("#dbStatus").textContent = "Notes cleared."; };
 state.notes = merged();
 $("#zoom").onchange = (e) => { state.zoom = +e.target.value; sizeAll(); };
 $("#speed").onchange = (e) => { state.speed = +e.target.value; };
