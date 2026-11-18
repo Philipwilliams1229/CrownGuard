@@ -30,14 +30,15 @@ export const CASTLE_WORKS = {
   ballista: {
     name: "Gate Ballista", icon: "",
     blurb: "A siege bow on the bridge over the gate: slow, screaming bolts at the mightiest foe on the road before the gate.",
-    // four tiers (owner, 2026-11-18; the fire bolts went; shield-breakers at 3, harpoons at 4): `pin` ms the chain harpoon holds its foe
+    // `rate` is each ballista's reload (x1.5 since 2026-11-18, owner: "fire less frequently"); twin
+    // ballistae take turns, so the wall looses every rate / 2. Four tiers (owner, 2026-11-18; the fire bolts went; shield-breakers at 3, harpoons at 4): `pin` ms the chain harpoon holds its foe
     // where it stands (bosses and rams too, so the column behind waits); `breaker` knocks every blue
     // pip off and marks the foe (every blow `amp` harder for `ms`) before the bolt strikes (update.js)
     tiers: [
-      { cost: 5000, label: "One ballista", dmg: 220, rate: 3200, range: 420 },
-      { cost: 10000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 450, twin: true },
-      { cost: 15000, label: "Shield-breakers: strip every shield, foe takes +25% for 5 s", dmg: 260, rate: 2900, range: 475, twin: true, breaker: { amp: 0.25, ms: 5000 } },
-      { cost: 25000, label: "Chain harpoons: each bolt also pins its foe 2 s", dmg: 280, rate: 2800, range: 500, twin: true, breaker: { amp: 0.25, ms: 5000 }, pin: 2000 },
+      { cost: 5000, label: "One ballista", dmg: 220, rate: 4800, range: 420 },
+      { cost: 10000, label: "Twin ballistae", dmg: 240, rate: 4500, range: 450, twin: true },
+      { cost: 15000, label: "Shield-breakers: strip every shield, foe takes +25% for 5 s", dmg: 260, rate: 4350, range: 475, twin: true, breaker: { amp: 0.25, ms: 5000 } },
+      { cost: 25000, label: "Chain harpoons: each bolt also pins its foe 2 s", dmg: 280, rate: 4200, range: 500, twin: true, breaker: { amp: 0.25, ms: 5000 }, pin: 2000 },
     ],
   },
   guards: {

@@ -2067,7 +2067,7 @@ bump WORKS_V and add its step there.
 
 **Every castle work re-cut to four tiers** (owner, same day; the Levy's tiers unchanged; provisional, pending
 the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
-- **Gate Ballista:** one, twin, **shield-breaker** (`breaker` {amp 0.25, ms 5000}: every blue pip
+- **Gate Ballista** (reload x1.5 the same day, owner: 4800 / 4500 / 4350 / 4200 ms a ballista): one, twin, **shield-breaker** (`breaker` {amp 0.25, ms 5000}: every blue pip
   knocked off, then the falconer's mark fields `markUntil` / `markAmp`, so every blow lands 25%
   harder), **chain harpoon** on top of it (`pin` 2000: the bolt holds its foe where it stands,
   `e.pinUntil`, read as `held` in the movement; bosses and rams too, so the column waits). The fire
