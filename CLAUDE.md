@@ -487,7 +487,7 @@ Provisional, pending the owner's playtest.
   gullwick (3), Warden Mage gw3 (6), River Watch gw4 (8), Trapsmith
   ravenscar (12), Gold Works gw5 (15) (swapped 2026-11-07, owner: the
   Gold Works waits until the first region is won), Falconry brinewick (19), Assassin's
-  Covert kestrel (23), Powder Works wardenmoor (27), Sunforge hl1 (31). The
+  Covert kestrel (23), Powder Works wardenmoor (27), Sunforge hl1 (31), King's Band stillmere (35). The
   Warden Mage is locked on the first levels now. `towerUnlocked` also opens a
   hall once ANY later level is cleared, so an old save keeps what it had.
 - **Tower XP, per hall TYPE** (`src/data/towerxp.js`, header has the rules):
@@ -1403,6 +1403,34 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
 - `marathon.mjs --to 40` (every hall): no engine errors. `--chapter iron
   --endure` seed 1, better doctrine: 9245 -> 9131 (the sims seldom field a
   Covert); all 15 held, none stuck.
+
+## The King's Band, a 14th hall (2026-11-18, owner request)
+
+"A kings marching band ... a tower that buffs other towers." Designed by Fable, then the owner's calls
+(`art/briefs/kings-band.md` has the tree, the rules and the answers). Provisional, pending the owner's
+playtest. It never fights. `engine/band.js` (the rules, `tuned(st, t)`), `engine/bandplay.js` (`layBands`,
+run first in every updateGame tick, lays `t.tune` on the halls each band plays for; `bandSoldiers` after the
+Warden loop). The tune goes on in `getStatsClear` after the skill trees and before the weather, so the
+tray, range rings, upgrade previews and sims all read buffed numbers; two bands never add up (max per stat);
+a band never plays for a band; a frozen / struck band plays nothing; weather never shrinks its earshot.
+- tempo (every clock key / (1 + t)), might (damage, payout, mending), reach (range keys under 900; not a
+  knight's seizing circle), swell (blast keys). Levels: tempo 10 / 14 / 18%. Drum Corps (path a) plays for
+  EVERY hall in earshot; Royal Tattoo + soldiers `atkBuff` 0.2; Thunder Drums + swell 15% and a 3 s roll at
+  +50% every 12 s (`t.rollUntil`). King's Heralds (path b) play for `picks` halls the player TAPS (owner):
+  the tray's "Choose 2 Halls" / "Choose the Hall" arms `g.rallyFor = band.id`, a tapped hall in earshot joins
+  `t.solo` (newest pushes out the oldest); empty places take the nearest. Royal Fanfare: one hall, +45%
+  might; War Horn: every 15 s foes within 110 slowed 40% 2 s (bosses not) and marked +20% 4 s (`t.hornAt`).
+- **Watch list** (owner: "dont leave out those towers ... mark them but include them for now"): the Gold
+  Works (payout), Trapsmith, Warden Mage and Log Roller ARE tuned: `BAND_WATCH` in band.js.
+- Learned on the Stillmere (level 35); XP: the Warden's quarter share of kills by halls it plays for.
+- Look: the bandstand (`pix/hall-band.js`, `halls/band.js`, Sonnet artists) with `fig-drummer.js` (drum,
+  bass, kettle, major) and `fig-herald.js` (fife, trumpet, horn), all on one 1200 ms clock (`BEAT_MS` 600).
+  Every tuned hall puffs a note on the beat (`render/bandnotes.js`; gold drums, crimson heralds); selecting a
+  band rings the feet of its halls; a tuned hall's banner name ends in a note. Mute (owner: no band sound).
+- `bench-hall.mjs --band 3,a,b` stands a band beside the benched hall (and the bench now sets `freeplay`).
+  Measured (x3 hp, crowd, seeds 2): an L3 Archer 66 -> ~79 dps with a Full Company or Drum Corps, ~107 with
+  a Royal Fanfare; Earthshaker 173 -> 311 with Thunder Drums. Not simmed: the sim commander never builds one.
+- Weak spots to show the owner: players crowd each other on the busiest stands; the War Horn has one player.
 
 ## Falcons hunt one by one (2026-11-09, owner request)
 
