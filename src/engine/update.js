@@ -342,6 +342,29 @@ const dissolveCorpses = (g, tms) => {
 // 2026-11-10: "Log roller is so op" against the Hollow's floods)
 // how fast a blast effect plays: 0.6 = it lasts 1/0.6 as long (see the effects tick)
 const BLAST_PACE = { boom: 0.6, keg: 0.6, arcane: 0.6, frost: 0.6, dust: 0.6 };
+// ...and its damage lands as the ring's front reaches each foe (owner, same day):
+// the front runs 0.3 -> 1 of the blast's reach over the first 0.72 of the effect's
+// life, eased out (ringflash.js RING), so a foe dd from the centre is struck this
+// many ms after the blow; a foe inside the first 0.3 at once. The victims are picked
+// at the blast (as before); one that dies or is gone meanwhile is skipped.
+const blastDelay = (dd, r, life) => {
+  const f = r > 0 ? dd / r : 0;
+  if (f <= 0.3) return 0;
+  const q = Math.min(1, (f - 0.3) / 0.7);
+  return 0.72 * (1 - Math.sqrt(1 - q)) * life / 0.6;
+};
+const queueHit = (g, delay, e, fn) => {
+  if (delay < 1) { fn(e); return; }
+  (g.blastHits ||= []).push({ at: g.time * 1000 + delay, e, fn });
+};
+const runBlastHits = (g) => {
+  if (!g.blastHits?.length) return;
+  const now = g.time * 1000;
+  const due = g.blastHits.filter((h) => h.at <= now);
+  if (!due.length) return;
+  g.blastHits = g.blastHits.filter((h) => h.at > now);
+  for (const h of due) if (!h.e.dead && g.enemies.includes(h.e)) h.fn(h.e);
+};
 const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.2, LOG_STALL = 0.25;
 // the Powder Keg Run's log goes up where it stops, or as it leaves the field
 const logBlast = (g, lg, bx, by) => {
@@ -349,8 +372,9 @@ const logBlast = (g, lg, bx, by) => {
   g.shake = Math.max(g.shake, 6);
   sfx.play("boom");
   for (const e of g.enemies) {
-    if (e.dead || Math.hypot(e.x - bx, e.y - by) > lg.blast) continue;
-    dealDamage(g, e, lg.blastDmg, "phys", false, false, lg.src);
+    const dd = Math.hypot(e.x - bx, e.y - by);
+    if (e.dead || dd > lg.blast) continue;
+    queueHit(g, blastDelay(dd, lg.blast, 420), e, (v) => dealDamage(g, v, lg.blastDmg, "phys", false, false, lg.src));
   }
 };
 
@@ -3118,10 +3142,12 @@ export function updateGame(g, dt) {
             if (dd <= p.splash) hit.push([dd, e]);
           }
           if (hit.length > cap) { hit.sort((u, v) => u[0] - v[0]); hit.length = cap; }
-          for (const [dd, e] of hit) {
-            {
+          const life = p.kind === "rock" ? 380 : 320;
+          for (const [dd, e0] of hit) {
+            queueHit(g, blastDelay(dd, p.splash, life), e0, (e) => {
+              const tms = g.time * 1000;
               dealDamage(g, e, p.dmg * (1 - 0.55 * (dd / p.splash)), p.dtype, p.pierce, false, p.src);
-              if (e.dead) continue;
+              if (e.dead) return;
               if (p.burn) { e.burnUntil = tms + p.burnDur; e.burnDps = p.burn; if (p.burnSpreads) e.burnSpread = true; }
               if (p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = p.slow; }
               // the Bombard Yard's blast cracks armor open (brittle, as Permafrost's)
@@ -3129,7 +3155,7 @@ export function updateGame(g, dt) {
                 e.brittleAmp = Math.max(e.brittleUntil > tms ? e.brittleAmp : 0, p.crack);
                 e.brittleUntil = Math.max(e.brittleUntil, tms + p.crackDur);
               }
-            }
+            });
           }
           // Inferno Throne / Hellburner: the blast leaves the ground burning
           if (p.poolDps) g.grounds.push({ src: p.src, x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), born: tms, kind: p.poolKind || "lava" });
@@ -3275,6 +3301,7 @@ export function updateGame(g, dt) {
     // blasts play slower than their ttl says (owner, 2026-11-18: "I like seeing the
     // wave of damage emanate from the centre"): picture, ring and white flash all
     // read the ttl, so one pace slows them together. Visual only: the damage lands at once.
+    runBlastHits(g);
     for (const fx of g.effects) fx.ttl -= sdt * 1000 * (BLAST_PACE[fx.type] || 1);
     g.effects = g.effects.filter((fx) => fx.ttl > 0);
     // the storm's rain puts burning ground out faster (weather.js WX.burnOut)

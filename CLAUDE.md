@@ -247,7 +247,11 @@ at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Fi
 "Make it so explosions propagate a bit slower. I like seeing the wave of damage emanate from the
 centre." `BLAST_PACE` (update.js, the effects tick) plays boom / keg / arcane / frost / dust effects
 at 0.6 speed, so the picture, the ring and its white flash (ringflash.js) all run ~1.7x longer
-together. Visual only: the damage still lands at once. The Powder Keg Run's blast AREA halved
+together. Then (owner: "I want this yes") the DAMAGE rides the wave too: a splash
+shot's and the Powder Keg's blast pick their victims at the blow as before, then `queueHit` /
+`blastDelay` strike each as the ring's front reaches its distance (up to ~384 ms out at the rim;
+`g.blastHits`, run in the effects tick, cleared by a retried wave); a foe dead or gone meanwhile is
+skipped. Burn / slow / crack land with the hit. Traps' bombs and the Powder Works' charge are untouched. The Powder Keg Run's blast AREA halved
 (`logBlast` 96 -> 48; its damage 220 kept); the Rimecaller's `range` 101 -> 51 and its finals' 109 ->
 55 (Absolute Zero, Permafrost Heart). Provisional.
 

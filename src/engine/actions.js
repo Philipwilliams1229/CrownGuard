@@ -209,7 +209,7 @@ export const restartWave = (g) => {
     t.formDmg = td.formDmg || 0; t.formTime = td.formTime || 0;
     return t;
   });
-  g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
+  g.enemies = []; g.projectiles = []; g.effects = []; g.blastHits = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   g.militiaCd = s.militiaCd || 0;
