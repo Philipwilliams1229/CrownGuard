@@ -105,6 +105,8 @@ const make = (s) => (px0, F, o = {}) => {
     }
   }
 
+  // the bust's edge shows a little past her sides in BACK, under the arms
+  if (s < 0) { px.part(); for (const sd of [-1, 1]) px.ellipse(sx + sd * 6.2, chY + 3.4, 1.7, 2.6, TUNIC, 3.9, { round: 0.9 }); }
   // ---- the tunic: belted, skirted to mid-thigh ----
   px.part(); const tun = px.body(1);
   const hy = hipY + 2.8, hemW = 5.2;
@@ -136,12 +138,13 @@ const make = (s) => (px0, F, o = {}) => {
   if (s > 0) {
     const cb = cl((lag1.C[1] - C[1]) * 0.9, -1, 1);
     px.part();
-    px.ellipse(sx - 2.5, chY + 2.8 + cb, 3.0, 2.7, TUNIC, 4.7, { round: 0.9, vb: 0.3 });
-    px.ellipse(sx + 2.5, chY + 2.8 + cb, 3.0, 2.7, TUNIC, 4.7, { round: 0.9, vb: 0.3 });
-    px.toneLine(sx - 5.2, chY + 5.2 + cb, sx + 5.2, chY + 5.2 + cb, -1, px._pid);        // the soft shadow beneath
+    px.ellipse(sx - 3.1, chY + 3.6 + cb, 4.0, 3.5, TUNIC, 4.7, { round: 0.95, vb: 0.45 });
+    px.ellipse(sx + 3.1, chY + 3.6 + cb, 4.0, 3.5, TUNIC, 4.7, { round: 0.95, vb: 0.45 });
+    px.toneLine(sx - 6.4, chY + 7.2 + cb, sx + 6.4, chY + 7.2 + cb, -1, px._pid);        // the soft shadow beneath
     px.part();
-    px.poly([[sx - 3, chY - 2.8], [sx + 3, chY - 2.8], [sx + 1.2, chY + 2], [sx, chY + 3.4 + cb * 0.5], [sx - 1.2, chY + 2]], SKIN, 4.9, { round: 0.6 });   // the open collar: a modest V
-    px.dot(sx, chY + 4.2 + cb * 0.5, GOLD, 5.0, { fix: 3 });
+    px.poly([[sx - 3.2, chY - 2.8], [sx + 3.2, chY - 2.8], [sx + 1.4, chY + 2.4], [sx, chY + 4 + cb * 0.5], [sx - 1.4, chY + 2.4]], SKIN, 4.9, { round: 0.6 });   // the open collar: a deep V, the tunic's edge covering her either side
+    px.line(sx, chY + 1.2, sx, chY + 4.2 + cb * 0.5, EYE, 5.0, { fix: 0 });
+    px.dot(sx, chY + 5.1 + cb * 0.5, GOLD, 5.1, { fix: 3 });
   }
 
   // ---- the head ----
