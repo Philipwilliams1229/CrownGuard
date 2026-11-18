@@ -180,8 +180,11 @@ const sailShips = (g, tms) => {
       for (let i = 0; i < n; i++) { g.spawnQueue.push({ type: grp.type, at, mult: sh.mult, pay: grp.pay, landAt: geo.dist, fromX: geo.bx, fromY: geo.by }); at += grp.gap; }
     }
     g.spawnQueue.sort((a, b) => a.at - b.at);
-    e.dead = true; e.quiet = true;     // no bounty, no leak: it simply stays on the beach
-    g.effects.push({ type: "beached", x: geo.bx, y: geo.by, face: e.face, ttl: 9000, life: 9000, hp: frac });
+    e.dead = true; e.quiet = true;     // no bounty, no leak: from here it is only a picture
+    // it waits on the shingle while the party jumps down, then backs off and rows
+    // out to sea the way it came (owner, 2026-11-18; render only: rimefx.js `beached`)
+    const unload = Math.max(900, Math.min(6000, at - g.spawnTimer)) + 500, out = Math.round(geo.sail * 0.9);
+    g.effects.push({ type: "beached", x: geo.bx, y: geo.by, sx: geo.sx, sy: geo.sy, face: e.face, hold: unload, out, ttl: unload + out, life: unload + out, hp: frac });
     g.effects.push({ type: "dust", x: geo.bx, y: geo.by + 4, ttl: 500, r: 26 });
     g.shake = Math.max(g.shake, 2);
   }

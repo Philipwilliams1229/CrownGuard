@@ -26,7 +26,7 @@
 // the alias or painter here: delete the alias line; for the sea monsters,
 // draw.js's `e.sea` hook calls drawSea, which an artist may rewrite freely.
 
-import { S, CELL } from "../data/constants.js";
+import { S, CELL, W, H as BH } from "../data/constants.js";
 import { PX } from "./paint.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { RIGS, drawRig } from "./rigs.js";
@@ -262,7 +262,22 @@ export const drawShip = (ctx, e, g) => {
 };
 
 // ---- effects ----
-const beached = (ctx, fx, g) => longship(ctx, fx.x, fx.y, fx.face, g.time, { oars: false, sail: fx.hp > 0.5, alpha: Math.min(1, fx.ttl / 1500) });
+// aground while the party jumps down (`hold` ms), then it backs off the shingle, comes about and rows
+// out the way it came (`out` ms, to sx, sy past the edge), fading only if its way out ends on the board
+const beached = (ctx, fx, g) => {
+  const el = fx.life - fx.ttl, sail = fx.hp > 0.5;
+  if (fx.hold == null) { longship(ctx, fx.x, fx.y, fx.face, g.time, { oars: false, sail, alpha: Math.min(1, fx.ttl / 1500) }); return; }
+  if (el < fx.hold) { longship(ctx, fx.x, fx.y, fx.face, g.time, { oars: false, sail }); return; }
+  const u = cl((el - fx.hold) / fx.out), BACK = 0.18;
+  const dx = fx.sx - fx.x, dy = fx.sy - fx.y, d = Math.hypot(dx, dy) || 1;
+  // backing oars: a short slow push off the beach, still facing in
+  const back = Math.min(18, d * 0.1) * ez(Math.min(1, u / BACK));
+  let k = 0, face = fx.face;
+  if (u > BACK) { const v = (u - BACK) / (1 - BACK); k = v * v * 0.5 + v * 0.5; face = dx >= 0 ? 1 : -1; }   // about, and away
+  const r = back + (d - back) * k;
+  const onBoard = fx.sx > 0 && fx.sx < W && fx.sy > 0 && fx.sy < BH;
+  longship(ctx, fx.x + dx / d * r, fx.y + dy / d * r, face, g.time, { sail, alpha: onBoard ? Math.min(1, (1 - u) / 0.25) : 1 });
+};
 const shipsink = (ctx, fx, g) => {
   const q = cl(1 - fx.ttl / fx.life), f = fx.face || 1, i = Math.floor(g.time * 6) % 8;
   art(ctx, fx.x, fx.y, () => {

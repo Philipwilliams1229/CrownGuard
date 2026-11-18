@@ -722,7 +722,9 @@ uses; existing levels sim byte-identical). Read the headers of
   road fraction or [col,row]); the faction's `landings: { warWave: [groups] }`
   / `landingGen` say who sails. `waves.js landingsOf` marks the groups
   `landing`/`ship`; `startWave` queues ONE longship a wave (puts out at 45%
-  of the spawn time, ~5 s on screen, horn + red ring at the beach). The ship
+  of the spawn time, ~5 s on screen, horn + red ring at the beach). Once
+  its party is ashore it backs off and rows out the way it came (owner, 2026-11-18;
+  render only: the `beached` effect carries `hold` / `out` / `sx, sy`, rimefx.js). The ship
   is a `swimming` foe towers and skiffs can hole; the party lands scaled by
   the hull left. A board with NO beach gets NO landing party (owner).
 - **Weather:** `WEATHER_KINDS` registry (every/lasts/windup/fx: reach,
