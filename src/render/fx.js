@@ -1442,6 +1442,17 @@ const iceShell = (wb, hb, f) => hmemo(((wb * 64 + hb) * 8 + f) * 8 + 4, () => {
 // `feet` is its ground line and `top` the crown of its head, in world units.
 export const drawStatus = (ctx, e, time, tms, feet, top) => {
   const hr = Math.max(8, feet - top), id = e.id || 0, sz = e.size || 14, sb = sizeBucket(sz);
+  // the Masons' net over a flier dragged down to the road (engine: e.netUntil): a rope mesh over the body
+  if (e.netUntil > tms) {
+    const w = sz * 0.6 + 3, y0 = top + hr * 0.25, y1 = feet;
+    ctx.save(); ctx.globalAlpha *= 0.9;
+    ctx.fillStyle = "#3e2a1c";
+    for (let x = -w; x <= w; x += 3) ctx.fillRect(Math.round(e.x + x), Math.round(y0), 0.5, Math.round(y1 - y0));
+    for (let y = y0; y <= y1; y += 3) ctx.fillRect(Math.round(e.x - w), Math.round(y), Math.round(2 * w), 0.5);
+    ctx.fillStyle = "#c9ad78";
+    for (let x = -w; x <= w; x += 3) for (let y = y0; y <= y1; y += 3) ctx.fillRect(Math.round(e.x + x), Math.round(y), 0.5, 0.5);
+    ctx.restore();
+  }
   const frozen = !e.immStun && e.frozenUntil > tms;
   const stunned = !e.immStun && !frozen && e.stunUntil > tms;
   const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct || 0.3 : 0, e.auraSlow || 0);

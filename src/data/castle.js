@@ -70,12 +70,15 @@ export const CASTLE_WORKS = {
     // wave: the damage stays, and in the build phase a Repair button mends every frame for
     // `repair` gold per missing health (engine/actions.js repairBarricades). A new battle, or a
     // tier bought, sets them up whole. `hp` is extra castle life (the thicker gate came from the
-    // Gate Guard, same day).
+    // Gate Guard, same day). `net` (tier 4): every `every` ms a net-thrower on the gate drags the flier
+    // nearest the gate (within `range` road steps; never a boss) down onto the road for `ms`: while
+    // grounded it is a walker (`flying` off), so the barricade stops it, halberdiers hold it and
+    // ground-only halls hit it (engine/update.js, castle works).
     tiers: [
       { cost: 5000, label: "Mend one life a wave, a row of wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
       { cost: 10000, label: "Iron-shod spikes, a thicker gate (+5 castle life)", mend: 1, hp: 5, spikes: 1, spikeHp: 300, thorns: 11, mat: "iron", repair: 0.25 },
       { cost: 15000, label: "Steel spikes, the wall shored up (+5 more life)", mend: 1, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
-      { cost: 25000, label: "Mend two lives a wave (flyer nets to come)", mend: 2, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
+      { cost: 25000, label: "Mend two lives a wave, a net launcher drags fliers down", mend: 2, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2, net: { every: 6000, ms: 4000, range: 300 } },
     ],
   },
   wizards: {

@@ -2311,6 +2311,35 @@ export function updateGame(g, dt) {
           }
         }
       }
+      // the Masons' net launcher (castle.js masons `net`, tier 4): drags the flier nearest the gate
+      // down onto the road for net.ms (`flying` off meanwhile, `e.netUntil`; let go again after)
+      for (const e of g.enemies) if (e.netUntil && tms >= e.netUntil) {
+        e.netUntil = 0;
+        if (!e.dead) { releaseEnemy(g, e); e.flying = true; }
+      }
+      const mason = workTier(g.castle, "masons", g.castleRanks);
+      if (mason?.net) {
+        cd.net = (cd.net ?? mason.net.every * 0.5) - sdt * 1000;
+        if (cd.net <= 0) {
+          let best = null, bd = Infinity;
+          for (const e of g.enemies) {
+            if (e.dead || !e.flying || e.boss || e.neutral || isRising(e, tms)) continue;
+            const d = steps(e);
+            if (d <= mason.net.range && d < bd) { bd = d; best = e; }
+          }
+          if (!best) cd.net = 0;
+          else {
+            cd.net = mason.net.every;
+            const [nx, ny] = [gx + 6, gy - 30];
+            g.effects.push({ type: "bolt", x: nx, y: ny, tx: best.x, ty: best.y, ttl: 170, arrow: "quarrel" });
+            best.flying = false; best.netUntil = tms + mason.net.ms;
+            best.stunUntil = Math.max(best.stunUntil || 0, tms + 600);   // (the fall knocks the wind out of it)
+            g.effects.push({ type: "dust", x: best.x, y: best.y + 6, ttl: 420, r: 18 });
+            g.netted = (g.netted || 0) + 1;
+            sfx.play("hit");
+          }
+        }
+      }
       // the Court Wizards (castle.js wizards): each on the top of a wall tower,
       // each on his own clock (cd.wiz[k]: ms to his next cast; cd.wizAt[k]: when
       // he last cast, for the wall's figure), an arcane orb at the most armoured
