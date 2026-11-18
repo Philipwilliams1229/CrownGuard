@@ -51,6 +51,7 @@
   <label>Speed <select id="speed"><option value="1" selected>Normal</option><option value="0.5">Half</option><option value="0.25">Slow</option></select></label>
   <label>Show <select id="group"><option value="">Everyone</option></select></label>
   <label><input type="checkbox" id="onlyNotes" /> Only with notes</label>
+  <button type="button" class="primary" id="copyAll">Copy notes for Claude</button>
   <span class="status" id="dbStatus">Connecting the notes…</span>
 </header>
 <p class="intro">Every character that walks the road, as the game shows it: <b>side</b> (walking across), <b>front</b> (walking down the screen, toward you) and <b>back</b> (walking up it). They switch views mid-stride, and turn side-on whenever they fight. Open <b>Frames</b> under a figure to see each step. Leave a note under any figure (pick what it's about, write, Send): Claude reads them and answers right on the note.</p>
@@ -60,7 +61,11 @@ const figs = [], state = { zoom: 3, speed: 1, group: "", onlyNotes: false, notes
 const VIEWS = ["Side", "Front", "Back"];
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-let db = null;
+let db = null, local = [];
+const LKEY = "cg-views-notes";
+try { local = JSON.parse(localStorage.getItem(LKEY) || "[]"); } catch { local = []; }
+const saveLocal = () => { try { localStorage.setItem(LKEY, JSON.stringify(local)); } catch {} };
+const merged = () => { const by = {}; for (const n of [...Object.values(state.remote || {}).flat(), ...local]) (by[n.fig] ||= []).push(n); return by; };
 
 const cards = [];
 const build = () => {
@@ -122,7 +127,7 @@ const renderNotes = () => {
     const list = (state.notes[c.f.type] || []).slice().sort((a, b) => a.at - b.at);
     c.card.classList.toggle("has-notes", list.some((n) => !n.done));
     c.card.querySelector(".notes").innerHTML = list.map((n) => `<div class="note${n.done ? " done" : ""}">
-      <div class="meta">${esc(n.about || "General")} · ${new Date(n.at).toLocaleString()}${n.done ? " · done" : ""}</div>${esc(n.text)}
+      <div class="meta">${esc(n.about || "General")} · ${new Date(n.at).toLocaleString()}${n.done ? " · done" : ""}${n.local ? " · saved on this device" : ""}</div>${esc(n.text)}
       ${n.reply ? `<div class="reply">Claude: ${esc(n.reply)}</div>` : ""}</div>`).join("");
   }
   applyFilter();
@@ -130,8 +135,12 @@ const renderNotes = () => {
 const send = async (f, card) => {
   const ta = card.querySelector("textarea"), st = card.querySelector(".sendStatus"), text = ta.value.trim();
   if (!text) { st.textContent = "Write a note first."; return; }
-  if (!db) { st.textContent = "Still connecting the notes… try again in a moment."; return; }
   const about = card.querySelector(".chip.on").dataset.about, btn = card.querySelector(".send");
+  if (!db) {
+    local.push({ fig: f.type, figName: f.name, about, text, at: Date.now(), done: false, local: true }); saveLocal();
+    ta.value = ""; st.textContent = "Saved here. Use Copy notes for Claude (top) and paste them in the chat.";
+    state.notes = merged(); renderNotes(); return;
+  }
   btn.disabled = true; st.textContent = "Sending…";
   try {
     await db.collection("feedback").add({ fig: f.type, figName: f.name, about, text, at: Date.now(), done: false });
@@ -144,16 +153,25 @@ const connect = async () => {
   // the frame hands the page `window.claude` a moment after it starts: wait for it (up to 15 s)
   for (let i = 0; i < 150 && !(window.claude && window.claude.use); i++) await new Promise((r) => setTimeout(r, 100));
   try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { db = null; }
-  if (!db) { s.textContent = "Notes can't connect in this view. Open the page on claude.ai and reload."; return; }
+  if (!db) { s.textContent = "Notes are kept on this device: use Copy notes for Claude."; return; }
   const timer = setTimeout(() => (s.textContent = "Notes can't be reached yet."), 10000);
   db.collection("feedback").onSnapshot((snap) => {
     if (!snap.metadata.fromCache) { clearTimeout(timer); s.textContent = "Notes connected."; }
     const by = {};
     for (const d of snap.docs) { const v = d.data(); if (!v || !v.fig) continue; (by[v.fig] ||= []).push({ id: d.id, ...v }); }
-    state.notes = by; renderNotes();
+    state.remote = by; state.notes = merged(); renderNotes();
   }, () => { clearTimeout(timer); s.textContent = "Notes stopped updating; reload to reconnect."; });
 };
 
+$("#copyAll").onclick = async () => {
+  const all = Object.values(state.notes).flat().filter((n) => !n.done).sort((a, b) => a.at - b.at);
+  const txt = all.length ? "Notes on the front/back views:\n" + all.map((n) => `- ${n.figName} (${n.fig}), ${n.about}: ${n.text}`).join("\n") : "";
+  const s = $("#dbStatus");
+  if (!txt) { s.textContent = "No notes yet."; return; }
+  try { await navigator.clipboard.writeText(txt); s.textContent = `Copied ${all.length} note${all.length > 1 ? "s" : ""}: paste them in the chat.`; }
+  catch { s.textContent = "Couldn't copy: select the box below and copy it."; let box = $("#copyBox"); if (!box) { box = document.createElement("textarea"); box.id = "copyBox"; box.style.cssText = "margin:10px 16px;width:calc(100% - 32px);min-height:120px"; document.body.insertBefore(box, $("#main")); } box.value = txt; box.select(); }
+};
+state.notes = merged();
 $("#zoom").onchange = (e) => { state.zoom = +e.target.value; sizeAll(); };
 $("#speed").onchange = (e) => { state.speed = +e.target.value; };
 $("#group").onchange = (e) => { state.group = e.target.value; applyFilter(); };
