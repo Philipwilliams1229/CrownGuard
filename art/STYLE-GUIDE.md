@@ -1545,10 +1545,11 @@ walker's up/down share from its own movement (eased over ~6 px, so a corner blen
 side -> half -> full) and `vertSheet` picks the walk. Four-legged beasts, riders,
 fliers and swimmers keep their side walk. A new figure needs nothing; if its up
 walk looks wrong, the knobs are `DEPTH` / `LIFT` in pix/march.js.
-**The squeeze turn** (provisional, the owner may revert it): when a figure's facing
-flips it narrows to a sliver, mirrors while thin and widens the other way over
-`TURN_MS` 200 (`turnOf` / `drawTurned`, render/march.js); `SQUEEZE = false` puts
-back the one-frame mirror. `march-lab.html` shows both on the goblin (today vs fix).
+**The squeeze turn** (tried and DROPPED by the owner the same day: `SQUEEZE = false`):
+a facing flip narrowing to a sliver, mirroring while thin and widening the other way
+over `TURN_MS` 200 (`turnOf` / `drawTurned`, render/march.js); with it off a flip is
+the one-frame mirror. Front and back views (`fig-goblin-views.js`, `views-lab.html`)
+are the way forward for facing up and down the screen. `march-lab.html` shows both on the goblin (today vs fix).
 
 ### The joint kit: one body, welded limbs, wrapped fur, named layers (2026-11-15)
 

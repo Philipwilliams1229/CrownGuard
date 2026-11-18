@@ -249,8 +249,14 @@ at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Fi
 made from its own side walk (feet under the body), blended in round corners, and a
 change of facing is a 200 ms SQUEEZE (narrow, mirror, widen) instead of a one-frame flip.
 Render only, the engine is untouched. Style guide, "Walking up and down the screen";
-`march-lab.html` (today vs fix on the goblin). The owner: "we may end up reverting the
-squeeze": `SQUEEZE = false` in src/render/march.js. Pending the owner's look in the game.
+`march-lab.html` (today vs fix on the goblin). The squeeze was DROPPED the same day (owner,
+after seeing the goblin's front / back views without it: "drop it"): `SQUEEZE = false` in
+src/render/march.js, a facing change is the plain one-frame flip again.
+**Front and back views** (same day, owner: "front and back views look great"): the goblin's
+FRONT (walking down) and BACK (walking up) walks are drawn, `src/render/pix/fig-goblin-views.js`
+(brief `art/briefs/goblin-views.md`, a Sonnet artist), NOT yet wired into the game;
+`views-lab.html` shows them. A sprite-stacked goblin was tried first and set aside
+(`stack-lab.html`, `concept/stack-goblin.js`: turns to any angle but reads blobby at our camera).
 The bigger option put to them and NOT started: real front / back views (a yaw in the
 skeleton plus a hand-drawn front and back head for every figure; weeks of artist work).
 

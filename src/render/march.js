@@ -10,9 +10,9 @@
 // turnOf(o, face, tms)   the SQUEEZE TURN: when a figure's facing flips, its picture
 //             narrows to a sliver, mirrors while thin, and widens the other way over
 //             TURN_MS, instead of mirroring in one frame. Provisional (owner: "we may
-//             end up reverting the squeeze"): SQUEEZE = false puts back the plain flip.
+//             end up reverting the squeeze"), then "drop it" the same day: SQUEEZE is false, the plain flip.
 //             drawTurned(ctx, x, feet, sx, fn) draws fn squeezed about the feet.
-export const SQUEEZE = true;
+export const SQUEEZE = false;   // owner, 2026-11-17: "drop it" (the views read better with a plain switch)
 export const TURN_MS = 200, SLIVER = 0.3;
 
 export const vertOf = (o) => {

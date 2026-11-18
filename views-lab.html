@@ -17,7 +17,7 @@ import { vertOf, turnOf, TURN_MS, SLIVER } from "/src/render/march.js";
 import * as gob from "/src/render/pix/fig-goblin.js";
 
 const Q = new URLSearchParams(location.search);
-const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), BARE = !!Q.get("bare");
+const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), BARE = !!Q.get("bare"), SQ = Q.get("squeeze") === "1";
 const VIEWS = "/src/render/pix/fig-goblin-views.js";
 const V = await import(/* @vite-ignore */ VIEWS).catch(() => null);
 const SIDE = { ...gob, NAME: "goblin" };
@@ -26,6 +26,7 @@ const variant = BARE ? "bare" : "";
 document.getElementById("t").innerHTML = `<b>Goblin with front and back views</b> (a test, not in the game). Left: today. Right: with views. ` +
   `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW === 1 ? 3 : 1}${BARE ? "&bare=1" : ""}">${SLOW === 1 ? "slow motion" : "normal speed"}</a> · ` +
   `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "" : "&bare=1"}">${BARE ? "hooded goblin" : "bare-headed goblin"}</a>` +
+  ` · <a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "&bare=1" : ""}${SQ ? "" : "&squeeze=1"}">${SQ ? "without the squeeze turn" : "with the squeeze turn"}</a>` +
   (V ? "" : ` <span style="color:#e07060">(the views are not drawn yet)</span>`);
 
 const PW = 170, PH = 150, GAP = 8, ROW = 50;
@@ -63,7 +64,7 @@ const tick = (now) => {
 
   // today
   today.x = p[0]; today.y = p[1]; today.face = face ?? today.face ?? 1;
-  const h1 = vertOf(today), t1 = turnOf(today, today.face, T * 1000);
+  const h1 = vertOf(today), t1 = SQ ? turnOf(today, today.face, T * 1000) : { face: today.face, sx: 1 };
   const r1 = pixRec(BARE ? "goblinBare" : "goblin", vertSheet("goblin", "walk", h1), ph * 4, t1.face < 0);
   shadow(p[0], p[1]); blit(r1, p[0], p[1], t1.face < 0, t1.sx);
 
@@ -74,7 +75,7 @@ const tick = (now) => {
   const key = want === "side" ? `side${views.face}` : want;
   if (views.key === undefined) views.key = key;
   if (key !== views.key) { views.from = views.key; views.key = key; views.at = T * 1000; }
-  const u = views.at === undefined ? 1 : (T * 1000 - views.at) / TURN_MS;
+  const u = views.at === undefined || !SQ ? 1 : (T * 1000 - views.at) / TURN_MS;
   const showKey = u < 0.5 ? views.from : views.key, sx = u < 1 ? Math.max(SLIVER, Math.abs(Math.cos(Math.PI * u))) : 1;
   const x2 = PW + GAP + p[0];
   shadow(x2, p[1]);
