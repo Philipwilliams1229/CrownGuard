@@ -2035,7 +2035,7 @@ wall's bowmen took, falls back to free walk slots), each on his own clock (`cast
 `wizAt`, update.js after the ballista), casting a magic orb at the most armoured foe within
 `range` of the gate (then the nearest; never neutral or submerged monsters). Tiers 10k
 (45 / 1600 ms / 180), 15k (52 / 1500 / 190), 25k (60 / 1400 / 200, `chain` 2 within 80 at 0.6
-a leap: a chained orb leaps on as a homing orb with a violet crackle, `arcane` on the bolt effect, fx.js ARCANE_TONES). Ranks +40% damage. Icon
+a bounce: the orb BOUNCES on to the next foe in a low arc, `hop` on the projectile, fx.js lifts it, and bursts in the arcane blast's look where it lands, so a tier-3 cast shows two bursts after its first hit; the blow stays single-target; owner: no lightning). Ranks +40% damage. Icon
 `StaffIcon`. The Gate Guard's tier 3 is now **Halberd sweeps** (owner picked it over
 murder-hole stones, a fourth man, a portcullis slam): `sweep: { every 6000, r 46, dmg 45,
 stun 800, mounted 2 }`, each halberdier on his own staggered clock, only with a ground foe in

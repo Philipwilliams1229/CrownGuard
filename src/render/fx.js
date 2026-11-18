@@ -733,12 +733,6 @@ const BOLT_TONES = [
   ["#3a7ad0", "#8ad0f8", "#e8f8ff"],
   ["#2e5aa8", "#6aa8e0", "#a8dcf8"],
 ];
-// a Court Wizard's orb leaping on (fx.arcane): the same bolt in the arcane orb's violets
-const ARCANE_TONES = [
-  ["#9a6ae0", "#dcc4fc", "#fff6ff"],
-  ["#7a4ac0", "#c0a0f0", "#f0e4ff"],
-  ["#5a3898", "#9a78d0", "#d4bef0"],
-];
 export const drawChain = (ctx, fx) => {
   const life = lifeOf(fx, 220), age = life - fx.ttl, p = age / life;
   if (p >= 1 || !fx.pts || fx.pts.length < 2) return;
@@ -769,7 +763,7 @@ export const drawChain = (ctx, fx) => {
       px = qx; py = qy;
     }
   }
-  const tones = (fx.arcane ? ARCANE_TONES : BOLT_TONES)[p < 0.45 ? 0 : p < 0.75 ? 1 : 2];
+  const tones = BOLT_TONES[p < 0.45 ? 0 : p < 0.75 ? 1 : 2];
   // glow edge, translucent, as one union
   ctx.save();
   ctx.globalAlpha *= p < 0.75 ? 0.45 : 0.3;
@@ -1026,6 +1020,17 @@ export const drawProjectile = (ctx, p, time) => {
     return;
   }
   // an orb: sparks trailing off it in its element, then the orb itself
+  // (a Court Wizard's orb bouncing on to its next foe, p.hop, rides a low arc over the ground)
+  if (p.hop) {
+    const [prog, tot] = flight(p);
+    ctx.save(); ctx.translate(0, -Math.round(4 * Math.min(16, tot * 0.35) * prog * (1 - prog) * 2) / 2);
+    drawOrb(ctx, p, time, dx, dy);
+    ctx.restore();
+    return;
+  }
+  drawOrb(ctx, p, time, dx, dy);
+};
+const drawOrb = (ctx, p, time, dx, dy) => {
   const el = orbElement(p), T = TRAIL[el];
   for (let i = 1; i <= 8; i++) {
     const wob = Math.sin(time * 14 + i * 1.3 + (p.id || 0)) * i * 0.4;

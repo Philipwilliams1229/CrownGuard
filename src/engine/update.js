@@ -3226,6 +3226,9 @@ export function updateGame(g, dt) {
             dealDamage(g, target, p.dmg, p.dtype, p.pierce, false, p.src);
           }
           if (p.pierce) g.effects.push({ type: "pierce", x: p.tx, y: p.ty, ttl: 250 });
+          // a Court Wizard's bounced orb bursts where it lands: the arcane blast's look (only its
+          // look: the blow is still on the one foe)
+          if (p.hop) { g.effects.push({ type: "arcane", x: p.tx, y: p.ty, ttl: 320, r: 22 }); sfx.play("arcane"); }
           // Briar Rangers: each hit stacks poison dps (capped), refreshing duration
           if (p.poison && !target.dead) {
             const cur = target.poisonUntil > tms ? target.poisonDps : 0;
@@ -3242,10 +3245,11 @@ export function updateGame(g, dt) {
               if (dd <= p.chainRange && dd < nd) { nd = dd; next = e; }
             }
             if (next && p.kind === "orb") {
-              // (a Court Wizard's bolt leaps on as an orb, homing, with a crackle between)
-              g.effects.push({ type: "bolt", pts: [[p.tx, p.ty - 6], [next.x, next.y - 6]], ttl: 160, seed: Math.random() * 10, arcane: true });
+              // (a Court Wizard's orb bounces on to the next foe in a low arc, `hop`: fx.js lifts it
+              // off the ground; where it lands it bursts in the arcane blast, below)
               g.projectiles.push({
-                id: nextId(), x: p.tx, y: p.ty - 6, targetId: next.id, tx: next.x, ty: next.y, speed: 380, delay: 0,
+                id: nextId(), x: p.tx, y: p.ty, sx: p.tx, sy: p.ty, total: Math.hypot(next.x - p.tx, next.y - p.ty), hop: true,
+                targetId: next.id, tx: next.x, ty: next.y, speed: 240, delay: 0,
                 dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,
                 burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "orb", src: p.src,
                 chain: p.chain - 1, chainRange: p.chainRange,
