@@ -101,7 +101,7 @@ const make = (s) => (px, F, o = {}) => {
     px.part();
     px.ellipse(hand[0], hand[1] + 0.3, 1.9 + s * ang * 0.3, 1.8, SKIN, 4.7, { bias: -1 });
   } else {
-    const c = [ls * 8 + sx, shL[1] + 6.2];
+    const c = [ls * 8 + sx, shL[1] + 7.6];
     px.part();
     const zs = s > 0 ? 7.4 : 3.2;
     px.capsule(shL[0], shL[1], 1.6, ls * 6.8 + sx, shL[1] + 4.4, 1.5, SKIN, zs - 0.2, { bias: -1 });
@@ -193,8 +193,11 @@ const make = (s) => (px, F, o = {}) => {
   // the knife, a crude blade held up and a little out; from behind only its tip clears the fist
   px.part(); px.tag("weapon");
   const kl = s > 0 ? 8 : 5.4, tip = [hand[0] + rs * (s > 0 ? 3.4 : 2.4), hand[1] - kl - Math.max(0, -ang) * 0.6];
+  if (s < 0) { const dt = [hand[0] - rs * 0.4, hand[1] + 4.2]; px.poly([[hand[0] - 0.8, hand[1] + 0.6], [hand[0] + 0.8, hand[1] + 0.6], [dt[0] + 0.2, dt[1]], [dt[0] - 0.4, dt[1] - 0.2]], STEEL, 4.4, { fix: 3 }); }
+  else {
   px.poly([[hand[0] - 0.9, hand[1] - 1], [hand[0] + 1, hand[1] - 1], [tip[0] + 0.5, tip[1] + 2], [tip[0], tip[1]]], STEEL, 8.1, { fix: 3 });
   px.line(hand[0] - 0.2, hand[1] - 1.2, tip[0], tip[1] + 1.4, STEEL, 8.12, { fix: 4 });
+  }
   px.tag(null);
 
   // the head

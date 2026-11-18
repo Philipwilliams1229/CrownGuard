@@ -24,7 +24,6 @@
 import { prefs } from "../../data/prefs.js";
 import { bakeFrame, rimOf } from "./bake.js";
 import { vertWalk, marchesOnFoot } from "./march.js";
-import * as goblinViews from "./fig-goblin-views.js";
 import * as knight from "./fig-knight.js";
 import * as archer from "./fig-archer.js";
 import * as goblin from "./fig-goblin.js";
@@ -139,8 +138,8 @@ export const PIX = {
   skiffA: { fig: mk("skiff", skiff), variant: "a", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
   skiffB: { fig: mk("skiff", skiff), variant: "b", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
   // ---- the Greenwood horde ----
-  goblin: { fig: mk("goblin", goblin), views: { front: goblinViews.FRONT, back: goblinViews.BACK }, atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
-  goblinBare: { fig: mk("goblin", goblin), views: { front: goblinViews.FRONT, back: goblinViews.BACK }, variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
+  goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
+  goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
   orc: { fig: mk("orc", orc), atk: "attack", hit: 0.55, per: 4, legacy: [0, 6, 7, 9], fx: true },
   armored: { fig: mk("ironclad", ironclad), atk: "attack", hit: 0.583, per: 3.5, legacy: [0, 5, 7, 8], fx: true },
   troll: { fig: mk("troll", troll), atk: "attack", hit: 0.6, per: 3.6, legacy: [0, 7, 9, 10], fx: true },
@@ -212,6 +211,15 @@ export const PIX = {
   // (krakenarm: fig-krakenarm.js is drawn but held back: the seized-victim coil (drawSeaHold) is still the old painter, and the body needs another pass)
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
+// Front and back views (owner, 2026-11-17): every fig-<name>-views.js beside its figure, once the
+// lead has checked it and added <name> to VIEWS_ON, gives each PIX entry drawn from that figure
+// its `views` (the board then shows its back walking up the screen, its face walking down).
+const VIEW_FILES = import.meta.glob("./fig-*-views.js", { eager: true });
+export const VIEWS_ON = new Set(["goblin", "shaman", "orc", "ironclad", "troll", "warchief", "necro"]);
+for (const d of Object.values(PIX)) {
+  const name = d.fig.NAME, m = VIEWS_ON.has(name) && VIEW_FILES[`./fig-${name}-views.js`];
+  if (m && m.FRONT && m.BACK) d.views = { front: m.FRONT, back: m.BACK };
+}
 // Up and down the screen every two-legged walker steps under himself instead of
 // striding sideways (march.js): four more walks per figure, baked as they are asked for.
 for (const d of Object.values(PIX)) {

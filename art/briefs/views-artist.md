@@ -35,6 +35,17 @@ export const BACK  = { NAME: "<name>-back",  BOX, BONES, draw, CLIPS: { walk } }
   Weapons and shields keep their hands. A two-handed weapon is held across the body.
 - Same height and build as the side view; one sun upper LEFT of the screen in both views
   (they are drawn unmirrored); one-pixel tinted outline; cast shadows between parts.
+- **Owner's rules (2026-11-17), checked on every figure:**
+  1. FRONT: a shield never sits BEHIND the head or overlaps it. Carry it low and forward on
+     its arm (its top below the chin), beside the body, so the head stays clear and in front.
+  2. BACK: a sword, axe, knife or spear held in front of him is mostly HIDDEN by his body
+     from behind. Show at most a little of it (the pommel / grip by the hip, the tip past
+     the hip or below the elbow, angled forward and DOWN). Never a blade standing up beside
+     the head or shoulder: that reads as holding it backwards. Staves, banners and bows
+     carried upright may show (they are carried that way), but keep their head forward.
+  3. FEET STAY CONNECTED: in every frame of both views each foot joins its leg (no gap,
+     no loose boot or dark blob below a hem); a lifted foot still hangs from its shin.
+     Check every frame at zoom 4, not just frame 0.
 - FRONT: the face is the read (eyes, brow, mouth, the figure's signature feature); the
   silhouette must say "this figure" at board size (an art pixel is half a board pixel).
 - BACK: no face; the back of the head / helmet / hood with a seam, patch or detail so it is
