@@ -5,11 +5,12 @@
 
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
-import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, GATE_HALF, TOWER, ballistaSpots } from "../data/castle.js";
+import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, GATE_HALF, TOWER, ballistaSpots, wizardSpots } from "../data/castle.js";
+import * as mageFig from "./pix/fig-mage.js";
 import * as bowmanFig from "./pix/fig-bowman.js";
 import * as halberdierFig from "./pix/fig-halberdier.js";
 import * as masonFig from "./pix/fig-mason.js";
-import { crew, drawCrewPix, loopFrame, shotFrame, fracFrame } from "./pix/crews.js";
+import { crew, drawCrewPix, loopFrame, shotFrame, fracFrame, markOf } from "./pix/crews.js";
 import { ballistaPix, PITCHES } from "./pix/castle-ballista.js";
 import { pixSprite, stampPix } from "./pix/halls.js";
 import { wallFeet } from "../engine/muzzles.js";
@@ -2191,7 +2192,7 @@ export const drawCastle = (ctx, time, hpPct) => {
 // A sentry pacing the inner wall's walk, birds on the battlements that take
 // off when the horde comes near. All of it a stamp or a handful of pixels a
 // frame.
-const HALB = crew("halberdier", halberdierFig), BOWMAN = crew("bowman", bowmanFig), MASON = crew("mason", masonFig);
+const HALB = crew("halberdier", halberdierFig), BOWMAN = crew("bowman", bowmanFig), MASON = crew("mason", masonFig), MAGE = crew("mage", mageFig);
 const BIRDS = { calm: true, since: -99, flushed: -99, last: 0 };
 
 // The sentry keeps the inner wall's walk: it runs on unbroken behind every
@@ -2391,21 +2392,32 @@ export const drawCastleWorks = (ctx, g) => {
       if (bal.burn) glow(ctx, x - 7, y - 26, 3.5, "#ffa040", 0.5 + 0.3 * Math.sin(time * 9 + k));
     }
   }
-  const guard = workTier(works, "guards");
-  if (guard) {
-    // the halberdiers themselves hold the road in front of the gate: they
-    // are a band on the field (engine/update.js syncGateGuard), drawn with
-    // the crowd. Up here only the oil waits.
-    if (guard.oil) {
-      // the cauldron by the murder holes over the passage, and its steam
-      const cx = GATE.face1 + 33, cy = gy - 20;
-      shadow(ctx, cx + 1.5, cy + 4.5, 6.5, 1.8, 0.34);
-      cylinder(ctx, cx - 5, cy - 4, 10, 8, "#3a3a44", { r: 2, hi: 0.35, lo: 0.5 });
-      ctx.fillStyle = "#c86a2a"; ctx.fillRect(cx - 3, cy - 3, 6, 1.5);
-      for (let i = 0; i < 2; i++) {
-        const pr = ((time * 0.6 + i * 0.5) % 1);
-        soft(ctx, cx + Math.sin(time * 3 + i) * 2, cy - 7 - pr * 10, 2.5 + pr * 3, 2 + pr * 2, [[0, `rgba(230,225,215,${(1 - pr) * 0.4})`], [1, "rgba(230,225,215,0)"]]);
-      }
+  // (the Gate Guard's halberdiers hold the road in front of the gate: they are a band on the
+  // field, engine/update.js syncGateGuard, drawn with the crowd; their sweeps are Hale's arcs)
+  const wiz = workTier(works, "wizards");
+  if (wiz) {
+    // the Court Wizards on the tops of the wall's towers, facing the road: the Wizard Spire's
+    // mage, his cast clip run off his own last cast (engine: castleCd.wizAt), the orb in his
+    // staff's fork swelling as his next cast gathers; at ease (idle) once the wall has nothing to hit
+    const spots = wizardSpots(gy, wiz.count, bows ? bows.count : 0);
+    const tms = time * 1000, rate = wiz.rate, lvl = wiz.chain ? 3 : 2;
+    for (let k = 0; k < spots.length; k++) {
+      const [x, y] = spots[k];
+      const since = tms - (cd.wizAt?.[k] ?? -1e9);
+      let clip = "idle", f, charge = 0.2;
+      if (since < rate * 1.35) {
+        charge = Math.min(1, since / rate);
+        if (since < rate) { clip = "cast"; f = shotFrame(MAGE, "cast", rate - since, rate); }
+        else { clip = "hold"; f = loopFrame(MAGE, "hold", time, k); }
+      } else f = loopFrame(MAGE, "idle", time + k * 0.7, k);
+      shadow(ctx, x, y + 1, 6, 1.6, 0.3);
+      const rec = drawCrewPix(ctx, MAGE, x, y, -1, clip, f, { variant: `${lvl}|base`, fx: false });
+      const [tx, ty] = markOf(rec, "tip", -1) || [0, 0];
+      const ox = x + tx, oy = y + ty + (clip === "idle" ? Math.sin(time * 2.5 + k) * 0.8 : 0);
+      const r = 2.2 + charge * 1.2, col = "#b08ad8";
+      glow(ctx, ox, oy, r * (2 + charge), col, 0.3 + charge * 0.25);
+      ball(ctx, ox, oy, r, r, col, { hi: 0.6, lo: 0.3 });
+      ctx.fillStyle = "#fffaf0"; ctx.fillRect(ox - r * 0.45, oy - r * 0.5, 1, 1);
     }
   }
 };

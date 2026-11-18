@@ -5,7 +5,7 @@
 // wall archers on the Vale Road and they are on the wall at Thornbrook, at
 // the Citadel Gate and in the Hollowfen too (campaign.js loadCastle). Free
 // Play pays from the run's purse, into a castle of its own shared by every
-// realm. Five works, each in tiers, priced to be fought for.
+// realm. Six works, each in tiers, priced to be fought for.
 
 import { H } from "./constants.js";
 import { inRiver } from "./terrain.js";
@@ -35,11 +35,16 @@ export const CASTLE_WORKS = {
     // they fight as a knight garrison does (engine/update.js runMelee): each
     // holds one foe on foot, trades blows, falls and comes back after
     // respawnMs. `men` is each halberdier's health (`hp`, as on every work,
-    // is extra castle life); `oil` scalds whatever they hold, per second.
+    // is extra castle life). `sweep` (the last tier; owner, 2026-11-18, in
+    // place of the old boiling oil): every `every` ms each halberdier with a
+    // foe on foot before him swings his halberd round in a half-circle `r`
+    // across (0.7 as deep), striking every ground foe in it for `dmg`
+    // (physical, riders x`mounted`) and dazing it `stun` ms (update.js; the
+    // arc is Captain Hale's, engine/heroes/hale.js halberdSweep).
     tiers: [
       { cost: 10000, label: "Two halberdiers", count: 2, men: 220, dmg: 22, rate: 850, range: 48 },
       { cost: 15000, label: "Three, and a thicker gate", count: 3, men: 280, dmg: 28, rate: 820, range: 52, hp: 5 },
-      { cost: 25000, label: "Boiling oil", count: 3, men: 320, dmg: 34, rate: 800, range: 52, hp: 5, oil: 45 },
+      { cost: 25000, label: "Halberd sweeps", count: 3, men: 320, dmg: 34, rate: 800, range: 52, hp: 5, sweep: { every: 6000, r: 46, dmg: 45, stun: 800, mounted: 2 } },
     ],
   },
   masons: {
@@ -53,6 +58,20 @@ export const CASTLE_WORKS = {
     tiers: [
       { cost: 10000, label: "Mend one life a wave, spiked barricades", mend: 1, spikes: 1, spikeHp: 150, thorns: 5 },
       { cost: 15000, label: "Mend two, shore the wall, a second row of spikes", mend: 2, hp: 3, spikes: 2, spikeHp: 280, thorns: 9 },
+    ],
+  },
+  wizards: {
+    name: "Court Wizards", icon: "",
+    blurb: "The crown's own mages on the wall's towers, hurling arcane bolts. Magic: it bites through armour the arrows glance off, but not through shields.",
+    // they stand on the open tops of the wall's towers nearest the gate
+    // (wizardSpots below); each casts on his own clock, `rate` ms, at the
+    // most armoured foe in `range` of the gate (then the nearest). `chain`
+    // (the last tier): the bolt leaps on to that many more foes within
+    // `chainRange`, 0.6 of its blow each time (update.js).
+    tiers: [
+      { cost: 10000, label: "A court wizard", count: 1, dmg: 45, rate: 1600, range: 180 },
+      { cost: 15000, label: "Two court wizards", count: 2, dmg: 52, rate: 1500, range: 190 },
+      { cost: 25000, label: "Arcane chains: each bolt leaps to two more", count: 2, dmg: 60, rate: 1400, range: 200, chain: 2, chainRange: 80 },
     ],
   },
   militia: {
@@ -78,7 +97,7 @@ export const CASTLE_WORKS = {
   },
 };
 
-export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0, militia: 0 });
+export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0, wizards: 0, militia: 0 });
 
 // ENDLESS RANKS: in Free Play, a finished work can be raised again and
 // again — each rank makes its last tier hit harder (or hold longer, or mend
@@ -88,14 +107,14 @@ export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0
 export const RANK_COST = (key, r) => CASTLE_WORKS[key].tiers.at(-1).cost * 2 ** (r + 1);
 export const rankLabel = (key, r) => ({
   archers: `Rank ${r}: +${r * 40}% bowmen damage`, ballista: `Rank ${r}: +${r * 40}% bolt damage`,
-  guards: `Rank ${r}: +${r * 40}% halberdiers, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave, +${r * 40}% barricade health and spikes`,
+  guards: `Rank ${r}: +${r * 40}% halberdiers and sweeps, +${r * 2} castle life`, wizards: `Rank ${r}: +${r * 40}% bolt damage`, masons: `Rank ${r}: mend ${2 + r} lives a wave, +${r * 40}% barricade health and spikes`,
   militia: `Rank ${r}: +${r * 40}% levymen's health and blows`,
 }[key]);
 const ranked = (key, t, r) => {
   if (!r) return t;
   const m = 1 + 0.4 * r;
-  if (key === "archers" || key === "ballista") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
-  if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
+  if (key === "archers" || key === "ballista" || key === "wizards") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
+  if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, sweep: t.sweep && { ...t.sweep, dmg: t.sweep.dmg * m }, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
   if (key === "militia") return { ...t, men: t.men * m, dmg: t.dmg * m, bow: t.bow && { ...t.bow, men: t.bow.men * m, dmg: t.bow.dmg * m }, label: rankLabel(key, r) };
   if (key === "masons") return { ...t, mend: (t.mend || 0) + r, spikeHp: t.spikeHp * m, thorns: t.thorns * m, label: rankLabel(key, r) };
   return t;
@@ -218,7 +237,7 @@ export const wallSlots = (gy) => {
 };
 // The bowmen: the first pair stand on the gate block's deck behind its west battlement,
 // one either side of the centre line (feet 8 below their slots: gy - 55.5 and gy - 7.5,
-// clear of the windlass, the murder holes and the oil cauldron); the rest take the walk
+// clear of the windlass and the murder holes); the rest take the walk
 // slots nearest the gate, alternating north and south; the masons at the far ends.
 export const GATE_BOWS = [-63.5, -15.5];   // from gy
 export const bowmenSpots = (gy, count) => {
@@ -241,3 +260,22 @@ export const masonSpots = (gy, count) => wallSlots(gy).reverse().slice(0, count)
 export const GUARD_X = 722;
 export const guardSpots = (gy, count) =>
   (count >= 3 ? [0, -19, 19] : count === 2 ? [-11, 11] : [0]).slice(0, count).map((d) => [GUARD_X, gy + d]);
+
+// The Court Wizards stand on the open tops of the wall's towers nearest the
+// gate (the gate towers are the ballistae's), skipping any a short wall's
+// bowmen have gone up onto; with no tower free they take the walk slots next
+// along from the bowmen's. Their feet, [x, y].
+export const wizardSpots = (gy, count, bowCount = 0) => {
+  const bows = new Set(bowCount ? bowmenSpots(gy, bowCount) : []);
+  const out = [];
+  for (const f of wallDrums(gy).filter((f) => f >= 60).sort((p, q) => Math.abs(p - gy) - Math.abs(q - gy))) {
+    if (out.length >= count) break;
+    const [x, y] = towerDeck(f);
+    if (!bows.has(y - 8)) out.push([x, y]);
+  }
+  for (const s of wallSlots(gy)) {
+    if (out.length >= count) break;
+    if (!bows.has(s)) out.push([BOW_X + 2 + (Math.round(s / 24) % 2 ? 4 : -1), s + 8]);
+  }
+  return out;
+};

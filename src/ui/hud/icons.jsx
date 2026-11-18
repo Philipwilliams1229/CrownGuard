@@ -297,6 +297,22 @@ export function StarIcon({ size = 16, lit = true, style }) {
   return <Grid rows={STAR} size={size} pal={lit ? PAL : { ...PAL, ...STAR_EMPTY }} style={style} />;
 }
 
+// a wizard's staff, its forked head holding a glowing orb: the Court Wizards
+export const StaffIcon = icon([
+  "...kkkkk..",
+  "..kvvcvvk.",
+  ".kkVvvvVkk",
+  ".kwkVVVkwk",
+  ".kwkkkkkwk",
+  "..kwwwwwk.",
+  "...kkwkk..",
+  "....kwk...",
+  "....kwk...",
+  "....kWk...",
+  "....kWk...",
+  "....kkk...",
+]);
+
 // a hay-fork, tines up: the Levy, the militia's drilling
 export const PitchforkIcon = icon([
   "kbk.kbk.kbk",

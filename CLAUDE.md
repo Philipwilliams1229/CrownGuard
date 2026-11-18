@@ -2026,6 +2026,26 @@ Provisional. A new work needs: `CASTLE_WORKS` + `emptyWorks` + `rankLabel`/`rank
 (castle.js), `NO_WORKS` (campaign.js), `WORK_ICON` (ui/CastleWorks.jsx), and
 the `castleKey` string in CrownguardGame.jsx's HUD sync.
 
+## Court Wizards; the Gate Guard sweeps instead of oil (2026-11-18, owner request)
+
+Provisional, pending the owner's playtest. A sixth castle work, **Court Wizards**
+(`wizards` in `CASTLE_WORKS`): 1 / 2 / 2 mages (the Wizard Spire's pix figure) on the open
+tops of the wall's towers nearest the gate (`wizardSpots`, castle.js; skips a tower a short
+wall's bowmen took, falls back to free walk slots), each on his own clock (`castleCd.wiz` /
+`wizAt`, update.js after the ballista), casting a magic orb at the most armoured foe within
+`range` of the gate (then the nearest; never neutral or submerged monsters). Tiers 10k
+(45 / 1600 ms / 180), 15k (52 / 1500 / 190), 25k (60 / 1400 / 200, `chain` 2 within 80 at 0.6
+a leap: a chained orb leaps on as a homing orb with a crackle). Ranks +40% damage. Icon
+`StaffIcon`. The Gate Guard's tier 3 is now **Halberd sweeps** (owner picked it over
+murder-hole stones, a fourth man, a portcullis slam): `sweep: { every 6000, r 46, dmg 45,
+stun 800, mounted 2 }`, each halberdier on his own staggered clock, only with a ground foe in
+the half-circle before him, Captain Hale's `swing` (reached as `HERO_HOOKS.hale.halberdSweep`:
+importing hale.js into update.js is an import cycle that breaks the page at load, though the
+build passes). The oil and its cauldron are gone. `sim.mjs --works wizards:3,guards:3` sets any
+works (prints `wizard-casts`, `sweeps`). Ironford `--endure` seed default: no works 720 / 545,
+archers:3 542 / 309, wizards:3 555 / 376 (Iron's pips eat magic). `works-lab.html?works=...`
+snaps the gate on the real engine.
+
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 
 Provisional, pending the owner's playtest (sims barely move: the only

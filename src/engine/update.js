@@ -7,7 +7,7 @@
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { addTowerXp, DUTY_XP, WAGE_SHARE } from "../data/towerxp.js";
-import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
+import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X, wizardSpots } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt, KNIGHT_REGEN, KNIGHT_REST_REGEN, HURT_REST_MS } from "../data/bands.js";
 import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ, patrolOf } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -25,7 +25,7 @@ import { registerSeaTools, seaHold } from "./serpent.js";
 import { tickWeather, WX, canSee, floodFoe, floodUnit } from "./weather.js";
 import { leadPoint, easeAim } from "./aim.js";
 import { quantAim, aimDeg } from "./aim.js";
-import { facing, musketFacing, planShot, bowFeet, wallFeet, bandFeet, foeFeet, musketFeet, bandKey, foeKey, arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, skiffFeet, MUSKET_LIFE, syncBirds } from "./muzzles.js";
+import { facing, musketFacing, planShot, bowFeet, wallFeet, bandFeet, foeFeet, musketFeet, bandKey, foeKey, arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, skiffFeet, MUSKET_LIFE, syncBirds, courtWizardTip } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
 // A cast bird reaches its prey STOOP_HIT ms later (following it down) and is
@@ -885,7 +885,7 @@ const syncGateGuard = (g) => {
   if (!tier) { if (b) g.bands = g.bands.filter((x) => x !== b); return; }
   if (!g.bands) g.bands = [];
   const gy = PTS[PTS.length - 1][1];
-  const st = { count: tier.count, hp: tier.men, dmg: tier.dmg, rate: tier.rate, range: tier.range, unitSpeed: 80, respawnMs: 8000, oil: tier.oil || 0 };
+  const st = { count: tier.count, hp: tier.men, dmg: tier.dmg, rate: tier.rate, range: tier.range, unitSpeed: 80, respawnMs: 8000, sweep: tier.sweep || null };
   if (!b) {
     b = { id: nextId(), kind: "gateguard", st, rally: { x: GUARD_X, y: gy }, units: [] };
     g.bands.push(b);
@@ -1401,14 +1401,21 @@ export function updateGame(g, dt) {
         else runMelee(g, b, st, slots, sdt, tms);
         // at their posts the halberdiers face the road, not the gate behind them
         if (b.kind === "gateguard") for (const u of b.units) if (u.state === "rally") u.face = -1;
-        // the oil comes down the murder holes on whatever the halberdiers hold
-        if (b.kind === "gateguard" && st.oil) for (const u of b.units) {
-          if (u.state !== "fighting") continue;
-          const e = g.enemies.find((x) => x.id === u.targetId && !x.dead);
-          if (!e) continue;
-          dealDamage(g, e, st.oil * sdt, "magic", true, true, b.id);
-          if (Math.random() < sdt * 6) g.effects.push({ type: "hit", x: e.x + (Math.random() - 0.5) * 8, y: e.y - 6, ttl: 200 });
-        }
+        // the last tier's halberd sweeps (castle.js guards `sweep`): each man on
+        // his own clock (staggered so they swing in turn), only with a foe on
+        // foot in the half-circle before him (engine/heroes/hale.js `halberdSweep`, reached through its hook: importing hale.js here is a cycle)
+        if (b.kind === "gateguard" && st.sweep) b.units.forEach((u, i) => {
+          if (u.state === "dead" || u.hp <= 0 || u.downUntil > tms) return;
+          if (u.sweepCd == null) u.sweepCd = st.sweep.every * (0.4 + 0.3 * i);
+          u.sweepCd -= sdt * 1000;
+          if (u.sweepCd > 0) return;
+          const f = u.face < 0 ? -1 : 1, R = st.sweep.r;
+          const any = g.enemies.some((e) => !e.dead && !e.flying && !e.swimming && !isRising(e, tms) && (e.x - u.x) * f >= -4 && Math.hypot((e.x - u.x) * f, (e.y - u.y) / 0.7) <= R);
+          if (!any) { u.sweepCd = 0; return; }
+          u.sweepCd = st.sweep.every;
+          HERO_HOOKS.hale.halberdSweep(g, b, u, { ...st.sweep, k: 1 }, i, tms);
+          g.sweeps = (g.sweeps || 0) + 1;
+        });
       }
       g.bands = g.bands.filter((b) => !b.gone);
     }
@@ -2285,6 +2292,39 @@ export function updateGame(g, dt) {
             g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
             sfx.play("bolt");
           }
+        }
+      }
+      // the Court Wizards (castle.js wizards): each on the top of a wall tower,
+      // each on his own clock (cd.wiz[k]: ms to his next cast; cd.wizAt[k]: when
+      // he last cast, for the wall's figure), an arcane orb at the most armoured
+      // foe in reach of the gate, then the nearest; the last tier's bolt chains
+      const wiz = workTier(g.castle, "wizards", g.castleRanks);
+      if (wiz) {
+        const spots = wizardSpots(gy, wiz.count, bows ? bows.count : 0);
+        const wcd = cd.wiz || (cd.wiz = []), wat = cd.wizAt || (cd.wizAt = []);
+        for (let k = 0; k < spots.length; k++) {
+          if (wcd[k] == null) wcd[k] = wiz.rate * (0.5 + 0.5 * k / Math.max(1, spots.length));
+          wcd[k] -= sdt * 1000;
+          if (wcd[k] > 0) continue;
+          let best = null, ba = -1, bd = Infinity;
+          for (const e of g.enemies) {
+            if (e.dead || e.neutral || e.submerged || isRising(e, tms)) continue;
+            const d = Math.hypot(e.x - gx, e.y - gy);
+            if (d > wiz.range) continue;
+            const a = e.armor || 0;
+            if (a > ba + 1e-6 || (Math.abs(a - ba) < 1e-6 && d < bd)) { ba = a; bd = d; best = e; }
+          }
+          if (!best) { wcd[k] = 0; continue; }
+          wcd[k] = wiz.rate;
+          wat[k] = tms;
+          g.wallCasts = (g.wallCasts || 0) + 1;
+          const [sx, sy] = courtWizardTip(spots[k], -1);
+          g.projectiles.push({
+            id: nextId(), x: sx, y: sy, targetId: best.id, tx: best.x, ty: best.y, speed: 300, delay: 0,
+            dmg: wiz.dmg, dtype: "magic", pierce: false, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
+            kind: "orb", src: null, big: !!wiz.chain, chain: wiz.chain || 0, chainRange: wiz.chainRange || 0,
+          });
+          sfx.play("zap");
         }
       }
     }
@@ -3201,7 +3241,16 @@ export function updateGame(g, dt) {
               const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
               if (dd <= p.chainRange && dd < nd) { nd = dd; next = e; }
             }
-            if (next) {
+            if (next && p.kind === "orb") {
+              // (a Court Wizard's bolt leaps on as an orb, homing, with a crackle between)
+              g.effects.push({ type: "bolt", pts: [[p.tx, p.ty - 6], [next.x, next.y - 6]], ttl: 160, seed: Math.random() * 10 });
+              g.projectiles.push({
+                id: nextId(), x: p.tx, y: p.ty - 6, targetId: next.id, tx: next.x, ty: next.y, speed: 380, delay: 0,
+                dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,
+                burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "orb", src: p.src,
+                chain: p.chain - 1, chainRange: p.chainRange,
+              });
+            } else if (next) {
               const [cx2, cy2] = leadPoint(next, p.tx, p.ty, 460, tms);
               g.projectiles.push({
                 id: nextId(), x: p.tx, y: p.ty, targetId: next.id, straight: true,

@@ -1,5 +1,5 @@
 // ============ CASTLE WORKS LIST ============
-// The five works on the castle, their tiers, and a buy button for the next
+// The six works on the castle, their tiers, and a buy button for the next
 // one. Shown inside the game's side panel and on the campaign map; the
 // caller says what purse pays (the crown's treasury, or a free-play run's
 // gold) and does the paying. Wears the battle HUD's skin (hud.css), and
@@ -8,10 +8,10 @@
 import { CASTLE_WORKS, nextWork } from "../data/castle.js";
 import "./hud/hud.css";
 import { useArm } from "./HeroTalents.jsx";
-import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon, PitchforkIcon } from "./hud/icons.jsx";
+import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon, PitchforkIcon, StaffIcon } from "./hud/icons.jsx";
 
 // each work's picture, on the HUD's own pixel grid
-const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIcon, masons: HammerIcon, militia: PitchforkIcon };
+const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIcon, masons: HammerIcon, wizards: StaffIcon, militia: PitchforkIcon };
 
 const gold = (n) => n.toLocaleString("en-US");
 

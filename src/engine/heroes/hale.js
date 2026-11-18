@@ -64,6 +64,8 @@ const releaseAll = (g, u) => {
 };
 
 // one swing: everything on the ground in the half-circle before him
+// (also the castle's Gate Guard's sweep: update.js calls it as the hook's
+// `halberdSweep`; `b` is only read for its id)
 const swing = (g, b, u, br, i, tms) => {
   const f = u.face < 0 ? -1 : 1;
   let hit = 0;
@@ -291,6 +293,8 @@ export default {
     if (g.haleLevy) g.haleLevy = g.haleLevy.filter((lv) => Math.max(lv.until + 600, lv.t0 + 900 * lv.k) > tms);
     if (g.haleFx) g.haleFx = g.haleFx.filter((f) => f.until > tms);
   },
+
+  halberdSweep: (...a) => swing(...a),
 
   reset(g) {
     g.haleLevy = [];

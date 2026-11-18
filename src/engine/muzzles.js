@@ -215,6 +215,9 @@ export const planShot = (foe, tms, feet, f, key, old, speed, mark, hold) => {
 };
 // the feet of each shooter (the same standing points the painters use)
 export const bowFeet = (t, [dx, dy]) => { const lay = archerLayout(t); return [t.x + dx, t.y - lay.h + dy + 3]; };
+// A Court Wizard's bolt (castle works) leaves the head of his staff as he drives it at the foe:
+// the wall's mage is the Wizard Spire's figure, drawn at his feet (render/castle.js).
+export const courtWizardTip = ([x, y], dir = -1) => { const [tx, ty] = mageTip(2, "strike"); return [x + dir * tx, y + ty]; };
 export const wallFeet = (bowX, slotY) => [bowX + 2 + (Math.round(slotY / 24) % 2 ? 4 : -1), slotY + 8];
 export const bandFeet = (u) => [u.x, u.y + 9];
 export const foeFeet = (e) => [e.x, e.y + (e.size || 14) * 0.55];

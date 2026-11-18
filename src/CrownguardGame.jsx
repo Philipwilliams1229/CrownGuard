@@ -584,7 +584,7 @@ export default function Crownguard() {
       if ((g.freeplay || g.victory) && g.gold >= MASTER_MIN) g.masterSeen = true;
       const masterShow = (g.freeplay || g.victory) && g.masterSeen;
       const pickKey = g.masterPick ? `${g.masterPick.kind}:${g.masterPick.branch}${g.masterPick.rank4 || ""}` : null;
-      const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}${g.castle.militia || 0}` : "";
+      const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}${g.castle.wizards || 0}${g.castle.militia || 0}` : "";
       const hb = heroBand(g);
       const hu = hb?.units[0];
       // the hero's two abilities, as the menu shows them
