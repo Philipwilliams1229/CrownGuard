@@ -4,7 +4,7 @@
   a loop of road, TODAY (side figure, the up/down walk, the squeeze turn) beside WITH VIEWS
   (src/render/pix/fig-goblin-views.js: FRONT walking down the screen, BACK walking up, the
   side figure across; a change of view or facing goes through the same quick squeeze).
-  Below: each view's eight walk frames.  /views-lab.html?z=3&slow=1&bare=1
+  Below: each view's eight walk frames.  /views-lab.html?fig=<PIX type>&z=3&slow=1&bare=1 (fig defaults to goblin; loads fig-<NAME>-views.js)
 -->
 <html><head><meta charset="utf-8" /><title>views lab</title></head>
 <body style="background:#14171d;color:#e8e0c8;font:14px system-ui;margin:0;padding:12px">
@@ -12,21 +12,24 @@
 <canvas id="c" style="image-rendering:pixelated"></canvas>
 <script type="module">
 import { bakeFrame } from "/src/render/pix/bake.js";
-import { pixRec, vertSheet } from "/src/render/pix/pixrigs.js";
+import { PIX, pixRec, vertSheet } from "/src/render/pix/pixrigs.js";
 import { vertOf, turnOf, TURN_MS, SLIVER } from "/src/render/march.js";
-import * as gob from "/src/render/pix/fig-goblin.js";
 
 const Q = new URLSearchParams(location.search);
 const Z = +(Q.get("z") || 3), SLOW = +(Q.get("slow") || 1), BARE = !!Q.get("bare"), SQ = Q.get("squeeze") === "1";
-const VIEWS = "/src/render/pix/fig-goblin-views.js";
+const TYPE = Q.get("fig") || "goblin", D = PIX[TYPE];
+const VIEWS = `/src/render/pix/fig-${D.fig.NAME}-views.js`;
 const V = await import(/* @vite-ignore */ VIEWS).catch(() => null);
-const SIDE = { ...gob, NAME: "goblin" };
-const N = gob.CLIPS.walk.n, MS = gob.CLIPS.walk.ms, SPEED = (4 * 3.7) / (MS / 1000);
-const variant = BARE ? "bare" : "";
-document.getElementById("t").innerHTML = `<b>Goblin with front and back views</b> (a test, not in the game). Left: today. Right: with views. ` +
-  `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW === 1 ? 3 : 1}${BARE ? "&bare=1" : ""}">${SLOW === 1 ? "slow motion" : "normal speed"}</a> · ` +
-  `<a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "" : "&bare=1"}">${BARE ? "hooded goblin" : "bare-headed goblin"}</a>` +
-  ` · <a style="color:#e8c070" href="?z=${Z}&slow=${SLOW}${BARE ? "&bare=1" : ""}${SQ ? "" : "&squeeze=1"}">${SQ ? "without the squeeze turn" : "with the squeeze turn"}</a>` +
+const SIDE = D.fig;
+const N = SIDE.CLIPS.walk.n, MS = SIDE.CLIPS.walk.ms;
+// the pace at which the planted foot holds the ground: the walk's own stride
+let sx0 = Infinity, sx1 = -Infinity; for (let i = 0; i < 16; i++) { const p = SIDE.CLIPS.walk.pose(i / 16); if (p.fN) { sx0 = Math.min(sx0, p.fN[0]); sx1 = Math.max(sx1, p.fN[0]); } }
+const SPEED = (2 * (isFinite(sx1) ? sx1 - sx0 : 7.4)) / (MS / 1000);
+const variant = BARE ? "bare" : D.variant || "";
+document.getElementById("t").innerHTML = `<b>${TYPE} with front and back views</b> (a test, not in the game). Left: today. Right: with views. ` +
+  `<a style="color:#e8c070" href="?fig=${TYPE}&z=${Z}&slow=${SLOW === 1 ? 3 : 1}${BARE ? "&bare=1" : ""}">${SLOW === 1 ? "slow motion" : "normal speed"}</a> · ` +
+  (TYPE === "goblin" ? `<a style="color:#e8c070" href="?fig=${TYPE}&z=${Z}&slow=${SLOW}${BARE ? "" : "&bare=1"}">${BARE ? "hooded goblin" : "bare-headed goblin"}</a>` : "") +
+  ` · <a style="color:#e8c070" href="?fig=${TYPE}&z=${Z}&slow=${SLOW}${BARE ? "&bare=1" : ""}${SQ ? "" : "&squeeze=1"}">${SQ ? "without the squeeze turn" : "with the squeeze turn"}</a>` +
   (V ? "" : ` <span style="color:#e07060">(the views are not drawn yet)</span>`);
 
 const PW = 170, PH = 150, GAP = 8, ROW = 50;
@@ -65,7 +68,7 @@ const tick = (now) => {
   // today
   today.x = p[0]; today.y = p[1]; today.face = face ?? today.face ?? 1;
   const h1 = vertOf(today), t1 = SQ ? turnOf(today, today.face, T * 1000) : { face: today.face, sx: 1 };
-  const r1 = pixRec(BARE ? "goblinBare" : "goblin", vertSheet("goblin", "walk", h1), ph * 4, t1.face < 0);
+  const r1 = pixRec(BARE ? "goblinBare" : TYPE, D.views ? "walk" : vertSheet(TYPE, "walk", h1), ph * 4, t1.face < 0);
   shadow(p[0], p[1]); blit(r1, p[0], p[1], t1.face < 0, t1.sx);
 
   // with views: back going up, front going down, side across; a change goes through a squeeze
@@ -83,7 +86,7 @@ const tick = (now) => {
   else { const left = showKey === "side-1"; blit(bakeFrame(SIDE, "walk", f, { flip: left, variant }), x2, p[1], left, sx); }
 
   ctx.fillStyle = "#14171d"; ctx.fillRect(0, PH, PW * 2 + GAP, 14);
-  ctx.font = "8px system-ui"; ctx.fillStyle = "#c8c0a8"; ctx.fillText("TODAY", 3, PH + 10);
+  ctx.font = "8px system-ui"; ctx.fillStyle = "#c8c0a8"; ctx.fillText(D.views ? "SIDE ONLY (before)" : "TODAY", 3, PH + 10);
   ctx.fillStyle = "#e8c070"; ctx.fillText(`WITH VIEWS (${showKey.startsWith("side") ? "side" : showKey})`, PW + GAP + 3, PH + 10);
 
   // the frames
