@@ -5,10 +5,10 @@
 
 import { W, H, WALL_W, LANE_OFF, PATH_HALF } from "../data/constants.js";
 import { footOf, footsClash, footPoints, inFoot, HALL_GAP } from "./footing.js";
-import { CASTLE_WORKS, emptyWorks, workTier, nextWork, lastWork } from "../data/castle.js";
+import { CASTLE_WORKS, emptyWorks, workTier, nextWork, lastWork, GUARD_X } from "../data/castle.js";
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN, lanePos } from "./path.js";
-import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
+import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge, BRIDGES } from "../data/terrain.js";
 import { riverMouths } from "../render/water.js";
 import { TOWERS } from "../data/towers.js";
 import { cragBlocks } from "../data/gatecrag.js";
@@ -92,7 +92,7 @@ export const startWave = (g) => {
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
     // the barricades as the wave found them (they keep their damage between waves now)
     barricades: g.barricades ? g.barricades.map((r) => ({ ...r, segs: r.segs.map((sg) => ({ ...sg })) })) : null, spikeKey: g._spikeKey,
-    militiaCd: g.militiaCd || 0,
+    militiaCd: g.militiaCd || 0, masonCd: g.masonCd || 0,
     towerXp: { ...(g.towerXp || {}) },
     hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally }, abCd: { ...(b.abCd || {}) } } : null; })(),
   };
@@ -215,7 +215,7 @@ export const restartWave = (g) => {
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   if (s.barricades) { g.barricades = s.barricades.map((r) => ({ ...r, segs: r.segs.map((sg) => ({ ...sg })) })); g._spikeKey = s.spikeKey; }
-  g.militiaCd = s.militiaCd || 0;
+  g.militiaCd = s.militiaCd || 0; g.masonCd = s.masonCd || 0;
   g.towerXp = { ...(s.towerXp || {}) };   // a retried wave earns its experience only once
   // the hero comes back as the wave found him: level, xp, and his abilities
   // still recharging, so a restart can't refill them
@@ -619,28 +619,44 @@ export const lowerAllWorks = (g) => {
   return sum;
 };
 
-// The Masons' barricades keep their damage between waves (owner, 2026-11-18); in the build
-// phase this mends every frame whole for the guild's `repair` gold per missing health
-// (castle.js masons). barricadeRepairCost is what the button shows (0: nothing to mend).
-export const barricadeRepairCost = (g) => {
-  if (!g || g.phase !== "build" || !g.barricades?.length) return 0;
-  const tier = g.castle ? workTier(g.castle, "masons", g.castleRanks) : null;
-  if (!tier) return 0;
-  let miss = 0;
-  for (const row of g.barricades) for (const sg of row.segs) miss += Math.max(0, sg.maxHp - Math.max(0, sg.hp));
-  return miss > 0 ? Math.max(1, Math.ceil(miss * (tier.repair ?? 0.3))) : 0;
+// The Masons' barricade (owner, 2026-11-18: "like the militia"): with the guild built and its
+// masons rested (g.masonCd 0), a tap on the road sets one row of stake frames across it there
+// (castle.js masons: `rows` at most standing, the oldest taken down for a new one; `cooldown` after).
+// Never on a bridge's deck, at the cave mouth, or past the Gate Guard's line; not on top of another
+// row. Returns true when the row stands. `canPlaceBarricadeAt` answers the same without placing.
+const ROW_GAP = 26, ROAD_FROM = 70, BRIDGE_CLEAR = 12;
+const barricadeSpot = (g, x, y) => {
+  const tier = g?.castle ? workTier(g.castle, "masons", g.castleRanks) : null;
+  if (!tier || !PTS.length) return null;
+  const near = nearestOnPath(x, y);
+  if (!near || near.dist == null || Math.hypot(near.x - x, near.y - y) > PATH_HALF + 14) return null;
+  const gy = PTS[PTS.length - 1][1];
+  const gd = nearestOnPath(GUARD_X, gy).dist ?? TOTAL_LEN - 16;
+  const dist = Math.round(near.dist);
+  if (dist < ROAD_FROM || dist > gd - 20) return null;
+  if (BRIDGES.some((b) => dist > b.d0 - BRIDGE_CLEAR && dist < b.d1 + BRIDGE_CLEAR)) return null;
+  if ((g.barricades || []).some((r) => !r.brokeAt && Math.abs(r.dist - dist) < ROW_GAP)) return null;
+  return { tier, dist };
 };
-export const repairBarricades = (g) => {
-  const cost = barricadeRepairCost(g);
-  if (!cost || g.gold < cost) return false;
-  g.gold -= cost;
-  for (const row of g.barricades) for (const sg of row.segs) {
-    if (sg.hp >= sg.maxHp) continue;
-    sg.hp = sg.maxHp; sg.hitAt = undefined;
-    const [bx, by] = lanePos(row.dist, sg.lane);
-    g.effects.push({ type: "dust", x: bx, y: by, ttl: 380, r: 18 });
+export const canPlaceBarricadeAt = (g, x, y) => !!barricadeSpot(g, x, y);
+export const placeBarricade = (g, x, y) => {
+  if (!g || (g.masonCd || 0) > 0) return false;
+  const spot = barricadeSpot(g, x, y);
+  if (!spot) return false;
+  const { tier, dist } = spot;
+  let rows = (g.barricades || []).filter((r) => !r.brokeAt);
+  while (rows.length >= (tier.rows || 1)) {
+    const old = rows.reduce((a, b) => (a.at <= b.at ? a : b));
+    rows = rows.filter((r) => r !== old);
+    const [ox, oy] = lanePos(old.dist, 0);
+    g.effects.push({ type: "dust", x: ox, y: oy, ttl: 380, r: 18 });
   }
-  g.effects.push({ type: "coin", x: W / 2, y: 88, ttl: 1300, text: `The masons mend the barricades -${cost}`, big: true });
+  rows.push({ dist, at: g.time * 1000, segs: [-LANE_OFF, 0, LANE_OFF].map((lane) => ({ lane, hp: tier.spikeHp, maxHp: tier.spikeHp, thorns: tier.thorns, mat: tier.mat || "wood" })) });
+  g.barricades = rows.sort((a, b) => a.dist - b.dist);
+  g._spikeKey = `${tier.spikeHp}:${tier.mat}:${tier.thorns}`;
+  g.masonCd = tier.cooldown;
+  g.rowsSet = (g.rowsSet || 0) + 1;
+  for (const lane of [-LANE_OFF, 0, LANE_OFF]) { const [bx, by] = lanePos(dist, lane); g.effects.push({ type: "dust", x: bx, y: by, ttl: 420, r: 16 }); }
   sfx.play("place");
   return true;
 };

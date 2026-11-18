@@ -60,7 +60,7 @@ if (flag("no-landings")) MECH.landings = false;
 if (flag("no-weather")) MECH.weather = false;
 if (flag("no-freeze")) MECH.freeze = false;
 const { updateGame } = await import("../src/engine/update.js");
-const { startWave, placeTower, upgradeTower, branchTower, ascendTower, buildableAt, fieldHero, callMilitia, heroBand } = await import("../src/engine/actions.js");
+const { startWave, placeTower, upgradeTower, branchTower, ascendTower, buildableAt, fieldHero, callMilitia, heroBand, placeBarricade } = await import("../src/engine/actions.js");
 const { PTS } = await import("../src/engine/path.js");
 // --hero aldric|wren|osric|hale|ysolde|none : who rides with the commander (default: Sir Aldric,
 // because a real player always has one). --no-militia skips the free farmers.
@@ -323,6 +323,10 @@ function runOnce(opts, quiet, planName) {
         if (WALLCHK) wallCheck(g);
         // the militia horn, blown at the road's last bend whenever it's ready
         // and something is on the road worth blowing it for
+        // the Masons' barricade (castle.js masons), set near the gate whenever the masons are ready
+        if ((g.masonCd || 0) <= 0 && g.castle?.masons && g.enemies.some((e) => !e.dead && e.dist > TOTAL_LEN * 0.5)) {
+          for (const back of [100, 130, 160, 200, 240]) { const [bx, by] = posAt(TOTAL_LEN - back); if (placeBarricade(g, bx, by)) break; }
+        }
         if (MILITIA_ON && (g.militiaCd || 0) <= 0 && g.enemies.some((e) => !e.dead && e.dist > TOTAL_LEN * 0.5)) {
           const [mx, my] = posAt(TOTAL_LEN - 150);
           callMilitia(g, mx, my);
@@ -352,7 +356,7 @@ function runOnce(opts, quiet, planName) {
   const zs = g.zoneStats;
   const zone = (zs ? ` | ships ${zs.ships} sunk ${zs.sunk} landed ${zs.landed} lost ${zs.lost} shrouds ${zs.shrouds}${Object.entries(zs).filter(([k]) => !["ships", "sunk", "landed", "lost", "shrouds"].includes(k)).map(([k, v]) => ` ${k} ${v}`).join("")}` : "")
     + (g.reformed ? ` | reformed ${g.reformed}` : "")
-    + (g.wallCasts ? ` | wizard-casts ${g.wallCasts}` : "") + (g.sweeps ? ` | sweeps ${g.sweeps}` : "") + (g.netted ? ` | netted ${g.netted}` : "")
+    + (g.wallCasts ? ` | wizard-casts ${g.wallCasts}` : "") + (g.sweeps ? ` | sweeps ${g.sweeps}` : "") + (g.netted ? ` | netted ${g.netted}` : "") + (g.rowsSet ? ` | barricades ${g.rowsSet}` : "")
     + (g.wxTrace ? ` | ${g.weather?.kind} k at each horn ${g.wxTrace.join(" ")}` : "")
     + (g.squalls ? ` | ${g.weather?.kind || "weather"} x${g.squalls}${g.bolts ? ` bolts ${g.bolts}` : ""}${g.boltArcs ? ` arcs ${g.boltArcs}` : ""}${g.duds ? ` duds ${g.duds}` : ""}${g.hallsStruck ? ` halls-struck ${g.hallsStruck}` : ""}${g.spooked ? ` spooked ${g.spooked}` : ""}${g.rocks ? ` rocks ${g.rocks} halls-burned ${g.hallsBurned || 0}` : ""}` : "");
   return { zone, bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };

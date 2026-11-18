@@ -2078,28 +2078,28 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   via runMelee / `trample`'s `host.st.armor`; `brace`: a cavalier's charge breaks on the halberd, the
   man keeps his feet and holds the rider), **sweeps**. (Four men was tried and dropped: `guardSpots`
   still has a 4-post line.) The thicker gate (castle life) left them for the Masons.
-- **Masons' Guild** (owner's final cut, same day): one row a tier, wood (150), **iron** + thicker gate
-  (300, +5 castle life), **steel** (480, +5 more: 10 in all), then mend 2 lives a wave (mend 1 below)
-  and a **net launcher** (owner's pick; reworked the same day, "more like barriers", `net` {every
-  15000, hp 240, zone 30}): it throws only at a flier within `zone` road steps of the barricade row,
-  never a boss, and reloads 15 s. The flier comes down into the net on the road (`flying` off,
-  `e.net` {hp, maxHp}, held in place, no halberdier grabs it) and flails at the net with its own blow
-  (`max(15, atk, airAtk)` every `atkRate`, its fight frames play) until the net breaks, then flies on;
-  killed in it, the net goes with it. Gryphon ~3.6 s, wraith / wight ~7-8 s, ice drake ~14 s. In the
-  sims fliers seldom live to reach the barricade (`netted` is printed when it happens). The net's look lives in
-  `src/render/netlook.js` (`netify(cv, S)`, redrawn by a Sonnet artist after the owner's "not reading
-  like a net"): the silhouette grown 3 art px and rounded, an open diamond mesh of hemp rope with
-  knots, a 2 px rim rope, stone weights on cords along the bottom; it returns a bigger canvas with
-  `.pad` and rigs.js places it (lookOf / rigFrame). `net-lab.html` shows every flier plain and netted.
-  Weights: 5 px stones on 2 px cords, ~16 px apart (owner: "a tad bigger ... less if that's better"; PAD
-  11). A netted flier plays its FIGHT clip (enemies.js `rsheet` reads `e.net`), its blow on the engine's
-  meleeCd. `net-anim.html` records a video sample (rename the saved .png to .mp4). On a bat it is mostly rim. Barricades are no longer rebuilt free each wave: set up whole at the first
-  build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
-  damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
-  the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls
-  actions.js `repairBarricades` for `repair` gold per missing health (0.3 / 0.3 / 0.25 / 0.2). A
-  retried wave restores them as the wave found them (snapshot `barricades`). Art: barricade.js
-  `mat` looks + a wreck (a Sonnet artist; `barricade-lab.html` shows them). The sims never repair.
+- **Masons' Guild: barricades are PLACED, like the militia** (owner, same day: "a rechargeable barricade
+  ability ... select them to place it where you want on the road"): the tray's **Barricade** button
+  (CrownguardGame.jsx `barricadeBtn`, shown while the guild is built, a draining recharge like the
+  militia's), then a tap on the road: actions.js `placeBarricade` sets ONE row of frames across the
+  road there (`rows` 1 / 1 / 2 / 2 standing at once, a new one takes the oldest down; `cooldown`
+  40 / 35 / 30 / 25 s, `g.masonCd`, ticked beside the militia's, kept by a retried wave). Refused (the
+  tap keeps it armed): off the road, within 70 of the cave, past the Gate Guard's line, on or within 12
+  of a bridge deck, within 26 of a standing row. Tiers: wood (150), iron + thicker gate (300, +5 life),
+  steel + two rows (480, +5 more: 10 in all), then mend 2 a wave and the net launcher (it catches
+  fliers over ANY standing row). No more gold repair and no free rows at the gate: rows keep their
+  damage, a wholly broken row lies as a wreck 6 s then is cleared (update.js `syncBarricades`, which
+  also re-materials standing rows when a tier is bought). `sim.mjs` sets one 100-240 back from the
+  gate whenever ready (prints `barricades`; Ironford's bridges refuse every try). Citadel Gate,
+  masons:4 guards:4: 87 / 63 rows a level, 20 / 14 fliers netted. The net launcher (`net` {every
+  15000, hp 240, zone 30}): a flier within `zone` road steps of a standing row, never a boss, comes
+  down into the net on the road (`flying` off, `e.net` {hp, maxHp}, held, no halberdier grabs it) and
+  flails at it with its own blow (`max(15, atk, airAtk)` every `atkRate`, its fight clip plays) until
+  the net breaks, then flies on; killed in it, the net goes with it. The net's look is
+  `src/render/netlook.js` (`netify(cv, S)`, a Sonnet artist): the silhouette grown and rounded, open
+  hemp mesh with knots, a 2 px rim rope, 5 px stone weights ~16 apart; it returns a bigger canvas with
+  `.pad` (11 art px) and rigs.js places it. `net-lab.html` shows every flier; `net-anim.html` records
+  a video sample (rename the saved .png to .mp4). Art for the rows: barricade.js `mat` looks + a wreck.
 - Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
 
 **Refunds** (owner, same day: "refunds full amount no penalty", then "just one button at the top"):

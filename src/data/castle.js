@@ -63,23 +63,23 @@ export const CASTLE_WORKS = {
   },
   masons: {
     name: "Masons' Guild", icon: "",
-    blurb: "Masons on the wall mend the castle after every wave, thicken the gate, and raise spiked barricades across the road before the halberdiers. Broken barricades are repaired for gold between waves.",
-    // `spikes` rows of barricades (one frame per lane) in front of where the Gate Guard stands,
-    // `spikeHp` a frame, `mat` its look (wood / iron / steel, render/barricade.js). A foe on foot
-    // halts at one and hacks it down while the spikes prick it for `thorns` a blow; a siege ram
-    // smashes through, fliers pass over. Since 2026-11-18 (owner) they are NOT rebuilt free each
-    // wave: the damage stays, and in the build phase a Repair button mends every frame for
-    // `repair` gold per missing health (engine/actions.js repairBarricades). A new battle, or a
-    // tier bought, sets them up whole. `hp` is extra castle life (the thicker gate came from the
-    // Gate Guard, same day). `net` (tier 4): a net-thrower on the gate catches a flier over the barricade
-    // row (within `zone` road steps of it; never a boss) and reloads `every` ms; the flier is held on
-    // the road in the net and flails at it until its `hp` is gone, then flies on; killed in it, the net
-    // goes with it (engine/update.js, castle works).
+    blurb: "Masons on the wall mend the castle after every wave and thicken the gate. Call them like the militia: tap the Barricade button, then the road, and they set a row of spiked barricades there.",
+    // Placed by the player (owner, 2026-11-18: "like the militia ... a rechargeable barricade
+    // ability"; engine/actions.js placeBarricade): the tray's Barricade button, then a tap on the road,
+    // sets ONE row of stake frames across it (one a lane); then the masons need `cooldown` ms before
+    // the next. At most `rows` rows stand at once: a new one takes the oldest down. `spikeHp` a frame,
+    // `mat` its look (wood / iron / steel, render/barricade.js). A foe on foot halts at one and hacks
+    // it down while the spikes prick it for `thorns` a blow; a siege ram smashes through, fliers pass
+    // over. No repairs: a broken row is replaced by placing a new one. `hp` is extra castle life (the
+    // thicker gate), `mend` lives mended a wave. `net` (tier 4): a net-thrower catches a flier over
+    // any standing row (within `zone` road steps of it; never a boss) and reloads `every` ms; the
+    // flier is held on the road in the net and flails at it until its `hp` is gone, then flies on;
+    // killed in it, the net goes with it (engine/update.js, castle works).
     tiers: [
-      { cost: 5000, label: "Mend one life a wave, a row of wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
-      { cost: 10000, label: "Iron-shod spikes, a thicker gate (+5 castle life)", mend: 1, hp: 5, spikes: 1, spikeHp: 300, thorns: 11, mat: "iron", repair: 0.25 },
-      { cost: 15000, label: "Steel spikes, the wall shored up (+5 more life)", mend: 1, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
-      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricade", mend: 2, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2, net: { every: 15000, hp: 240, zone: 30 } },
+      { cost: 5000, label: "Wooden barricades, mend one life a wave", mend: 1, rows: 1, cooldown: 40000, spikeHp: 150, thorns: 5, mat: "wood" },
+      { cost: 10000, label: "Iron-shod barricades, a thicker gate (+5 castle life)", mend: 1, hp: 5, rows: 1, cooldown: 35000, spikeHp: 300, thorns: 11, mat: "iron" },
+      { cost: 15000, label: "Steel barricades, two rows at once, the wall shored up (+5 more life)", mend: 1, hp: 10, rows: 2, cooldown: 30000, spikeHp: 480, thorns: 18, mat: "steel" },
+      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricades", mend: 2, hp: 10, rows: 2, cooldown: 25000, spikeHp: 480, thorns: 18, mat: "steel", net: { every: 15000, hp: 240, zone: 30 } },
     ],
   },
   wizards: {

@@ -802,44 +802,31 @@ const runRangedBand = (g, b, st, slots, sdtAll, tms) => {
   });
 };
 
-// The Masons' barricades (castle works, castle.js masons): `spikes` rows of stake frames across
-// the road in front of the Gate Guard, one frame to a lane. Set up whole when the battle's first
-// build phase opens or a guild tier is bought (the key changes); after that they KEEP their damage
-// between waves (owner, 2026-11-18) and are mended for gold in the build phase (actions.js
-// repairBarricades). A broken frame (hp 0) stays in its row, drawn as a wreck, and lets foes by.
-// `g.barricades` is a list of rows { dist, segs: [{ lane, hp, maxHp, thorns, mat }] }, outermost first.
-// SPIKE_FIRST keeps the foes held at the first frame (SPIKE_FIRST + SPIKE_HOLD
-// back from the guard) out of the halberdiers' seizing reach (range x 0.92,
-// 48 at most), so the Gate Guard never walks out to a foe while a frame stands.
+// The Masons' barricades (castle works, castle.js masons): rows of stake frames across the road,
+// one frame to a lane, set where the player taps (actions.js placeBarricade; owner, 2026-11-18). They
+// keep their damage; a row whose frames are all broken lies as a wreck WRECK_MS, then is cleared.
+// When the guild's tier changes, every standing row takes the new material and health (keeping each
+// frame's share of damage). `g.barricades` is a list of rows { dist, at, segs: [{ lane, hp, maxHp,
+// thorns, mat }] }, sorted by dist (furthest from the gate first: barricadePass relies on it).
 // LEAK_BACK: a foe that gets through hits the castle this far short of the
 // road's end, just behind the halberdiers, not a step inside the gate.
 const LEAK_BACK = 20;
-const SPIKE_FIRST = 66, SPIKE_ROW = 34, SPIKE_HOLD = 7, SPIKE_LANES = [-LANE_OFF, 0, LANE_OFF];
-const syncBarricades = (g) => {
+const SPIKE_HOLD = 7, WRECK_MS = 6000;
+export const SPIKE_LANES = [-LANE_OFF, 0, LANE_OFF];
+const syncBarricades = (g, tms) => {
   const tier = g.castle && PTS.length ? workTier(g.castle, "masons", g.castleRanks) : null;
-  const key = tier ? `${tier.spikes}:${tier.spikeHp}:${tier.mat}` : "";
-  if (g.phase === "build" && g._spikeKey !== key) {
-    // (a new tier: each frame comes up whole in the new material; a row that already stood keeps
-    // its share of damage, so buying mid-run is not a free repair)
-    const old = g.barricades || [];
-    g.barricades = [];
-    if (tier && tier.spikes) {
-      const [gx, gy] = PTS[PTS.length - 1];
-      const gd = nearestOnPath(GUARD_X, gy).dist ?? TOTAL_LEN - 16;
-      for (let r = tier.spikes - 1; r >= 0; r--) {
-        const dist = gd - SPIKE_FIRST - r * SPIKE_ROW;
-        if (dist < 30) continue;
-        const was = old.find((row) => Math.abs(row.dist - dist) < 1);
-        g.barricades.push({ dist, segs: SPIKE_LANES.map((lane, i) => {
-          const f = was ? Math.max(0, was.segs[i].hp) / was.segs[i].maxHp : 1;
-          return { lane, hp: tier.spikeHp * f, maxHp: tier.spikeHp, thorns: tier.thorns, mat: tier.mat || "wood" };
-        }) });
-        const [bx, by] = lanePos(dist, 0);
-        g.effects.push({ type: "dust", x: bx, y: by, ttl: 380, r: 22 });
-      }
+  if (!g.barricades?.length) return;
+  if (!tier) { g.barricades = []; return; }
+  const key = `${tier.spikeHp}:${tier.mat}:${tier.thorns}`;
+  if (g._spikeKey !== key) {
+    for (const row of g.barricades) for (const sg of row.segs) {
+      const f = Math.max(0, sg.hp) / sg.maxHp;
+      sg.hp = tier.spikeHp * f; sg.maxHp = tier.spikeHp; sg.thorns = tier.thorns; sg.mat = tier.mat || "wood";
     }
     g._spikeKey = key;
   }
+  for (const row of g.barricades) if (!row.brokeAt && row.segs.every((sg) => sg.hp <= 0)) row.brokeAt = tms;
+  g.barricades = g.barricades.filter((row) => !row.brokeAt || tms - row.brokeAt < WRECK_MS);
 };
 // a foe on foot meets a barricade: it halts before the frame in its lane and
 // hacks at it, pricked by the spikes at each blow. A siege ram rolls through;
@@ -1298,7 +1285,7 @@ export function updateGame(g, dt) {
     for (const t of g.towers) if (t.kind === "riverwatch" && isBuilt(t, g)) launchSkiffs(g, t, getStats(t));
     // ---- the bands: militia, the hero, and the Gate Guard ----
     syncGateGuard(g);
-    syncBarricades(g);
+    syncBarricades(g, tms);
     // a garrison walks to its flag in the quiet of the build phase too, so a
     // new hall's knights (or a re-posted flag) take their ground before the horn
     // (in battle the combat pass below runs them)
@@ -1310,6 +1297,7 @@ export function updateGame(g, dt) {
     syncRetinue(g);
     if (g.bands) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
+      g.masonCd = Math.max(0, (g.masonCd || 0) - sdt * 1000);   // (the Masons' barricade recharging, actions.js placeBarricade)
       for (const b of g.bands) {
         if (b.kind === "militia") {
           // (a call with no one left standing is done with)
@@ -2312,8 +2300,8 @@ export function updateGame(g, dt) {
         }
       }
       // the Masons' net launcher (castle.js masons `net`, tier 4; reworked 2026-11-18, owner: "more
-      // like barriers"): it throws only at a flier over the barricade row (within `zone` road steps of
-      // it), never a boss, and reloads `every` ms. The flier comes down into the net on the road
+      // like barriers"): it throws only at a flier over a standing barricade row (within `zone` road
+      // steps of one), never a boss, and reloads `every` ms. The flier comes down into the net on the road
       // (`flying` off, held in place, e.net = { hp, maxHp }) and flails at it (its own blow on its own
       // clock, `atkAnim` plays its fight frames) until the net breaks: then it flies on. Killed in it,
       // the net goes down with it. Ground halls and the halberdiers' sweep reach it meanwhile; no
@@ -2334,14 +2322,14 @@ export function updateGame(g, dt) {
           sfx.play("whistle");
         }
       }
-      const row = g.barricades?.[0];
-      if (mason?.net && row) {
+      const rows = (g.barricades || []).filter((r) => r.segs.some((sg) => sg.hp > 0));
+      if (mason?.net && rows.length) {
         cd.net = (cd.net ?? 0) - sdt * 1000;
         if (cd.net <= 0) {
           let best = null, bd = Infinity;
           for (const e of g.enemies) {
             if (e.dead || !e.flying || e.boss || e.neutral || e.net || isRising(e, tms)) continue;
-            const off = Math.abs(e.dist - row.dist);
+            const off = Math.min(...rows.map((r) => Math.abs(e.dist - r.dist)));
             if (off <= mason.net.zone && off < bd) { bd = off; best = e; }
           }
           if (!best) cd.net = 0;
