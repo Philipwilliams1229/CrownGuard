@@ -165,7 +165,7 @@ export const drawBarricadeBars = (ctx, g) => {
     const w = 14, x0 = Math.round(x - w / 2), y0 = Math.round(y + 7);
     ctx.fillStyle = "#c9c2b2"; ctx.fillRect(x0 - 2, y0 - 2, w + 4, 6);
     ctx.fillStyle = "rgba(36,26,38,0.9)"; ctx.fillRect(x0 - 1, y0 - 1, w + 2, 4);
-    ctx.fillStyle = pct > 0.5 ? "#7cc05e" : pct > 0.25 ? "#e0b84a" : "#d0564a";
+    ctx.fillStyle = pct > 0.4 ? "#7cb4d8" : "#d0564a";   // (the friendly bar's colours, as the knights': enemies.js FRIEND_BAR)
     ctx.fillRect(x0, y0, Math.max(1, Math.round(w * pct)), 2);
   }
 };

@@ -20,6 +20,8 @@ import { statusShield } from "./statusfx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { HEROES } from "../data/bands.js";
 import { heroPose } from "./heroes/index.js";
+// the friendly health bar's colour (knights, the hero, halberdiers, militia, the Masons' barricades)
+export const FRIEND_BAR = "#7cb4d8";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
 // walker's own gait phase, so it needs no state and it stays in step with the
@@ -447,7 +449,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     const by = u.y - (rider ? 33 : giant ? 42 : 21);
     ctx.fillStyle = "rgba(36,26,38,0.85)";
     ctx.fillRect(u.x - 8, by - 1, 16, 4);
-    ctx.fillStyle = pct > 0.4 ? "#7cb4d8" : "#d0564a";
+    ctx.fillStyle = pct > 0.4 ? FRIEND_BAR : "#d0564a";
     ctx.fillRect(u.x - 7, by, Math.max(1, Math.round(14 * pct)), 2);
   }
 };
@@ -491,13 +493,14 @@ export const drawBandUnit = (ctx, u, b, time) => {
   drawTurned(ctx, u.x, u.y + 9 - lift, tn.sx, () => drawRig(ctx, kind, u.x, u.y + 9 - lift, tn.face, psheet, frame, "", 1, u.aimDeg || 0));
   // the huntress at the string: a short pull when she has just loosed
   if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
-  // health: the hero always shows his, a farmer only once hurt
-  if (hero || u.hp < u.maxHp) {
-    const w = hero ? 18 : 12, x0 = u.x - w / 2, y0 = u.y - (hero ? 27 : 22);
-    ctx.fillStyle = "rgba(20,16,20,0.75)"; ctx.fillRect(x0 - 1, y0 - 1, w + 2, 4);
+  // health (owner, 2026-11-18: friendly bars as the soldiers' are): the hero, halberdiers, militia
+  // and retinue show the knights' pale-blue bar only while hurt or being mended, gone at full
+  if (u.hp < u.maxHp) {
+    const w = hero ? 18 : 14, x0 = u.x - w / 2, y0 = u.y - (hero ? 27 : b.kind === "gateguard" ? 27 : 22);   // (a halberdier stands a head taller than a farmer)
+    ctx.fillStyle = "rgba(36,26,38,0.85)"; ctx.fillRect(x0 - 1, y0 - 1, w + 2, 4);
     const pct = Math.max(0, u.hp / u.maxHp);
-    ctx.fillStyle = pct > 0.5 ? "#7ad06a" : pct > 0.25 ? "#e8c14a" : "#e07a72";
-    ctx.fillRect(x0, y0, w * pct, 2);
+    ctx.fillStyle = pct > 0.4 ? FRIEND_BAR : "#d0564a";
+    ctx.fillRect(x0, y0, Math.max(1, Math.round(w * pct)), 2);
   }
   if (hero) {
     // the level, on a small shield below the bar

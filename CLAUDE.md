@@ -2102,6 +2102,10 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   a video sample (rename the saved .png to .mp4). Art for the rows: barricade.js `mat` looks + a wreck;
   each hurt frame shows a health bar UNDER it in a pale stone rim (`drawBarricadeBars`, drawn after the
   crowd in draw.js), so it is never hidden by, or mistaken for, the foes' bars above their heads.
+- **Friendly health bars** (owner, same day): the hero, halberdiers, militia, retinue and the
+  barricades show the knights' pale-blue bar (red at 40% and under; enemies.js `FRIEND_BAR`) ONLY while
+  below full health, hurt or being mended, and it goes at full. The hero's bar used to show always (his
+  level badge still does).
 - Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
 
 **Refunds** (owner, same day: "refunds full amount no penalty", then "just one button at the top"):
