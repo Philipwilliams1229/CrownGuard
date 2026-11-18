@@ -850,6 +850,8 @@ export const drawFlash = (ctx, fx) => {
 // shape, so the result is crisp pixels at any angle, not a rotated blur.
 const DIRS = 32;
 const dirOf = (ang) => ((Math.round((ang / (Math.PI * 2)) * DIRS) % DIRS) + DIRS) % DIRS;
+// a ballista bolt stuck in a foe at the angle it flew, its head buried (render/chains.js)
+export const drawStuckBolt = (ctx, x, y, ang) => put(ctx, PJ.arrowSprite("big", dirOf(ang)), x - Math.cos(ang) * 4, y - Math.sin(ang) * 4);
 
 
 

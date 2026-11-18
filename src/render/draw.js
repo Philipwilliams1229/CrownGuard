@@ -28,7 +28,7 @@ import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
 import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawBarricades, drawBarricadeBars } from "./barricade.js";
-import { drawPinnedChains, drawHarpoonLines } from "./chains.js";
+import { drawPinnedChains } from "./chains.js";
 import { drawRemains } from "./remains.js";
 import { drawLog } from "./logs.js";
 import { drawHeroUnder, drawHeroFx } from "./heroes/index.js";
@@ -45,7 +45,8 @@ import { drawBreath, drawFireFront } from "./flames.js";
 import { beginLights, addLight, warmPix } from "./pix/pixrigs.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
 import { builderDrawables } from "./builders.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
+import { drawBandNotes } from "./bandnotes.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder, drawBandTower } from "./towers.js";
 import { drawTree, drawCastle, drawCastleWorks, drawSpawn } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
 import { drawWatchWater, drawSkiffReach, drawSkiffMarks, drawWatchStation, warmWaterReach } from "./waterreach.js";
@@ -178,8 +179,6 @@ export function draw(g, canvas, bufRef) {
   drawTraps(ctx, g);
   // the masons' barricades before the Gate Guard
   drawBarricades(ctx, g);
-  // the ballista's harpoon chains staked into the road (chains.js)
-  drawPinnedChains(ctx, g);
   // the fallen a necromancer may raise, lying where they fell
   drawRemains(ctx, g);
 
@@ -284,6 +283,11 @@ export function draw(g, canvas, bufRef) {
     if (sel && sel.kind === "riverwatch") drawSkiffReach(ctx, g, sel, isBuilt(sel, g));
     else if (sel) {
       const st = getStats(sel);
+      // the King's Band: a ring at the foot of every hall it is playing for now
+      if (sel.kind === "band") for (const id of sel.playsFor || []) {
+        const h = g.towers.find((o) => o.id === id);
+        if (h) rangeRing(h.x, h.y, 16, sel.branch === "b" ? "rgba(232,80,90,0.95)" : "rgba(244,212,122,0.95)", g.time * 0.8);
+      }
       const radius = sel.kind === "knight" ? RALLY_RANGE : st.range;
       if (sel.kind === "gunpowder") musketRing(sel.x, sel.y, st, getStatsClear(sel));
       rangeRing(sel.x, sel.y, radius, "rgba(240,176,40,0.95)", g.time * 0.5);
@@ -327,6 +331,7 @@ export function draw(g, canvas, bufRef) {
     else if (t.kind === "assassin") drawAssassin(ctx, t, time);
     else if (t.kind === "falconry") drawFalconry(ctx, t, time);
     else if (t.kind === "sunforge") drawSunforge(ctx, t, time);
+    else if (t.kind === "band") drawBandTower(ctx, t, time);
     else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, time);
     else if (t.kind === "gunpowder") drawGunpowder(ctx, t, time);
     else drawGarrison(ctx, t, time);
@@ -441,8 +446,11 @@ export function draw(g, canvas, bufRef) {
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
+  drawBandNotes(ctx, g);   // the King's Band: a note over every hall it plays for, on the beat
   // the Masons' barricades' health, over the foes hacking at them (barricade.js)
   drawBarricadeBars(ctx, g);
+  // the ballista's harpoon: the bolt in the foe, a light chain to its stake (chains.js)
+  drawPinnedChains(ctx, g);
   // halls a Rime Seer has shrouded in ice (rimefx.js)
   drawFrostShells(ctx, g);
   // a selected River Watch's skiffs, each marked over the crowd
@@ -526,7 +534,6 @@ export function draw(g, canvas, bufRef) {
 
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)
-  drawHarpoonLines(ctx, g);   // (the chain paying out behind a harpoon bolt, chains.js)
   for (const p of g.projectiles) {
     if (p.delay > 0 || spikeBehind(p, g)) continue;
     drawProjectile(ctx, p, g.time);

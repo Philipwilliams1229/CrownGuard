@@ -2298,7 +2298,7 @@ export function updateGame(g, dt) {
             const bk = bal.twin ? cd.shot : 0, ar2 = cd._ar || (cd._ar = {});
             if (ar2["b" + bk] == null) ar2["b" + bk] = Math.atan2(lay2 - by, lax - bx) * 180 / Math.PI;
             (cd.balAim || (cd.balAim = []))[bk] = ar2["b" + bk] * Math.PI / 180;
-            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true, pin: bal.pin || 0, breaker: bal.breaker || null, ox: bx, oy: by });
+            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true, pin: bal.pin && (cd.balShots = (cd.balShots || 0) + 1) % 3 === 0 ? bal.pin : 0, breaker: bal.breaker || null, ox: bx, oy: by });   // (the harpoon: every third bolt, owner)
             sfx.play("bolt");
           }
         }
@@ -3294,12 +3294,13 @@ export function updateGame(g, dt) {
             dealDamage(g, target, p.dmg, p.dtype, p.pierce, false, p.src);
             // its chain harpoon pins the foe where it stands, staked to the ground behind it (never a
             // boss, owner 2026-11-18: "the dragon was just completely nullified"); render/chains.js
-            // draws the chain from e.pinAnchor while it holds and snaps it after
+            // draws the stuck bolt and a light chain from it to e.pinAnchor while it holds
             if (p.pin && !target.dead && !target.boss) {
               target.pinUntil = Math.max(target.pinUntil || 0, tms + p.pin);
               const [ax, ay] = lanePos(Math.max(0, target.dist - 22), target.lane || 0);
               target.pinAnchor = [ax, ay + (target.flying ? 10 : 2)];
               target.pinAt = tms;
+              target.pinAng = Math.atan2(p.ty - (p.oy ?? p.ty), p.tx - (p.ox ?? p.tx));   // (the bolt stays in it at the angle it flew)
               g.effects.push({ type: "dust", x: ax, y: ay + 2, ttl: 300, r: 8 });
             }
             // a Court Wizard's orb (tier 4) throws its mark back down the road: never a boss or a ram

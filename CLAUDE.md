@@ -2106,22 +2106,12 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   barricades show the knights' pale-blue bar (red at 40% and under; enemies.js `FRIEND_BAR`) ONLY while
   below full health, hurt or being mended, and it goes at full. The hero's bar used to show always (his
   level badge still does).
-- **The chain harpoon is drawn** (owner, same day: "you can't tell what's happening"): `src/render/chains.js`.
-  The bolt pays out a sagging chain back to the bow in flight (`drawHarpoonLines`, the bolt's `ox/oy`);
-  a pinned foe is chained taut to an iron stake driven into the road 22 steps behind it (`e.pinAnchor`,
-  `e.pinAt`; `drawPinnedChains` under the crowd), and when the pin ends the chain drops and fades.
+- **The chain harpoon** (owner, same day; a heavy chain in flight was tried and called "horrible"):
+  only EVERY THIRD bolt of the tier-4 Ballista pins (`cd.balShots`); it flies as a plain bolt. Where
+  it strikes it stays in the foe at the angle it flew (`e.pinAng`, fx.js `drawStuckBolt`), and a light
+  chain (single-pixel links) shoots from it to a small stake in the road 22 steps behind the foe in
+  140 ms, holds taut, then sags and fades (`src/render/chains.js` `drawPinnedChains`, over the crowd).
   **Bosses are never pinned** (owner: "the dragon was just completely nullified").
-- The net's barbs cut a trapped flier for the guild's `thorns` at each of its struggles (owner: "a
-  similar amount of damage"), and a flier that tears free is never netted again (`e.netFree`; a clawless
-  bat took ~14 s to struggle loose, just the 15 s reload, and was caught again at once, for ever). Bats
-  die in the net now; wraiths take nothing (physical). The owner may later limit the nets to the front
-  of the castle (a `zone` / distance-from-gate check in update.js's launcher).
-- Barricade spikes x0.75 (owner: "barricades do too much damage": thorns 4 / 8 / 14 / 14), and a foe
-  hacking at a frame plays its attack clip (enemies.js reads `e.barred`, stamped each frame it is held).
-- **The tray's foot** (owner, same day): the hero on a row of his own, then the **Masons** button (it
-  says Masons, not Barricade) and the militia horn sharing the row under him, half each. The horn's
-  icon is the man the Levy's tier raises (`militiaStats().rig`: farmer, yeoman, squire). It takes a
-  little height from the tower list; the owner will check it on a phone.
 - Any new tray aim (`g.rallyFor` string) must be added to the game loop's keep-list in
   CrownguardGame.jsx (the line that clears an unknown `rallyFor` every frame): "barricade" was missing
   at first, so the Masons' button did nothing.
