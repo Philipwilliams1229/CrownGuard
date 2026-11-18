@@ -612,6 +612,20 @@ export const MINI = {
       "....owwo....",
     ]],
   },
+  // the King's Band: a side drum with crossed sticks
+  band: {
+    pal: { o: "#2b2a33", r: "#284a8c", k: "#e0b855", w: "#e8e2d4", s: "#8a6438" },
+    frames: [[
+      ".s........s.",
+      "..s......s..",
+      "...s....s...",
+      "..oooooooo..",
+      "..owwwwwwo..",
+      "..orkrkrko..",
+      "..okrkrkro..",
+      "..oooooooo..",
+    ]],
+  },
   sunforge: {
     pal: { o: "#2b2a33", g: "#f4e6b4", k: "#e0b855", d: "#443a52" },
     frames: [[

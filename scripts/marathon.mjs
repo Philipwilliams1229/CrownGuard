@@ -48,7 +48,7 @@ const bestSpot = (g, kind, r) => {
 
 // every hall, in a player's order; each kind's copies cycle through all
 // four final forms so every one of the 52 gets exercised
-const ORDER = ["archer", "knight", "wizard", "support", "catapult", "spiker", "falconry", "gunpowder", "trapsmith", "riverwatch", "goldworks", "assassin", "sunforge"];
+const ORDER = ["archer", "knight", "wizard", "support", "catapult", "spiker", "falconry", "gunpowder", "trapsmith", "riverwatch", "goldworks", "assassin", "sunforge", "band"];
 const FORMS = [["a", "a"], ["b", "b"], ["a", "b"], ["b", "a"]];
 const nth = {};
 const g = {

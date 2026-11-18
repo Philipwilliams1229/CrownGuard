@@ -163,6 +163,17 @@ export const SKILLS = {
       { id: "g5", tier: 3, name: "The Master Gunner", needs: ["g3", "g4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% faster a rank." },
     ],
   },
+  band: {
+    name: "King's Band",
+    blurb: "Louder, longer, and further down the line.",
+    nodes: [
+      { id: "k1", tier: 1, name: "Tighter Skins", per: { tempo: P }, desc: "+5% to the tempo it gives a rank." },
+      { id: "k2", tier: 1, name: "Louder Brass", per: { range: P }, desc: "+5% earshot a rank." },
+      { id: "k3", tier: 2, name: "Drilled Ranks", needs: ["k1"], per: { tempo: P, might: P }, desc: "A further +5% tempo, and +5% to the damage it gives, a rank." },
+      { id: "k4", tier: 2, name: "Silver Bells", needs: ["k2"], per: { reach: P }, desc: "+5% to the reach it gives a rank." },
+      { id: "k5", tier: 3, name: "The King's Own", needs: ["k3", "k4"], per: { tempo: P, reach: P, might: P }, desc: "+5% tempo, reach AND damage given a rank." },
+    ],
+  },
   sunforge: {
     name: "Sunforge",
     blurb: "More light, held longer, focused finer.",
@@ -222,7 +233,7 @@ export function foldMods(kind, owned) {
 // "+15% damage · 15% faster" — what a node is actually giving right now.
 export function modSummary(node, rank) {
   if (!rank) return "";
-  const label = { dmg: "damage", range: "range", hp: "health", splash: "blast", slow: "slow", heal: "mending", rate: "faster", fragReach: "shard reach" };
+  const label = { dmg: "damage", range: "range", hp: "health", splash: "blast", slow: "slow", heal: "mending", rate: "faster", fragReach: "shard reach", tempo: "tempo given", reach: "reach given", might: "damage given" };
   return Object.entries(node.per)
     .map(([k, v]) => `${k === "rate" ? "" : "+"}${Math.round(v * rank * 100)}% ${label[k] || k}`)
     .join(" · ");

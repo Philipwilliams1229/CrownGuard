@@ -9,7 +9,7 @@
 import fs from "node:fs";
 const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const kit = await import(ROOT + "/src/render/pix/hall-kit.js");
-const KINDS = ["archer", "knight", "wizard", "spiker", "catapult", "support", "trapsmith", "goldworks", "riverwatch", "falconry", "assassin", "gunpowder", "sunforge"];
+const KINDS = ["archer", "knight", "wizard", "spiker", "catapult", "support", "trapsmith", "goldworks", "riverwatch", "falconry", "assassin", "gunpowder", "sunforge", "band"];
 const FORMS = ["1", "2", "3", "a", "aa", "ab", "b", "ba", "bb"];
 const GROUND = -8;     // art px (4 board units) above the anchor: what is drawn below this stands on the ground
 const TOP_K = 0.5;     // how far the footing reaches up behind the anchor, of its half-width (a little room so a hall behind still shows its door)

@@ -28,7 +28,7 @@
 
 import { S, CELL, W, H as BH } from "../data/constants.js";
 import { PX } from "./paint.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder, drawBandTower } from "./towers.js";
 import { RIGS, drawRig } from "./rigs.js";
 import { Pix, mat, toCanvas } from "./pix/pix.js";
 // the sea monsters' own frame mapping (waterlines, the arm's grab, the sinks)
@@ -376,6 +376,7 @@ const paintHallRaw = (c, t) => {
     case "assassin": return drawAssassin(c, f, 0);
     case "falconry": return drawFalconry(c, f, 0);
     case "sunforge": return drawSunforge(c, f, 0);
+    case "band": return drawBandTower(c, f, 0);
     case "riverwatch": return drawRiverwatchHall(c, f, 0);
     case "gunpowder": return drawGunpowder(c, f, 0);
     default: return drawGarrison(c, f, 0);

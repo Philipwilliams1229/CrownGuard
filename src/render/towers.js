@@ -18,7 +18,8 @@ import { drawGunpowder } from "./halls/gunpowder.js";
 import { drawRiverwatchHall } from "./halls/riverwatch.js";
 import { drawAssassin } from "./halls/assassin.js";
 import { drawSunforge } from "./halls/sunforge.js";
-export { drawArcherTower, drawGarrison, drawWizardSpire, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawGunpowder, drawRiverwatchHall, drawAssassin, drawSunforge };
+import { drawBandTower } from "./halls/band.js";
+export { drawArcherTower, drawGarrison, drawWizardSpire, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawGunpowder, drawRiverwatchHall, drawAssassin, drawSunforge, drawBandTower };
 
 // leather-hooded crew engineer who works the catapult
 const CREW_PAL = { o: INK, h: "#7a5a34", b: "#6e4c28", s: "#e0b088", w: "#4a3018" };
@@ -1604,6 +1605,7 @@ export const drawTowerPortrait = (ctx, t, time) => {
   else if (t.kind === "assassin") drawAssassin(ctx, t, time);
   else if (t.kind === "falconry") drawFalconry(ctx, t, time);
   else if (t.kind === "sunforge") drawSunforge(ctx, t, time);
+  else if (t.kind === "band") drawBandTower(ctx, t, time);
   else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, time);
   else if (t.kind === "gunpowder") drawGunpowder(ctx, t, time);
   else drawGarrison(ctx, t, time);

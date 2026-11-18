@@ -295,6 +295,7 @@ export const TOWER_UNLOCKS = {
   assassin: "kestrel",    // 23  Assassin's Covert
   gunpowder: "wardenmoor",// 27  Powder Works
   sunforge: "hl1",        // 31  Sunforge
+  band: "stillmere",      // 35  King's Band (owner, 2026-11-18; it pays off beside dear halls)
 };
 // A hall is learned by clearing its level OR any level marching after it,
 // so a save that was already past the place keeps what it had.

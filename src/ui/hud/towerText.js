@@ -28,6 +28,7 @@ export function towerTags(t) {
   else if (t.kind === "trapsmith") line = `${Math.round(st.trapDmg)} ${st.trapHits ? `a stab, ${st.trapHits} foes a ${st.layCount > 1 ? "caltrop" : "strip"}` : st.trapCatches ? `a bite, holds ${(st.root / 1000).toFixed(0)}s, ${st.trapCatches} catches a jaw` : "a blast"} · up to ${st.maxCharges} on the road${st.layCount > 1 ? `, ${st.layCount} a throw` : ""}, one per ${(st.chargeEvery / 1000).toFixed(1)}s · ${st.range} rng${st.slow ? ` · slows ${Math.round(st.slow * 100)}%` : ""}${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
   else if (t.kind === "goldworks") line = `pays ${Math.round(st.income + (t.mintBonus || 0))}g a wave${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""} · paid ${Math.round(t.paidTotal || 0)}g so far`;
   else if (t.kind === "sunforge") line = `${Math.round(st.dps)}/s beam, ramps ×${st.rampMax} · ${st.range} rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
+  else if (t.kind === "band") line = `${st.picks ? `plays for ${st.picks} hall${st.picks > 1 ? "s" : ""} you pick` : "plays for every hall in earshot"} · ${st.range} earshot${st.tempo ? ` · +${Math.round(st.tempo * 100)}% tempo` : ""}${st.might ? ` · +${Math.round(st.might * 100)}% damage` : ""}${st.reach ? ` · +${Math.round(st.reach * 100)}% reach` : ""}${st.swell ? ` · +${Math.round(st.swell * 100)}% blasts` : ""}${st.buff ? " · soldiers strike harder" : ""}${st.roll ? " · drum rolls" : ""}${st.horn ? " · war horn staggers foes" : ""} · never fights`;
   else if (st.breath) line = `${st.dmg}/s flamethrower · hits all in its cone · ${st.range} rng${st.burn ? " · burning" : ""} · magic`;
   else line = `${st.dmg} dmg${st.shots ? ` ×${st.shots} ${t.kind === "falconry" ? "dives" : "stones"}` : ""}${st.spikes ? ` ×${st.spikes} spikes` : ""} · ${s(st.rate)} · ${st.range} rng${st.nova ? " · flame ring hits all in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""}${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash` : ""}${st.poolDps ? (st.poolEvery ? ` · every ${st.poolEvery}th leaves fire` : " · burning ground") : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
   return line.split("·").map((x) => x.trim()).filter(Boolean);
@@ -45,6 +46,12 @@ const pct = (v) => `${Math.round(v * 100)}%`;
 // does, and reads better when the product grows (a missing second stat
 // counts as 1: one musket ball).
 const DELTAS = [
+  // the King's Band: what it gives the halls it plays for (engine/band.js)
+  ["picks", "Plays for", (v) => `${v} hall${v > 1 ? "s" : ""}`],
+  ["tempo", "Tempo given", (v) => `+${Math.round(v * 100)}%`],
+  ["might", "Damage given", (v) => `+${Math.round(v * 100)}%`],
+  ["reach", "Reach given", (v) => `+${Math.round(v * 100)}%`],
+  ["swell", "Blasts given", (v) => `+${Math.round(v * 100)}%`],
   ["count", "Swords", (v) => v],
   ["dmg", "Damage", (v) => Math.round(v)],
   ["trapDmg", "Trap dmg", (v) => Math.round(v)],
@@ -118,6 +125,9 @@ const DELTAS = [
   ["cull", "Culls under", pct],
   ["execute", "Finishes under", pct],
   ["lifesteal", "Lifesteal", pct],
+  ["buff", "Soldiers strike", (v) => `+${Math.round(v * 100)}%`],
+  ["roll", "Drum roll", (v) => `+${Math.round(v.tempo * 100)}% for ${v.dur / 1000}s, every ${v.every / 1000}s`],
+  ["horn", "War horn", (v) => `every ${v.every / 1000}s: slow ${Math.round(v.slow * 100)}%, +${Math.round(v.amp * 100)}% harm`],
 ];
 
 // a stat is there when it has a value (0 and false mean the form lacks it)
@@ -128,7 +138,7 @@ const COUNT_LABEL = { knight: "Knights", assassin: "Blades", riverwatch: "Skiffs
 const DMG_LABEL = { gunpowder: "Charge" };
 // halls whose people strike rather than shoot
 const RATE_LABEL = { knight: "Attack rate", assassin: "Attack rate" };
-const labelFor = (k, label, kind) => (k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : k === "dmg" ? DMG_LABEL[kind] || label : k === "shots" && kind === "falconry" ? "Dives" : label);
+const labelFor = (k, label, kind) => (k === "range" && kind === "band" ? "Earshot" : k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : k === "dmg" ? DMG_LABEL[kind] || label : k === "shots" && kind === "falconry" ? "Dives" : label);
 
 // Everything a form has, for the finished card: [{ label, value }] in the
 // DELTAS order, then its traits as words.

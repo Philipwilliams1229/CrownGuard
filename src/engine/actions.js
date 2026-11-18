@@ -492,6 +492,8 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
       const worth = xpForKill(e.bounty);
       if (src) addTowerXp(g, src.kind, HARM_XP.has(src.kind) ? Math.max(0, worth - (e.harmXp || 0)) : worth);
       if (src?.kind !== "support" && g.towers.some((tw) => tw.kind === "support" && Math.hypot(tw.x - e.x, tw.y - e.y) <= (getStats(tw).range || 0))) addTowerXp(g, "support", worth * ASSIST_SHARE);
+      // the King's Band learns from the kills of the halls it plays for (the Warden's share)
+      if (src?.tune && src.kind !== "band") addTowerXp(g, "band", worth * ASSIST_SHARE);
     }
     // the hero learns only from deaths: his own kills in full, and a share
     // of any that fall within a few strides of him (bands.js killXp)

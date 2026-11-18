@@ -30,6 +30,7 @@ import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
 import { tierGate, TIER_XP, HARM_XP } from "./data/towerxp.js";
 import { getStats, aimModes, forcedAim, powderCrew } from "./engine/towers.js";
+import { pickSolo } from "./engine/band.js";
 import { syncBirds } from "./engine/muzzles.js";
 // the hall members that may each take their own order: a River Watch's skiffs, a Falconry's birds
 const crewOf = (t) => (t.kind === "riverwatch" || t.kind === "assassin" ? t.units || null : t.kind === "falconry" ? syncBirds(t, getStats(t)) : t.kind === "gunpowder" ? powderCrew(t) : null);
@@ -755,6 +756,16 @@ export default function Crownguard() {
     }
     if (g.rallyFor != null) {
       const t = g.towers.find((tt) => tt.id === g.rallyFor);
+      // the King's Heralds: each tapped hall in earshot becomes one they play
+      // for (the newest pushes out the oldest); a tap on no such hall stops choosing
+      if (t && t.kind === "band") {
+        const st = getStats(t), h = towerNear(g, x, y);
+        if (h && h !== t && pickSolo(t, st, h)) {
+          g.effects.push({ type: "levelup", x: h.x, y: h.y, ttl: 500 });
+          if ((t.solo || []).length >= st.picks && st.picks === 1) g.rallyFor = null;
+        } else g.rallyFor = null;
+        return;
+      }
       if (t) postRally(g, t, x, y);
       else g.rallyFor = null;
       return;
@@ -1473,9 +1484,10 @@ export default function Crownguard() {
     const ftier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const rallies = sel.kind === "knight" || (sel.kind === "catapult" && stt.roller);   // (the Covert has no flag: its reach is round the tent)
     const aimingFlag = ui.rallyFor === sel.id;
+    const choosing = sel.kind === "band" && stt.picks > 0;   // the Heralds' halls, picked by tapping
     const layer = (which) => () => setTowerLayer((l) => (l === which ? null : which));
     const banner = (
-      <TowerBanner kind={sel.kind} name={sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.levels[sel.level - 1]?.label || selDef.name}
+      <TowerBanner kind={sel.kind} name={(sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.levels[sel.level - 1]?.label || selDef.name) + (t.tune ? " ♪" : "")}
         branch={sel.branch} rank4={sel.rank4} pips={ftier} rows={formStats(t).rows} preview={preview}
         kills={sel.kills} dps={dps} paid={sel.kind === "goldworks" ? Math.round(t.paidTotal || 0) : null} compact={compact}
         dtype={[stt.dmg, stt.dps, stt.trapDmg, stt.colddps].some((v) => v > 0) ? (stt.dtype === "magic" ? "magic" : "phys") : null}
@@ -1492,7 +1504,7 @@ export default function Crownguard() {
       })();
       if (who === "all") setTowerLayer(null);   // a single boat's list stays open, so the next boat is one tap away
     };
-    const targets = (modes.length > 0 || forced || rallies || sel.kind === "trapsmith") ? (
+    const targets = (modes.length > 0 || forced || rallies || choosing || sel.kind === "trapsmith") ? (
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
         {(modes.length > 0 || forced) && (
           <TargetsBar slim={compact} modes={modes} aim={sel.aim} forced={forced} open={towerLayer === "targets"} onToggle={layer("targets")}
@@ -1502,6 +1514,12 @@ export default function Crownguard() {
           <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}
             onClick={() => { setTowerLayer(null); if (G.current) G.current.rallyFor = aimingFlag ? null : sel.id; }}>
             <FlagIcon size={14} /> {sel.kind === "catapult" ? "Aim the Roll" : "Move Rally Flag"}
+          </button>
+        )}
+        {choosing && (
+          <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}
+            onClick={() => { setTowerLayer(null); if (G.current) G.current.rallyFor = aimingFlag ? null : sel.id; }}>
+            <FlagIcon size={14} /> {stt.picks > 1 ? `Choose ${stt.picks} Halls` : "Choose the Hall"}
           </button>
         )}
         {sel.kind === "trapsmith" && (
@@ -1786,8 +1804,9 @@ export default function Crownguard() {
               ? <><b>{a.name}</b> — tap near a foe: {a.aimHint || "the biggest one there takes the arrow."}</>
               : <><b>{a?.name}</b> — tap the map where it should land.</>, "Cancel ability", cancelRally);
           })()}
-          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && ui.rallyFor !== "barricade" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(
-            <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
+          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && ui.rallyFor !== "barricade" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && (G.current?.towers.find((tt) => tt.id === ui.rallyFor)?.kind === "band"
+            ? ribbon(<>The <b>heralds</b> wait — tap the hall{(() => { const b = G.current?.towers.find((tt) => tt.id === ui.rallyFor); return b && getStats(b).picks > 1 ? "s" : ""; })()} in earshot they should play for.</>, "Done choosing", cancelRally)
+            : ribbon(<>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally))}
 
             {/* the Free Play sandbox's live controls: its own card over the map */}
             {sandboxPanel && mode === "free" && SANDBOX && !sel && (

@@ -16,4 +16,5 @@ export const HALL_FOOT = {
   assassin: { rx: 21, up: 11, down: 14 },
   gunpowder: { rx: 18, up: 9, down: 14 },
   sunforge: { rx: 19, up: 10, down: 12 },
+  band: { rx: 18, up: 9, down: 8 },
 };

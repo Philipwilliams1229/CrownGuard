@@ -9,12 +9,13 @@ import { nearestOnPath, lanePos, TOTAL_LEN } from "./path.js";
 import { inFoot } from "./footing.js";
 import { RALLY_RANGE, LANE_OFF, PATH_HALF } from "../data/constants.js";
 import { WX, canSee } from "./weather.js";
+import { tuned } from "./band.js";
 
 // Which stats the permanent skill trees are allowed to touch, and which way
 // is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
 // tower faster; everything else goes up. A stat the tower doesn't have is
 // skipped, so a shared node like "+8% range" is safe on any tower.
-const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate", "income", "trapDmg", "dps", "fragReach"];
+const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate", "income", "trapDmg", "dps", "fragReach", "tempo", "reach", "might"];   // (the last three: the King's Band's gifts)
 
 // Fold the player's permanent upgrades for this tower kind into its stats.
 const BOW_PERK = [["bowDmg", "dmg"], ["bowHp", "hp"], ["bowRange", "range"], ["bowRate", "rate"]];
@@ -41,6 +42,7 @@ const withPerks = (kind, st) => {
 // stats if evolved, else its level stats — with permanent upgrades applied,
 // and the weather's cut to its reach while it bites.
 export const getStats = (t) => inWeather(getStatsClear(t), t);
+// (the King's Band's tune, engine/band.js, goes on after the skill trees and before the weather)
 // The same in clear weather: the reach a hall has once the fog (or a squall)
 // is gone. draw.js rings it beside the shortened reach while weather bites.
 export const getStatsClear = (t) => {
@@ -48,9 +50,9 @@ export const getStatsClear = (t) => {
   if (t.branch) {
     const b = def.branches[t.branch];
     const src = t.rank4 && b.rank4 ? b.rank4[t.rank4].stats : b.stats;
-    return withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir });
+    return tuned(withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir }), t);
   }
-  return withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly });
+  return tuned(withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly }), t);
 };
 // A squall (engine/weather.js WX.reach) shortens every kind of reach a hall has
 // while it bites: its shots, its musket, its aura. (minRange, hall spacing and
@@ -66,7 +68,9 @@ const inWeather = (st, t) => {
     st.arcRange = (st.arcRange || 90) * (1 + 0.25 * WX.charged);
   }
   if (WX.riverReach !== 1 && t && t.kind === "riverwatch" && st.range > 0) st.range *= WX.riverReach;
-  if (WX.reach === 1) return st;
+  // the King's Band's ring is earshot, not sight: weather never shrinks it, so the
+  // halls it plays for don't flicker in and out as a storm rises
+  if (WX.reach === 1 || (t && t.kind === "band")) return st;
   for (const k of REACH_KEYS) if (st[k] > 0 && st[k] < 900) st[k] *= WX.reach;
   return st;
 };
@@ -93,7 +97,7 @@ export const aimModes = (t, st) => {
   // the Covert takes standing orders no other tower understands
   // an Open Contract guild takes ordinary orders; every other covert takes a class
   if (t.kind === "assassin") return st.openContract ? ASSASSIN_OPEN_AIM : ASSASSIN_AIM;
-  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge") return [];
+  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge" || t.kind === "band") return [];
   // the Powder Works' shards make "Most" mean something for both its men
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0 || t.kind === "gunpowder");
 };
@@ -376,6 +380,7 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
   }
   if (kind === "trapsmith") { t.charges = 1; t.chargeCd = 0; }   // one trap ready at ribbon-cutting
   if (kind === "sunforge") { t.ramp = 1; t.beamId = null; }
+  if (kind === "band") { t.solo = []; }   // the Heralds' chosen halls (engine/band.js)
   return t;
 };
 

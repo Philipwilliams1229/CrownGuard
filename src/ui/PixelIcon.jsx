@@ -31,6 +31,7 @@ export default function PixelIcon({ kind, branch = null, rank4 = null, size = 30
     else if (kind === "gunpowder") { spr = MINI.gunpowder; pal = MINI.gunpowder.pal; }
     else if (kind === "falconry") { spr = MINI.falconry; pal = MINI.falconry.pal; }
     else if (kind === "sunforge") { spr = MINI.sunforge; pal = MINI.sunforge.pal; }
+    else if (kind === "band") { spr = MINI.band; pal = MINI.band.pal; }
     else { spr = MINI.priest; pal = PRIEST_PALS[r4 && PRIEST_PALS[r4] ? r4 : branch || "base"]; }
     drawSprite(ctx, spr, pal, 0, size / 2, size / 2 + 1, false);
   }, [kind, branch, rank4, size]);

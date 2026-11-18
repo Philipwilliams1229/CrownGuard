@@ -360,4 +360,31 @@ export const TOWERS = {
       },
     },
   },
+  band: {
+    // The King's Band (owner, 2026-11-18): never fights; plays for the halls round it.
+    // The rules are engine/band.js; the design art/briefs/kings-band.md.
+    name: "King's Band", cost: 140, dtype: null, proj: "none",
+    blurb: "The King's musicians never draw a blade: every hall in earshot works faster to the beat.",
+    levels: [
+      { tempo: 0.1, range: 60, rate: 0 },
+      { tempo: 0.14, range: 66, rate: 0, cost: 100, label: "Fife and Drum" },
+      { tempo: 0.18, range: 72, rate: 0, cost: 170, label: "Full Company" },
+    ],
+    branches: {
+      a: {
+        name: "The Drum Corps", cost: 455, stats: { tempo: 0.22, reach: 0.08, range: 95, rate: 0 }, desc: "Massed drums carry far: every hall in a wide ring shoots faster and reaches a little further.",
+        rank4: {
+          a: { name: "The Royal Tattoo", cost: 1020, stats: { tempo: 0.28, reach: 0.12, range: 110, buff: 0.2, rate: 0 }, desc: "The whole line marches to it: faster shots, longer reach, and soldiers in earshot strike harder." },
+          b: { name: "Thunder Drums", cost: 1020, stats: { tempo: 0.22, reach: 0.08, swell: 0.15, range: 100, roll: { every: 12000, dur: 3000, tempo: 0.5 }, rate: 0 }, desc: "Every 12 s a drum roll: halls in the ring fire half again as fast for 3 s. Blasts spread wider." },
+        },
+      },
+      b: {
+        name: "The King's Heralds", cost: 455, stats: { picks: 2, might: 0.2, reach: 0.15, range: 70, rate: 0 }, desc: "Trumpets for TWO halls you choose: each hits a fifth harder and sees much further.",
+        rank4: {
+          a: { name: "The Royal Fanfare", cost: 1020, stats: { picks: 1, might: 0.45, reach: 0.25, tempo: 0.15, range: 80, rate: 0 }, desc: "All for ONE hall you choose: it strikes far harder, faster and further. Make it your best." },
+          b: { name: "The War Horn", cost: 1020, stats: { picks: 2, might: 0.2, reach: 0.15, range: 70, horn: { every: 15000, r: 110, slow: 0.4, slowMs: 2000, amp: 0.2, ampMs: 4000 }, rate: 0 }, desc: "Every 15 s the horn sounds: foes in earshot stagger, slowed, and take a fifth more from every blow." },
+        },
+      },
+    },
+  },
 };

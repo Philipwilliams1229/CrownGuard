@@ -19,6 +19,8 @@
 //   --set frags=10,fragDmg=30   try numbers on the benched forms (towers.js untouched)
 //   --perks max   every node of every skill tree at full rank (or g1=3,g4=2 for some)
 //   --mix crowd,armor,iron      which foe mixes (default those three; `all` adds ironpack)
+//   --band 3,a,b  a King's Band of that form stands beside the benched hall,
+//                 playing for it (the band's own cost is NOT added to the row)
 //   --json        print the table as JSON too
 //
 // Two numbers per cell: `dps`, every hit point the stream lost (burns
@@ -78,6 +80,7 @@ const freshGame = () => ({
   towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
   selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
   cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+  freeplay: true,   // every tier open (the tower-XP gate refuses paths otherwise)
 });
 
 // one run: a hall at `at` of the road, `mix` walking past, `seed` for the dice
@@ -98,6 +101,26 @@ function runOnce(kind, form, mixId, at, seed) {
   if (br) branchTower(g, t, br);
   if (r4) ascendTower(g, t, r4);
   t.readyAt = 0; t.raised = null;
+  if (BAND) {
+    // the band: the nearest clear spot behind the hall (away from the road)
+    const ox = t.x - rx, oy = t.y - ry, ol = Math.hypot(ox, oy) || 1;
+    let bs = null;
+    for (let r = 32; r < 60 && !bs; r += 3) for (const da of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) {
+      const ang = Math.atan2(oy / ol, ox / ol) + da;
+      const x = t.x + Math.cos(ang) * r, y = t.y + Math.sin(ang) * r;
+      if (buildableAt(g, x, y, "band")) { bs = [x, y]; break; }
+    }
+    if (bs) {
+      placeTower(g, "band", bs[0], bs[1]);
+      const b = g.towers[g.towers.length - 1];
+      const [blv, bbr, br4] = BAND;
+      for (let l = 1; l < blv; l++) upgradeTower(g, b);
+      if (bbr) branchTower(g, b, bbr);
+      if (br4) ascendTower(g, b, br4);
+      b.readyAt = 0; b.raised = null;
+      if (!t._bandNoted) { t._bandNoted = 1; bandSpots++; }
+    }
+  }
   // a log roller rolls down its road: aim it along the road past its foot
   if (TOWERS[kind].branches?.b?.stats?.roller && br === "b") {
     const [fx, fy] = posAt(Math.max(0, d0 - 60));
@@ -161,6 +184,7 @@ const costOf = (kind, [lv, br, r4]) => {
   if (r4) c += d.branches[br].rank4[r4].cost;
   return c;
 };
+let bandSpots = 0;
 const parseForm = (s) => { const [lv, br, r4] = s.split(","); return [Number(lv) || 1, br || null, r4 || null]; };
 
 const ALL_POWDER = ["1", "2", "3", "3,a", "3,b", "3,a,a", "3,a,b", "3,b,a", "3,b,b"].map(parseForm);
@@ -176,6 +200,7 @@ else {
   jobs = ALL_POWDER.map((f) => ["gunpowder", f]);
   if (flag("peers")) for (const k of PEER_KINDS) for (const f of finals(k)) jobs.push([k, f]);
 }
+const BAND = after("band") ? parseForm(after("band")) : null;
 const mixes = after("mix") === "all" ? Object.keys(MIXES) : after("mix") ? after("mix").split(",") : ["crowd", "armor", "iron"];
 
 // --perks max | g1=3,g4=2 : the permanent skill trees (default: none bought)
@@ -207,4 +232,5 @@ for (const [kind, form] of jobs) {
   out.push(row);
   console.log(`${row.name.padEnd(24)} ${String(row.cost).padStart(5)}  ${cells.join("")}`);
 }
+if (BAND) console.log(`(a band stood beside the hall in ${bandSpots} runs)`);
 if (flag("json")) console.log(JSON.stringify(out));
