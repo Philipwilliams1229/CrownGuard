@@ -2320,8 +2320,13 @@ export function updateGame(g, dt) {
         e.atkAnim = 200;
         e.net.hp -= Math.max(15, e.atk || 0, e.airAtk || 0);   // (a gryphon tears with its air blow; clawless fliers struggle at 15)
         g.effects.push({ type: "hit", x: e.x + (Math.random() - 0.5) * 8, y: e.y - 6, ttl: 180 });
+        // the net's barbs cut it as it struggles, as the barricade's spikes do (owner, 2026-11-18)
+        if (mason) dealDamage(g, e, mason.thorns, "phys", false, false, null);
+        if (e.dead) continue;
         if (e.net.hp <= 0) {
-          e.net = null; e.flying = true;
+          // torn free: it flies on, and no net takes it again (owner: a bat caught again the moment it
+          // got loose, for ever)
+          e.net = null; e.flying = true; e.netFree = true;
           g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 380, r: 16 });
           sfx.play("whistle");
         }
@@ -2332,7 +2337,7 @@ export function updateGame(g, dt) {
         if (cd.net <= 0) {
           let best = null, bd = Infinity;
           for (const e of g.enemies) {
-            if (e.dead || !e.flying || e.boss || e.neutral || e.net || isRising(e, tms)) continue;
+            if (e.dead || !e.flying || e.boss || e.neutral || e.net || e.netFree || isRising(e, tms)) continue;
             const off = Math.min(...rows.map((r) => Math.abs(e.dist - r.dist)));
             if (off <= mason.net.zone && off < bd) { bd = off; best = e; }
           }
@@ -2802,7 +2807,7 @@ export function updateGame(g, dt) {
     for (const t of g.towers) {
       if (!shocked(t)) t.anim = Math.max(0, t.anim - sdt * 4);   // (a stunned hall's picture holds still)
       if (!fights(t, g)) continue;
-      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder") continue;
+      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder" || t.kind === "band") continue;   // (the King's Band never fires)
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing
       // heat; a new target starts the focus from cold.
