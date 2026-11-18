@@ -131,15 +131,8 @@ const make = (s) => (px0, F, o = {}) => {
   px.body(0);
   px.part(); px.ellipse(hd[0], hd[1] + 0.4, 1.6, 1.6, SKIN, 7.3);
 
-  // the neck (a little longer than the side's: the head sits clear of the mantle) and, in front, a soft fuller chest that rides the bounce
+  // the neck (a little longer than the side's: the head sits clear of the mantle)
   px.part(); px.capsule(hx, chY - 3.4, 1.7, hx, hyr + 1.2, 1.6, SKIN, 6.0, { bias: -1 });
-  if (s > 0) {
-    const cb = cl((lag1.C[1] - C[1]) * 0.9, -1, 1);
-    px.part();
-    px.ellipse(sx - 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
-    px.ellipse(sx + 2.1, chY + 2.2 + cb, 2.5, 2.1, RANGER, 4.7, { round: 0.8 });
-    px.dot(sx + 0.6, chY + 3.9, GOLD, 4.9, { fix: 3 });
-  }
 
   // ---- the head ----
   px.part();
