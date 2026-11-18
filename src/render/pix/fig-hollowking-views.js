@@ -72,7 +72,7 @@ const make = (s) => (px, F, o = {}) => {
       px.line(hx - 6.4, chestY - 1.6, hx - 10.4 + vx, hipY + 2, GOLD, 0.42, { fix: 1 });
     } else {
       const d = vx * 1.5 + vx2 * 0.8, TT = [[1, 0.4], [0.86, 4.2], [0.72, 0], [0.56, 5], [0.42, 0.2], [0.28, 4], [0.14, 0], [0, 2.4]];
-      const hem = TT.map(([t, dp]) => [hx + 8.6 - t * 17.2 + (dp < 1 ? d : d * 0.4), -4.5 - dp]);
+      const hem = TT.map(([t, dp]) => [hx + 8.6 - t * 17.2 + (dp < 1 ? d : d * 0.4), -9.5 - dp]);
       px.poly([[hx - 5.8, chestY - 1.8], [hx + 5.8, chestY - 1.8], [hx + 6.2, hipY - 4], [hx + 7.2, hipY + 6], ...hem, [hx - 7.2, hipY + 6], [hx - 6.2, hipY - 4]], CAPE, 5.4, { round: 0.9, floor: 1, cast: 1, edge: true });
       px.toneLine(hx - 4, hipY + 4, hx - 5.4, -8, -1, cid);
       px.toneLine(hx + 4, hipY + 4, hx + 5, -8, 1, cid);

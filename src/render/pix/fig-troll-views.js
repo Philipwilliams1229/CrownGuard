@@ -17,7 +17,8 @@ const LEG = {
   H: { m: HAIR }, h: { m: HAIR, bias: -1 },
 };
 // halves (cols 0..7, col 7 the centre) mirrored to 15 wide
-const mir = (halves) => halves.map((h0) => { const h = h0[0] + h0; return h + h.slice(0, 8).split("").reverse().join(""); });
+const mir = (halves) => halves.map((h0) => { const h = h0[0] + h0[0] + h0; return h + h.slice(0, 9).split("").reverse().join(""); });
+const put = (rows, r, c, str) => rows.map((row, i) => i === r ? row.slice(0, c) + str + row.slice(c + str.length) : row);
 // FRONT: lank hair framing a low brow, small yellow eyes under one slab of brow, the great bulb of a nose
 // (shine L, nostrils n), the underbite with two blunt tusks standing up from it (T).
 const FRONT_H = mir([
@@ -25,7 +26,13 @@ const FRONT_H = mir([
   ".hGGGNNN", ".hGGGGnN", ".hGGGGGG", ".hGGGTXX", ".gGGTTlX", ".gGGGGGG", "..gGGGGG", "....gggg",
 ]);
 const swap = (rows, map) => rows.map((r, i) => map[i] ?? r);
-const FRONT_BL = swap(FRONT_H, { 5: mir([".hGGGGGG"])[0], 6: mir([".hGGBBNN"])[0] });
+// lopsided (owner: wider, less symmetrical): his right-hand eye (screen right) small and low under a dropped brow,
+// the nose bent a pixel to that side, the right tusk broken to a stub
+let FRONT_X = put(FRONT_H, 4, 13, "GGGG");
+FRONT_X = put(FRONT_X, 5, 10, "GG"); FRONT_X = put(FRONT_X, 5, 12, "bB");
+FRONT_X = put(FRONT_X, 6, 10, "NY"); FRONT_X = put(FRONT_X, 9, 8, "GnNn");
+FRONT_X = put(FRONT_X, 11, 11, "G"); FRONT_X = put(FRONT_X, 12, 12, "G");
+const FRONT_BL = swap(FRONT_X, { 5: FRONT_X[5].replace(/Y/g, "G"), 6: FRONT_X[6].replace(/Y/g, "B") });
 // BACK: a wet mop of lank hair to the shoulders, strands (h) in it, the tips of the ears, a bare nape.
 const BACK_H = mir([
   "....HHHH", "..HHHHHH", ".HHHHHHH", "HHHhHHHH", "HHHHHhHH", "HHhHHHHH", "HHHHHHhH", "HHHhHHHH",
@@ -148,12 +155,12 @@ const make = (s) => (px, F) => {
   for (const side of [-1, 1]) {
     px.part(); const eid = px._pid;
     const r = side, wob = ey * 0.8 + (side === rs ? vx * 0.6 : -vx * 0.6), rt = (xx, yy) => [hx + r * xx, hy + yy];
-    px.poly([rt(8, -6.6), rt(8.4, -2.4), rt(12.4, -1.4 + wob * 0.4), rt(16.6, -3.2 + wob), rt(12.4, -7 + wob * 0.4)], SKIN, s > 0 ? 8.2 : 5.5, { bias: s > 0 ? -1 : 0, round: 0.6, cast: 1 });
-    px.toneLine(...rt(9, -4.4), ...rt(13.4, -4.2 + wob * 0.8), -1, eid);
+    px.poly([rt(9, -6.6), rt(9.4, -2.4), rt(13.4, -1.4 + wob * 0.4), rt(17.6, -3.2 + wob), rt(13.4, -7 + wob * 0.4)], SKIN, s > 0 ? 8.2 : 5.5, { bias: s > 0 ? -1 : 0, round: 0.6, cast: 1 });
+    px.toneLine(...rt(10, -4.4), ...rt(14.4, -4.2 + wob * 0.8), -1, eid);
   }
   px.part();
   const blink = p.blink || false;
-  px.stamp(s > 0 ? (blink ? FRONT_BL : FRONT_H) : BACK_H, hx, hy, LEG, s > 0 ? 6 : 6.4, { ax: 8, ay: 13, ball: [8.5, 8, 9, 9], cast: 1 });
+  px.stamp(s > 0 ? (blink ? FRONT_BL : FRONT_X) : BACK_H, hx, hy, LEG, s > 0 ? 6 : 6.4, { ax: 9, ay: 13, ball: [9.5, 8, 10, 9], cast: 1 });
   if (s < 0) {
     px.part();
     px.capsule(hx - 3, hy - 4, 1, hx - 4.4 - vx * 0.5, hy + 4.6, 0.7, HAIR, 6.5);

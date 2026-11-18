@@ -127,11 +127,11 @@ const make = (s) => (px, F) => {
 
   // the arms: from the shoulder (a jerkin-shoulder knob) down to each fist on the spear
   const arm = (side, hd, zA) => {
-    const shp = [side * 4.4 + sx, chY - 1.6 + (side === rs ? tilt : -tilt) * 0.4], el = [(shp[0] + hd[0]) / 2 + side * 1.4, (shp[1] + hd[1]) / 2 + 0.6];
+    const shp = [side * 6.4 + sx, chY - 1.0 + (side === rs ? tilt : -tilt) * 0.4], el = [(shp[0] + hd[0]) / 2 + side * 1.4, (shp[1] + hd[1]) / 2 + 0.6];
     px.part();
-    px.ellipse(shp[0] - side * 0.2, shp[1] + 0.2, 2.5, 2.3, JERK, zA - 0.1, { cast: 0, bias: 1 });
+    px.ellipse(shp[0] - side * 0.2, shp[1] + 0.2, 2.5, 2.3, JERK, 5.4, { cast: 0, bias: 1 });
     px.part();
-    px.capsule(shp[0], shp[1] + 0.6, 1.7, el[0], el[1], 1.6, SKIN, zA, { cast: 1 });
+    px.capsule(shp[0], shp[1] + 0.6, 1.7, el[0], el[1], 1.6, SKIN, 5.4, { cast: 1 });
     px.capsule(el[0], el[1], 1.6, hd[0], hd[1], 1.5, SKIN, zA, { cast: 1 });
     const n0 = mix(el, hd, 0.62), n1 = mix(el, hd, 0.74);
     px.capsule(n0[0], n0[1], 1.65, n1[0], n1[1], 1.65, DARK, zA + 0.05, { cast: 1 });

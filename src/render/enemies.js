@@ -34,6 +34,24 @@ const footfall = (ctx, x, y, face, rate, phase, weight, time) => {
   ctx.fillRect(S(x - face * spread * 1.5), S(y - (1 - a / weight) * 6), CELL * 2, CELL);
 };
 
+// A bolting horse (the loose horse, owner 2026-11-18: "let's make it kick some dust too"): a
+// trail of dust clouds thrown up behind its hooves, each rising, spreading and fading as it
+// falls back, staggered so the cloud never pops. Pure function of time and the foe's id.
+const gallopDust = (ctx, x, y, face, time, id, vy = 0) => {
+  // the trail runs back along its heading (vy: how much of it is up / down the screen, march.js)
+  const tx = -face * Math.sqrt(Math.max(0, 1 - vy * vy)), ty = -vy * 0.7;
+  for (let i = 0; i < 5; i++) {
+    const k = (time * 2.6 + id * 0.37 + i / 5) % 1;          // 0 = just kicked up, 1 = gone
+    const a = (1 - k) * (1 - k) * 0.55;
+    const r = 2 + k * 6;
+    const back = 6 + k * 16 + i * 1.5, up = 1 + k * 5 + (i % 2) * 1.5;
+    ctx.fillStyle = `${REALM.PEBBLE}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
+    const dx = x + tx * back, dy = y + ty * back - up;
+    ctx.fillRect(S(dx - r / 2), S(dy - r / 3), Math.max(CELL, r), Math.max(CELL, r * 0.6));
+    if (r > 4) ctx.fillRect(S(dx + tx * r * 0.4), S(dy - r * 0.3), Math.max(CELL, r * 0.6), CELL);
+  }
+};
+
 // How far above its feet a rig's art actually reaches (the topmost inked
 // pixel of its first walk frame), so the health bar sits on each creature's
 // own head instead of at one height for all. Measured once per look.
@@ -76,6 +94,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // dust first, so the shadow sits on top of it and the foot stays grounded
   if (!fighting && !airborne && !e.swimming) {
     footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
+    if (skin === "loosehorse") gallopDust(ctx, e.x, e.y + e.size * 0.55, e.face, time, e.id, e._mv || 0);
   }
   // riding the current: a spreading wake instead of a shadow on the road
   if (e.swimming) {

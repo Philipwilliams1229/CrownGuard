@@ -92,16 +92,18 @@ const make = (s) => (px, F) => {
     const hp = [hx + side * 6.6, hipY + 1], kn = [hx + side * 9, (hp[1] + fy) / 2 - lift * 0.4];
     px.limb([hp, kn, [fx, fy]], [6.4, 5, 4.2], SKIN, z, { bias: b });
     const w0 = mix(kn, [fx, fy], 0.5);
-    px.capsule(w0[0], w0[1], 5, fx, fy, 4.6, FURB, z + 0.03, { bias: b, wrap: true });
+    if (s < 0) px.capsule(w0[0], w0[1], 5, fx, fy, 4.6, FURB, z + 0.03, { bias: b, wrap: true });
   }
   px.body(0);
   for (const [f, side, z] of feet) {
     const lift = f[1], b = side === rs ? 0 : -1, fx = hx + side * 8, fy = -2.4 + s * f[0] * FWD - lift * 0.9;
     px.part();
     if (s > 0) {
-      px.ellipse(fx + side * 0.4, fy + 1.6, 6, 3.4, SKIN, z + 0.4 + lift * 0.05, { bias: b });
-      px.capsule(fx - 5, fy + 1.2, 1.6, fx + 5, fy + 1.2, 1.6, FURB, z + 0.42, { bias: b });
-      for (const x of [-3.6, -1.2, 1.2, 3.6]) px.dot(fx + side * 0.4 + x, fy + 3.8, NAIL, z + 0.45, { fix: b ? 2 : 3 });
+      // one clean fur-bound foot joined to the shin: a single fur shape over the ankle, the bare toes in front of it
+      // (the lifted foot, foreshortened, still shows its toes and the top of the foot)
+      px.ellipse(fx, fy + 0.2, 4.8, 3.2, FURB, z + 0.4 + lift * 0.05, { round: 0.6 });
+      px.ellipse(fx, fy + 3, 4.6, 1.9, SKIN, z + 0.45 + lift * 0.05, { round: 0.6 });
+      for (const x of [-3, -1, 1, 3]) px.dot(fx + x, fy + 3.8, NAIL, z + 0.5 + lift * 0.05, { fix: 3 });
     } else {
       px.ellipse(fx, fy + 1, 5, 3, SKIN, z + 0.4 + lift * 0.05, { bias: b });
       px.capsule(fx - 4.4, fy + 0.4, 1.6, fx + 4.4, fy + 0.4, 1.6, FURB, z + 0.42, { bias: b });

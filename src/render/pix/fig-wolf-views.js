@@ -52,7 +52,7 @@ export const WOLF = mkKit({
 // One leg of the wolf in a view. side: -1 / +1 on screen; far: the leg of the end that is farther from us (it stands a little higher up the screen).
 const legV = (px, l, s, side, K, sx, o) => {
   const { FUR } = K, fore = l.fore, far = fore ? s < 0 : s > 0, dyD = far ? -2.2 : 0;
-  const sp = o.crisp ? (fore ? 1.0 : 1.4) : 0, hx = side * ((fore ? 4.4 : 5.6) + sp) + sx, hy = l.j[1] + dyD + (fore ? 0 : 0.5);
+  const sp = o.crisp ? (fore ? 1.0 : 1.4) : 0, hx = side * ((fore ? (s > 0 ? 5.4 : 4.4) : 5.6) + sp) + sx, hy = l.j[1] + dyD + (fore ? (s > 0 ? 3.4 : 0) : 0.5);
   const fx = side * ((fore ? 4.9 : 5.6) + sp) + sx, fyc = l.a[1] + K.Q.paw - 0.9 + dyD + s * (l.a[0] - l.j[0]) * FWD;
   const kx = side * ((fore ? 5.3 : 7.2) + sp) + sx, ky = (hy + fyc) / 2 + (fore ? 1 : 0.5);
   const near = !far, oo = { cast: 1, weld: near ? 3 : 0, weldRoot: near ? 5 : 0, bias: far ? -1 : 0 };
@@ -69,11 +69,11 @@ export const wolfView = (px, F, s, K, o = {}) => {
   const { FUR, PALE, MANE } = K, Q = K.Q, b = solveBeast(F.sk.p, Q), b1 = solveBeast(F.lag1.p, Q), b2 = solveBeast(F.lag2.p, Q), p = b.p, ph = F.ph;
   const rs = -s, ls = s;
   const sx = rs * 0.5 * Math.sin(ph * TAU * 1.0);
-  const zH = o.zHead ?? 6;
+  const zH = o.zHead ?? 8;
   const fore = s > 0 ? b.W[1] : b.W[1] - 1.8, hind = s > 0 ? b.C[1] - 1.5 : b.C[1];
   const chestY = b.W[1] + 5.2, rumpY = b.C[1] + 4;
   const vy = cl(b.K[1] - b1.K[1], -2, 2), vy2 = cl(b1.K[1] - b2.K[1], -2, 2);
-  const hy = Math.round(b.K[1] + (s > 0 ? 1 : -3)), hx = Math.round(sx * 0.6);
+  const hy = Math.round(b.K[1] + (s > 0 ? -0.5 : -3)), hx = Math.round(sx * 0.6);
 
   const BID = px.body(1);
   void BID;
@@ -87,16 +87,16 @@ export const wolfView = (px, F, s, K, o = {}) => {
     px.ellipse(sx * 0.3, rumpY - 2.5, 6.4, 6.4, FUR, 3);
     // the chest: deep and broad, a pale bib down it
     px.part();
-    px.ellipse(sx, chestY, 6.4, 7.6, FUR, 4);
+    px.ellipse(sx, chestY + 1, 7, 7.6, FUR, 4);
     px.ellipse(sx, chestY + 1.8, o.crisp ? 3.8 : 3.4, o.crisp ? 6.2 : 5.6, PALE, 4.02);
     // forelegs
     for (const [l, side] of legs) if (l.fore) legV(px, l, s, side, K, sx, { z: 7, crisp: o.crisp });
     // the ruff: a dark collar round the face, its hackles spread; rime on the tips for the Rime's
     px.part();
-    px.ellipse(hx, hy + 1.5, 9.4, 6.8, o.crisp ? DK : MANE, 4.6, { cast: 0, floor: 1, bias: -1 });
+    px.ellipse(hx, hy + 1.5, 9.4, 6.8, o.crisp ? DK : MANE, 7.4, { cast: 0, floor: 1, bias: -1 });
     for (let i = 0; i < 6; i++) {
       const a = Math.PI * (0.12 + i * 0.152), cx = hx + Math.cos(a) * 9 * (i < 3 ? -1 : 1) * 0 + (i < 3 ? -1 : 1) * Math.abs(Math.cos(a)) * 9, cyy = hy + 1.5 - Math.sin(a) * 6.4;
-      px.poly([[cx - 1.6, cyy + 1.6], [cx + 1.6, cyy + 1.6], [cx + (i < 3 ? -2.4 : 2.4), cyy - 1.4 - (i % 2)]], o.crisp ? DK : MANE, 4.62, { fix: 1, cast: 0 });
+      px.poly([[cx - 1.6, cyy + 1.6], [cx + 1.6, cyy + 1.6], [cx + (i < 3 ? -2.4 : 2.4), cyy - 1.4 - (i % 2)]], o.crisp ? DK : MANE, 7.42, { fix: 1, cast: 0 });
       if (K.FROST && i % 2 === 0) px.dot(cx + (i < 3 ? -1.2 : 1.2), cyy - 0.4, K.FROST, 4.7, { noLine: true });
     }
     if (o.extra) o.extra(px, { s, b, sx, chestY, rumpY, hx, hy });

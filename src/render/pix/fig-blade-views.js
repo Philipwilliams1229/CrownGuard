@@ -16,11 +16,11 @@ import { CLIPS as SIDE, BONES as SIDE_BONES, BOX as SIDE_BOX } from "./fig-blade
 const LOOKS = {
   base: { cloak: "#3e3a4c", leather: "#6a5040", hood: "#565068", accent: "#8a3a38", steel: "#c4c8d0", trim: "#b8bcc4", eyes: "#f0d890", mask: "#2e2a36" },
   a: { cloak: "#3a2a52", leather: "#4a4254", hood: "#56427c", accent: "#7a5aa8", steel: "#e4e8f0", trim: "#d8dce6", eyes: "#d8c0ff", mask: "#b8bcc8", twin: true },
-  b: { cloak: "#2c4234", leather: "#5a4a30", hood: "#44624a", accent: "#6a8a3a", steel: "#b8c4b4", trim: "#a89a6a", eyes: "#c8f080", mask: "#44583e", vials: "#8ae05a", venom: "#8ae05a" },
+  b: { cloak: "#2c4234", leather: "#5a4a30", hood: "#44624a", accent: "#6a8a3a", steel: "#eef4f0", trim: "#a89a6a", eyes: "#c8f080", mask: "#44583e", vials: "#8ae05a", venom: "#8ae05a", blade: "dirk" },
   aa: { cloak: "#221a2e", leather: "#383244", hood: "#3e2e5a", accent: "#a82838", steel: "#eef0f6", trim: "#e0b84a", eyes: "#fff0b0", mask: "#e8c14a", twin: true, blade: "long", gild: true },
   ab: { cloak: "#4a3e58", leather: "#7a5a3a", hood: "#46385e", accent: "#7a5aa8", steel: "#d8dce4", trim: "#c8a050", eyes: "#f0e0b0", mask: "#8a3a38", twin: true, blade: "hanger", hat: "#4e3a2c", plume: "#c8403a", pauldron: "#a4aab4", purse: "#8a6038", scroll: "#ecdcb4" },
   ba: { cloak: "#1e1a24", leather: "#3a2a3c", hood: "#342a3e", accent: "#8a2a5a", steel: "#d0d4dc", trim: "#b8a0c0", eyes: "#ff8ad0", mask: "#4e4058", veil: "#4e4058", lace: "#cfc6d4", long: true, vials: "#e05aa8", venom: "#e05aa8", blade: "needle" },
-  bb: { cloak: "#2e3a2a", leather: "#5a4630", hood: "#4a5238", accent: "#8a8a3a", steel: "#b8c4b4", trim: "#b89a50", eyes: "#e8f070", mask: "#44583e", beak: "#d8c49a", censer: true, brass: "#b89a50", vials: "#c8e050", venom: "#b8e04a" },
+  bb: { cloak: "#2a2c28", leather: "#5a4630", coat: "#3c3834", hood: "#3a3c34", accent: "#6a7a3a", steel: "#e6ece8", trim: "#b89a50", eyes: "#9ad0a0", mask: "#5e4c3a", beak: "#dcc89c", censer: true, brass: "#c8a850", vials: "#c8e050", venom: "#b8e04a", long: true, plague: "#2e2a26", blade: "dirk" },
 };
 const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const hex = (c) => "#" + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
@@ -36,17 +36,21 @@ const kitOf = (v) => {
   const COWL = mat(lighten(L.hood, 0.14)), HI = mat(lighten(L.hood, 0.34));
   const MASK = mat(lighten(L.mask, L.gild ? 0.04 : 0.1), L.gild ? { contrast: 1.25 } : {});
   const EYE = flat(L.eyes, { emis: true, line: "#241a26" });
-  K = { L, COWL, HI, CLOAK: mat(lighten(rich(L.cloak, 1.4), 0.12)), JERKIN: mat(lighten(rich(L.leather, 1.2), 0.14)), SLEEVE: mat(lighten(rich(L.cloak, 1.5), 0.22)),
+  K = { L, COWL, HI, CLOAK: mat(lighten(rich(L.cloak, 1.4), 0.12)), JERKIN: mat(L.coat ? lighten(L.coat, 0.12) : lighten(rich(L.leather, 1.2), 0.14)), SLEEVE: mat(lighten(rich(L.cloak, 1.5), 0.22)),
     HOSE: mat(lighten(rich(L.cloak, 1.3), 0.1)), BOOT: mat(lighten(L.leather, 0.06)), WRAP: mat(lighten(L.leather, 0.24)), SASH: mat(lighten(L.accent, 0.08)),
     TRIM: mat(L.trim), MASK, STEEL: mat(L.steel, { contrast: 1.3 }), EYE,
     GOLD: mat("#e0b84a", { contrast: 1.2 }), PLUME: L.plume ? mat(L.plume) : 0, HAT: L.hat ? mat(lighten(L.hat, 0.1)) : 0, PAUL: L.pauldron ? mat(L.pauldron, { contrast: 1.2 }) : 0,
     PURSE: L.purse ? mat(L.purse) : 0, SCROLL: L.scroll ? mat(L.scroll) : 0, VEIL: L.veil ? mat(lighten(L.veil, 0.1)) : 0, LACE: L.lace ? mat(L.lace) : 0,
-    BEAK: L.beak ? mat(L.beak, { contrast: 1.15 }) : 0, BRASS: L.brass ? mat(L.brass, { contrast: 1.2 }) : 0,
+    BEAK: L.beak ? mat(L.beak, { contrast: 1.15 }) : 0, BEAKHI: L.beak ? flat(lighten(L.beak, 0.5), { line: "#3a2c20" }) : 0, BEAKSH: L.beak ? flat("#7a6448") : 0, BEAKCAST: L.beak ? flat("#241e1a") : 0,
+    PHAT: L.plague ? mat(lighten(L.plague, 0.12), { contrast: 1.1 }) : 0, LENS: L.plague ? flat("#1c2a26", { line: "#14100c" }) : 0, GLINT: L.plague ? flat(L.eyes, { emis: true, line: "#1c2a26" }) : 0,
+    SMOKE: L.plague ? flat("#a8d078", { emis: true, line: "#5a7a40" }) : 0, BRASS: L.brass ? mat(L.brass, { contrast: 1.2 }) : 0,
     VIAL: L.vials ? flat(L.vials, { emis: true, line: "#241a26" }) : 0, VENOM: L.venom ? flat(L.venom, { emis: true, line: "#241a26" }) : 0,
     LEG: {
       C: { m: COWL, fix: 2 }, c: { m: COWL, fix: 1 }, x: { m: COWL, fix: 0 }, A: { m: HI, fix: 2 }, F: { m: COWL, fix: 2 }, L: { m: HI, fix: 2 }, I: { m: VOID },
       d: { m: SKIN, fix: 0 }, s: { m: SKIN, fix: 1 }, S: { m: SKIN, fix: 2 }, N: { m: SKIN, fix: 3 }, E: { m: EYE }, K: { m: MASK, fix: 2 }, k: { m: MASK, fix: 1 },
     } };
+  // the plague doctor's face is his mask's leather (the lenses and beak are drawn over it)
+  if (L.plague) { const PM = mat(lighten(L.mask, 0.08)); K.LEG = { ...K.LEG, I: { m: PM, fix: 0 }, d: { m: PM, fix: 1 }, s: { m: PM, fix: 1 }, S: { m: PM, fix: 2 }, N: { m: PM, fix: 2 }, E: { m: PM, fix: 1 }, K: { m: PM, fix: 1 }, k: { m: PM, fix: 0 } }; }
   KITS.set(key, K);
   return K;
 };
@@ -122,9 +126,26 @@ const make = (s) => (px, F, o = {}) => {
   const armZ = s > 0 ? 3.2 : 4.3, wz = s > 0 ? 0 : 1;   // BACK stack: arms 4.3 (both), fists 3.6, weapon 1.0, the cloak 5.2
   const knifeFront = (hd, ang, len, z, side) => {
     // the blade points the way he walks: toward us (FRONT), foreshortened to a wedge below the fist; away (BACK) a tip peeking out
-    const l = len * 0.45;
+    const dirk = L.blade === "dirk", l = len * (dirk ? 0.72 : 0.45);
     px.part();
-    if (s > 0) {
+    if (s > 0 && dirk) {
+      // the dirk held low, its point out and down past the fist: long bright steel, the grip running through the fist
+      px.capsule(hd[0], hd[1] - 2, 0.9, hd[0], hd[1] + 1.8, 0.9, GRIP, z);
+      px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
+      px.line(hd[0] - 2, hd[1] + 2.2, hd[0] + 2, hd[1] + 2.2, K.TRIM, z + 0.03, { fix: 3 });
+      const tp = [hd[0] + side * 1.6, hd[1] + 2.6 + l];
+      px.part();
+      px.capsule(hd[0], hd[1] + 2.8, 1.4, tp[0], tp[1], 0.45, K.STEEL, z + 0.02, { edge: true });
+      px.line(hd[0] - 0.4, hd[1] + 3, tp[0] - 0.3, tp[1] - 1, K.STEEL, z + 0.04, { fix: 4 });
+      if (K.VENOM) px.line(hd[0] + side * 1.0, hd[1] + 2.6 + l * 0.62, tp[0], tp[1], K.VENOM, z + 0.05, { noLine: true });
+    } else if (s < 0 && dirk) {
+      px.capsule(hd[0], hd[1] - 2, 0.9, hd[0] + side * 0.3, hd[1] + 1.2, 0.9, GRIP, z);
+      px.dot(hd[0], hd[1] - 2.4, K.TRIM, z + 0.03, { fix: 3 });
+      px.part();
+      const tp = [hd[0] + side * 2.4, hd[1] + 2 + l * 0.85];
+      px.capsule(hd[0] + side * 0.9, hd[1] + 1.4, 1.1, tp[0], tp[1], 0.45, K.STEEL, z + 0.02, { edge: false });
+      if (K.VENOM) px.line(hd[0] + side * 1.8, hd[1] + 2 + l * 0.55, tp[0], tp[1], K.VENOM, z + 0.05, { noLine: true });
+    } else if (s > 0) {
       px.capsule(hd[0], hd[1] - 1.8, 0.9, hd[0], hd[1] + 2, 0.9, GRIP, z);
       px.dot(hd[0], hd[1] - 2.2, K.TRIM, z + 0.03, { fix: 3 });
       px.line(hd[0] - 1.8, hd[1] + 2.4, hd[0] + 1.8, hd[1] + 2.4, K.TRIM, z + 0.03, { fix: 3 });
@@ -140,7 +161,7 @@ const make = (s) => (px, F, o = {}) => {
       if (K.VENOM) px.line(hd[0] + side * 0.8, hd[1] + 2.2 + l * 0.3, hd[0] + side * (1 + l * 0.1), hd[1] + 1.8 + l * 0.7, K.VENOM, z + 0.05, { noLine: true });
     }
   };
-  const klen = L.blade === "long" ? 12 : L.blade === "needle" ? 11 : L.blade === "hanger" ? 9.6 : 8.2;
+  const klen = L.blade === "long" ? 12 : L.blade === "needle" ? 11 : L.blade === "hanger" ? 9.6 : L.blade === "dirk" ? 10.6 : 8.2;
   {
     const aF = (p.aF || [0.8, 0.8, 0])[0];
     const back = s < 0, ao = back ? { cast: 0 } : { bias: -3, floor: 1 };
@@ -158,6 +179,10 @@ const make = (s) => (px, F, o = {}) => {
       px.line(hd[0], hd[1] + 1, c0[0], c0[1] - 1.4, K.TRIM, cz, { noLine: true });
       px.ellipse(c0[0], c0[1], 2.4, 2.4, K.BRASS, cz, { vb: 0.2 });
       px.dot(c0[0] + 0.4, c0[1] + 0.2, K.VIAL, cz + 0.1, { noLine: true });
+      if (K.SMOKE) for (let i = 0; i < 3; i++) {
+        const t = (ph * 2 + i / 3) % 1;
+        px.part(); px.ellipse(c0[0] + ls * (1.6 + t * 2.4) + Math.sin((t + i) * 5) * 0.7, c0[1] - 1.2 - t * 6, 1.7 - t * 0.8, 1.4 - t * 0.6, K.SMOKE, 9.9, { noLine: true });
+      }
     }
   }
 
@@ -228,17 +253,41 @@ const make = (s) => (px, F, o = {}) => {
   // the Widow's lace veil, dropped from the cowl over the lower face
   if (K.VEIL && s > 0) {
     px.part();
-    px.poly([[hx - 4.2, hy - 6], [hx + 4.2, hy - 6], [hx + 3.8, hy - 1.4 + wob * 0.2], [hx, hy + 0.4], [hx - 3.8, hy - 1.4 + wob * 0.2]], K.VEIL, 9.2, { round: 0.6 });
-    px.line(hx - 3.6, hy - 1.1, hx + 3.6, hy - 1.1, K.LACE, 9.25);
+    // it hangs from just under the eyes (the eyes glint above its lace edge), centred on the face's opening
+    const fc = hx + 1;
+    px.poly([[fc - 3.2, hy - 4.6], [fc + 3.2, hy - 4.6], [fc + 3, hy - 1.6 + wob * 0.2], [fc + 1.4, hy - 0.4], [fc, hy + 0.4], [fc - 1.4, hy - 0.4], [fc - 3, hy - 1.6 + wob * 0.2]], K.VEIL, 9.2, { round: 0.6 });
+    px.line(fc - 3, hy - 4.6, fc + 3, hy - 4.6, K.LACE, 9.25, { noLine: true });
+    for (const d of [-2, 0, 2]) px.dot(fc + d, hy - 1.2 + (d ? 0 : 0.8), K.LACE, 9.26, { noLine: true });
   }
   // the Plague Bearer's beak, pointing at us: a foreshortened cone from the brow down over the mouth
   if (K.BEAK && s > 0) {
+    const fc = hx + 1;
+    // two round glass lenses in brass rims, either side of the beak's root
+    for (const lx of [fc - 2.4, fc + 2.4]) {
+      px.part(); px.ellipse(lx, hy - 6.4, 1.6, 1.6, K.BRASS, 9.35);
+      px.part(); px.ellipse(lx, hy - 6.4, 1.2, 1.2, K.LENS, 9.37, { noLine: true }); px.dot(lx - 0.5, hy - 6.9, K.GLINT, 9.38, { noLine: true });
+    }
+    // the beak pointing at us: a foreshortened cone from between the lenses down to its tip, lit on the left,
+    // shadowed on the right, a pale tip, and its shadow cast on the scarf below
+    px.part(); px.ellipse(fc + 1, hy + 2.8, 1.9, 0.9, K.BEAKCAST, 8.95, { noLine: true });
     px.part();
-    px.poly([[hx - 2.2, hy - 7], [hx + 2.2, hy - 7], [hx + 1.6, hy - 2.4], [hx, hy - 0.6], [hx - 1.6, hy - 2.4]], K.BEAK, 9.4, { round: 0.7 });
-    px.line(hx, hy - 6.6, hx, hy - 1.2, K.BRASS, 9.45, { noLine: true });
+    px.poly([[fc - 1.4, hy - 6], [fc + 1.4, hy - 6], [fc + 1.9, hy - 3.2], [fc + 0.7, hy + 1.4], [fc - 0.5, hy + 1.4], [fc - 1.8, hy - 3.2]], K.BEAK, 9.4, { round: 0.6 });
+    px.line(fc - 1, hy - 5.4, fc - 1.2, hy - 2.6, K.BEAKHI, 9.45, { noLine: true });
+    px.line(fc + 1.3, hy - 4.2, fc + 0.6, hy + 0.4, K.BEAKSH, 9.45, { noLine: true });
+    px.dot(fc, hy + 0.8, K.BEAKHI, 9.46, { noLine: true });
+    px.line(fc - 1.6, hy - 5.2, fc + 1.6, hy - 5.2, K.BRASS, 9.44, { noLine: true });
+  }
+  // the plague doctor's wide-brimmed hat: a broad brim, a tall crown, a brass band
+  if (K.PHAT) {
+    const fc = hx + 0.5;
+    px.part();
+    px.ellipse(fc, hy - 10, 9.4, 2.4, K.PHAT, 9.6, { cast: 1 });
+    px.part();
+    px.poly([[fc - 4.2, hy - 10.4], [fc - 3.6, hy - 16.2], [fc + 3.6, hy - 16.2], [fc + 4.2, hy - 10.4]], K.PHAT, 9.62, { round: 0.8, cast: 1 });
+    px.line(fc - 4, hy - 11.8, fc + 4, hy - 11.8, K.BRASS, 9.7, { noLine: true });
   }
   // the Open Contract's wide hat: a brim over the cowl, a low crown, a plume
-  if (K.HAT) {
+  if (K.HAT && !K.PHAT) {
     px.part();
     px.ellipse(hx + 0.4, hy - 9.8, 9.4, s > 0 ? 2.6 : 2.4, K.HAT, 9.6, { cast: 1 });
     px.ellipse(hx, hy - 12.4, 4.8, 3.2, K.HAT, 9.62, { cast: 1 });

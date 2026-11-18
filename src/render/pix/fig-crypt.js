@@ -62,12 +62,12 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   {
     const c = [hdF[0] + 3.2, hdF[1] + 0.4], lw = 5.2, lh = 11.4;
     px.part(); const sid = px._pid;
-    px.poly([[c[0] - lw, c[1] - lh + 1.6], [c[0] - lw + 1.6, c[1] - lh], [c[0] + lw - 1.6, c[1] - lh], [c[0] + lw, c[1] - lh + 1.6], [c[0] + lw, c[1] + lh - 1.2], [c[0] + lw - 1.4, c[1] + lh], [c[0] - lw + 1.4, c[1] + lh], [c[0] - lw, c[1] + lh - 1.2]], STONE, 1.6, { round: 0.5, floor: 1, edge: true });
+    px.poly([[c[0] - lw, c[1] - lh + 1.6], [c[0] - lw + 1.6, c[1] - lh], [c[0] + lw - 1.6, c[1] - lh], [c[0] + lw, c[1] - lh + 1.6], [c[0] + lw, c[1] + lh - 1.2], [c[0] + lw - 1.4, c[1] + lh], [c[0] - lw + 1.4, c[1] + lh], [c[0] - lw, c[1] + lh - 1.2]], STONE, 2.5, { round: 0.5, floor: 1, edge: true });
     px.toneLine(c[0] - lw + 1, c[1] - lh + 2, c[0] - lw + 1, c[1] + lh - 2, -1, sid);
     px.part();
-    px.line(c[0], c[1] - 6, c[0], c[1] + 5, STEEL_D, 1.7, { fix: 0 }); px.line(c[0] - 2.4, c[1] - 2.8, c[0] + 2.4, c[1] - 2.8, STEEL_D, 1.7, { fix: 0 });
-    for (const [dx, dy] of [[-3, 7], [-2, 8], [-1, 7], [2, -8], [3, -9]]) px.dot(c[0] + dx, c[1] + dy, MOSS, 1.75, { fix: 1 });
-    px.dot(c[0] + 2.8, c[1] + 4.6, STEEL_D, 1.75, { fix: 0 });
+    px.line(c[0], c[1] - 6, c[0], c[1] + 5, STEEL_D, 2.6, { fix: 0 }); px.line(c[0] - 2.4, c[1] - 2.8, c[0] + 2.4, c[1] - 2.8, STEEL_D, 2.6, { fix: 0 });
+    for (const [dx, dy] of [[-3, 7], [-2, 8], [-1, 7], [2, -8], [3, -9]]) px.dot(c[0] + dx, c[1] + dy, MOSS, 2.65, { fix: 1 });
+    px.dot(c[0] + 2.8, c[1] + 4.6, STEEL_D, 2.65, { fix: 0 });
   }
   // ---- the far arm: a pauldron, a bone arm, the steel vambrace, a gauntlet on the lid's edge
   // ONE BODY (the joint kit): the bone limbs are welded tubes, the steel on them wrapped over the bone

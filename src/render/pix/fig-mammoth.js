@@ -18,6 +18,7 @@ import { QUAD, beastFrames, tailPts, walkGait, legChain } from "./beast.js";
 
 // the mammoth
 const HIDE = mat("#6e5442", { contrast: 1.1 }), SHAG = mat("#3e2e24", { contrast: 1.15 }), RIMEHAIR = mat("#e8eef0"), TUSK = mat("#ece2c6", { contrast: 1.2 });
+const EARM = mat("#5e4636", { contrast: 1.25 });
 const TOENAIL = mat("#d8ccb0"), PADM = mat("#4a382e"), BANDM = mat("#7e8692", { contrast: 1.3 }), BANDD = mat("#4e5560");
 const EYEM = flat("#1e1620"), EYEG = flat("#e0f8ff", { emis: true, line: "#3a86b0" });
 // the howdah and its trappings
@@ -71,9 +72,15 @@ const trunkPts = (root, a0, curl, len, n = 9) => {
 // shoulder or hip to the pad, one radius at the knee, its root fading into the barrel's own shading
 // (near legs; a far leg is covered by the barrel anyway). The thigh's shag is tone strokes down
 // the hide and a few wrapped tufts, never a second lit shape. Far legs stay a tone down, whole.
+// A HIND leg is an elephant's, not a horse's: beast.js folds it with the hock back, so it is re-solved
+// here from the same hip to the same pad with a long pillar thigh and the knee LOW, bending FORWARD, then a
+// thick straight shin to the round pad; its top is welded deep into the rump (no seam at the hip).
+const HIND_U = 31, HIND_L = 21.5;
 const leg = (px, l, z, bias, near, BID) => {
-  const { j, k, a } = l;
-  px.limb(legChain(l), [9.6, 8, 6.6], HIDE, z, { bias, cast: 1, weld: near ? 5 : 0, weldRoot: near ? 11 : 0 });
+  const { j, a } = l, k = l.fore ? l.k : ik(j[0], j[1], a[0], a[1], HIND_U, HIND_L, -1).mid;
+  const chain = l.fore ? legChain(l) : [[j[0], j[1] - 4], j, k, a];
+  const rad = l.fore ? [9.6, 8, 6.6] : [12.4, 11.2, 8.4, 7.4];
+  px.limb(chain, rad, HIDE, z, { bias, cast: 1, weld: near ? 5 : l.fore ? 0 : 4, weldRoot: near ? (l.fore ? 11 : 15) : l.fore ? 0 : 8 });
   for (const [t0, t1, dx] of [[0.2, 0.7, -5], [0.3, 0.95, -1.5], [0.25, 0.85, 2.5], [0.4, 1.0, 5.5]]) { const q0 = mix(j, k, t0), q1 = mix(j, k, t1); px.toneLine(q0[0] + dx, q0[1], q1[0] + dx, q1[1], -1, BID); }
   for (const t of [0.15, 0.5]) { const m = mix(k, a, t); px.dot(m[0] - 5, m[1] + 1, SHAG, z + 0.03, { noLine: true, wrap: true }); px.dot(m[0] + 4, m[1] + 2, SHAG, z + 0.03, { noLine: true, wrap: true }); }
   const up = cl(l.lift / 4, 0, 1);
@@ -148,8 +155,15 @@ export const draw = (px, F) => {
   px.poly([[hc[0] - 9, hc[1] + 6], [hc[0] + 2, hc[1] + 8], [hc[0] + 3, hc[1] + 17], [hc[0] - 1, hc[1] + 14], [hc[0] - 3, hc[1] + 19], [hc[0] - 6, hc[1] + 13], [hc[0] - 9, hc[1] + 16]], SHAG, 6.15, { floor: 1 });
   // the ear flap, flicked now and then
   px.part();
-  px.ellipse(hc[0] - 6 - ear * 1.4, hc[1] + 2 - ear * 0.6, 4, 7 + ear * 1.4, HIDE, 6.25, { rot: 0.2 + ear * 0.35, bias: -1 });
-  px.ellipse(hc[0] - 6 - ear * 1.2, hc[1] + 3, 2, 4, SHAG, 6.3, { rot: 0.2 + ear * 0.3, floor: 1, cast: 0 });
+  const ec = [hc[0] - 6.4 - ear * 1.8, hc[1] + 2.4 - ear * 0.6], er = 0.18 + ear * 0.35; const eid = px._pid;
+  px.ellipse(ec[0], ec[1], 8.8 + ear * 0.6, 13.2 + ear * 1.4, SHAG, 6.33, { rot: er, cast: 2, floor: 1 });           // the flap's dark rim
+  px.ellipse(ec[0] - 0.6, ec[1] - 0.6, 7.4 + ear * 0.6, 11.8 + ear * 1.4, EARM, 6.35, { rot: er, bias: -0.5 });
+  px.toneLine(ec[0] + 2.4, ec[1] - 6, ec[0] + 3.6, ec[1] + 6, -1, eid); px.toneLine(ec[0] - 2, ec[1] - 4, ec[0] - 1.2, ec[1] + 7, -1, eid);
+  px.toneLine(ec[0] - 4, ec[1] - 9, ec[0] + 3, ec[1] - 10.6, 1, eid);
+  for (let i = 0; i < 4; i++) {                                                                // the shaggy hem of the flap
+    const x = ec[0] - 5 + i * 3 + Math.sin(er) * 4, y = ec[1] + 9.4 + (i === 0 || i === 3 ? -1.6 : 0);
+    px.poly([[x - 1.6, y], [x + 1.6, y], [x + 0.4 - ear, y + 4.4 + (i & 1) * 1.6]], EARM, 6.37, { bias: -0.6, floor: 1 });
+  }
   // the eye: small, set under a brow ridge
   px.part();
   px.rect(hc[0] + 7, hc[1] + 2, 3, 2, p.blink ? SHAG : EYEG, 6.5, { fix: 3 });
@@ -368,7 +382,7 @@ export const CLIPS = {
     pose: (ph) => {
       const g = walkGait(ph, { travel: 64.8, duty: 0.7, lift: 5, bob: 0.8, rock: 0.02, flex: 0.02, nod: 0.03 });
       const s = Math.sin(ph * TAU * 2);
-      return { ...STAND, ...g, neck: -0.04 + g.nod, tA: 1.45 + 0.1 * Math.sin(ph * TAU), tC: 0.12 + 0.22 * Math.sin(ph * TAU - 0.6), tail: -0.9 + 0.3 * Math.sin(ph * TAU - 1), curl: -0.25,
+      return { ...STAND, ...g, neck: -0.04 + g.nod, ear: 0.3 + 0.3 * Math.sin(ph * TAU - 1.4), tA: 1.45 + 0.1 * Math.sin(ph * TAU), tC: 0.12 + 0.22 * Math.sin(ph * TAU - 0.6), tail: -0.9 + 0.3 * Math.sin(ph * TAU - 1), curl: -0.25,
         jLean: 0.12 + 0.02 * s, jHd: [8, 2 + 0.4 * s], axe: 0.3 - 0.02 * s };
     },
   },

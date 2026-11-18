@@ -31,7 +31,7 @@ const FRONT_H = [
   "..CCCKKKKKCCC..",
   ".CCKKIIIIIKKCc.",
   ".CCKIdddddIKCc.",
-  ".CCKIeEdEeIKCc.",
+  ".CCKIEdSdEIKCc.",
   ".CCKIsSNSsIKCc.",
   ".CCKIdSHSdIKCc.",
   ".CCKIBBBBBIKCc.",

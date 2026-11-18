@@ -14,7 +14,15 @@ const OX = mat("#7a2a2c", { contrast: 1.1 }), OXK = mat("#561c20"), PAD = mat("#
 const BRASS = mat("#c8a040", { contrast: 1.2 }), HOSE = mat("#4a4c58", { floor: 1 }), BOOT = mat("#2a2a30", { contrast: 1.2, floor: 1 }), GREY = mat("#a8aeb8", { contrast: 1.2 });
 const CORD = flat("#e8e0c4"), FLETCH = flat("#f0ead8"), BOLT = mat("#8a6a40");
 const LEG = { ...LLEG, c: { m: OX } };
-const dropTuft = (rows) => rows;   // no crest on his kettle
+// BACK head: the kettle's dome, then the oxblood hood running unbroken down the nape (no skin) into the scarf-like cowl on the shoulders
+const BACK_X = [...HAT,
+  ".ccccscccccc.",
+  ".ccccscccccc.",
+  ".cccccsccccc.",
+  ".cccccsccccc.",
+  "..ccccsccccc.",
+  "..cccccccccc.",
+];
 
 const make = (s) => (px, F, o = {}) => {
   const B = base(F, s, 0.8), { sk, ph, p, rs, ls, sx, hipY, chestY, hy, hx, vy, vy2, vx, vx2, tilt } = B;
@@ -61,7 +69,7 @@ const make = (s) => (px, F, o = {}) => {
   }
   // the hood falls on the shoulders over the collar
   px.part();
-  px.poly([[sx - 5.6, c0 - 0.4], [sx + 5.6, c0 - 0.4], [sx + 6.2, c0 + 2.2], [sx + (s > 0 ? 1.4 : 0), c0 + (s > 0 ? 3.6 : 3.2)], [sx - 6.2, c0 + 2.2]], OX, 5, { round: 0.9, cast: 1 });
+  px.poly([[sx - 5.6, c0 - (s > 0 ? 0.4 : 2.4)], [sx + 5.6, c0 - (s > 0 ? 0.4 : 2.4)], [sx + 6.2, c0 + 2.2], [sx + (s > 0 ? 1.4 : 0), c0 + (s > 0 ? 3.6 : 3.2)], [sx - 6.2, c0 + 2.2]], OX, 5, { round: 0.9, cast: 1 });
 
   // ---- the arms and the arbalest (FRONT)
   const sh = (side) => [side * 5.4 + sx, shY + 0.6];
@@ -114,7 +122,7 @@ const make = (s) => (px, F, o = {}) => {
   // ---- the head: the kettle over the hood
   px.part();
   if (s > 0) px.stamp(p.blink ? blinkOf(FRONT_H) : FRONT_H, hx, hy, LEG, 6, { ax: 6, ay: 12, ball: [6.5, 6, 7, 7], cast: 1 });
-  else px.stamp(BACK_H, hx, hy, LEG, 6.4, { ax: 6, ay: 12, ball: [6.5, 6, 7, 7], cast: 1 });
+  else px.stamp(BACK_X, hx, hy, LEG, 6.4, { ax: 6, ay: 12, ball: [6.5, 6, 7, 7], cast: 1 });
   px.dot(hx + 1, hy - 10.4, BRASS, 6.5, { fix: 3 });
   if (s > 0) px.dot(hx + 3, hy - 8.4, STEELB, 6.5, { fix: 4 }); else { px.dot(hx - 3, hy - 8.4, STEELB, 6.5, { fix: 4 }); px.dot(hx + 3, hy - 8.4, STEELB, 6.5, { fix: 4 }); }
   return {};

@@ -131,3 +131,44 @@ a shoulder, cloak or head (except the deliberate over-the-shoulder peek); the we
 and/or below the body.
 Worked proofs (advisor's scratch copies): scratchpad/adv/fig-halberdier-views.js, fig-fieldbow-views.js
 (scratchpad/adv/ in the repo: the recipe applied, rough).
+
+## One weapon pose (2026-11-18, the owner: "weapons always stay in the same positions throughout the three")
+
+The advisor's rule: **a weapon has ONE 3D pose, read from the side walk clip; FRONT and BACK are
+projections of it, never a new carry.** This supersedes rule 2's "never stand a blade up beside
+the head" and every "hang it head-down from behind" habit: an upright weapon stays upright in all
+three views (from behind it rises past the shoulder, occluded by the pauldron and arm up to the
+shoulder). Upright weapons can be identical in all three views; slanted and level ones are the
+SAME POSE, not the same picture: from the front they point at us (short, head big), from behind
+they are in front of him and show past the shoulder.
+
+Read per frame from the side file (`F.sk`): `a` = the weapon's angle from straight up, + forward
+(forearm angle `atan2(hdN.x - eN.x, -(hdN.y - eN.y))` + the side file's GRIP + clamped wrist;
+import the side file's angle helper where exported, else copy its GRIP with a comment; files that
+measure from +x: a = la + PI/2); the hand HEIGHT (`hdN[1]`: a chest-high fist stays chest-high in
+both views); the side file's own lengths L (fist to tip) and B (fist to butt). Damp the swing
+(`damp(aFrame, aMean)` 0.35) so a big walk swing doesn't pump the head.
+
+Use the shared helper **`src/render/pix/carry.js`** (`carry(a, view, { rs, hand, len, butt, K,
+splay, floorY })` -> `{ at(f, s), dir, fore, near, zTip, zButt, cls }`): it projects (forward = down
+the screen in FRONT, up it in BACK, K 0.5), snaps |a| <= 0.35 rad to exactly upright, adds up to
+0.5 rad of outboard splay when the weapon would read end-on, clamps to the ground, and gives the
+z: BACK far side 1.0 (the BACK stack), BACK near side 4.6 (over the arms, under back gear), FRONT
+near side on top (over its own arm and shoulder), FRONT far side under the legs. Draw the weapon as
+two segments, tip side and butt side, split at the fist; the fist closes over the haft (rule 4).
+The HEAD (axe head, club end, blade tip, lance head and pennon) is never foreshortened: full
+side-view size, only the haft shortens (build head polygons with `at(f, s)`).
+
+Hard cases: slanted/level in FRONT (an axe at 60-90 degrees): the end-on glyph, haft 0.4-0.5 L
+down-and-outboard, full-size head clear of the face. Couched lance FRONT: shaft down-and-out with
+~15 degrees of splay over the horse, at least three bands, head and pennon full size; BACK: the
+same splay, rising past his shoulder beside the helm at z 1.0, a short butt stub below the fist.
+Low forward club (the troll's walk points it FORWARD, it is not dragged): FRONT toward us, its head
+on the ground in front of his foot over the shin; BACK hidden behind the leg, splayed so the head
+clears the leg by 4-6 px. Truly dragged weapons (a < 0): mirror case. Check the measured angle
+before calling anything "dragged". Drop "a two-handed weapon is held across the body": a second
+hand goes on the haft only where the side walk has one.
+
+**The "not held backwards" test, every frame:** for a forward weapon in BACK the tip side is never
+below the fist, never drawn over the body, never edged or cast. In FRONT the tip is the nearest
+thing, never behind his legs. The approved goblin's knife stays as it is unless the owner asks.

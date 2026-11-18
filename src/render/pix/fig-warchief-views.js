@@ -42,6 +42,7 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const TOT = 54;
 
 const make = (s) => (px, F) => {
+  const zt = s > 0 ? 6.8 : 0;          // FRONT: the totem is held in front of his ear, shoulder and arm (his fist is over it); BACK keeps it behind
   const ED = s > 0;                   // BACK: nothing carried 'lies on top', so no edge on the totem
   const rs = -s, ls = s;              // screen side of his right (free hand, trophy) and of his left (the totem)
   const { sk, ph } = F, p = sk.p;
@@ -62,27 +63,27 @@ const make = (s) => (px, F) => {
     const TL = [bar[0] - 3, bar[1] + 0.6], TR = [bar[0] + 3, bar[1] + 0.6], H = 13;
     const BL = hang(TL, H), BR = hang(TR, H, 0.92), ML = hang(TL, H * 0.5, 0.55), MR = hang(TR, H * 0.5, 0.5), nt = mix(mix(BL, BR, 0.5), mix(ML, MR, 0.5), 0.45);
     px.part(); const clothId = px._pid;
-    px.poly([TL, TR, MR, BR, nt, BL, ML], RED, s > 0 ? 1.42 : 1.6, { round: 0.5, floor: 1 });
-    { const a = mix(TL, ML, 0.8), b = mix(TR, MR, 0.8); px.line(a[0], a[1], b[0], b[1], GOLD, s > 0 ? 1.43 : 1.61, { fix: 3 }); }
+    px.poly([TL, TR, MR, BR, nt, BL, ML], RED, s > 0 ? 1.42 + zt : 1.6, { round: 0.5, floor: 1 });
+    { const a = mix(TL, ML, 0.8), b = mix(TR, MR, 0.8); px.line(a[0], a[1], b[0], b[1], GOLD, s > 0 ? 1.43 + zt : 1.61, { fix: 3 }); }
     px.toneLine(...mix(TL, TR, 0.5), ...mix(BL, BR, 0.5), -1, clothId);
     const feather = (x, L, m, k, fan, z) => {
       const a = [bar[0] + x, bar[1] + 0.4], e = hang(a, L, k); e[0] += fan; e[1] -= Math.abs(fan) * 0.35;
       const mid = mix(a, e, 0.5);
       px.part(); px.capsule(a[0], a[1], 0.7, mid[0], mid[1], 1.3, m, z); px.capsule(mid[0], mid[1], 1.3, e[0], e[1], 0.5, m, z);
     };
-    feather(-6.2, 8, RED, 1.2, -1.8, 1.44); feather(-5, 8.5, F_GOLD, 1, 0.6, 1.46); feather(6.4, 7.5, F_BLUE, 0.85, 1.8, 1.48);
-    px.part(); px.capsule(...foot, 1.15, ...top(TOT + 2.4), 1.05, WOOD, 1.5, { edge: ED });
+    feather(-6.2, 8, RED, 1.2, -1.8, 1.44 + zt); feather(-5, 8.5, F_GOLD, 1, 0.6, 1.46 + zt); feather(6.4, 7.5, F_BLUE, 0.85, 1.8, 1.48 + zt);
+    px.part(); px.capsule(...foot, 1.15, ...top(TOT + 2.4), 1.05, WOOD, 1.5 + zt, { edge: ED });
     px.part();
-    px.capsule(...top(TOT - 4.4), 1.5, ...top(TOT - 2.2), 1.5, DARK, 1.52, { floor: 1 });
-    px.capsule(...top(1), 1.35, ...top(2.6), 1.35, IRON, 1.52);
-    px.part(); px.capsule(bar[0] - 7.4, bar[1], 0.95, bar[0] + 7.4, bar[1], 0.95, WOOD, 1.55, { edge: ED });
+    px.capsule(...top(TOT - 4.4), 1.5, ...top(TOT - 2.2), 1.5, DARK, 1.52 + zt, { floor: 1 });
+    px.capsule(...top(1), 1.35, ...top(2.6), 1.35, IRON, 1.52 + zt);
+    px.part(); px.capsule(bar[0] - 7.4, bar[1], 0.95, bar[0] + 7.4, bar[1], 0.95, WOOD, 1.55 + zt, { edge: ED });
     // the skull and the two horns bound to it
     const sc = top(TOT + 6.2);
     px.part();
-    px.poly([[sc[0] - 3.4, sc[1] + 1], [sc[0] - 5.4, sc[1] - 2], [sc[0] - 6.8, sc[1] - 6.4], [sc[0] - 3.8, sc[1] - 4.2], [sc[0] - 2.2, sc[1] - 1.6]], BONE, 1.58, { bias: -1, n: [-0.3, -0.3, 0.9] });
-    px.poly([[sc[0] + 3.4, sc[1] + 1], [sc[0] + 5.4, sc[1] - 2], [sc[0] + 6.8, sc[1] - 6.4], [sc[0] + 3.8, sc[1] - 4.2], [sc[0] + 2.2, sc[1] - 1.6]], BONE, 1.58, { n: [0.2, -0.4, 0.9] });
+    px.poly([[sc[0] - 3.4, sc[1] + 1], [sc[0] - 5.4, sc[1] - 2], [sc[0] - 6.8, sc[1] - 6.4], [sc[0] - 3.8, sc[1] - 4.2], [sc[0] - 2.2, sc[1] - 1.6]], BONE, 1.58 + zt, { bias: -1, n: [-0.3, -0.3, 0.9] });
+    px.poly([[sc[0] + 3.4, sc[1] + 1], [sc[0] + 5.4, sc[1] - 2], [sc[0] + 6.8, sc[1] - 6.4], [sc[0] + 3.8, sc[1] - 4.2], [sc[0] + 2.2, sc[1] - 1.6]], BONE, 1.58 + zt, { n: [0.2, -0.4, 0.9] });
     px.part();
-    px.stamp(s > 0 ? SKULL : SKULL_B, Math.round(sc[0]), Math.round(sc[1]), SKULL_LEG, 1.62, { ax: 4, ay: 4, ball: [4.5, 3.6, 5, 4.6] });
+    px.stamp(s > 0 ? SKULL : SKULL_B, Math.round(sc[0]), Math.round(sc[1]), SKULL_LEG, 1.62 + zt, { ax: 4, ay: 4, ball: [4.5, 3.6, 5, 4.6] });
   }
 
   // ---- long legs: bare thighs, hide boots bound to the knee with a fur cuff

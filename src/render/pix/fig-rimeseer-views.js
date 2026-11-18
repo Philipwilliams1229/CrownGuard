@@ -82,7 +82,8 @@ const make = (s) => (px, F) => {
     px.capsule(el[0], el[1], 2.2, wr[0], wr[1], 2.7, SLEEVE, az, o);
     px.capsule(wr[0], wr[1], 1.7, hd[0], hd[1] - 0.6, 1.7, FURW, az + 0.05, o);
     px.part();
-    if (back) px.ellipse(hd[0], hd[1] + 0.6, 1.5, 1.5, SKIN, 3.6); else px.ellipse(hd[0], hd[1], 1.8, 1.9, SKIN, 3.3, { bias: -1 });
+    if (back) px.ellipse(hd[0], hd[1] + 0.6, 1.5, 1.5, SKIN, 3.6);
+    else { px.ellipse(stx, hd[1], 2.4, 2.1, SKIN, 3.4); px.dot(stx - 2, hd[1] + 0.4, SKIN, 3.45, { bias: -1 }); px.dot(stx + 2, hd[1] + 0.4, SKIN, 3.45, { bias: -1 }); px.line(stx - 2, hd[1] + 1.4, stx + 2, hd[1] + 1.4, SKIN, 3.45, { bias: -1 }); }   // the fist closed over the staff, fingers across it
   }
 
   // ---- boots peeping under the hem; the stepping foot comes toward us (front) / away (back)

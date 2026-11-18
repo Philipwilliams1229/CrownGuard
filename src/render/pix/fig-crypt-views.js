@@ -89,9 +89,9 @@ const make = (s) => (px0, F, o = {}) => {
   if (s > 0) {
     const sh = [hx + ls * 7.2, chestY + 1.4], hd = [ls * 8.4 + cx, handY], el = [ls * 9.4 + cx * 0.6, (sh[1] + hd[1]) / 2 + 0.6];
     px.body(1);
-    px.limb([sh, el, hd], [1.7, 1.8, 1.6], BONE, 7.7, { bias: -1 });
-    px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.6, STEEL_D, 7.75, { bias: -1, wrap: true });
-    px.ellipse(hd[0], hd[1], 1.7, 1.6, STEEL_D, 7.8, { bias: -1, weld: 1.5 });
+    px.limb([sh, el, hd], [1.7, 1.8, 1.6], BONE, 6.9, { bias: -1 });
+    px.capsule(el[0], el[1], 1.9, hd[0], hd[1], 1.6, STEEL_D, 6.95, { bias: -1, wrap: true });
+    px.ellipse(hd[0], hd[1], 1.7, 1.6, STEEL_D, 7.0, { bias: -1, weld: 1.5 });
     px.body(0);
   } else {
     const sh = [hx + ls * 7.6, chestY + 1.4], el = [hx + ls * 8.8, chestY + 7.4], hd = [hx + ls * 8.8, chestY + 12.4 + ls * Math.cos(ph * TAU) * 1.0];

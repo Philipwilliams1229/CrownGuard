@@ -19,28 +19,28 @@ const BRASS = mat("#c8a040", { contrast: 1.25 }), HOSE = mat("#34363f", { floor:
 const LEG = { M: { m: PLATE }, W: { m: PLATE, bias: 1 }, m: { m: PLATEK }, K: { m: BRASS }, Y: { m: BRASS, bias: 1 }, E: { m: EYE } };
 // FRONT: crown points, brass band, the visor slit (m) with pale eyes (E) in it, breath vents, brass base. 17 wide, centre col 8.
 const FRONT_H = [
-  "..Y..Y..Y..Y..Y..",
-  ".KKKKKKKKKKKKKKK.",
-  ".MMMMMMMMMMMMMMM.",
+  "....Y...Y...Y....",
+  "...KKKKKKKKKKK...",
+  "..MWWMMMMMMMMMm..",
   ".MWWMMMMMMMMMMMm.",
   ".MWMMMMMMMMMMMMm.",
   ".MWMMMMMMMMMMMMm.",
   ".MMMMMMMMMMMMMMm.",
+  ".MMWWWWWWWWWWWMm.",
   ".MMmmmmmmmmmmmMM.",
   ".MMmEEmmmmmEEmMM.",
   ".MMmmmmmmmmmmmMM.",
-  ".MMMMMMMMMMMMMMm.",
-  ".MMMMMmMmMmMMMMm.",
-  ".MMMMMMMMMMMMMMm.",
+  "..MMMmMmMmMmMMm..",
   "..MMMMMMMMMMMMm..",
-  "..KKKKKKKKKKKKK..",
-  "...mmmmmmmmmmm...",
+  "...MMMMMMMMMMm...",
+  "...KKKKKKKKKKK...",
+  "....mmmmmmmmm....",
 ];
-// BACK: the helm's back, a seam, two brass straps, the crown points; the plume is drawn over it.
+// BACK: the same helm from behind: a seam, two brass straps, the crown points; the plume is drawn over it.
 const BACK_H = [
-  "..Y..Y..Y..Y..Y..",
-  ".KKKKKKKKKKKKKKK.",
-  ".MMMMMMMmMMMMMMM.",
+  "....Y...Y...Y....",
+  "...KKKKKKKKKKK...",
+  "..MWWMMMmMMMMMm..",
   ".MWWMMMMmMMMMMMm.",
   ".MWMMMMMmMMMMMMm.",
   ".KKKKKKKKKKKKKKK.",
@@ -49,11 +49,11 @@ const BACK_H = [
   ".MWMMMMMmMMMMMMm.",
   ".MMMMMMMmMMMMMMm.",
   ".KKKKKKKKKKKKKKK.",
-  ".MMMMMMMmMMMMMMm.",
-  ".MMMMMMMmMMMMMMm.",
   "..MMMMMMmMMMMMm..",
-  "..KKKKKKKKKKKKK..",
-  "...mmmmmmmmmmm...",
+  "..MMMMMMmMMMMMm..",
+  "...MMMMMmMMMMm...",
+  "...KKKKKKKKKKK...",
+  "....mmmmmmmmm....",
 ];
 
 const FWD = 0.4, TAU = Math.PI * 2, cl = (v, a, b) => Math.max(a, Math.min(b, v)), UP = SIDE_BONES.upper, FO = SIDE_BONES.fore;
@@ -149,27 +149,27 @@ const make = (s) => (px, F) => {
   const nearY = shY + 5.2 + (hipY - P[1]) + (p.hy || 0) * 0 + s * (p.aN[0] - 0.9) * 0.3;
   const lx = sx + rs * 5.6, buttY = nearY + 28, topY = buttY - 66, farY = nearY + 10;
   px.part();
-  px.capsule(lx, buttY, 1.2, lx, topY, 1.2, WOOD, 7, { edge: true });
-  px.capsule(lx, buttY, 1.5, lx, buttY - 2.4, 1.5, IRON, 7.01);
-  px.capsule(lx, topY + 3.4, 1.7, lx, topY + 1.4, 1.7, BRASS, 7.04);
-  px.poly([[lx, topY + 1], [lx + 2.6, topY - 0.6], [lx + 2.4, topY - 7], [lx, topY - 12], [lx - 2.4, topY - 7], [lx - 2.6, topY - 0.6]], STEELB, 7.06, { n: [0.1, 0.1, 0.95] });
-  px.line(lx, topY - 1, lx, topY - 10.4, IRON, 7.07, { fix: 1, noLine: true });
+  px.capsule(lx, buttY, 1.2, lx, topY, 1.2, WOOD, 9.30, { edge: true });
+  px.capsule(lx, buttY, 1.5, lx, buttY - 2.4, 1.5, IRON, 9.31);
+  px.capsule(lx, topY + 3.4, 1.7, lx, topY + 1.4, 1.7, BRASS, 9.34);
+  px.poly([[lx, topY + 1], [lx + 2.6, topY - 0.6], [lx + 2.4, topY - 7], [lx, topY - 12], [lx - 2.4, topY - 7], [lx - 2.6, topY - 0.6]], STEELB, 9.36, { n: [0.1, 0.1, 0.95] });
+  px.line(lx, topY - 1, lx, topY - 10.4, IRON, 9.37, { fix: 1, noLine: true });
   const barY = topY + 5, ff = cl(vx * 2 + fl, -3, 3);
   px.part();
-  px.line(lx, barY, lx + rs * 15, barY, BRASS, 7.05, { noLine: true });
+  px.line(lx, barY, lx + rs * 15, barY, BRASS, 9.15, { noLine: true });
   const pt = (a, b) => [lx + rs * b, barY + 0.6 + a];
   px.part(); const bid = px._pid;
-  px.poly([pt(0, 0.6), pt(0, 15), pt(15 + ff * 0.5, 16 + ff * 0.4), pt(21, 14.4 + ff * 0.6), pt(15.4, 10 + ff * 0.4), pt(20, 6 + ff * 0.3), pt(15, 0.8)], OX, 7.08, { round: 0.5, cast: 1 });
+  px.poly([pt(0, 0.6), pt(0, 15), pt(15 + ff * 0.5, 16 + ff * 0.4), pt(21, 14.4 + ff * 0.6), pt(15.4, 10 + ff * 0.4), pt(20, 6 + ff * 0.3), pt(15, 0.8)], OX, 9.38, { round: 0.5, cast: 1 });
   px.toneLine(...pt(2, 2), ...pt(14, 12 + ff), -1, bid);
-  px.line(...pt(0.6, 1.4), ...pt(0.6, 14.4), BRASS, 7.1, { noLine: true });
-  px.line(...pt(15.6, 1), ...pt(19.4, 6 + ff * 0.3), BRASS, 7.1, { noLine: true });
+  px.line(...pt(0.6, 1.4), ...pt(0.6, 14.4), BRASS, 9.40, { noLine: true });
+  px.line(...pt(15.6, 1), ...pt(19.4, 6 + ff * 0.3), BRASS, 9.40, { noLine: true });
   px.part();
   const tx = pt(8, 8);
   if (s > 0) {
-    px.rect(tx[0] - 2.6, tx[1] - 2.8, 5.2, 5.6, GREY, 7.12, { fix: 3 });
-    for (const dx of [-2.6, -0.6, 1.4]) px.dot(tx[0] + dx, tx[1] - 3.8, GREY, 7.12, { fix: 3 });
-    px.rect(tx[0] - 0.6, tx[1] + 0.4, 1.2, 2.4, OXK, 7.13, { noLine: true });
-  } else px.rect(tx[0] - 2.6, tx[1] - 2.8, 5.2, 5.6, OXK, 7.12, { noLine: true });
+    px.rect(tx[0] - 2.6, tx[1] - 2.8, 5.2, 5.6, GREY, 9.42, { fix: 3 });
+    for (const dx of [-2.6, -0.6, 1.4]) px.dot(tx[0] + dx, tx[1] - 3.8, GREY, 9.42, { fix: 3 });
+    px.rect(tx[0] - 0.6, tx[1] + 0.4, 1.2, 2.4, OXK, 9.43, { noLine: true });
+  } else px.rect(tx[0] - 2.6, tx[1] - 2.8, 5.2, 5.6, OXK, 9.42, { noLine: true });
 
   // ---- the arms over the plate: near fist high on the shaft, far fist below it (reached across the body)
   const arm = (side, hand, z, tone, flipElbow) => {
@@ -190,14 +190,18 @@ const make = (s) => (px, F) => {
     px.ellipse(el[0], el[1], 2.7, 2.7, PLATE, 8.05, { weld: 2 }); px.body(0);
   }      // from behind only his left fist shows on the shaft
   px.tag("nearArm"); arm(rs, [lx, nearY], 9, 0, rs > 0 ? -1 : 1); px.tag(null);
+  if (s > 0) for (const fy2 of [nearY, farY]) {
+    px.part(); px.ellipse(lx, fy2, 2.7, 2.6, PLATEK, 9.55, { weld: 2 });
+    px.line(lx - 2.2, fy2 - 0.6, lx + 2.2, fy2 - 0.6, STEELB, 9.58, { noLine: true }); px.line(lx - 2.2, fy2 + 1.2, lx + 2.2, fy2 + 1.2, STEELB, 9.58, { noLine: true });
+  }
   // the pauldrons: two layers, spiked, brass-edged, on BOTH shoulders
   for (const side of [rs, ls]) {
     px.part();
     const ox = sx + side * 9.4;
-    for (const [k, dz, dy] of [[1, 0, 0], [0.74, 0.02, 3]]) px.ellipse(ox, shY + 2 + dy * 0.8, 5.2 * k, 4.4 * k, PLATE, 9.3 + dz, { cast: 1 });
-    px.line(ox - 4.6, shY + 4, ox + 4.6, shY + 4, BRASS, 9.35, { noLine: true });
-    px.poly([[ox - 1.2, shY - 1.8], [ox + 1.4, shY - 1.8], [ox + 0.2 + side * 0.6, shY - 5.6]], STEELB, 9.4, { cast: 0 });
-    px.dot(ox + 2.2, shY + 1.4, STEELB, 9.42, { fix: 4 }); px.dot(ox - 2.6, shY + 1.8, STEELB, 9.42, { fix: 4 });
+    for (const [k, dz, dy] of [[1, 0, 0], [0.74, 0.02, 3]]) px.ellipse(ox, shY + 2 + dy * 0.8, 5.2 * k, 4.4 * k, PLATE, 9.1 + dz, { cast: 1 });
+    px.line(ox - 4.6, shY + 4, ox + 4.6, shY + 4, BRASS, 9.15, { noLine: true });
+    px.poly([[ox - 1.2, shY - 1.8], [ox + 1.4, shY - 1.8], [ox + 0.2 + side * 0.6, shY - 5.6]], STEELB, 9.2, { cast: 0 });
+    px.dot(ox + 2.2, shY + 1.4, STEELB, 9.22, { fix: 4 }); px.dot(ox - 2.6, shY + 1.8, STEELB, 9.22, { fix: 4 });
   }
   return {};
 };
