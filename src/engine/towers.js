@@ -6,6 +6,7 @@ import { TOWERS } from "../data/towers.js";
 import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
 import { nearestOnPath, lanePos, TOTAL_LEN } from "./path.js";
+import { inFoot } from "./footing.js";
 import { RALLY_RANGE, LANE_OFF, PATH_HALF } from "../data/constants.js";
 import { WX, canSee } from "./weather.js";
 
@@ -119,8 +120,13 @@ export const powderCrew = (t) => {
 const COVER_ANGLES = [90, 45, 135, 0, 180, -45, 225, -90].map((a) => (a * Math.PI) / 180);
 const COVER_CLEAR = PATH_HALF + 4;
 const coverCache = new WeakMap();
+// The halls on the board, for the blades to keep out of their neighbours' footings
+// (update.js hands it the live list each tick)
+let HALLS = [];
+export const knowHalls = (list) => { HALLS = list || []; };
 export const coverSlots = (t) => {
-  const key = `${Math.round(t.x)},${Math.round(t.y)}`;
+  const near = HALLS.filter((o) => o !== t && Math.abs(o.x - t.x) < 90 && Math.abs(o.y - t.y) < 90);
+  const key = `${Math.round(t.x)},${Math.round(t.y)}|${near.map((o) => o.id).join(",")}`;
   const hit = coverCache.get(t);
   if (hit && hit.key === key) return hit.slots;
   const slots = [];
@@ -128,6 +134,7 @@ export const coverSlots = (t) => {
     if (slots.length >= 4) break;
     const x = t.x + Math.cos(a) * r, y = t.y + Math.sin(a) * r * 0.8;
     if (nearestOnPath(x, y).d <= COVER_CLEAR) continue;
+    if (near.some((o) => inFoot(o.kind, o.x, o.y, x, y, 4))) continue;
     if (slots.some(([ox, oy]) => Math.hypot(ox - x, oy - y) < 13)) continue;
     slots.push([x, y]);
   }

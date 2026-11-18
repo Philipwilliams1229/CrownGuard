@@ -1250,6 +1250,23 @@ until they have played these. Provisional.
   576 / 526); Iron flat (better doctrine 10812 / 10755 -> 10326 / 10777); Hollow 10936 / 12185 ->
   12229 / 12551 (the gravecaller walks on too; mixed). None stuck.
 
+## Halls stand by the shape of their base (2026-11-18, owner request)
+
+"Smaller bases can be built in smaller places, bigger bases take up more space." Before, every
+hall kept one 15-unit circle (30 between any two, 48 from the road's centre). Now each hall has
+a FOOTING, an ellipse measured from its art (`scripts/hall-footprints.mjs` -> `src/data/hallfoot.js`,
+read by `src/engine/footing.js`; rerun the script after changing a hall's ground-level art). The
+owner's calls: room for the hall's WIDEST form, so an upgrade never collides; the true shape side
+by side even where big halls now need more room than before; a little room front to back
+(`TOP_K` 0.5). Two Archer halls: 34 apart side by side (was 30), 25 front to back (was 30); a
+Covert / Knight / Gold Works needs more, a Bladewheel less. The road, rivers, sea, ponds (now an
+ellipse, not a box) and scenery test the footing too. A tap picks the NEAREST hall within 30
+(`towerNear`). The Covert's blades wait clear of neighbours' footings. `roadClear` now only picks
+the narrow ground art; `reach` is gone. Greedy packing, old -> new halls on a board: Bladewheel
+~350 -> ~390, Archer ~205 -> ~240, Knight ~205 -> ~175. `sim.mjs` now places by kind; `--endure`
+seed 1, better doctrine, old -> new: Greenwood 3480 -> 3594, Iron 10885 -> 10585 (noise; all held).
+Pending the owner's playtest.
+
 ## Idle soldiers gang up (2026-11-08, owner request)
 
 "If there's idle knights during a battle, allow them to gang up ... Same for

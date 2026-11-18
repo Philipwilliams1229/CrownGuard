@@ -129,11 +129,11 @@ const coverage = (x, y, r) => {
 
 // The best legal build spot for reach r — densest road coverage wins, with a
 // slight pull toward the middle of the road's length so defence layers.
-const bestSpot = (g, r, frontBias = 0) => {
+const bestSpot = (g, r, frontBias = 0, kind = null) => {
   let best = null, bs = -1;
   for (let y = 28; y < H - 20; y += 12) {
     for (let x = 24; x < W - 24; x += 12) {
-      if (!buildableAt(g, x, y)) continue;
+      if (!buildableAt(g, x, y, kind)) continue;
       let score = coverage(x, y, r);
       if (frontBias) {
         // early road is worth more to a knight post: leaks die at the gate
@@ -190,7 +190,7 @@ const placeNext = (g) => {
   const next = wanted[g.towers.length];
   if (!next || g.gold < TOWERS[next].cost) return false;
   const r = next === "knight" ? 120 : TOWERS[next].levels[0].range;
-  const spot = bestSpot(g, r, next === "knight" ? 0.35 : 0);
+  const spot = bestSpot(g, r, next === "knight" ? 0.35 : 0, next);
   if (!spot) return false;
   placeTower(g, next, spot[0], spot[1]);
   const t = g.towers[g.towers.length - 1];

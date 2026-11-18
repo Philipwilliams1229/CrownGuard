@@ -14,7 +14,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, COVER_CHASE, powderCrew, lowShield } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, knowHalls, COVER_CHASE, powderCrew, lowShield } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
@@ -1218,6 +1218,7 @@ export function updateGame(g, dt) {
   const speed = g.speed * BASE_SPEED;
   const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
+  knowHalls(g.towers);   // (the Covert's blades wait clear of their neighbours)
   // the sandbox's bottomless coffers: whatever was spent is back by the next frame
   if (SANDBOX?.infiniteGold) g.gold = INFINITE_GOLD;
   const tms = g.time * 1000;

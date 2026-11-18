@@ -3,7 +3,8 @@
 // placement checks, build / upgrade / evolve / sell, wave start & restart,
 // and the shared damage helper. Each takes `g` explicitly.
 
-import { W, H, BLOCK_DIST, WALL_W, LANE_OFF } from "../data/constants.js";
+import { W, H, WALL_W, LANE_OFF, PATH_HALF } from "../data/constants.js";
+import { footOf, footsClash, footPoints, inFoot, HALL_GAP } from "./footing.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN } from "./path.js";
@@ -25,24 +26,33 @@ import { bandArrowFrom, planShot, bandFeet } from "./muzzles.js";
 import { queueLanding } from "./rime.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 
-export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
-// How far a hall's footing reaches from its anchor; two halls stand at least
-// their two reaches apart (15 + 15 = 30 for most; a Bladewheel is narrower).
-const reachOf = (kind) => (TOWERS[kind] && TOWERS[kind].reach) || 15;
+// The hall a tap lands on: the nearest anchor within 30 (halls stand closer now)
+export const towerNear = (g, x, y) => {
+  let best = null, bd = 30;
+  for (const t of g.towers) { const d = Math.hypot(t.x - x, t.y - y); if (d < bd) { bd = d; best = t; } }
+  return best;
+};
 
 // The open water of a pond a boat can use: inside its ellipse, clear of the
 // reedy margin; lava pools and frozen tarns don't count.
 export const pondAt = (x, y) => PONDS.find((p) => p.t !== "lava" && p.t !== "ice" && p.w >= 50
   && ((x - p.x) / (p.w / 2 - 8)) ** 2 + ((y - p.y) / (p.h / 2 - 6)) ** 2 <= 1);
 
+// Where a hall may stand follows its footing, an ellipse the shape of its base
+// (engine/footing.js, data/hallfoot.js): a small hall fits a small gap, a big one
+// needs more room. `kind` null measures an Archer hall's footing.
 export const buildableAt = (g, x, y, kind = null) => {
   // A hall that floats has the opposite requirement to every other: it MUST
   // stand in running water, and nothing else may.
   const afloat = !!(kind && TOWERS[kind] && TOWERS[kind].water);
-  const clear = (kind && TOWERS[kind] && TOWERS[kind].roadClear) || BLOCK_DIST;
-  // (a hall's own footing is ~18 wide, so it stops short of the wall's drums)
-  if (x < 18 || x > W - WALL_W - 12 || y < 22 || y > H - 16) return false;
-  if (nearestOnPath(x, y).d < clear) return false;
+  const f = footOf(kind);
+  // on the board, and short of the wall's drums
+  if (x - f.rx < 2 || x + f.rx > W - WALL_W + 4 || y < 22 || y + f.down > H - 2) return false;
+  // the whole footing off the road (its edge is PATH_HALF from the centre line)
+  const d0 = nearestOnPath(x, y).d;
+  if (d0 < PATH_HALF) return false;
+  const pts = footPoints(kind, x, y);
+  if (d0 < PATH_HALF + Math.max(f.rx, f.up, f.down) + 1 && pts.some(([px, py]) => nearestOnPath(px, py).d < PATH_HALF)) return false;
   const [cvx, cvy] = PTS[0];
   if (Math.hypot(x - cvx, y - cvy) < 50) return false;
   // nor on the crag the gate is cut into (its shape lives in data/gatecrag.js,
@@ -51,22 +61,22 @@ export const buildableAt = (g, x, y, kind = null) => {
   // nor on the Hollowfen's great barrow (data/barrowgate.js, the same shape
   // scenery-hollow.js paints)
   if (barrowBlocks(x, y)) return false;
-  for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
+  // a scenery piece is a circle of half its footprint the footing may not touch
+  for (const d of DECOR) if (inFoot(kind, x, y, d.x, d.y, decorFootprint(d) * 0.5 + HALL_GAP)) return false;
   // A floating hall (the River Watch) moors only at the EDGE of water it can row —
   // a river, a pond or mere big enough (not lava, not ice), or just off a coast.
   // Everyone else keeps off it.
   if (afloat) { if ((!inRiver(x, y, 8) && !pondAt(x, y) && !(seaDepthAt(x, y) > 6)) || !atWaterEdge(x, y)) return false; }
   else {
-    for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
-    if (inRiver(x, y, 14)) return false;
+    // a pond is an ellipse (its picture's shape), grown by the footing
+    for (const p of PONDS) if (((x - p.x) / (p.w / 2 + f.rx)) ** 2 + ((y + f.cy - p.y) / (p.h / 2 + f.ry)) ** 2 < 1) return false;
+    // the sea takes nothing but the River Watch; the beach is honest ground
+    if (pts.some(([px, py]) => inRiver(px, py) || inSea(px, py))) return false;
   }
-  // the sea takes nothing but the River Watch; the beach is honest ground
-  if (!afloat && inSea(x, y, 14)) return false;
   // ... except where a river opens into the sea: its funnel and silt fan
   // (water.js `mouthOf`) spread across the beach, so no hall stands there
   if (!afloat) for (const m of riverMouths()) if (Math.hypot(x - m.x, y - m.y) < m.hw * 2.2 + 14) return false;
-  const r = reachOf(kind);
-  if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < r + reachOf(t.kind))) return false;
+  if (g.towers.some((t) => footsClash(kind, x, y, t.kind, t.x, t.y))) return false;
   return true;
 };
 

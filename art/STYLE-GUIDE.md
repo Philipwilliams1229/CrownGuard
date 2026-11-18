@@ -142,9 +142,20 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   grandeur from level 1 to the finals; a player should name a final at a glance.
 - **Footprint:** everything at GROUND level (pad, contact shadow, props, crew
   feet) stays inside an ellipse `rx ≤ 18, ry ≤ 13` centred on `(x, y+3)`.
-  Tall parts (shafts, roofs, arms, masts, spires) may rise above it. Halls
-  stand at least `BLOCK_DIST = 48` from the road's centreline; with this
-  footprint nothing spills onto the dirt.
+  Tall parts (shafts, roofs, arms, masts, spires) may rise above it.
+- **Where a hall may stand follows its footing** (owner, 2026-11-18: "smaller
+  bases can be built in smaller places, bigger bases take up more space").
+  `scripts/hall-footprints.mjs` measures each hall's widest form at ground
+  level (everything drawn from 4 units above the anchor down, props included)
+  and writes `src/data/hallfoot.js` (`rx`, `up`, `down`); `src/engine/footing.js`
+  reads it and `buildableAt` (engine/actions.js) uses it: two footings keep
+  `HALL_GAP` 2 apart, the whole footing stays off the road (`PATH_HALF`),
+  rivers and the sea, a pond is an ellipse grown by the footing, a scenery
+  piece a circle of half its `FOOTPRINT`. **Rerun the script after changing a
+  hall's ground-level art** (a wider pad or a new yard prop moves its room).
+  Two Archer halls: 34 apart side by side, 25 front to back; a Covert needs
+  more, a Bladewheel less. The Covert's blades wait clear of their
+  neighbours' footings (`coverSlots`, towers.js `knowHalls`).
 - **The ground blend** (`src/render/groundblend.js`) is drawn by `draw.js`
   round EVERY hall: a few realm-matched clumps (meadow tufts, snow drifts,
   marsh reeds, ash and cinders, highland turf — picked from the realm's
@@ -160,14 +171,12 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   the blend's corner clumps. Never half-sunk into a footing or wall. A prop
   that stands in front of the crew is drawn AFTER the crew.
 - **Narrow halls** (the Bladewheel, and the Warden Mage since 2026-11-07)
-  may stand closer: a hall's `roadClear`
-  and `reach` in `src/data/towers.js` override the road gap (42 for both)
-  and the spacing to neighbours (reach 12, default 15; two
-  halls stand `reachA + reachB` apart). Its ground art must then keep inside
-  `FOOT_NARROW` (`rx 13, ry 9`, kitB.js) — pass `{ foot: FOOT_NARROW }` to
-  `padB` and the same to `skirtB` (the Warden clips its ground layer to it).
-  Check with `twb-lab.html?kinds=spiker,support&ell=1` (the overlay reads
-  `roadClear`).
+  carry `roadClear` in `src/data/towers.js`, which now only tells the
+  renderers (groundblend, buildanim) to use the narrow ground art. Its ground
+  art must keep inside `FOOT_NARROW` (`rx 13, ry 9`, kitB.js) — pass
+  `{ foot: FOOT_NARROW }` to `padB` and the same to `skirtB` (the Warden
+  clips its ground layer to it). Check with
+  `twb-lab.html?kinds=spiker,support&ell=1`.
 - **`t.noFolk`: every hall can be painted without its people.** The build
   lays the hall first and puts the person in last, so `drawTowerPortrait(ctx,
   { ...t, noFolk: true }, time)` must paint the hall exactly as usual minus

@@ -112,10 +112,10 @@ export const TOWERS = {
   },
   spiker: {
     name: "Bladewheel", cost: 110, dtype: "phys", proj: "spike",
-    // a narrow hall on a post: it may stand 42 from the road's centreline
-    // (not 48) and shoulder closer to its neighbours, so it fits the tight
-    // inside of a bend. Its ground art keeps inside kitB FOOT_NARROW.
-    roadClear: 42, reach: 12,
+    // a narrow hall on a post (its ground art keeps inside kitB FOOT_NARROW);
+    // where it may stand follows its footing (engine/footing.js), so it fits
+    // the tight inside of a bend
+    roadClear: 42,
     // spikes and flame rings skim the road: nothing that flies is touched
     groundOnly: true,
     blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach, and to anything that flies — deadly on corners and doubled-back road.",
@@ -336,7 +336,7 @@ export const TOWERS = {
   },
   support: {
     name: "Warden Mage", cost: 110, dtype: "magic", proj: "aura",
-    roadClear: 42, reach: 12,   // a narrow hall, as the Bladewheel (owner, 2026-11-07)
+    roadClear: 42,   // a narrow hall, as the Bladewheel (owner, 2026-11-07): its ground art
     blurb: "A frost-touched mage on an altar — biting cold slows every enemy in the aura.",
     levels: [
       { slow: 0.15, range: 75, rate: 0 },
