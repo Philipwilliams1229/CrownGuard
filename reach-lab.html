@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  The castle works' reach drawn over a real board: every work at its top tier, the game drawn
+  through the real draw(), then each unit's reach ringed (solid = top tier, dashed = first tier)
+  with what it aims at. Reaches are read from data/castle.js, so a retuned work redraws itself.
+
+    /reach-lab.html?realm=greenwood&horn=0.72&scale=2&tag=x
+    &horn   where along the road the example Levy horn is sounded (0..1)
+
+  Saved to .shots/reach_<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>reach lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { TOTAL_LEN, PTS, posAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { CASTLE_WORKS, GUARD_X, guardSpots, wizardSpots, bowmenSpots, ballistaSpots } from "/src/data/castle.js";
+      import { draw } from "/src/render/draw.js";
+      const q = new URLSearchParams(location.search);
+      const SC = Number(q.get("scale")) || 2, TAG = q.get("tag") || "x";
+      selectRealm(q.get("realm") || "greenwood");
+      selectFaction(q.get("faction") || "greenwood");
+      const top = (k) => CASTLE_WORKS[k].tiers.at(-1), first = (k) => CASTLE_WORKS[k].tiers[0];
+      const castle = Object.fromEntries(Object.keys(CASTLE_WORKS).map((k) => [k, CASTLE_WORKS[k].tiers.length]));
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 0, lives: CASTLE_HP, wave: 1, freeplay: true, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, castle,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (let i = 0; i < 90; i++) updateGame(g, 1 / 60);   // the halberdiers walk to their posts
+      const [gx, gy] = PTS[PTS.length - 1];
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      draw(g, cv, { current: null });
+      const out = document.createElement("canvas"); out.width = W * SC; out.height = H * SC;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+      o.drawImage(cv, 0, 0, out.width, out.height);
+      o.fillStyle = "rgba(20,16,28,0.28)"; o.fillRect(0, 0, out.width, out.height);   // dim the board so the rings read
+      o.scale(SC, SC);
+      const ring = (x, y, r, col, dashed, fill) => {
+        o.save(); o.beginPath(); o.arc(x, y, r, 0, Math.PI * 2);
+        if (fill) { o.fillStyle = col + "22"; o.fill(); }
+        o.strokeStyle = col; o.lineWidth = dashed ? 1 : 2; o.setLineDash(dashed ? [4, 3] : []); o.globalAlpha = dashed ? 0.8 : 1;
+        o.stroke(); o.restore();
+      };
+      const dot = (x, y, col) => { o.fillStyle = "#14101c"; o.fillRect(x - 3, y - 3, 6, 6); o.fillStyle = col; o.fillRect(x - 2, y - 2, 4, 4); };
+      const tag = (x, y, text, col, align = "right") => {
+        o.font = "bold 9px monospace"; o.textAlign = align; o.textBaseline = "middle";
+        const w = o.measureText(text).width + 6, x0 = align === "right" ? x - w : align === "center" ? x - w / 2 : x;
+        o.fillStyle = "rgba(20,16,28,0.85)"; o.fillRect(x0, y - 7, w, 14);
+        o.fillStyle = col; o.fillText(text, align === "right" ? x - 3 : align === "center" ? x : x + 3, y);
+      };
+      const C = { archers: "#f0d27a", ballista: "#e0574c", wizards: "#c8a4f0", guards: "#8ab8e0", levy: "#9ad06a" };
+      // the three that measure from the gate: rings round the gate, labels where each ring crosses the road's side
+      const gateRings = [["ballista", "Ballista: most health left"], ["wizards", "Wizards: most armour, then nearest"], ["archers", "Archers: nearest to the gate"]];
+      for (const [k] of gateRings) { ring(gx, gy, first(k).range, C[k], true); ring(gx, gy, top(k).range, C[k], false); }
+      // (equal reaches hide each other: the wizards' top ring goes on top again in long dashes)
+      if (top("wizards").range === top("archers").range) { o.save(); o.beginPath(); o.arc(gx, gy, top("wizards").range, 0, Math.PI * 2); o.strokeStyle = C.wizards; o.lineWidth = 2; o.setLineDash([12, 10]); o.stroke(); o.restore(); }
+      dot(gx, gy, "#ffffff");
+      gateRings.forEach(([k, txt], i) => {
+        const a = -Math.PI * (0.62 + i * 0.075), r = top(k).range;
+        tag(gx + Math.cos(a) * r, gy + Math.sin(a) * r, `${txt}  ${first(k).range}–${top(k).range}`, C[k], "center");
+      });
+      // where each stands (the wall's crews)
+      for (const s of ballistaSpots(gy, true)) dot(s[0], s[1] - 10, C.ballista);
+      for (const s of wizardSpots(gy, top("wizards").count, top("archers").count)) dot(s[0], s[1] - 10, C.wizards);
+      for (const y of bowmenSpots(gy, top("archers").count)) dot(784, y, C.archers);
+      // the Gate Guard: each man holds within range x 0.92 of the gate post; the sweep's half-moon before each
+      const gr = top("guards").range * 0.92;
+      ring(GUARD_X, gy, gr, C.guards, false, true);
+      const sw = top("guards").sweep;
+      for (const [x, y] of guardSpots(gy, top("guards").count)) {
+        o.save(); o.beginPath(); o.ellipse(x, y, sw.r, sw.r * 0.7, 0, Math.PI / 2, Math.PI * 1.5); o.closePath();
+        o.fillStyle = C.guards + "30"; o.fill(); o.strokeStyle = C.guards; o.setLineDash([2, 2]); o.lineWidth = 1; o.stroke(); o.restore();
+      }
+      tag(GUARD_X - gr - 4, gy + gr + 8, `Gate Guard: grab one each (${Math.round(gr)}), sweep ${sw.r}`, C.guards);
+      // the Levy at an example horn spot on the road
+      const [hx, hy] = posAt(TOTAL_LEN * (Number(q.get("horn")) || 0.72));
+      const lv = top("militia");
+      ring(hx, hy, lv.range * 0.92, C.levy, false, true);
+      ring(hx, hy, lv.bow.range, C.levy, true);
+      dot(hx, hy, C.levy);
+      tag(hx, hy - lv.bow.range - 8, `Levy (horn here): swords grab ${Math.round(lv.range * 0.92)}, bows shoot nearest ${lv.bow.range}`, C.levy, "center");
+      // legend
+      o.setTransform(1, 0, 0, 1, 0, 0);
+      o.font = `bold ${7 * SC}px monospace`; o.textAlign = "left"; o.textBaseline = "top";
+      const lines = ["Castle works' reach, every work at its top tier", "solid ring = top tier, dashed = first tier, dots = where they stand"];
+      o.fillStyle = "rgba(20,16,28,0.88)"; o.fillRect(6 * SC, 6 * SC, 300 * SC, 24 * SC);
+      o.fillStyle = "#fff3d2"; lines.forEach((l, i) => o.fillText(l, 10 * SC, (9 + i * 10) * SC));
+      await fetch(`/__shot?name=reach_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/reach_${TAG}.png`;
+    </script>
+  </body>
+</html>
