@@ -612,11 +612,11 @@ export const lowerCastleWork = (g, key) => {
   if (after < before) g.lives = Math.max(1, g.lives - (before - after));
   return last;
 };
-// Free Play: the purse gets the full price back.
-export const refundCastleWork = (g, key) => {
-  const last = lowerCastleWork(g, key);
-  if (last) g.gold += last.cost;
-  return last;
+// Every work taken down, step by step (refund all); returns the gold it was all worth.
+export const lowerAllWorks = (g) => {
+  let sum = 0;
+  for (const key of Object.keys(CASTLE_WORKS)) for (let last = lowerCastleWork(g, key); last; last = lowerCastleWork(g, key)) sum += last.cost;
+  return sum;
 };
 
 // The Masons' barricades keep their damage between waves (owner, 2026-11-18); in the build

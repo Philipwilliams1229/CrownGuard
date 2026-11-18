@@ -136,7 +136,7 @@ function Banner({ ch, open }) {
 // `arrive` ({ from, to } level ids): a level was just won — the map opens on
 // the site just left, the camera travels the road to the next, and its card
 // (hero, castle works, march) is there to choose from again.
-export default function CampaignMap({ progress, profile, onStart, onBack, onBuyWork, onRefundWork, heroKey, onHero, arrive }) {
+export default function CampaignMap({ progress, profile, onStart, onBack, onBuyWork, onRefundAll, heroKey, onHero, arrive }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => (arrive && levelById(arrive.to) ? arrive.to : currentLevel(progress).id));
   const [worksOpen, setWorksOpen] = useState(false);
@@ -665,7 +665,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
   // ---- the castle works, bought here between levels from the treasury ----
   const works = worksOpen && sel && (
     <CastleWorksModal treasury={progress.treasury} short={short} onClose={() => setWorksOpen(false)}
-      onBuy={(key, next) => onBuyWork(sel.chapter.id, key, next)} onRefund={(key) => onRefundWork(sel.chapter.id, key)} />
+      onBuy={(key, next) => onBuyWork(sel.chapter.id, key, next)} onRefundAll={() => onRefundAll(sel.chapter.id)} />
   );
 
   return (

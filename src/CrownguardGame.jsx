@@ -23,7 +23,7 @@ import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
-import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
+import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
 import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
@@ -38,7 +38,7 @@ const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade", 
 const CREW_LABELS = { gunpowder: [["Bombs", "The bombardier"], ["Musket", "The musketeer"]] };
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, refundCastleWork, lowerCastleWork, callMilitia, barricadeRepairCost, repairBarricades, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, lowerAllWorks, callMilitia, barricadeRepairCost, repairBarricades, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -385,15 +385,14 @@ export default function Crownguard() {
     if (castleScope.current) saveCastle(castleScope.current, g.castle);
   };
 
-  // A castle work refunded in battle: its last step, at full price, back to the treasury (campaign)
-  // or the purse (Free Play)
-  const refundWork = (key) => {
+  // Every castle work refunded in battle, at the full price paid: to the treasury (campaign) or the
+  // purse (Free Play)
+  const refundAllWorks = () => {
     const g = G.current;
     if (!g) return;
-    let got = null;
-    if (mode === "campaign") { got = lowerCastleWork(g, key); if (got) setProgress(bankTreasury(got.cost)); }
-    else got = refundCastleWork(g, key);
-    if (!got) return;
+    const sum = lowerAllWorks(g);
+    if (!sum) return;
+    if (mode === "campaign") setProgress(bankTreasury(sum)); else g.gold += sum;
     sfx.play("sell");
     if (castleScope.current) saveCastle(castleScope.current, g.castle);
   };
@@ -932,14 +931,12 @@ export default function Crownguard() {
     saveCastle(chapterId, works);
     setProgress(loadProgress());
   };
-  // ...and refunded there: the top tier taken down, its full price back in the treasury
-  const refundTreasuryWork = (chapterId, key) => {
-    const works = loadCastle(chapterId), n = works[key] || 0;
-    if (!n) return;
-    const cost = CASTLE_WORKS[key].tiers[n - 1].cost;
-    works[key] = n - 1;
-    saveCastle(chapterId, works);
-    setProgress(bankTreasury(cost));
+  // ...and all refunded there: every work taken down, its full price back in the treasury
+  const refundTreasuryAll = (chapterId) => {
+    const works = loadCastle(chapterId), sum = worksValue(works);
+    if (!sum) return;
+    saveCastle(chapterId, { ...works, ...emptyWorks() });
+    setProgress(bankTreasury(sum));
     sfx.play("sell");
   };
 
@@ -954,7 +951,7 @@ export default function Crownguard() {
         onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
         onCouncil={() => setScreen("council")}
         onBuyWork={(key, next) => buyTreasuryWork("crown", key, next)}
-        onRefundWork={(key) => refundTreasuryWork("crown", key)}
+        onRefundAll={() => refundTreasuryAll("crown")}
         onCampaignReset={setProgress}
       />
     );
@@ -977,7 +974,7 @@ export default function Crownguard() {
         arrive={arrive}
         onBack={() => setScreen("home")}
         onBuyWork={buyTreasuryWork}
-        onRefundWork={refundTreasuryWork}
+        onRefundAll={refundTreasuryAll}
       />
     );
   }
@@ -1804,7 +1801,7 @@ export default function Crownguard() {
             note={mode === "campaign"
               ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands at every level, in every realm.`
               : "Built on the wall itself, paid from the purse. What you raise here stands for every Free Play run, in every realm — but the veteran ranks past a finished work are this run's alone."}
-            onBuy={buyWork} onRefund={refundWork} />
+            onBuy={buyWork} onRefundAll={refundAllWorks} />
                   </>
                 ),
               });

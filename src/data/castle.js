@@ -162,6 +162,17 @@ export const lastWork = (works, key, ranks = null) => {
   return null;
 };
 
+// Everything built, at what it cost: every tier of every work, plus any endless ranks (refund all).
+export const worksValue = (works, ranks = null) => {
+  let sum = 0;
+  for (const key of Object.keys(CASTLE_WORKS)) {
+    const n = works?.[key] || 0, r = ranks?.[key] || 0;
+    for (let i = 0; i < n; i++) sum += CASTLE_WORKS[key].tiers[i].cost;
+    for (let i = 0; i < r; i++) sum += RANK_COST(key, i);
+  }
+  return sum;
+};
+
 // The live tier of a work (with its endless rank), or null when none is built.
 export const workTier = (works, key, ranks = null) => {
   const n = works?.[key] || 0;

@@ -5,7 +5,7 @@
 // gold) and does the paying. Wears the battle HUD's skin (hud.css), and
 // carries its own .cg-hud so the skin's colours come along to the map too.
 
-import { CASTLE_WORKS, nextWork, lastWork } from "../data/castle.js";
+import { CASTLE_WORKS, nextWork, worksValue } from "../data/castle.js";
 import "./hud/hud.css";
 import { useArm } from "./HeroTalents.jsx";
 import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon, PitchforkIcon, StaffIcon } from "./hud/icons.jsx";
@@ -15,7 +15,7 @@ const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIc
 
 const gold = (n) => n.toLocaleString("en-US");
 
-export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, onRefund, note }) {
+export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, onRefundAll, note }) {
   // two taps to buy: the first arms the button (gold, CONFIRM), the second pays
   const arm = useArm(3000);
   return (
@@ -26,6 +26,21 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
         <b className="cg-num" style={{ color: "var(--gold-lt)", fontSize: 18 }}>{gold(Math.floor(purse))}</b>
       </div>
       {note && <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, padding: "0 2px" }}>{note}</div>}
+      {/* one refund for everything built, at the full price paid (owner, 2026-11-18); two taps */}
+      {onRefundAll && (() => {
+        const worth = worksValue(works, ranks);
+        if (!worth) return null;
+        const armed = arm.is("refund-all");
+        return (
+          <button data-arm="refund-all" className={`cg-btn cg-btn--slate${armed ? " cg-btn--gold" : ""}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 11 }}
+            onClick={() => arm.tap("refund-all", onRefundAll)}>
+            {armed
+              ? <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM: REFUND ALL</span>
+              : <span className="cg-dim">Refund every work</span>}
+            <span className="cg-price" style={armed ? { color: "var(--wood-deep)", textShadow: "none" } : undefined}>+<CoinIcon size={13} />{gold(worth)}</span>
+          </button>
+        );
+      })()}
       {/* one column in a narrow drawer, two side by side in a wide box (a
           phone on its side), so a short screen scrolls less */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(236px, 100%), 1fr))", gap: 8 }}>
@@ -62,21 +77,6 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
                 </button>
               );
             })() : <div className="cg-label" style={{ textAlign: "center", padding: 6, color: "var(--green)" }}>Complete</div>}
-            {/* the last step bought, refunded at its full price (two taps, as buying) */}
-            {onRefund && (() => {
-              const last = lastWork(works, key, ranks);
-              if (!last) return null;
-              const id = `refund:${key}`, armed = arm.is(id);
-              return (
-                <button data-arm={id} className={`cg-btn cg-btn--slate${armed ? " cg-btn--gold" : ""}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 10, marginTop: 5, minHeight: 0, padding: "3px 8px" }}
-                  onClick={() => arm.tap(id, () => onRefund(key, last))}>
-                  {armed
-                    ? <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM REFUND</span>
-                    : <span className="cg-dim">Refund: {last.label}</span>}
-                  <span className="cg-price" style={armed ? { color: "var(--wood-deep)", textShadow: "none" } : undefined}>+<CoinIcon size={12} />{gold(last.cost)}</span>
-                </button>
-              );
-            })()}
           </div>
         );
       })}

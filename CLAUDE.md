@@ -2102,12 +2102,13 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   `mat` looks + a wreck (a Sonnet artist; `barricade-lab.html` shows them). The sims never repair.
 - Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
 
-**Refunds** (owner, same day: "refunds full amount no penalty"): every Castle Works list has a
-Refund plank under each built work (two taps): its last step (`lastWork`, castle.js: the newest
-endless rank, else the top tier) comes off at its full price. Treasury: CrownguardGame.jsx
-`refundTreasuryWork` (title screen and campaign map); in battle `refundWork` (actions.js
-`lowerCastleWork` / `refundCastleWork`; a thinner gate takes its lives back, never below 1). Free Play's
-castle is shared by every run, so a work bought in one run refunds into another run's purse.
+**Refunds** (owner, same day: "refunds full amount no penalty", then "just one button at the top"):
+the Castle Works list has ONE "Refund every work" plank under the purse (two taps, `onRefundAll`),
+shown while anything is built: every tier and endless rank comes off at the full price paid
+(castle.js `worksValue`). Treasury: CrownguardGame.jsx `refundTreasuryAll` (title screen and campaign
+map); in battle `refundAllWorks` (actions.js `lowerAllWorks`, step by step through `lowerCastleWork`;
+a thinner gate takes its lives back, never below 1). Free Play's castle is shared by every run, so
+works bought in one run refund into another run's purse.
 
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 
