@@ -5,7 +5,7 @@
 // gold) and does the paying. Wears the battle HUD's skin (hud.css), and
 // carries its own .cg-hud so the skin's colours come along to the map too.
 
-import { CASTLE_WORKS, nextWork } from "../data/castle.js";
+import { CASTLE_WORKS, nextWork, lastWork } from "../data/castle.js";
 import "./hud/hud.css";
 import { useArm } from "./HeroTalents.jsx";
 import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon, PitchforkIcon, StaffIcon } from "./hud/icons.jsx";
@@ -15,7 +15,7 @@ const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIc
 
 const gold = (n) => n.toLocaleString("en-US");
 
-export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, note }) {
+export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, onRefund, note }) {
   // two taps to buy: the first arms the button (gold, CONFIRM), the second pays
   const arm = useArm(3000);
   return (
@@ -62,6 +62,21 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
                 </button>
               );
             })() : <div className="cg-label" style={{ textAlign: "center", padding: 6, color: "var(--green)" }}>Complete</div>}
+            {/* the last step bought, refunded at its full price (two taps, as buying) */}
+            {onRefund && (() => {
+              const last = lastWork(works, key, ranks);
+              if (!last) return null;
+              const id = `refund:${key}`, armed = arm.is(id);
+              return (
+                <button data-arm={id} className={`cg-btn cg-btn--slate${armed ? " cg-btn--gold" : ""}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 10, marginTop: 5, minHeight: 0, padding: "3px 8px" }}
+                  onClick={() => arm.tap(id, () => onRefund(key, last))}>
+                  {armed
+                    ? <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM REFUND</span>
+                    : <span className="cg-dim">Refund: {last.label}</span>}
+                  <span className="cg-price" style={armed ? { color: "var(--wood-deep)", textShadow: "none" } : undefined}>+<CoinIcon size={12} />{gold(last.cost)}</span>
+                </button>
+              );
+            })()}
           </div>
         );
       })}

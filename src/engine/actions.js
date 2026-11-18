@@ -5,7 +5,7 @@
 
 import { W, H, WALL_W, LANE_OFF, PATH_HALF } from "../data/constants.js";
 import { footOf, footsClash, footPoints, inFoot, HALL_GAP } from "./footing.js";
-import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
+import { CASTLE_WORKS, emptyWorks, workTier, nextWork, lastWork } from "../data/castle.js";
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN, lanePos } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
@@ -600,10 +600,25 @@ export const buyCastleWork = (g, key) => {
   return raiseCastleWork(g, key);
 };
 
-// ---- bands ----
-// Call the militia to a spot: a few farmers, for a while, for nothing. What
-// the horn raises (how many, how hard, how long, how soon again) is the Levy
-// works' tier, if one is built (bands.js militiaStats); none, the plain two.
+// Take a work's last step down again (a refund: lastWork in castle.js says what it was worth).
+// A thinner gate is thinner at once, never below one life. Returns the step or null.
+export const lowerCastleWork = (g, key) => {
+  const last = lastWork(g.castle, key, g.castleRanks);
+  if (!last) return null;
+  const before = workTier(g.castle, key, g.castleRanks)?.hp || 0;
+  if (last.rank) g.castleRanks = { ...(g.castleRanks || {}), [key]: last.rank - 1 };
+  else g.castle = { ...g.castle, [key]: g.castle[key] - 1 };
+  const after = workTier(g.castle, key, g.castleRanks)?.hp || 0;
+  if (after < before) g.lives = Math.max(1, g.lives - (before - after));
+  return last;
+};
+// Free Play: the purse gets the full price back.
+export const refundCastleWork = (g, key) => {
+  const last = lowerCastleWork(g, key);
+  if (last) g.gold += last.cost;
+  return last;
+};
+
 // The Masons' barricades keep their damage between waves (owner, 2026-11-18); in the build
 // phase this mends every frame whole for the guild's `repair` gold per missing health
 // (castle.js masons). barricadeRepairCost is what the button shows (0: nothing to mend).
@@ -630,6 +645,10 @@ export const repairBarricades = (g) => {
   return true;
 };
 
+// ---- bands ----
+// Call the militia to a spot: a few farmers, for a while, for nothing. What
+// the horn raises (how many, how hard, how long, how soon again) is the Levy
+// works' tier, if one is built (bands.js militiaStats); none, the plain two.
 export const callMilitia = (g, x, y) => {
   if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
   if (!g.bands) g.bands = [];

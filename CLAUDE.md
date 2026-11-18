@@ -2080,10 +2080,15 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   still has a 4-post line.) The thicker gate (castle life) left them for the Masons.
 - **Masons' Guild** (owner's final cut, same day): one row a tier, wood (150), **iron** + thicker gate
   (300, +5 castle life), **steel** (480, +5 more: 10 in all), then mend 2 lives a wave (mend 1 below)
-  and a **net launcher** (owner's pick of four ideas; `net` {every 6000, ms 4000, range 300}: the flier
-  nearest the gate, never a boss, is dragged onto the road for 4 s with `flying` off (`e.netUntil`,
-  update.js castle works; it lands stunned 0.6 s), so the barricade, the halberdiers and ground-only
-  halls all reach it; rigs.js `netify` draws the net as a "net" look of the figure's own frame (strands every 7 art px, a dotted rope rim), so it hugs every silhouette; `sim.mjs` prints `netted`). Barricades are no longer rebuilt free each wave: set up whole at the first
+  and a **net launcher** (owner's pick; reworked the same day, "more like barriers", `net` {every
+  15000, hp 240, zone 30}): it throws only at a flier within `zone` road steps of the barricade row,
+  never a boss, and reloads 15 s. The flier comes down into the net on the road (`flying` off,
+  `e.net` {hp, maxHp}, held in place, no halberdier grabs it) and flails at the net with its own blow
+  (`max(15, atk, airAtk)` every `atkRate`, its fight frames play) until the net breaks, then flies on;
+  killed in it, the net goes with it. Gryphon ~3.6 s, wraith / wight ~7-8 s, ice drake ~14 s. In the
+  sims fliers seldom live to reach the barricade (`netted` is printed when it happens). rigs.js
+  `netify` draws a "net" look of the figure's own frame (the owner: "not reading like a net", a
+  second look is due). Barricades are no longer rebuilt free each wave: set up whole at the first
   build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
   damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
   the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls
@@ -2091,6 +2096,13 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   retried wave restores them as the wave found them (snapshot `barricades`). Art: barricade.js
   `mat` looks + a wreck (a Sonnet artist; `barricade-lab.html` shows them). The sims never repair.
 - Old saves: `WORKS_V` 3 moves an old ballista / guards tier 3 (fire bolts / sweeps) to the new 4.
+
+**Refunds** (owner, same day: "refunds full amount no penalty"): every Castle Works list has a
+Refund plank under each built work (two taps): its last step (`lastWork`, castle.js: the newest
+endless rank, else the top tier) comes off at its full price. Treasury: CrownguardGame.jsx
+`refundTreasuryWork` (title screen and campaign map); in battle `refundWork` (actions.js
+`lowerCastleWork` / `refundCastleWork`; a thinner gate takes its lives back, never below 1). Free Play's
+castle is shared by every run, so a work bought in one run refunds into another run's purse.
 
 ## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
 

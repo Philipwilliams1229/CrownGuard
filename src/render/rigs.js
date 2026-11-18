@@ -57,7 +57,7 @@ export const hasRig = (type) => !!RIGS[type];
 export const rigDef = (type) => RIGS[type];
 export { hasPix };
 
-// The Masons' net over a flier dragged down to the road (engine: e.netUntil; enemies.js draws this
+// The Masons' net over a flier caught at the barricade (engine: e.net; enemies.js draws this
 // look over the figure): rope laid diagonally across the figure's own pixels, so it hugs the
 // silhouette, a rope edge round its outline (the net's drawn-in rim), lighter knots where the
 // strands cross. Works on any frame canvas; `S` is its pixels per art pixel.

@@ -28,7 +28,7 @@ import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onBuyWork, onCampaignReset }) {
+export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onBuyWork, onRefundWork, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [worksOpen, setWorksOpen] = useState(false);
@@ -235,7 +235,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       {/* outside the <Fit>: a fixed modal inside a transform would pin to it */}
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onCampaignReset={onCampaignReset} />}
-      {worksOpen && <CastleWorksModal treasury={treasury} short={compact} onBuy={onBuyWork} onClose={() => setWorksOpen(false)} />}
+      {worksOpen && <CastleWorksModal treasury={treasury} short={compact} onBuy={onBuyWork} onRefund={onRefundWork} onClose={() => setWorksOpen(false)} />}
     </div>
   );
 }

@@ -1087,7 +1087,7 @@ const runMelee = (g, t, st, slots, sdtAll, tms) => {
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
-            if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy) continue;
+            if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy || e.net) continue;
             if (e.crush && u.flankOf === e.id && u.flankUntil > tms) continue;   // the ram that just trampled him: he takes its flank instead (below)
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
@@ -2035,7 +2035,7 @@ export function updateGame(g, dt) {
       // (a standing shield shrugs off every status: stun and slow do nothing to a shielded foe)
       const stunned = e.stunUntil > tms && !e.immStun && !(e.guard > 0);
       // a gryphon at war with a war-eagle hangs in the air to fight her
-      const held = (e.blockedBy && e.engaged) || !!e.airFight || !!e.seized || e.pinUntil > tms;   // (e.pinUntil: the Gate Ballista's chain harpoon)   // (e.seized: in a sea monster's grip, serpent.js)
+      const held = (e.blockedBy && e.engaged) || !!e.airFight || !!e.seized || e.pinUntil > tms || !!e.net;   // (e.net: in the Masons' net)   // (e.pinUntil: the Gate Ballista's chain harpoon)   // (e.seized: in a sea monster's grip, serpent.js)
       // ---- the river road ----
       // A swimmer answers to the current, not the highway: it paddles to the
       // crossing, climbs the bank there, and joins the march already past
@@ -2311,28 +2311,46 @@ export function updateGame(g, dt) {
           }
         }
       }
-      // the Masons' net launcher (castle.js masons `net`, tier 4): drags the flier nearest the gate
-      // down onto the road for net.ms (`flying` off meanwhile, `e.netUntil`; let go again after)
-      for (const e of g.enemies) if (e.netUntil && tms >= e.netUntil) {
-        e.netUntil = 0;
-        if (!e.dead) { releaseEnemy(g, e); e.flying = true; }
-      }
+      // the Masons' net launcher (castle.js masons `net`, tier 4; reworked 2026-11-18, owner: "more
+      // like barriers"): it throws only at a flier over the barricade row (within `zone` road steps of
+      // it), never a boss, and reloads `every` ms. The flier comes down into the net on the road
+      // (`flying` off, held in place, e.net = { hp, maxHp }) and flails at it (its own blow on its own
+      // clock, `atkAnim` plays its fight frames) until the net breaks: then it flies on. Killed in it,
+      // the net goes down with it. Ground halls and the halberdiers' sweep reach it meanwhile; no
+      // halberdier holds it (the net does).
       const mason = workTier(g.castle, "masons", g.castleRanks);
-      if (mason?.net) {
-        cd.net = (cd.net ?? mason.net.every * 0.5) - sdt * 1000;
+      for (const e of g.enemies) {
+        if (!e.net || e.dead) continue;
+        if (e.stunUntil > tms) continue;
+        e.meleeCd -= sdt * 1000;
+        if (e.meleeCd > 0) continue;
+        e.meleeCd = e.atkRate || 900;
+        e.atkAnim = 200;
+        e.net.hp -= Math.max(15, e.atk || 0, e.airAtk || 0);   // (a gryphon tears with its air blow; clawless fliers struggle at 15)
+        g.effects.push({ type: "hit", x: e.x + (Math.random() - 0.5) * 8, y: e.y - 6, ttl: 180 });
+        if (e.net.hp <= 0) {
+          e.net = null; e.flying = true;
+          g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 380, r: 16 });
+          sfx.play("whistle");
+        }
+      }
+      const row = g.barricades?.[0];
+      if (mason?.net && row) {
+        cd.net = (cd.net ?? 0) - sdt * 1000;
         if (cd.net <= 0) {
           let best = null, bd = Infinity;
           for (const e of g.enemies) {
-            if (e.dead || !e.flying || e.boss || e.neutral || isRising(e, tms)) continue;
-            const d = steps(e);
-            if (d <= mason.net.range && d < bd) { bd = d; best = e; }
+            if (e.dead || !e.flying || e.boss || e.neutral || e.net || isRising(e, tms)) continue;
+            const off = Math.abs(e.dist - row.dist);
+            if (off <= mason.net.zone && off < bd) { bd = off; best = e; }
           }
           if (!best) cd.net = 0;
           else {
             cd.net = mason.net.every;
-            const [nx, ny] = [gx + 6, gy - 30];
-            g.effects.push({ type: "bolt", x: nx, y: ny, tx: best.x, ty: best.y, ttl: 170, arrow: "quarrel" });
-            best.flying = false; best.netUntil = tms + mason.net.ms;
+            g.effects.push({ type: "bolt", x: gx + 6, y: gy - 30, tx: best.x, ty: best.y, ttl: 170, arrow: "quarrel" });
+            releaseEnemy(g, best);
+            best.flying = false; best.net = { hp: mason.net.hp, maxHp: mason.net.hp };
+            best.meleeCd = best.atkRate || 900;
             best.stunUntil = Math.max(best.stunUntil || 0, tms + 600);   // (the fall knocks the wind out of it)
             g.effects.push({ type: "dust", x: best.x, y: best.y + 6, ttl: 420, r: 18 });
             g.netted = (g.netted || 0) + 1;

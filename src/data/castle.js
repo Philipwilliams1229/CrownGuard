@@ -70,15 +70,15 @@ export const CASTLE_WORKS = {
     // wave: the damage stays, and in the build phase a Repair button mends every frame for
     // `repair` gold per missing health (engine/actions.js repairBarricades). A new battle, or a
     // tier bought, sets them up whole. `hp` is extra castle life (the thicker gate came from the
-    // Gate Guard, same day). `net` (tier 4): every `every` ms a net-thrower on the gate drags the flier
-    // nearest the gate (within `range` road steps; never a boss) down onto the road for `ms`: while
-    // grounded it is a walker (`flying` off), so the barricade stops it, halberdiers hold it and
-    // ground-only halls hit it (engine/update.js, castle works).
+    // Gate Guard, same day). `net` (tier 4): a net-thrower on the gate catches a flier over the barricade
+    // row (within `zone` road steps of it; never a boss) and reloads `every` ms; the flier is held on
+    // the road in the net and flails at it until its `hp` is gone, then flies on; killed in it, the net
+    // goes with it (engine/update.js, castle works).
     tiers: [
       { cost: 5000, label: "Mend one life a wave, a row of wooden spikes", mend: 1, spikes: 1, spikeHp: 150, thorns: 5, mat: "wood", repair: 0.3 },
       { cost: 10000, label: "Iron-shod spikes, a thicker gate (+5 castle life)", mend: 1, hp: 5, spikes: 1, spikeHp: 300, thorns: 11, mat: "iron", repair: 0.25 },
       { cost: 15000, label: "Steel spikes, the wall shored up (+5 more life)", mend: 1, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2 },
-      { cost: 25000, label: "Mend two lives a wave, a net launcher drags fliers down", mend: 2, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2, net: { every: 6000, ms: 4000, range: 300 } },
+      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricade", mend: 2, hp: 10, spikes: 1, spikeHp: 480, thorns: 18, mat: "steel", repair: 0.2, net: { every: 15000, hp: 240, zone: 30 } },
     ],
   },
   wizards: {
@@ -140,7 +140,7 @@ const ranked = (key, t, r) => {
   if (key === "archers" || key === "ballista" || key === "wizards") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
   if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, sweep: t.sweep && { ...t.sweep, dmg: t.sweep.dmg * m }, label: rankLabel(key, r) };
   if (key === "militia") return { ...t, men: t.men * m, dmg: t.dmg * m, bow: t.bow && { ...t.bow, men: t.bow.men * m, dmg: t.bow.dmg * m }, label: rankLabel(key, r) };
-  if (key === "masons") return { ...t, mend: (t.mend || 0) + r, hp: (t.hp || 0) + 2 * r, spikeHp: t.spikeHp * m, thorns: t.thorns * m, label: rankLabel(key, r) };
+  if (key === "masons") return { ...t, mend: (t.mend || 0) + r, hp: (t.hp || 0) + 2 * r, spikeHp: t.spikeHp * m, thorns: t.thorns * m, net: t.net && { ...t.net, hp: t.net.hp * m }, label: rankLabel(key, r) };
   return t;
 };
 // The next thing to buy for a work: its next tier, or in the endless its
@@ -151,6 +151,15 @@ export const nextWork = (works, key, ranks = null, endless = false) => {
   if (!endless) return null;
   const r = (ranks?.[key] || 0) + 1;
   return { ...ranked(key, tiers.at(-1), r), cost: RANK_COST(key, r - 1), rank: r };
+};
+
+// What refunding a work gives back (owner, 2026-11-18: the full price, no penalty): its last step,
+// the newest endless rank if it has one, else its top tier; null when nothing is built.
+export const lastWork = (works, key, ranks = null) => {
+  const r = ranks?.[key] || 0, n = works?.[key] || 0;
+  if (r > 0) return { cost: RANK_COST(key, r - 1), rank: r, label: rankLabel(key, r) };
+  if (n > 0) return { cost: CASTLE_WORKS[key].tiers[n - 1].cost, label: CASTLE_WORKS[key].tiers[n - 1].label };
+  return null;
 };
 
 // The live tier of a work (with its endless rank), or null when none is built.

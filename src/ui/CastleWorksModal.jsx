@@ -15,7 +15,7 @@ import { loadCastle } from "../data/campaign.js";
 const safePad = (t, r, b, l) =>
   `max(env(safe-area-inset-top), ${t}px) max(env(safe-area-inset-right), ${r}px) max(env(safe-area-inset-bottom), ${b}px) max(env(safe-area-inset-left), ${l}px)`;
 
-export default function CastleWorksModal({ treasury, short, onBuy, onClose }) {
+export default function CastleWorksModal({ treasury, short, onBuy, onRefund, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,12,16,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: safePad(10, 12, 10, 12), boxSizing: "border-box" }}
       onClick={onClose}>
@@ -30,7 +30,7 @@ export default function CastleWorksModal({ treasury, short, onBuy, onClose }) {
             purse={treasury || 0}
             purseLabel="THE CROWN'S TREASURY"
             note="Every level you hold sends its leftover gold home. Spend it here on the crown's castle: what you build stands at every level, in every realm."
-            onBuy={onBuy} />
+            onBuy={onBuy} onRefund={onRefund} />
         </div>
       </div>
     </div>

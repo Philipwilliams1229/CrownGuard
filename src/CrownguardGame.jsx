@@ -38,7 +38,7 @@ const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade", 
 const CREW_LABELS = { gunpowder: [["Bombs", "The bombardier"], ["Musket", "The musketeer"]] };
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, barricadeRepairCost, repairBarricades, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, refundCastleWork, lowerCastleWork, callMilitia, barricadeRepairCost, repairBarricades, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -382,6 +382,19 @@ export default function Crownguard() {
     } else got = buyCastleWork(g, key);
     if (!got) return;
     sfx.play("evolve");
+    if (castleScope.current) saveCastle(castleScope.current, g.castle);
+  };
+
+  // A castle work refunded in battle: its last step, at full price, back to the treasury (campaign)
+  // or the purse (Free Play)
+  const refundWork = (key) => {
+    const g = G.current;
+    if (!g) return;
+    let got = null;
+    if (mode === "campaign") { got = lowerCastleWork(g, key); if (got) setProgress(bankTreasury(got.cost)); }
+    else got = refundCastleWork(g, key);
+    if (!got) return;
+    sfx.play("sell");
     if (castleScope.current) saveCastle(castleScope.current, g.castle);
   };
 
@@ -919,6 +932,16 @@ export default function Crownguard() {
     saveCastle(chapterId, works);
     setProgress(loadProgress());
   };
+  // ...and refunded there: the top tier taken down, its full price back in the treasury
+  const refundTreasuryWork = (chapterId, key) => {
+    const works = loadCastle(chapterId), n = works[key] || 0;
+    if (!n) return;
+    const cost = CASTLE_WORKS[key].tiers[n - 1].cost;
+    works[key] = n - 1;
+    saveCastle(chapterId, works);
+    setProgress(bankTreasury(cost));
+    sfx.play("sell");
+  };
 
   // Title screen: the campaign goes through the map, Free Play through realm select.
   if (screen === "home") {
@@ -931,6 +954,7 @@ export default function Crownguard() {
         onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
         onCouncil={() => setScreen("council")}
         onBuyWork={(key, next) => buyTreasuryWork("crown", key, next)}
+        onRefundWork={(key) => refundTreasuryWork("crown", key)}
         onCampaignReset={setProgress}
       />
     );
@@ -953,6 +977,7 @@ export default function Crownguard() {
         arrive={arrive}
         onBack={() => setScreen("home")}
         onBuyWork={buyTreasuryWork}
+        onRefundWork={refundTreasuryWork}
       />
     );
   }
@@ -1779,7 +1804,7 @@ export default function Crownguard() {
             note={mode === "campaign"
               ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands at every level, in every realm.`
               : "Built on the wall itself, paid from the purse. What you raise here stands for every Free Play run, in every realm — but the veteran ranks past a finished work are this run's alone."}
-            onBuy={buyWork} />
+            onBuy={buyWork} onRefund={refundWork} />
                   </>
                 ),
               });

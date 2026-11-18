@@ -162,7 +162,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
     drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, variant, 1, aim);
     if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "white", 0.7, aim);
     // a flier the Masons' net has dragged down: the net hugs its silhouette (rigs.js netify)
-    if (e.netUntil > tms) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "net", 1, aim);
+    if (e.net) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "net", 1, aim);
   });
   // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
   // licking flames, poison bubbles, mending motes — each a few cached sprites
