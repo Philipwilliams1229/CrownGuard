@@ -247,8 +247,9 @@ at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Fi
 "Make it so explosions propagate a bit slower. I like seeing the wave of damage emanate from the
 centre." `BLAST_PACE` (update.js, the effects tick) plays boom / keg / arcane / frost / dust effects
 at 0.6 speed, so the picture, the ring and its white flash (ringflash.js) all run ~1.7x longer
-together. Visual only: the damage still lands at once. The Powder Keg Run's `logBlastDmg` 220 ->
-110; the Rimecaller's `range` 101 -> 51 (its finals keep 109). Provisional.
+together. Visual only: the damage still lands at once. The Powder Keg Run's blast AREA halved
+(`logBlast` 96 -> 48; its damage 220 kept); the Rimecaller's `range` 101 -> 51 and its finals' 109 ->
+55 (Absolute Zero, Permafrost Heart). Provisional.
 
 ## Walking up the screen; the squeeze turn (2026-11-17, owner request)
 
@@ -1753,6 +1754,10 @@ Fable's audit: most likely iOS killed the page for memory. Fixed the same day (n
   thinning, baked another, up to 60 kept). rangering.js now skips a ring wholly off the board or
   over `WHOLE_MAP` 500 (real reaches end near 320), holds its bakes to `RING_BUDGET` 24 MB, and
   paints only the band round the line (pixel-identical, 48 rings compared; a 316 ring 25 -> 5 ms).
+- **First report from the recorder** (same day, Whalebone wave 3, "screen": `l.ms` undefined): the
+  wave preview's foe icon (`pixIcon`) asks for the `idle` clip, and the sea serpent has none.
+  pixrigs.js `clipFrame` now falls back to the walk for a missing idle (or attack) clip. Settings'
+  Copy crash report shows a "Copied!" tag.
 
 ## Several sessions at once
 

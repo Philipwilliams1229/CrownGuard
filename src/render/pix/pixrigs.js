@@ -258,8 +258,8 @@ const clipFrame = (d, sheet, frame) => {
   const C = d.fig.CLIPS, f = typeof frame === "number" ? frame : 0;
   // the sea monsters ask for named frames ("sub.2", "rise.0": rigs-rimebeasts.js seaFrame)
   if (typeof frame === "string") { const [nm, i] = frame.split("."); if (C[nm]) return [nm, (+i || 0) % C[nm].n]; }
-  if (sheet === "idle") { const c = C.idle; return ["idle", Math.floor(frac((f * 1000) / c.ms) * c.n) % c.n]; }
-  if (sheet === "atk") { const c = C[d.atk]; return [d.atk, Math.max(0, Math.min(c.n - 1, Math.round(f * (c.n - 1))))]; }
+  if (sheet === "idle" && C.idle) { const c = C.idle; return ["idle", Math.floor(frac((f * 1000) / c.ms) * c.n) % c.n]; }
+  if (sheet === "atk" && C[d.atk]) { const c = C[d.atk]; return [d.atk, Math.max(0, Math.min(c.n - 1, Math.round(f * (c.n - 1))))]; }
   if (sheet === "sky" && d.sky) return ["sky", d.sky[(f | 0) % d.sky.length]];
   // Hale's Halberd Sweep: its own six frames
   if (sheet === "sweep" && d.sweep) return ["sweep", d.sweep[(f | 0) % d.sweep.length]];

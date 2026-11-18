@@ -81,6 +81,9 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
   const [msg, setMsg] = useState(null);   // { text, bad }
   const [crashes, setCrashes] = useState(() => crashCount());
   const [crashText, setCrashText] = useState("");
+  const [crashMsg, setCrashMsg] = useState("");   // "Copied!" (or how to copy it by hand), fades after a moment
+  const crashTimer = useRef(0);
+  useEffect(() => () => clearTimeout(crashTimer.current), []);
   const box = { width: "100%", boxSizing: "border-box", resize: "none", padding: "6px 8px", fontFamily: "var(--body)", fontSize: 11,
     color: "var(--text)", background: "var(--slate-dk)", border: "2px solid var(--ink)", userSelect: "text", WebkitUserSelect: "text" };
 
@@ -107,7 +110,11 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
   const copyCrash = async () => {
     const r = crashReport();
     setCrashText(r);
-    try { await navigator.clipboard.writeText(r); } catch { /* the box below shows it */ }
+    let ok = true;
+    try { await navigator.clipboard.writeText(r); } catch { ok = false; /* the box below shows it */ }
+    setCrashMsg(ok ? "Copied!" : "Select the report below and copy it.");
+    clearTimeout(crashTimer.current);
+    crashTimer.current = setTimeout(() => setCrashMsg(""), 2500);
   };
   const head = (t) => <div className="cg-label" style={{ marginTop: 2 }}>{t}</div>;
   return (
@@ -136,6 +143,10 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
       {crashes > 0 && <div style={{ display: "flex", gap: 8 }}>
         <button className="cg-btn" style={{ flex: 1, minHeight: 44 }} onClick={copyCrash}>Copy crash report</button>
         <button className="cg-btn cg-btn--slate" style={{ flex: 1, minHeight: 44 }} onClick={() => { clearCrashes(); setCrashes(0); setCrashText(""); }}>Clear</button>
+      </div>}
+      {crashMsg && <div style={{ display: "flex", justifyContent: "center" }}>
+        <div className="cg-pop" role="status" style={{ ...say, fontSize: 13, fontWeight: 700, color: "var(--ink)", background: "var(--gold)",
+          border: "2px solid var(--ink)", padding: "4px 14px", textShadow: "none" }}>{crashMsg}</div>
       </div>}
       {crashText && <textarea readOnly rows={4} value={crashText} style={box} onFocus={(e) => e.target.select()} aria-label="Crash report" />}
 
