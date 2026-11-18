@@ -2091,7 +2091,9 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   like a net"): the silhouette grown 3 art px and rounded, an open diamond mesh of hemp rope with
   knots, a 2 px rim rope, stone weights on cords along the bottom; it returns a bigger canvas with
   `.pad` and rigs.js places it (lookOf / rigFrame). `net-lab.html` shows every flier plain and netted.
-  Weak: the weights and the trailing rope end are faint at board size; on a bat it is mostly rim. Barricades are no longer rebuilt free each wave: set up whole at the first
+  Weights: 5 px stones on 2 px cords, ~16 px apart (owner: "a tad bigger ... less if that's better"; PAD
+  11). A netted flier plays its FIGHT clip (enemies.js `rsheet` reads `e.net`), its blow on the engine's
+  meleeCd. `net-anim.html` records a video sample (rename the saved .png to .mp4). On a bat it is mostly rim. Barricades are no longer rebuilt free each wave: set up whole at the first
   build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
   damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
   the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls

@@ -137,7 +137,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
   if (e.seized) hover -= S(2.5 + Math.sin(time * 9 + e.id) * 0.8);
   // rigged foes: baked frames, feet on the ground line, mirrored to face
   // (a gryphon at war with a war-eagle fights in the air: e.airFight)
-  const rsheet = (fighting && !airborne) || e.airFight ? "fight" : "walk";
+  // (a flier caught in the Masons' net, e.net, flails at it: its blow plays on its own clock, the engine's meleeCd)
+  const rsheet = (fighting && !airborne) || e.airFight || e.net ? "fight" : "walk";
   const def = rigDef(skin);
   // walkers step to the ground they cover; fliers keep time. A foe held in a melee trades blows
   // on its own clock (engine meleeCd, reset to atkRate at each blow, atkAnim 200 ms from it);

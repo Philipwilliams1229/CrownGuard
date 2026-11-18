@@ -10,7 +10,7 @@
 // spears are wrapped, not traced), over it a diamond mesh of 1 px hemp strands with a lit edge
 // (sun upper left) and knots, a 2 px rim rope pulled tight, lead weights hanging from the bottom
 // and a short trailing rope end. Deterministic, no randomness.
-const PAD = 7;                                   // art px the net may spill past the frame
+const PAD = 11;                                   // art px the net may spill past the frame
 const DARK = [64, 42, 26], MID = [128, 92, 54], LIT = [222, 196, 140];
 const STONE = [124, 116, 112], STONE_LT = [206, 196, 176], STONE_DK = [58, 50, 50];
 const P = 9;                                     // mesh period (diamond holes ~6 art px)
@@ -95,24 +95,30 @@ export const netify = (cv, S = 1) => {
       put(x, y, MID); put(x - 1, y, LIT); put(x, y - 1, LIT); put(x + 1, y, DARK); put(x, y + 1, DARK);
     }
   }
-  // 4. lead weights hanging from the bottom rim, every ~11 px, picked where the rim faces down
+  // 4. lead weights hanging from the bottom rim, every ~16 px, picked where the rim faces down
   const hang = [];
   for (let x = minx + 3; x <= maxx - 3; x += 1) {
     let yb = -1; for (let y = maxy + 1; y >= miny; y--) if (sh[y * W + x]) { yb = y; break; }
-    if (yb < 0 || yb + 4 >= H) continue;
+    if (yb < 0 || yb + 8 >= H) continue;
     // only where the rim is level enough: the pixel two to each side ends within 2 rows
     let yl = -1, yr = -1; for (let y = maxy + 1; y >= miny; y--) { if (yl < 0 && sh[y * W + x - 2]) yl = y; if (yr < 0 && sh[y * W + x + 2]) yr = y; }
     if (Math.abs(yl - yb) > 2 || Math.abs(yr - yb) > 2) continue;
     hang.push([x, yb]);
   }
+  // (owner, 2026-11-18: "a tad bigger ... less if that's better": 5 px stones, ~16 px apart)
   let last = -99;
   for (const [x, yb] of hang) {
-    if (x - last < 10) continue; last = x;
-    put(x, yb + 1, DARK);                                             // the cord
-    // stone: a round 3x3 (corners cut) lit upper left, with a dark base
-    const y0 = yb + 2;
-    put(x, y0, STONE_LT); put(x - 1, y0 + 1, STONE_LT); put(x, y0 + 1, STONE); put(x + 1, y0 + 1, STONE);
-    put(x, y0 + 2, STONE_DK); put(x - 1, y0 + 2, STONE_DK); put(x + 1, y0 + 2, STONE_DK); put(x + 1, y0, STONE);
+    if (x - last < 16) continue; last = x;
+    put(x, yb + 1, DARK); put(x, yb + 2, DARK);                        // the cord
+    // stone: a round 5x5 (corners cut), a dark rim, lit upper left, shaded lower right
+    const cy = yb + 5;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const r = dx * dx + dy * dy;
+      if (r > 5) continue;
+      const k = dx + dy;
+      put(x + dx, cy + dy, r >= 4 && k >= 0 ? DARK : k <= -2 ? STONE_LT : k <= 1 ? STONE : STONE_DK);
+    }
+    put(x - 1, cy - 1, STONE_LT);
   }
   // 5. a short trailing rope end off the top right
   { let tx = -1, ty = -1; for (let x = maxx; x > cxm; x--) { for (let y = miny; y < cym; y++) if (sh[y * W + x]) { tx = x; ty = y; break; } if (tx >= 0) break; }
