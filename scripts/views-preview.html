@@ -130,7 +130,7 @@ const renderNotes = () => {
 const send = async (f, card) => {
   const ta = card.querySelector("textarea"), st = card.querySelector(".sendStatus"), text = ta.value.trim();
   if (!text) { st.textContent = "Write a note first."; return; }
-  if (!db) { st.textContent = "Notes aren't connected on this view."; return; }
+  if (!db) { st.textContent = "Still connecting the notes… try again in a moment."; return; }
   const about = card.querySelector(".chip.on").dataset.about, btn = card.querySelector(".send");
   btn.disabled = true; st.textContent = "Sending…";
   try {
@@ -141,8 +141,10 @@ const send = async (f, card) => {
 };
 const connect = async () => {
   const s = $("#dbStatus");
-  try { db = await window.claude?.use?.("db"); } catch { db = null; }
-  if (!db) { s.textContent = "Notes need the page open on claude.ai."; return; }
+  // the frame hands the page `window.claude` a moment after it starts: wait for it (up to 15 s)
+  for (let i = 0; i < 150 && !(window.claude && window.claude.use); i++) await new Promise((r) => setTimeout(r, 100));
+  try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch { db = null; }
+  if (!db) { s.textContent = "Notes can't connect in this view. Open the page on claude.ai and reload."; return; }
   const timer = setTimeout(() => (s.textContent = "Notes can't be reached yet."), 10000);
   db.collection("feedback").onSnapshot((snap) => {
     if (!snap.metadata.fromCache) { clearTimeout(timer); s.textContent = "Notes connected."; }
