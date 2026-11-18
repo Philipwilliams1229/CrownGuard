@@ -6,6 +6,7 @@
 // Sheets: "walk", "fight", and for fliers "fly" (4 frames each).
 
 import { bakeSprite, PX } from "./paint.js";
+import { netify } from "./netlook.js";
 import { RIMEBEAST_RIGS, RIMEBEAST_PAINTERS } from "./rigs-rimebeasts.js";
 import "./rigs-eagle.js";   // registers the eagle in PIX (pix/pixrigs.js)
 import { PIX, hasPix, pixBox, pixRec, lightAt, pixRim, isViewSheet } from "./pix/pixrigs.js";
@@ -57,30 +58,6 @@ export const hasRig = (type) => !!RIGS[type];
 export const rigDef = (type) => RIGS[type];
 export { hasPix };
 
-// The Masons' net over a flier caught at the barricade (engine: e.net; enemies.js draws this
-// look over the figure): rope laid diagonally across the figure's own pixels, so it hugs the
-// silhouette, a rope edge round its outline (the net's drawn-in rim), lighter knots where the
-// strands cross. Works on any frame canvas; `S` is its pixels per art pixel.
-const ROPE = [54, 36, 24], ROPE_LT = [214, 188, 132], ROPE_MD = [112, 80, 48];
-const netify = (cv, S = 1) => {
-  const c = cv.getContext("2d", { willReadFrequently: true });
-  const W = cv.width, H = cv.height, im = c.getImageData(0, 0, W, H), d = im.data;
-  const solid = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 110;
-  const out = new Uint8ClampedArray(d.length);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (!solid(x, y)) continue;
-    const ax = Math.floor(x / S), ay = Math.floor(y / S);
-    const a = (ax + ay) % 7 === 0, b = (((ax - ay) % 7) + 7) % 7 === 0;   // (a strand every 7 art px each way)
-    const edge = !solid(x - S, y) || !solid(x + S, y) || !solid(x, y - S) || !solid(x, y + S);
-    let col = null;
-    if (a && b) col = ROPE_LT; else if (a || b) col = ROPE_MD; else if (edge && (ax + ay) % 2 === 0) col = ROPE;   // (the rim a dotted rope)
-    if (!col) continue;
-    const i = (y * W + x) * 4;
-    out[i] = col[0]; out[i + 1] = col[1]; out[i + 2] = col[2]; out[i + 3] = 235;
-  }
-  im.data.set(out); c.putImageData(im, 0, 0);
-};
-
 // ---- the new figures behind the old doors ------------------------------------
 // A pix frame's looks, made once each: "white" (the hit flash), "revived" (bone).
 const lookOf = (rec, variant) => {
@@ -91,7 +68,7 @@ const lookOf = (rec, variant) => {
   const c = cv.getContext("2d"); c.drawImage(rec.cv, 0, 0);
   if (variant === "white") { c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
   else if (variant === "revived") boneify(cv);
-  else if (variant === "net") netify(cv);
+  else if (variant === "net") { const big = netify(cv); if (big) return (looks[variant] = big); }   // (a net may spill past the frame: netify's canvas carries `.pad`)
   return (looks[variant] = cv);
 };
 // rigFrame's answer for a pix type: the frame set in the rig's symmetric box, as
@@ -111,7 +88,8 @@ const drawPix = (ctx, type, x, y, dir, sheet, frame, variant, alpha, aim) => {
   ctx.save();
   if (alpha !== 1) ctx.globalAlpha *= alpha;
   ctx.translate(x, y); if (left) ctx.scale(-1, 1);
-  ctx.drawImage(lookOf(rec, variant), -ax, -ay, w, h);
+  const look = lookOf(rec, variant), pad = (look.pad || 0) / 2;
+  ctx.drawImage(look, -ax - pad, -ay - pad, look.width / 2, look.height / 2);
   if (!variant) {
     if (prefs.spellLight !== false) {
       const L = lightAt(x, y);
@@ -145,7 +123,7 @@ export const rigFrame = (type, sheet, frame, variant = "") => {
   // the painter leaves its scale and anchor on the context; flood in pixels
   if (variant === "white") { const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
   if (variant === "revived") boneify(cv);
-  if (variant === "net") netify(cv, PX);
+  if (variant === "net") { const big = netify(cv, PX); if (big) { sp = { cv: big, ax: hw + (big.pad || 0) / PX, ay: up + (big.pad || 0) / PX }; CACHE.set(key, sp); return sp; } }
   sp = { cv, ax: hw, ay: up };
   CACHE.set(key, sp);
   return sp;

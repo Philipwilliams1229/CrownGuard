@@ -2086,9 +2086,12 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   `e.net` {hp, maxHp}, held in place, no halberdier grabs it) and flails at the net with its own blow
   (`max(15, atk, airAtk)` every `atkRate`, its fight frames play) until the net breaks, then flies on;
   killed in it, the net goes with it. Gryphon ~3.6 s, wraith / wight ~7-8 s, ice drake ~14 s. In the
-  sims fliers seldom live to reach the barricade (`netted` is printed when it happens). rigs.js
-  `netify` draws a "net" look of the figure's own frame (the owner: "not reading like a net", a
-  second look is due). Barricades are no longer rebuilt free each wave: set up whole at the first
+  sims fliers seldom live to reach the barricade (`netted` is printed when it happens). The net's look lives in
+  `src/render/netlook.js` (`netify(cv, S)`, redrawn by a Sonnet artist after the owner's "not reading
+  like a net"): the silhouette grown 3 art px and rounded, an open diamond mesh of hemp rope with
+  knots, a 2 px rim rope, stone weights on cords along the bottom; it returns a bigger canvas with
+  `.pad` and rigs.js places it (lookOf / rigFrame). `net-lab.html` shows every flier plain and netted.
+  Weak: the weights and the trailing rope end are faint at board size; on a bat it is mostly rim. Barricades are no longer rebuilt free each wave: set up whole at the first
   build phase or when a tier is bought (`_spikeKey` includes `mat`; a re-cut keeps each frame's
   damage share), they keep their damage, a broken frame (hp 0) stays as a wreck and lets foes by, and
   the tray's **Repair** button (build phase only, two taps; CrownguardGame.jsx `repairBtn`) calls

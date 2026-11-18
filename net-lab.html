@@ -1,0 +1,61 @@
+<!doctype html>
+<!--
+  The Masons' net (render/netlook.js) on every flier it can catch: for each flier a row of frames
+  (its fight sheet, as it flails in the net), plain above and netted below, big; then the same
+  netted frames at board size on the road. Edits to netlook.js show on reload.
+
+    /net-lab.html?scale=6&frames=4&tag=x      &types=gryphon,bat   &sheet=fight|walk
+
+  Saved to .shots/netlab_<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>net lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      const q = new URLSearchParams(location.search);
+      const R = await import("/src/render/rigs.js");
+      const S = Number(q.get("scale")) || 6, NF = Number(q.get("frames")) || 4, TAG = q.get("tag") || "x";
+      const SHEET = q.get("sheet") || "fight";
+      const types = (q.get("types") || "gryphon,bat,wraith,wight,icedrake").split(",").filter((t) => R.hasRig(t));
+      const cw = 64, ch = 60, road = "#b89a6c", grass = "#6f8f4a";
+      // big: per type two rows (plain, netted) of NF frames; then a board-size strip (scale 1 and 2)
+      const bigW = cw * NF * S, bigH = ch * S * 2 * types.length;
+      const smallH = (ch + 8) * 3 * 2;
+      const c = document.createElement("canvas"); c.width = Math.max(bigW, 900); c.height = bigH + smallH + 30;
+      const x = c.getContext("2d"); x.imageSmoothingEnabled = false;
+      x.fillStyle = "#20242c"; x.fillRect(0, 0, c.width, c.height);
+      const frameOf = (t, i) => { try { return [SHEET, i]; } catch { return ["walk", i]; } };
+      types.forEach((t, ti) => {
+        for (let row = 0; row < 2; row++) {
+          const y0 = (ti * 2 + row) * ch * S;
+          x.fillStyle = row ? road : grass; x.fillRect(0, y0, bigW, ch * S);
+          for (let i = 0; i < NF; i++) {
+            x.save(); x.scale(S, S);
+            const fx = i * cw + cw / 2, fy = (ti * 2 + row) * ch + ch - 10;
+            const [sh, fr] = frameOf(t, i);
+            R.drawRig(x, t, fx, fy, 1, sh, fr, "");
+            if (row) R.drawRig(x, t, fx, fy, 1, sh, fr, "net");
+            x.restore();
+          }
+          x.fillStyle = "#fff"; x.font = "14px monospace"; x.fillText(`${t} ${row ? "netted" : "plain"} (${SHEET})`, 6, y0 + 16);
+        }
+      });
+      // board size: every type netted at 1x and 2x on the road
+      [1, 2].forEach((k, ri) => {
+        const y0 = bigH + 20 + ri * (ch + 8) * k;
+        x.fillStyle = road; x.fillRect(0, y0, c.width, (ch + 8) * k);
+        types.forEach((t, ti) => {
+          x.save(); x.scale(k, k);
+          const fx = (ti * 70 + 40), fy = (y0 / k) + ch - 6;
+          R.drawRig(x, t, fx, fy, 1, SHEET, 1, ""); R.drawRig(x, t, fx, fy, 1, SHEET, 1, "net");
+          x.restore();
+        });
+        x.fillStyle = "#fff"; x.font = "12px monospace"; x.fillText(`board size x${k}`, c.width - 140, y0 + 14);
+      });
+      await fetch(`/__shot?name=netlab_${TAG}`, { method: "POST", body: c.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/netlab_${TAG}.png`;
+    </script>
+  </body>
+</html>

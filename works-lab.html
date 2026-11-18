@@ -6,7 +6,7 @@
 
     /works-lab.html?works=wizards:3,guards:3,archers:2&foes=levy,levy,orc&frames=12&every=6&tag=x
     &realm=thornbrook &faction=iron  &back=140 (how far from the gate the first foe starts)
-    &warm=1  &crop=230,220  &scale=3   &set=hp:9999 (fields laid on every foe)
+    &warm=1  &crop=230,220  &scale=3  &left=600 (the crop's left edge, board units; default: flush right)   &set=hp:9999 (fields laid on every foe)
 
   Saved to .shots/workslab_<tag>.png, four frames to a row, each stamped with its game time.
 -->
@@ -50,7 +50,7 @@
       const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
       for (let f = 0; f < N; f++) {
         draw(g, cv, { current: null });
-        const k = cv.width / W, cx = W - CW, cy = Math.max(0, Math.min(H - CH, gy - CH * 0.55));
+        const k = cv.width / W, cx = q.get("left") != null ? Number(q.get("left")) : W - CW, cy = Math.max(0, Math.min(H - CH, gy - CH * 0.55));
         const col = f % cols, row = Math.floor(f / cols);
         o.drawImage(cv, cx * k, cy * k, CW * k, CH * k, col * CW * SC, row * (CH + 12) * SC + 12 * SC, CW * SC, CH * SC);
         o.fillStyle = "#e8e0c8"; o.font = `${6 * SC}px monospace`; o.fillText(`${g.time.toFixed(3)}s`, col * CW * SC + 4, row * (CH + 12) * SC + 9 * SC);
