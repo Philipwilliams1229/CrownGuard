@@ -256,7 +256,16 @@ src/render/march.js, a facing change is the plain one-frame flip again.
 FRONT (walking down) and BACK (walking up) walks are drawn, `src/render/pix/fig-goblin-views.js`
 (brief `art/briefs/goblin-views.md`, a Sonnet artist), IN THE GAME the same day (PIX
 `views`, style guide "Front and back views"), then "lets get started on the rest";
-`views-lab.html?fig=<name>` shows any figure's. Three-quarter turning poses at the corners were drawn and
+`views-lab.html?fig=<name>` shows any figure's.
+**The whole cast has views** (same day: ~66 PIX types, 15 Sonnet artists plus one Opus for the
+war-mammoth's front). Owner's rules for every view (art/briefs/views-artist.md): shields clear of
+the head in FRONT; every weapon kept from BEHIND at its true depth (hidden only by the body); feet
+connected; the weapon IN the fist. Each figure switches on through `VIEWS_ON` (pixrigs.js) once the
+lead has checked it. **Owner feedback page:** private Artifact "Crownguard Front and Back Views"
+(slug 8fb9b2d0-5e54-4d21-be4c-af059cc36945): every figure animated side / front / back, its frames,
+a note box per figure. Notes land in its db collection `feedback` (`db_list`); answer by setting
+`reply` (and `done: true`) on the note with `db_write`. Rebuild: `node scripts/build-views-preview.mjs`,
+then republish `scratchpad/views-preview/` with publish_files (slug + base_version). Three-quarter turning poses at the corners were drawn and
 rejected the same day (owner: "it was better before. Lets leave it as just side, front, and
 back"): a view change is a plain switch; don't add in-between turn frames unasked. A sprite-stacked goblin was tried first and set aside
 (`stack-lab.html`, `concept/stack-goblin.js`: turns to any angle but reads blobby at our camera).
