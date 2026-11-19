@@ -2120,7 +2120,7 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   (CrownguardGame.jsx `barricadeBtn`, shown while the guild is built, a draining recharge like the
   militia's), then a tap on the road: actions.js `placeBarricade` sets ONE row of frames across the
   road there (`rows` 1 / 1 / 2 / 2 standing at once, a new one takes the oldest down; `cooldown`
-  40 / 35 / 30 / 25 s, `g.masonCd`, ticked beside the militia's, kept by a retried wave). Refused (the
+  60 / 52 / 45 / 38 s (was 40 / 35 / 30 / 25; frames x0.85 the same day: 128 / 255 / 408, owner), `g.masonCd`, ticked beside the militia's, kept by a retried wave). Refused (the
   tap keeps it armed): off the road, within 70 of the cave, past the Gate Guard's line, on or within 12
   of a bridge deck, within 26 of a standing row. Tiers: wood (150), iron + thicker gate (300, +5 life),
   steel + two rows (480, +5 more: 10 in all), then mend 2 a wave and the net launcher (it catches
