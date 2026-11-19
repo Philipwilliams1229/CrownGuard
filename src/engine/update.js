@@ -1604,7 +1604,7 @@ export function updateGame(g, dt) {
         t.novaCd = Math.max(0, (t.novaCd ?? st.novaEvery * 0.5) - sdt * 1000);
         if (t.novaCd <= 0 && g.enemies.some((e) => !e.dead && !e.neutral && !e.submerged && Math.hypot(e.x - t.x, e.y - t.y) <= st.range)) {
           t.novaCd = st.novaEvery;
-          g.effects.push({ type: "frostnova", x: t.x, y: t.y, ttl: 500, r: st.range });
+          g.effects.push({ type: "frostnova", x: t.x, y: t.y, ttl: 800, life: 800, r: st.range });
           sfx.play("nova");
           for (const e of g.enemies) {
             if (e.dead) continue;

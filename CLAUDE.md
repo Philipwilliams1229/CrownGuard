@@ -224,7 +224,7 @@ very frame drawn burns, read through `e._rf` set in enemies.js, edge data per fr
 step, at most 2 bakes a frame; a burning foe is a small `addLight`, 12 a frame, draw.js); raise **B** without the clods or the
 grave's lines (rings.js `case "raise"`: three ribbons whose far half is in the GR layer, under the risen); frost nova **B + C**
 (rings.js `case "frostnova"`: C's lit glass floor and glaze, B's see-through spikes rising in turn round the circle once the floor's
-edge (`NOVA_PACE` 1.8) has reached them, then shattering; ringflash.js flashes each foe as its spike rises). The risen look
+edge (`NOVA_PACE` 2.5) has reached them, sweeping round over `NOVA_SWEEP` 0.45 of its 800 ms (owner: "i liked the spinny effect from b"; the nova was 500 ms, both pushes now carry `life: 800`), then shattering; ringflash.js flashes each foe as its spike rises). The risen look
 (rigs.js `boneify`) was redone: a five-step bone ramp keeping the figure's shading, rags keep a dim hint of their colour, the eyes
 witch-fire green each in its own socket, ribs only on small upright figures.
 The same day the **Rimecaller's nova fires only with a foe in its aura** (update.js: the clock charges, then holds until a

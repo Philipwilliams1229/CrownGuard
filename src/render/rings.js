@@ -874,8 +874,10 @@ const novaSpikes = (R, sd) => memo(`nsp|${Math.round(R)}|${sd}`, () => {
   return out;
 });
 // a spike rises only once the floor's edge has reached its radius (front = easeOut(NOVA_PACE p)), then the sweep goes round by angle
-const NOVA_PACE = 1.8;   // the floor's edge: R x easeOut(p x NOVA_PACE) (ringflash.js matches)
-const novaAt = (a, rho) => (1 - Math.sqrt(1 - Math.min(0.85, rho))) / NOVA_PACE + 0.02 + 0.2 * ((((a + Math.PI / 2) / TAU) % 1 + 1) % 1);
+const NOVA_PACE = 2.5;   // the floor's edge: R x easeOut(p x NOVA_PACE) (ringflash.js matches)
+// the sweep round the circle takes NOVA_SWEEP of the nova's life (owner, 2026-11-18: "i liked the spinny effect from b")
+const NOVA_SWEEP = 0.45;
+const novaAt = (a, rho) => (1 - Math.sqrt(1 - Math.min(0.85, rho))) / NOVA_PACE + 0.02 + NOVA_SWEEP * ((((a + Math.PI / 2) / TAU) % 1 + 1) % 1);
 const NOVA_COL = [ICE[0], ICE[1], ICE[3]];
 // the frost nova's lit glass floor, baked per radius: a pale film with slanted streaks (art px)
 const glazeS = (R) => memo(`glz|${R}|${PX}`, () => {
@@ -895,7 +897,7 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
     case "frostnova": {
       // Round 5, B + C (owner's picks): C's lit glass floor and glaze with a ring front, B's spikes erupting
       // round the circle in turn (fewer, see-through), then shattering. The ring flash follows the same sweep.
-      const life = 500, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = NOVA_SQ;
+      const life = 800, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = NOVA_SQ;
       const r = R * easeOut(p * NOVA_PACE), A = stepA(a), hall = hallOf(g, fx);
       const fd = p < 0.5 ? 1 : Math.max(0, 1 - (p - 0.5) / 0.5);
       ctx.save();
@@ -909,8 +911,8 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       const SPK = novaSpikes(R, sd), back = [], front = [];
       for (const s of SPK) {
         const age13 = (p - s.at) * 13; if (age13 < 0) continue;
-        const sh = clamp01((p - s.at - 0.18 - 0.05 * s.j) / 0.16);
-        if (sh >= 1 && p > s.at + 0.46) continue;
+        const sh = clamp01((p - s.at - 0.14 - 0.04 * s.j) / 0.12);
+        if (sh >= 1 && p > s.at + 0.3) continue;
         const x = fx.x + Math.cos(s.a) * s.rho, y = fx.y + Math.sin(s.a) * s.rho * SQ + 2;
         (hall ? behindHall(hall, fx, x, y) : y < fx.y + 2 ? true : false) ? back.push(s, x, y, age13, sh) : front.push(s, x, y, age13, sh);
       }

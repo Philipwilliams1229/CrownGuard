@@ -216,7 +216,7 @@ const castShrouds = (g, sdt, tms) => {
     best.iceAt = tms;
     zoneStats(g).shrouds++;
     g.effects.push({ type: "frostcast", x: e.x, y: e.y - 10, tx: best.x, ty: best.y - 14, ttl: 420, life: 420 });
-    g.effects.push({ type: "frostnova", x: best.x, y: best.y, ttl: 400, r: 22 });
+    g.effects.push({ type: "frostnova", x: best.x, y: best.y, ttl: 800, life: 800, r: 22 });
     sfx.play("shroud");
   }
 };

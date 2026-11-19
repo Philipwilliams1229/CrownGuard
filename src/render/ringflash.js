@@ -20,13 +20,13 @@ const RING = {
   keg: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   frost: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   dust: [380, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
-  frostnova: [500, 0.55, (p) => easeOut(p * 1.8), 0.8],
+  frostnova: [800, 0.55, (p) => easeOut(p * 2.5), 0.9],
   firenova: [450, 0.55, (p) => easeOut(p * 1.15), 0.87],
 };
 
 // The frost nova's spikes erupt in turn round the circle (rings.js novaAt), so its flash follows the same
 // sweep by ANGLE: a foe inside the disc flashes as the sweep passes its bearing (the shock's width in p, 0.034).
-const novaAt = (a, rho) => (1 - Math.sqrt(1 - Math.min(0.85, rho))) / 1.8 + 0.02 + 0.2 * ((((a + Math.PI / 2) / (Math.PI * 2)) % 1 + 1) % 1);
+const novaAt = (a, rho) => (1 - Math.sqrt(1 - Math.min(0.85, rho))) / 2.5 + 0.02 + 0.45 * ((((a + Math.PI / 2) / (Math.PI * 2)) % 1 + 1) % 1);
 const SWEEP_W = 0.034;
 const LIVE = [];          // [x, y, front, squash, band, kind, p] for this frame (kind 1 = the nova's angular sweep)
 export const collectRings = (g) => {
