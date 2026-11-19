@@ -4,7 +4,7 @@
 // React state for the panels, handles mouse input, and renders the UI.
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE } from "./data/constants.js";
+import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE, WALL_W } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { noteCrash, heartbeat, quietBeat } from "./native/crashlog.js";
 import { bakeStats } from "./render/pix/bake.js";
@@ -23,6 +23,7 @@ import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
+import CrewIcon from "./ui/CrewIcon.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
 import { PTS, onRoad } from "./engine/path.js";
@@ -1135,19 +1136,22 @@ export default function Crownguard() {
 
 
   // -- the militia horn and the hero --
+  // (owner, 2026-11-18: the hero, the Masons and the militia stand on the battlefield's bottom
+  // right, beside the castle; the Masons and the horn are squares the size of the speed button)
+  const SQUARE = { width: 56, height: 56, minWidth: 56, minHeight: 56, flexDirection: "column", gap: 1, padding: "2px 2px", overflow: "hidden", justifyContent: "center" };
   // (the Levy works change how many answer, for how long, and how soon again)
   const militiaSt = militiaStats(ui.castle, ui.castleRanks);
   const militiaBtn = ui.result == null && !(mode === "free" && SANDBOX?.militia === false) && (
     <button aria-label="Call the militia" title={militiaBlurb(militiaSt)}
       className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
-      style={{ flex: 1, minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
+      style={SQUARE}
       disabled={ui.militiaSec > 0}
       onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {/* the cooldown drains down the plank like sand */}
       {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / militiaSt.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
       {/* the man the horn raises at the Levy's tier: a farmer, a yeoman, the crown's squire (castle.js militia `rig`) */}
-      {hasRig(militiaSt.rig || "farmer") ? <EnemyIcon type={militiaSt.rig || "farmer"} box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
-      <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
+      {hasRig(militiaSt.rig || "farmer") ? <EnemyIcon type={militiaSt.rig || "farmer"} box={26} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
+      <span style={{ fontSize: 9, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "MILITIA"}</span>
     </button>
   );
   // the Masons' barricade (owner, 2026-11-18: like the militia horn): tap, then tap the road, and a
@@ -1157,12 +1161,12 @@ export default function Crownguard() {
   const barricadeBtn = ui.result == null && masonSt && (
     <button aria-label="Call the masons: set a barricade" title="The masons set a row of spiked barricades where you tap on the road"
       className={cls("cg-btn", ui.rallyFor === "barricade" && "is-on")}
-      style={{ flex: 1, minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
+      style={SQUARE}
       disabled={ui.masonSec > 0}
       onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "barricade" ? null : "barricade"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {ui.masonSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.masonSec * 1000) / masonSt.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
-      {hasRig("mason") ? <EnemyIcon type="mason" box={28} /> : <HammerIcon size={22} />}
-      <span style={{ fontSize: 12, position: "relative" }}>{ui.masonSec > 0 ? `${ui.masonSec}s` : "Masons"}</span>
+      <CrewIcon kind="mason" box={26} />
+      <span style={{ fontSize: 9, position: "relative" }}>{ui.masonSec > 0 ? `${ui.masonSec}s` : "MASONS"}</span>
     </button>
   );
   // the hero stands in the tray's foot, where only his portrait and bars fit
@@ -1176,7 +1180,7 @@ export default function Crownguard() {
     return (
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
         className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", ui.hero.dead && "is-off", anyReady && !talentsOpen && "cg-horn")}
-        style={{ flex: 1, minHeight: 60, minWidth: heroSlim ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
+        style={{ width: 150, minHeight: 56, height: 56, padding: "4px 7px 4px 4px", gap: 6, justifyContent: "flex-start" }}
         onClick={() => {
           const g = G.current;
           if (!g) return;
@@ -1186,12 +1190,12 @@ export default function Crownguard() {
           if (aiming) { g.rallyFor = null; return; }
           openHeroMenu();
         }}>
-        <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <span className="cg-well" style={{ width: 40, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
         </span>
-        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: heroSlim ? 0 : 88 }}>
+        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
-            {!heroSlim && <span style={{ fontSize: 11 }}>{ui.hero.name}</span>}
+            <span style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{ui.hero.name.replace(/^(Sir|Brother|Captain) /, "")}</span>
             <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv <span className="cg-num" style={{ fontSize: 10, textShadow: "1px 1px 0 var(--ink)" }}>{ui.hero.level}</span></span>
           </span>
           <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
@@ -2037,6 +2041,13 @@ export default function Crownguard() {
             </div>
           </div>
         )}
+        {/* ---- bottom right, beside the castle (owner, 2026-11-18): the hero, the Masons, the militia;
+            clear of the castle band (WALL_W of board at the board's scale) ---- */}
+        {ui.result == null && (heroBtn || barricadeBtn || militiaBtn) && (
+          <div style={{ position: "absolute", right: Math.round((WALL_W * boardCss.w) / W) + 8, bottom: 8 + cornerBot, zIndex: 20, display: "flex", alignItems: "flex-end", gap: 6, ...scaleAt("bottom right") }}>
+            {heroBtn}{talentBtn}{barricadeBtn}{militiaBtn}
+          </div>
+        )}
       </div>
 
       {/* ---- the tray ---- */}
@@ -2207,14 +2218,6 @@ export default function Crownguard() {
             </div>
             )}
 
-            {/* foot (owner, 2026-11-18): the hero on a row of his own, the Masons and the militia
-                sharing the row under him, each half of it */}
-            {ui.result == null && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginRight: cornerR / 3 }}>
-                {(heroBtn || talentBtn) && <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>{heroBtn}{talentBtn}</div>}
-                {(barricadeBtn || militiaBtn) && <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>{barricadeBtn}{militiaBtn}</div>}
-              </div>
-            )}
           </div>
         </div>
       </div>
