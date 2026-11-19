@@ -218,7 +218,15 @@ is now rgba(240,176,40). `rr-lab.html` (`mode=sel|build&build=<kind>&wx=1&old=1`
 being raised, not in front", "some lighting effects", and "revisit nova effect for ice"; brief `art/briefs/fx-round5.md`):
 FOUR options a row (A-D; the lab and viewer take an optional `D`), all with light painted as `addLight` would.
 `concept/fx-r5-{burn,raise,nova}.js` (rows `burn5`, `raise5`, `frostnova5`), gathered by `concept/fx-r5.js`; private
-Artifact "Crownguard Effects Concepts, Round 5" (`node scripts/build-fx-concepts.mjs round5`). Awaiting the owner's picks.
+Artifact "Crownguard Effects Concepts, Round 5" (`node scripts/build-fx-concepts.mjs round5`). **The owner's picks, IN THE GAME
+(same day; brief `art/briefs/fx-round5-build.md`; pending their look):** fire **B** (statusfx.js `statusBurn`: the outline of the
+very frame drawn burns, read through `e._rf` set in enemies.js, edge data per frame canvas in a WeakMap, baked once per frame and
+step, at most 2 bakes a frame; a burning foe is a small `addLight`, 12 a frame, draw.js); raise **B** without the clods or the
+grave's lines (rings.js `case "raise"`: three ribbons whose far half is in the GR layer, under the risen); frost nova **B + C**
+(rings.js `case "frostnova"`: C's lit glass floor and glaze, B's see-through spikes rising in turn round the circle once the floor's
+edge (`NOVA_PACE` 1.8) has reached them, then shattering; ringflash.js flashes each foe as its spike rises). The risen look
+(rigs.js `boneify`) was redone: a five-step bone ramp keeping the figure's shading, rags keep a dim hint of their colour, the eyes
+witch-fire green each in its own socket, ribs only on small upright figures.
 The same day the **Rimecaller's nova fires only with a foe in its aura** (update.js: the clock charges, then holds until a
 live, non-neutral, surfaced foe is within range; it used to go off every `novaEvery` even between waves), and the Warden
 Mage's slow-aura pulse (halls/warden.js, the "second ring") lies at the nova's 0.55, not 0.7.

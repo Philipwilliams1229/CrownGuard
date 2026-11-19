@@ -58,7 +58,7 @@ const lvl = (c, e, life, col, gold) => {
     for (let i = 0; i < 12; i++) { const ang = (i / 12) * Math.PI * 2 + (gold ? e.p * 1.6 : 0), rr = e.p * (gold ? 44 : 30); c.fillRect(Math.round(Math.cos(ang) * rr), Math.round(Math.sin(ang) * rr * 0.75 - e.p * 8), 1, 1); } });
 };
 const TODAY = {
-  burn: status(() => ({ burnUntil: FAR })),
+  burn: status((e) => ({ burnUntil: FAR, _rf: { skin: "goblin", ps: "walk", pf: ((e.i % 8) + 8) % 8 } })),
   poison: status(() => ({ poisonUntil: FAR })),
   slow: status(() => ({ slowUntil: FAR, slowPct: 0.4 })),
   frozen: status(() => ({ frozenUntil: FAR, _frzTo: FAR, _frzAt: TMS }), true),

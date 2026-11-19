@@ -660,14 +660,6 @@ const graveS = (lv = 3) => memo(`grave|${lv}|${PX}`, () => {
     // (owner, 2026-11-17: lighter than the old near-black, turned earth rather than a hole)
     G.set(x, y, n < 0.45 ? "#3a2a1e" : n < 0.8 ? "#4a3626" : bay(x, y) < 0.6 ? "#5a4430" : "#4a3626", n > 0.85 ? 170 : 215);
   }
-  const cr = lv / 3;
-  for (let k = 0; k < 7; k++) {
-    const a = (k / 7) * TAU + 0.3, L = (6 + 8 * hash(k, 3)) * cr;
-    for (let t = 3.6; t < 4 + L; t += 0.5 / S) {
-      const w = Math.sin(t * 1.3 + k) * 0.5;
-      G.set(cx + (Math.cos(a) * t + w) * S, cy + (Math.sin(a) * t * 0.42 + w * 0.3) * S, t < 7 ? "#6a4c32" : "#5a4028");
-    }
-  }
   for (let k = 0; k < 5; k++) { const a = hash(k, 9) * TAU, r = 1 + hash(k, 5) * 3; G.set(cx + Math.cos(a) * r * S, cy + Math.sin(a) * r * 0.45 * S, VIOLET[2]); }
   return { cv: G.done(), ax: cx, ay: cy };
 });
@@ -803,70 +795,173 @@ const popS = (r, f) => memo(`pop|${r}|${f}`, () => {
   return { cv: G.done(), ax: c, ay: c };
 });
 
+// ---- Round 5: raising the dead (B) and the frost nova (B + C), owner's picks ------------
+// Concept art-pixel numbers (concept/fx-r5-*.js) are kept as they are: `A` converts art px to world units.
+const GRN = ["#e8f8c0", "#a8e070", "#7cc85c", "#4a8a3c", "#2e5a2e"];
+const AP = (v) => v / PX;
+// a batch of art-pixel dots by colour and alpha: key -> [x, y, size] triples in world units
+const batchAdd = (m, col, a, x, y, s) => {
+  const k = col + "|" + a; let l = m.get(k);
+  if (!l) m.set(k, (l = []));
+  l.push(AP(x - (s > 1 ? s / 2 : 0)), AP(y - (s > 1 ? s / 2 : 0)), AP(s));
+};
+const batchDraw = (ctx, m, base) => {
+  for (const [k, l] of m) { const i = k.indexOf("|"); ctx.globalAlpha = base * +k.slice(i + 1); dots(ctx, l, k.slice(0, i)); }
+  ctx.globalAlpha = base;
+};
+const stepN = (v, n) => Math.ceil(clamp01(v) * n) / n;
+// the ribbons that coil round the risen (three strands, thick at the foot) and the motes off the top; art px from the foot
+const RAD = (t) => 19 - 4 * t;
+const raiseRibbons = (m, p, front) => {
+  const side = (an) => (Math.sin(an) >= 0) === front;
+  for (let s = 0; s < 3; s++) for (let i = 0; i < 7; i++) for (let tr = 0; tr < 3; tr++) {
+    const t = p * 1.5 * 1.0 - i * 0.07 - tr * 0.025; if (t < 0 || t > 1) continue;
+    const an = t * 9 + s * (TAU / 3) + i * 0.45; if (!side(an)) continue;
+    const rad = RAD(t) - (s === 1 ? 2 : 0), x = Math.cos(an) * rad, y = Math.sin(an) * rad * 0.45 - t * (44 + s * 3) + 4;
+    const g = s === 1;
+    batchAdd(m, tr ? VIOLET[3] : g ? GRN[2] : VIOLET[1], tr ? 0.8 : 1, x, y, tr ? 2 : 3);
+    if (!tr && !g) batchAdd(m, VIOLET[0], 1, x - 0.5, y - 0.5, 1);
+    if (!tr && g && i % 2) batchAdd(m, GRN[0], 1, x - 0.5, y - 0.5, 1);
+  }
+  if (p >= 0.4) for (let k = 0; k < 10; k++) {
+    const u = p * 1.6 - k * 0.07; if (u < 0) continue;
+    const q = ((u % 1) + 1) % 1, an = k * 2.4 + p * 9, t = 0.9, rad = RAD(t) + q * 12;
+    if (!side(an)) continue;
+    batchAdd(m, k % 2 ? GRN[0] : VIOLET[0], stepN(1 - q, 4), Math.cos(an) * rad, Math.sin(an) * rad * 0.45 - t * 44 - q * 18 + 4, 1);
+  }
+};
+// the witch-fire ring the strands rise from, turning, and the stepped violet ring as the grave opens
+const raiseRing = (m, p, fi, front, sd) => {
+  const k = clamp01(p / 0.18), n = 34, a0 = p * 3, r = 19;
+  for (let j = 0; j < n; j++) {
+    const an = a0 + (j * TAU) / n;
+    if ((Math.sin(an) >= 0) !== front || (j + (fi >> 1)) % 3 === 0) continue;
+    const lvl = hash(j, (fi >> 1) + sd);
+    batchAdd(m, j % 2 ? GRN[2] : VIOLET[1], stepN(k * (0.7 + 0.3 * lvl), 4), Math.cos(an) * r, Math.sin(an) * r * 0.45 + 6, 1);
+    if (j % 4 === 0) batchAdd(m, GRN[0], stepN(k, 4), Math.cos(an) * (r + 2), Math.sin(an) * (r + 2) * 0.45 + 5, 1);
+  }
+  if (!front && p <= 0.3) {
+    const kk = p / 0.3, rr = 6 + kk * 16;
+    for (let an = 0; an < TAU; an += 0.09) batchAdd(m, kk < 0.5 ? VIOLET[1] : VIOLET[2], stepN(1 - kk, 4), Math.cos(an) * rr, Math.sin(an) * rr * 0.5 + 4, 1);
+  }
+};
+
+// frost nova spikes: see-through ice, drawn pixel by pixel once per height and width
+const iceSpikeS = (h, w) => memo(`isp|${h}|${w}`, () => {
+  const G = grid(2 * Math.ceil(w) + 3, h + 3), cx = Math.ceil(w) + 1, by = G.H - 2;
+  for (let j = 0; j < h; j++) {
+    const t = j / h, hw = Math.max(0, Math.round((1 - t) * w));
+    for (let q = -hw; q <= hw; q++) {
+      const edge = Math.abs(q) === hw && hw > 0;
+      G.set(cx + q, by - j, edge ? (q < 0 ? ICE[2] : ICE[4]) : q < 0 ? (t > 0.45 ? ICE[0] : ICE[1]) : q === 0 ? ICE[1] : ICE[2]);
+    }
+  }
+  G.set(cx, by - h, ICE[0]);
+  return { cv: G.done(), ax: cx, ay: by };
+});
+const NOVA_SQ = 0.55;
+// the nova's spikes: a ring near the rim and a thinner one inside, FEWER than the concept's three rings;
+// each erupts in turn round the circle (`at` is the p its sweep reaches it) and shatters a while later
+const novaSpikes = (R, sd) => memo(`nsp|${Math.round(R)}|${sd}`, () => {
+  const Ra = R * PX, out = [];
+  for (const [rho, per, ph0] of [[0.85, 13, 0], [0.5, 18, 0.5]]) {
+    const n = Math.max(rho > 0.9 ? 6 : 3, Math.round((TAU * Ra * rho) / per));
+    for (let k = 0; k < n; k++) {
+      const a = (((k + ph0 + (hash(sd, k + rho * 50) - 0.5) * 0.3) / n)) * TAU - Math.PI / 2;
+      out.push({ a, rho: R * rho, h: 13 + Math.floor(hash(k, rho * 9 + sd) * 10), w: Math.round((2.8 + hash(k, 3 + sd) * 1.6) * 2) / 2, at: novaAt(a, rho), j: hash(sd, k + 40) });
+    }
+  }
+  return out;
+});
+// a spike rises only once the floor's edge has reached its radius (front = easeOut(NOVA_PACE p)), then the sweep goes round by angle
+const NOVA_PACE = 1.8;   // the floor's edge: R x easeOut(p x NOVA_PACE) (ringflash.js matches)
+const novaAt = (a, rho) => (1 - Math.sqrt(1 - Math.min(0.85, rho))) / NOVA_PACE + 0.02 + 0.2 * ((((a + Math.PI / 2) / TAU) % 1 + 1) % 1);
+const NOVA_COL = [ICE[0], ICE[1], ICE[3]];
+// the frost nova's lit glass floor, baked per radius: a pale film with slanted streaks (art px)
+const glazeS = (R) => memo(`glz|${R}|${PX}`, () => {
+  const Ra = R * PX, W = Math.ceil(2 * Ra + 4), H = Math.ceil(2 * Ra * NOVA_SQ + 4), G = grid(W, H), cx = W / 2, cy = H / 2;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const d = Math.hypot((x + 0.5 - cx), (y + 0.5 - cy) / NOVA_SQ);
+    if (d > Ra - 1) continue;
+    if (bay(x, y) < 0.28) G.set(x, y, ICE[2], 204);
+    if ((x - y * 2 + 600) % 13 < 1 && hash(x, y) < 0.7) G.set(x, y, ICE[0], 230);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+
 export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
   const GR = layer !== "a", AIR = layer !== "g";
   switch (fx.type) {
     case "frostnova": {
-      // Round 4, B (owner's pick), on the ground rings' angled circle: an ice
-      // rim sweeps out, a thin rime sheet (half as dense as before) settles
-      // behind it, and spikes snap up in the front's wake, then melt.
-      const life = 500, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = 0.55;
-      const r = R * easeOut(p * 1.25), A = stepA(a), hall = hallOf(g, fx);
-      const sp = [];
-      // spikes: the rim's own, and a scatter inside that rise as the front passes
-      
-      const n = Math.max(5, Math.min(30, Math.round((TAU * r) / 15))), a0 = hash(sd, 99) * TAU;
-      const big = p > 0.18 && a > 0.45;
-      for (let i = 0; i < n; i++) {
-        const an = a0 + (i / n) * TAU, rr = r + (hash(sd, i + 200) - 0.5) * 4;
-        sp.push(fx.y + Math.sin(an) * rr * SQ + 2, fx.x + Math.cos(an) * rr, (big && (i + sd) % 3 !== 0 ? 3 : 0) + ((i * 7 + sd) % 3), Math.cos(an) < 0);
-      }
-      const NI = Math.max(4, Math.min(16, Math.round(R / 5)));
-      for (let i = 0; i < NI; i++) {
-        const rho = Math.sqrt(0.08 + 0.85 * hash(sd, i + 600)) * R * 0.92, an = hash(sd, i + 650) * TAU;
-        const born = (1 - Math.sqrt(Math.max(0, 1 - rho / R))) / 1.25;
-        if (p < born) continue;
-        const melt = 0.5 + 0.18 * (rho / R) + 0.1 * hash(sd, i + 700);
-        if (p > melt + 0.3) continue;
-        const grown = p - born > 0.07, v = p > melt ? (p > melt + 0.15 ? -1 : (i % 3)) : grown ? 3 + (i % 3) : (i % 3);
-        if (v < 0) continue;
-        sp.push(fx.y + Math.sin(an) * rho * SQ, fx.x + Math.cos(an) * rho, v, Math.cos(an) < 0);
-      }
-      // far ones first, so the near spikes stand in front
-      const idx = []; for (let i = 0; i < sp.length; i += 4) idx.push(i);
-      idx.sort((u, w) => sp[u] - sp[w]);
-      // the spikes behind the hall belong to the ground layer (the hall hides them), the rest rise over it
-      const putSp = (back) => { for (const i of idx) if (behindHall(hall, fx, sp[i + 1], sp[i]) === back) put(ctx, shardS(sp[i + 2]), sp[i + 1], sp[i], sp[i + 3]); };
+      // Round 5, B + C (owner's picks): C's lit glass floor and glaze with a ring front, B's spikes erupting
+      // round the circle in turn (fewer, see-through), then shattering. The ring flash follows the same sweep.
+      const life = 500, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = NOVA_SQ;
+      const r = R * easeOut(p * NOVA_PACE), A = stepA(a), hall = hallOf(g, fx);
+      const fd = p < 0.5 ? 1 : Math.max(0, 1 - (p - 0.5) / 0.5);
       ctx.save();
       ctx.globalAlpha *= A;
+      const base = ctx.globalAlpha;
       const rimLine = () => {
-        arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, rgba(ICE[3], 0.9), true, false);
+        arcPx(ctx, fx.x, fx.y, r, r * SQ, 1.5, rgba(ICE[3], 0.9), true, false);
         dashArc(ctx, fx.x, fx.y, r - 0.5, (r - 0.5) * SQ, 1, 2.2, ICE[0], true, false);
       };
-      if (GR) {
-        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 5), dither(ctx, ICE[0], 0.4), SQ);
-        // the rime sheet: sparse patches behind the front
-        const N = Math.max(3, Math.min(8, Math.round(R / 16)));
-        for (let i = 0; i < N; i++) {
-          const an = hash(sd, i) * TAU, d = (0.12 + 0.85 * Math.sqrt(hash(sd, i + 50))) * R * 0.92;
-          if (d > r - 10) continue;
-          put(ctx, rimePatchS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
+      // spikes, far ones first; each is a rising spike, then falling shards, then a little pile
+      const SPK = novaSpikes(R, sd), back = [], front = [];
+      for (const s of SPK) {
+        const age13 = (p - s.at) * 13; if (age13 < 0) continue;
+        const sh = clamp01((p - s.at - 0.18 - 0.05 * s.j) / 0.16);
+        if (sh >= 1 && p > s.at + 0.46) continue;
+        const x = fx.x + Math.cos(s.a) * s.rho, y = fx.y + Math.sin(s.a) * s.rho * SQ + 2;
+        (hall ? behindHall(hall, fx, x, y) : y < fx.y + 2 ? true : false) ? back.push(s, x, y, age13, sh) : front.push(s, x, y, age13, sh);
+      }
+      const sortF = (l) => { const o = []; for (let i = 0; i < l.length; i += 5) o.push(i); o.sort((u, w) => l[u + 2] - l[w + 2]); return o; };
+      const putSpikes = (l) => {
+        const bits = [new Map()];
+        for (const i of sortF(l)) {
+          const s = l[i], x = l[i + 1], y = l[i + 2], age13 = l[i + 3], sh = l[i + 4];
+          if (sh <= 0) {
+            const h = Math.max(2, Math.round(s.h * (age13 < 1 ? 0.45 : age13 < 2 ? 0.85 : age13 < 3 ? 1.12 : 1)));
+            ctx.globalAlpha = base * 0.8;
+            put(ctx, iceSpikeS(h, s.w), x, y);
+            ctx.globalAlpha = base;
+            continue;
+          }
+          for (let k = 0; k < 5; k++) {
+            const ang = s.a + (hash(k, s.a * 10) - 0.5) * 1.2, v = 5 + hash(k, 8 + s.a * 10) * 9, t = sh;
+            const sx = Math.cos(s.a) * s.rho * PX + Math.cos(ang) * v * t, sy = Math.sin(s.a) * s.rho * PX * SQ - s.h * 0.5 * (1 - k / 6) - Math.sin(t * 2.4) * 5 * (1 - t) + t * t * (10 + k * 3) + Math.sin(ang) * v * t * SQ;
+            if (t < 1 || bay(k, Math.floor(p * 14)) < 0.5) {
+              const col = k % 3 === 0 ? ICE[0] : k % 3 === 1 ? ICE[1] : ICE[3], ox = fx.x * PX, oy = (fx.y + 2) * PX;
+              batchAdd(bits[0], col, 0.7, ox + sx, oy + sy, 1); batchAdd(bits[0], ICE[2], 0.7, ox + sx + 1, oy + sy, 1);
+              if (k < 2) batchAdd(bits[0], col, 0.7, ox + sx, oy + sy + 1, 1);
+            }
+          }
+          if (sh > 0.6 && bay(Math.round(x * PX), Math.round(y * PX)) < 0.7) batchAdd(bits[0], ICE[2], 0.6, x * PX, y * PX, 1);
         }
-        for (let i = 0; i < N; i++) {
-          const an = hash(sd, i + 400) * TAU, d = Math.sqrt(hash(sd, i + 450)) * R * 0.95;
-          if (d > r - 4) continue;
-          put(ctx, rimeS(i % 4), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
+        batchDraw(ctx, bits[0], base);
+      };
+      if (GR) {
+        // the lit glass floor: cold light just behind the front, then the glaze with its streaks
+        disc(ctx, fx.x, fx.y, r, Math.max(0, r - Math.max(6, R * 0.3)), dither(ctx, ICE[3], 0.5 * fd + 0.1), SQ);
+        disc(ctx, fx.x, fx.y, r, 0, dither(ctx, ICE[1], 0.12 * fd + 0.06), SQ);
+        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 5), dither(ctx, ICE[0], 0.35 * fd), SQ);
+        const gl = clamp01((p - 0.3) / 0.25) * (0.5 + 0.5 * (p < 0.94 ? 1 : (1 - p) / 0.06));
+        if (gl > 0.05 && r > 4) {
+          const s = glazeS(Math.round(R));
+          ctx.save();
+          ctx.beginPath(); ctx.ellipse(fx.x, fx.y, r, r * SQ, 0, 0, TAU); ctx.clip();
+          ctx.globalAlpha = base * Math.min(1, gl);
+          put(ctx, s, fx.x, fx.y);
+          ctx.restore();
         }
         rimLine();
-        putSp(true);
+        // the centre flash where it was loosed: a bright disc on the ground, falling off outward
+        const fi = Math.floor(p * 14);
+        if (fi < 6) { const fr = [24, 20, 15, 11, 7, 4][fi] / PX; disc(ctx, fx.x, fx.y, fr * 0.8, 0, dither(ctx, ICE[0], 0.9), SQ); disc(ctx, fx.x, fx.y, fr * 1.5, fr * 0.8, dither(ctx, ICE[1], 0.5), SQ); }
+        putSpikes(back);
       }
       if (AIR) {
-        // the front of the ring over the hall's base, inside its footprint only
         if (hall) { ctx.save(); clipFront(ctx, fx); rimLine(); ctx.restore(); }
-        putSp(false);
-        // the cold flash where the nova was loosed
-        if (p < 0.36) put(ctx, burstS("ice", Math.min(3, Math.floor(p / 0.09))), fx.x, fx.y - 6);
-        // snow motes lifting off the frozen ground
+        putSpikes(front);
         const m1 = [], m2 = [];
         for (let i = 0; i < 12; i++) {
           const an = hash(sd, i + 300) * TAU, d = r * (0.3 + 0.7 * hash(sd, i + 330));
@@ -1338,50 +1433,33 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       return true;
     }
     case "raise": {
-      // Grave-light: the earth breaks open, and a swirl of witch-fire
-      // spirals up out of the grave as the dead claw back.
-      const life = fx.life || 600, p = lifeP(fx, life), age = p * life;
+      // Round 5, B (owner's pick): the witch-fire ring and three ribbons (violet, green, light violet) coil
+      // ROUND the risen: their far half is drawn under the figure, the near half over it. No clods, no cracks.
+      const life = fx.life || 600, p = lifeP(fx, life), sd = seedOf(fx), fi = Math.min(11, Math.floor(p * 12));
       ctx.save();
       ctx.globalAlpha *= stepA(a);
+      const base = ctx.globalAlpha;
       if (GR) {
-        const sd = seedOf(fx);
-        
         // the ground darkens gradually (owner, 2026-11-17): in steps over the first 40% of the rise
-        ctx.globalAlpha = stepA(a) * Math.min(1, Math.ceil(clamp01(p / 0.4) * 5) / 5);
+        ctx.globalAlpha = base * Math.min(1, Math.ceil(clamp01(p / 0.4) * 5) / 5);
         put(ctx, graveS(p < 0.15 ? 1 : p < 0.35 ? 2 : 3), fx.x, fx.y + 6);
-        ctx.globalAlpha = stepA(a);
+        ctx.globalAlpha = base;
         for (let k = 0; k < 4; k++) {
-          const q = ((age / 1250) + k * 0.25 + hash(sd, k) * 0.1) % 1, f = Math.min(3, Math.floor(q * 4));
+          const q = ((p * life / 1250) + k * 0.25 + hash(sd, k) * 0.1) % 1, f = Math.min(3, Math.floor(q * 4));
           if (p > 0.92 && q > 0.5) continue;
           // low, thin and to the sides: the risen figure stays clear of it
-          ctx.globalAlpha = stepA(a) * 0.55 * (1 - q);
+          ctx.globalAlpha = base * 0.55 * (1 - q);
           put(ctx, mistS((sd + k) % 5, f), fx.x + (k - 1.5) * 9 + Math.sin(q * 5 + k) * 3, fx.y + 7 - q * 12);
-          ctx.globalAlpha = stepA(a);
+          ctx.globalAlpha = base;
         }
-        for (let k = 0; k < 6; k++) {
-          const q = clamp01((p - 0.1 - k * 0.04) / 0.6);
-          if (q <= 0 || q >= 1) continue;
-          const an = hash(sd, k + 4) * TAU, v = 7 + hash(sd, k + 6) * 9;
-          put(ctx, clodS((k + sd) % 6), fx.x + Math.cos(an) * v * q, fx.y - Math.sin(q * Math.PI) * 14 + q * q * 8 + 6);
-        }
+        ctx.save(); ctx.translate(fx.x, fx.y);
+        const m = new Map(); raiseRing(m, p, fi, false, sd); raiseRibbons(m, p, false); batchDraw(ctx, m, base);
+        ctx.restore();
       }
       if (AIR) {
-        const v1 = [], v2 = [], v3 = [];
-        for (let i = 0; i < 10; i++) {
-          for (let tr = 0; tr < 3; tr++) {
-            const t = p * 1.4 - i * 0.05 - tr * 0.025;
-            if (t < 0 || t > 1) continue;
-            const an = t * 10 + i * (TAU / 10), rad = 11 * (1 - t * 0.65);
-            const x = fx.x + Math.cos(an) * rad, y = fx.y + Math.sin(an) * rad * 0.45 - t * 30;
-            (tr ? v3 : i % 3 ? v1 : v2).push(x - (tr ? 0 : 0.25), y, tr ? 1 : 1.5);
-          }
-        }
-        dots(ctx, v3, rgba(VIOLET[3], 0.8)); dots(ctx, v1, VIOLET[1]); dots(ctx, v2, "#7cc85c");
-        const hl = [];
-        for (let i = 0; i < v1.length; i += 3) hl.push(v1[i], v1[i + 1], 0.5);
-        dots(ctx, hl, VIOLET[0]);
-        if (p < 0.3) put(ctx, burstS("violet", Math.min(3, 1 + Math.floor(p / 0.1))), fx.x, fx.y - 4);
-        if ((Math.floor(age / 80)) % 2 === 0) put(ctx, sparkS("violet", 1), fx.x + Math.sin(age * 0.01) * 6, fx.y - 12 - p * 14);
+        ctx.save(); ctx.translate(fx.x, fx.y);
+        const m = new Map(); raiseRing(m, p, fi, true, sd); raiseRibbons(m, p, true); batchDraw(ctx, m, base);
+        ctx.restore();
       }
       ctx.restore();
       return true;

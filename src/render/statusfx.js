@@ -15,6 +15,8 @@
 
 import { PX, INK_LINE } from "./paint.js";
 import { inkTint } from "./inktint.js";
+import { rigFrame } from "./rigs.js";
+import { isViewSheet } from "./pix/pixrigs.js";
 
 const FIRE = ["#fff3d2", "#f8d868", "#f0a040", "#d8683a", "#9a3a30", "#5a2430"];
 const ICE = ["#ffffff", "#d4f2fa", "#9fd4e8", "#62a4cc", "#3a6a98"];
@@ -234,7 +236,111 @@ const pipSprite = (n, flash) => memo(`pip|${n}|${flash ? 1 : 0}`, () => {
 
 // ---- the entry points fx.js and enemies.js call ---------------------------------------------
 // (ctx, foe, world time, ms, feet y, world headroom hr). Each is one blit.
-export const statusBurn = (ctx, e, time, feet, hr) => stampAt(ctx, burnSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 10), e.face < 0 ? 1 : -1), e.x, feet);
+// ---- BURN, Round 5 option B (owner's pick): the BODY'S OUTLINE burns ----------------------------------
+// The figure's silhouette (its edge pixels) is read once per frame canvas (WeakMap) and the burn is
+// baked once per (frame, step): a hot band along the edge with colours rolling round it (cooler
+// round the face), small flames popping up at edge spots and going out, smoke trailing behind, a warm
+// ground pool and a faint warm wash. Drawn over the figure, which is already on the canvas; the glow
+// and smoke skip the body's own pixels. Baked facing right; a left-facing foe stamps mirrored.
+// enemies.js leaves the frame it drew on `e._rf` = { skin, ps, pf }; draw.js adds a firelight.
+const BN = 12;                                  // steps in the loop
+const MASKS = new WeakMap();
+const maskOf = (s) => {
+  let m = MASKS.get(s.cv); if (m) return m;
+  const w = s.cv.width, h = s.cv.height, d = s.cv.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  const ox = Math.round(s.ax * PX), oy = Math.round(s.ay * PX), G = new Uint8Array(w * h);
+  let top = 1e9, xl = 1e9, xr = -1e9;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 20) { G[y * w + x] = 1; top = Math.min(top, y - oy); xl = Math.min(xl, x - ox); xr = Math.max(xr, x - ox); }
+  if (xl > xr) { MASKS.set(s.cv, (m = { none: true })); return m; }
+  const has = (x, y) => { x += ox; y += oy; return x >= 0 && y >= 0 && x < w && y < h && G[y * w + x] === 1; };
+  const list = [], open = [], tops = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (G[y * w + x]) {
+    const X = x - ox, Y = y - oy; list.push([X, Y]);
+    if (!has(X - 1, Y) || !has(X + 1, Y) || !has(X, Y - 1) || !has(X, Y + 1)) open.push([X, Y]);
+    if (!has(X, Y - 1)) tops.push([X, Y]);
+  }
+  m = { has, list, open, tops, top, xl, xr, T: Math.max(8, -top), cx: Math.round((xl + xr) / 2) };
+  MASKS.set(s.cv, m); return m;
+};
+const FIFTH = (a) => Math.ceil(Math.min(1, Math.max(0, a)) * 5 - 1e-6) / 5;
+const fr1 = (v) => v - Math.floor(v);
+const cl1 = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+const BSMOKE = ["#8a7a76", "#6a5c60", "#4a3e44"];
+// a small flame: teardrop that leans and sways, hot core, darker tinted edge
+const lick = (c, cx, by, h, w, lean, ph) => {
+  for (let j = 0; j < h; j++) {
+    const t = j / h, hw = Math.max(0, Math.round(w * Math.pow(1 - t, 0.75) * (1 + 0.15 * Math.sin(ph * 2 + t * 5))));
+    const mid = cx + lean * t * t * h * 0.35 + Math.sin(ph + t * 3.2) * 1.3 * t;
+    for (let q = -hw; q <= hw; q++) {
+      const heat = (1 - Math.abs(q) / (hw + 0.8)) * (1 - t * 0.85), edge = Math.abs(q) === hw && hw > 0 && j > 0;
+      px(c, mid + q, by - j, edge ? (t < 0.55 ? FIRE[4] : FIRE[3]) : heat > 0.62 ? FIRE[0] : heat > 0.42 ? FIRE[1] : heat > 0.22 ? FIRE[2] : FIRE[3]);
+    }
+  }
+};
+const burnBake = (m, f, view) => {
+  const { T, cx, xl, xr, has } = m, t = f / BN, ph = t * TAU, amp = 0.9 + 0.1 * Math.sin(ph * 2), span = xr - xl;
+  const rx = Math.round(span * 0.8 + 16), x0 = Math.min(xl - 22, cx - rx - 1), x1 = Math.max(xr + 10, cx + rx + 1);
+  const up = Math.round(T * 1.2 + 8), dn = 9, cw = x1 - x0 + 1, ch = up + dn, ax = -x0, ay = up;
+  const cv = mk(cw, ch), c = cv.getContext("2d");
+  c.translate(ax, ay);
+  const free = (x, y, col, a = 1) => { if (!has(x, y)) px(c, x, y, col, a); };
+  // the ground pool: stepped glow (fifths), dithered rim, never over the body
+  for (let y = -6; y <= 8; y++) for (let x = -rx; x <= rx; x++) {
+    const X = cx - 3 + x, r = Math.hypot(x / rx, (y - 1) / 7); if (r > 1) continue;
+    const s = FIFTH((1 - r) * 1.6 * amp); if (s <= 0 || (s < 0.4 && bay(X, y) > s * 2.5)) continue;
+    free(X, y, r < 0.35 ? FIRE[1] : FIRE[2], s * 0.55);
+  }
+  // smoke trailing behind (left), drifting up in dithered puffs
+  for (let k = 0; k < 5; k++) {
+    const q = fr1(t + k / 5), x = xl - 2 - q * 16 + Math.sin(q * 6 + k) * 2, y = -T * 0.55 - q * T * 0.6, r = 2 + q * 3;
+    for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) if (xx * xx + yy * yy <= r * r && bay(xx + k * 3 + 64, yy + 64) < 0.75 * (1 - q)) free(Math.round(x + xx), Math.round(y + yy), BSMOKE[q < 0.5 ? 0 : 1], 0.55 * (1 - q * 0.5));
+  }
+  // the edge pixels burn: a hot band, colours rolling round it; cooler and thinner round the face
+  const isFace = view ? (x, y) => Math.abs(x - cx) < T * 0.2 && y < -T * 0.62 : (x, y) => x > cx + 1 && y < -T * 0.55;
+  for (const [x, y] of m.open) {
+    const v = (Math.sin(ph + x * 0.9 + y * 0.6) + Math.sin(ph * 2 - y * 0.7)) * 0.25 + 0.5 + (H(x, y) - 0.5) * 0.4;
+    const s = v * (cl1(1 - -y / (T + 2)) * 0.5 + 0.5) * (isFace(x, y) ? 0.55 : 1);
+    px(c, x, y, s > 0.62 ? FIRE[0] : s > 0.45 ? FIRE[1] : s > 0.3 ? FIRE[2] : FIRE[3]);
+  }
+  // a second warm ring just outside on the back side
+  for (const [x, y] of m.list) { if (has(x - 1, y) || x > cx) continue; px(c, x - 1, y, bay(x + 64, y + 64) < 0.6 * amp ? FIRE[1] : FIRE[2], 0.8); if (bay(x + 66, y + 64) < 0.5 * amp && !has(x - 2, y)) px(c, x - 2, y, FIRE[3], 0.6); }
+  // a warm wash on the lower body (the flames below light it), dithered
+  for (const [x, y] of m.list) { const k = cl1(1 - -y / (T * 0.7)); if (k > 0 && bay(x + (f & 1), y) < FIFTH(k * 0.35 * amp)) px(c, x, y, FIRE[3], 0.28); }
+  // small flames pop up at random top-edge spots and go out (four steps each); the face stays clear
+  const spots = m.tops.filter(([x, y]) => !isFace(x, y) && y < 0 && y > -T);
+  if (spots.length) for (let k = 0; k < 9; k++) {
+    const start = Math.floor(H(k, 7) * BN), age = (f - start + BN) % BN;
+    if (age > 3) continue;
+    const [x, y] = spots[Math.floor(H(k, 3) * spots.length) % spots.length];
+    lick(c, x, y, [4, 7, 9, 4][age], age === 3 || age === 0 ? 1 : 2, -0.3, k + age);
+  }
+  for (let k = 0; k < 3; k++) { const q = fr1(t + k / 3); px(c, cx - 6 - q * 8 + H(k, 1) * 6, -T * 0.4 - q * 22, q < 0.35 ? FIRE[1] : q < 0.7 ? FIRE[2] : FIRE[4]); }
+  return { cv, ax, ay };
+};
+// bakes are a few ms each in a crowd's first second: cap the new ones a frame (the rest wait a frame)
+const BURNS = new Map();
+let bakedAt = -1, bakedN = 0;
+export const statusBurn = (ctx, e, time, feet, hr) => {
+  const rf = e._rf, sf = rf && rigFrame(rf.skin, rf.ps, rf.pf, "");
+  if (time !== bakedAt) { bakedAt = time; bakedN = 0; }
+  // a silhouette read or a bake each count against this frame's budget; past it the old mark stands in
+  const m = sf && sf.cv ? (MASKS.has(sf.cv) ? MASKS.get(sf.cv) : bakedN < 2 ? (bakedN++, maskOf(sf)) : null) : null;
+  if (sf && !m) return;                        // over this frame's budget: no fire for a frame or two (the old mark would flash)
+  if (m && !m.none) {
+    const f = frameOf(time, e.id || 0, 12) % BN, view = isViewSheet(rf.ps), key = sf.cv, slot = f + (view ? BN : 0);
+    let per = BURNS.get(key); if (!per) { per = []; BURNS.set(key, per); if (BURNS.size > 500) BURNS.delete(BURNS.keys().next().value); }
+    let s = per[slot];
+    if (!s && bakedN < 2) { bakedN++; s = per[slot] = burnBake(m, f, view); }
+    if (s) {
+      const X = Math.round(e.x * PX) / PX, Y = Math.round(feet * PX) / PX, flip = e.face < 0 && !view;
+      ctx.save(); ctx.translate(X, Y); if (flip) ctx.scale(-1, 1);
+      ctx.drawImage(s.cv, -s.ax / PX, -s.ay / PX, s.cv.width / PX, s.cv.height / PX);
+      ctx.restore();
+    }
+    return;
+  }
+  stampAt(ctx, burnSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 10), e.face < 0 ? 1 : -1), e.x, feet);
+};
 export const statusPoison = (ctx, e, time, feet, hr) => stampAt(ctx, poisonSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 8)), e.x, feet);
 export const statusSlow = (ctx, e, time, feet, hr) => stampAt(ctx, slowSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
 export const statusMist = (ctx, e, time, feet, hr, hwWorld) => stampAt(ctx, mistSprite(bucketHW(hwWorld || e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);

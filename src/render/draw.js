@@ -358,6 +358,8 @@ export function draw(g, canvas, bufRef) {
     const left = gr.until - g.time * 1000;
     if (left > 0) addLight(gr.x, gr.y, gr.r + 20, "#ff9a3c", Math.min(1, left / 500) * [0.8, 0.7, 0.76, 0.66][Math.floor(g.time * 12 + gr.x) & 3]);
   }
+  // ...and a foe on fire is a small warm light (the status burn, statusfx.js): at most 12 a frame
+  if (prefs.spellLight !== false) { let nb = 0, tb = g.time * 1000; for (const e of g.enemies) if (!e.dead && e.burnUntil > tb && !(e.guard > 0) && nb < 12) { nb++; addLight(e.x, e.y, 24 + e.size * 0.4, "#ff9a3c", 0.55 * [1, 0.85, 0.95, 0.8][Math.floor(g.time * 12 + e.id) & 3]); } }
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {

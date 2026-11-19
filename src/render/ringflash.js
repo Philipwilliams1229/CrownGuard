@@ -20,11 +20,15 @@ const RING = {
   keg: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   frost: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   dust: [380, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
-  frostnova: [500, 0.55, (p) => easeOut(p * 1.25), 0.8],
+  frostnova: [500, 0.55, (p) => easeOut(p * 1.8), 0.8],
   firenova: [450, 0.55, (p) => easeOut(p * 1.15), 0.87],
 };
 
-const LIVE = [];          // [x, y, front, squash, band] for this frame
+// The frost nova's spikes erupt in turn round the circle (rings.js novaAt), so its flash follows the same
+// sweep by ANGLE: a foe inside the disc flashes as the sweep passes its bearing (the shock's width in p, 0.034).
+const novaAt = (a, rho) => (1 - Math.sqrt(1 - Math.min(0.85, rho))) / 1.8 + 0.02 + 0.2 * ((((a + Math.PI / 2) / (Math.PI * 2)) % 1 + 1) % 1);
+const SWEEP_W = 0.034;
+const LIVE = [];          // [x, y, front, squash, band, kind, p] for this frame (kind 1 = the nova's angular sweep)
 export const collectRings = (g) => {
   LIVE.length = 0;
   if (!g.effects) return;
@@ -45,14 +49,15 @@ export const collectRings = (g) => {
     // the band the flash spans behind the front: wide enough that no foe is
     // skipped between two frames, never the whole disc
     const band = Math.max(5, (fx.r || 16) * 0.22);
-    LIVE.push(fx.x, fx.y, front, sq, band);
+    LIVE.push(fx.x, fx.y, fx.type === "frostnova" ? (fx.r || 60) : front, sq, band, fx.type === "frostnova" ? 1 : 0, p);
   }
 };
 
 // is a ring's front passing over the ground point (x, y) right now?
 export const ringFlash = (x, y) => {
-  for (let i = 0; i < LIVE.length; i += 5) {
+  for (let i = 0; i < LIVE.length; i += 7) {
     const dx = x - LIVE[i], dy = (y - LIVE[i + 1]) / LIVE[i + 3], d = Math.sqrt(dx * dx + dy * dy), f = LIVE[i + 2];
+    if (LIVE[i + 5] === 1) { if (d <= f + 1 && Math.abs(LIVE[i + 6] - novaAt(Math.atan2(dy, dx), d / f)) < SWEEP_W) return true; continue; }
     if (d <= f + 1 && d >= f - LIVE[i + 4]) return true;
   }
   return false;

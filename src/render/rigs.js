@@ -24,32 +24,83 @@ Object.assign(RIGS, RIMEBEAST_RIGS); Object.assign(PAINTERS, RIMEBEAST_PAINTERS)
 const FLIERS = new Set(["bat", "dragon", "gryphon", "gryphonMount", "wraith", "wight", "icedrake", "eagle"]);
 for (const type of Object.keys(PIX)) RIGS[type] = { box: pixBox(type), fightN: 4, pix: true, fly: FLIERS.has(type) };
 
-// A raised foe's whole figure is turned to bone: the baked pixels are posterised
-// onto a bone ramp (lights ivory, mids dull bone, darks rotted rags), the way a
-// skeleton's carved from one stuff, with rib-like bars across the mids and
-// the witch-fire eyes left alone. (Done on the finished sprite, so every rig —
-// biped, beast, troll — gets it without a line of its own.)
-const BONE = [[168, 238, 230, 204], [128, 206, 194, 160], [88, 150, 136, 108]];   // [min luma, r, g, b]
+// A raised foe's whole figure is turned to a corpse: the baked pixels keep their light and shade
+// but are drained onto a sallow bone ramp (ivory lights, grey-green shadows), cloth and leather
+// keep a hint of their old colour as rotted rags, the outline stays dark, the witch-fire eyes
+// stay lit in dark sockets, and the ribs show only across the chest. (Done on the finished
+// sprite, so every rig gets it; it measures the figure once per frame: outline, eyes, torso.)
+const BONE_LO = [46, 52, 40], BONE_MID = [160, 156, 124], BONE_HI = [236, 228, 192];
 const boneify = (cv) => {
-  const c = cv.getContext("2d");
-  const img = c.getImageData(0, 0, cv.width, cv.height), d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
+  const c = cv.getContext("2d"), W = cv.width, H = cv.height;
+  const img = c.getImageData(0, 0, W, H), d = img.data, n = W * H;
+  const solid = new Uint8Array(n), eye = new Uint8Array(n);
+  let x0 = W, x1 = 0, y0 = H, y1 = 0;
+  for (let p = 0; p < n; p++) {
+    const i = p * 4;
     if (d[i + 3] < 8) continue;
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    if (g > 150 && g > r + 28 && g > b + 8) continue;                       // the witch-fire eyes
-    const luma = 0.3 * r + 0.59 * g + 0.11 * b;
-    const x = (i / 4) % cv.width | 0, y = (i / 4 / cv.width) | 0;
-    let tone = BONE.find((t) => luma >= t[0]);
-    if (tone) {
-      // ribs and seams: short dark bars over the mid-bone, in rows, as if the
-      // flesh has gone and the ribcage shows through
-      if (tone === BONE[1] && y % 4 === 0 && (x >> 1) % 3 !== 0) tone = BONE[2];
-      d[i] = tone[1]; d[i + 1] = tone[2]; d[i + 2] = tone[3];
-    } else {
-      // rags and shadow: kept dark, drained of colour, a touch of grave-green
-      const k = Math.max(18, luma * 0.8);
-      d[i] = k * 1.0; d[i + 1] = k * 0.95; d[i + 2] = k * 0.8;
+    solid[p] = 1;
+    const x = p % W, y = (p / W) | 0;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  if (x1 < x0) return;
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  // the eyes: the figures draw them as a few bright warm pixels in the head, in the figure's top part
+  for (let p = 0; p < n; p++) {
+    if (!solid[p]) continue;
+    const i = p * 4, y = (p / W) | 0;
+    if (y < y0 + bh * 0.45 && ((d[i] > 165 && d[i] > d[i + 1] + 60 && d[i] > d[i + 2] + 60) || (d[i] > 200 && d[i + 1] > 150 && d[i + 2] < 90))) eye[p] = 1;   // red, orange or yellow
+  }
+  // each eye gets its OWN hollow: eye pixels are grouped by column, and a socket grows from a
+  // group's box out to the sides and down, never across to its neighbour (the bone between stays light)
+  const sr = bh > 80 ? 1 : 2;
+  const sock = new Uint8Array(n), cheek = new Uint8Array(n);
+  const cols = [];
+  for (let p = 0; p < n; p++) if (eye[p]) cols.push(p);
+  const groups = [];
+  cols.sort((a, b) => (a % W) - (b % W));
+  for (const p of cols) {
+    const x = p % W, y = (p / W) | 0, g = groups[groups.length - 1];
+    if (g && x - g.x1 <= 2) { g.x1 = x; if (y < g.y0) g.y0 = y; if (y > g.y1) g.y1 = y; }
+    else groups.push({ x0: x, x1: x, y0: y, y1: y });
+  }
+  groups.forEach((g, gi) => {
+    const L = gi > 0 ? 0 : sr, R = gi < groups.length - 1 ? 0 : sr;   // never toward the other eye
+    for (let yy = g.y0; yy <= g.y1 + sr; yy++) for (let xx = g.x0 - L; xx <= g.x1 + R; xx++) {
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const q = yy * W + xx; if (solid[q] && !eye[q]) sock[q] = 1;
     }
+  });
+  // the ribcage: a torso band of an upright figure (not the beasts: they are long, not tall)
+  const upright = bh > bw * 1.05 && H < 100;   // (a troll's chest is mostly arm: no ribs)
+  const rt = y0 + bh * 0.38, rb = y0 + bh * 0.66, rcx = (x0 + x1) / 2, rhw = bw * 0.2;
+  for (let p = 0; p < n; p++) {
+    if (!solid[p]) continue;
+    const i = p * 4, x = p % W, y = (p / W) | 0;
+    if (eye[p]) { d[i] = 150; d[i + 1] = 255; d[i + 2] = 110; continue; }   // the witch-fire eye
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const luma = 0.3 * r + 0.59 * g + 0.11 * b;
+    // edge of the figure: kept dark as the outline
+    const edge = x === 0 || y === 0 || x === W - 1 || y === H - 1 || !solid[p - 1] || !solid[p + 1] || !solid[p - W] || !solid[p + W];
+    // how coloured the pixel was: skin and cloth are, steel and bone mostly are not
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx > 0 ? (mx - mn) / mx : 0;
+    let t = Math.min(1, Math.max(0, (luma - 36) / 175));              // 0 dark .. 1 light
+    t = Math.round(t * 5) / 5;                                        // five steps: shading stays, noise goes
+    let R, G, B;
+    if (t < 0.5) { const k = t / 0.5; R = BONE_LO[0] + (BONE_MID[0] - BONE_LO[0]) * k; G = BONE_LO[1] + (BONE_MID[1] - BONE_LO[1]) * k; B = BONE_LO[2] + (BONE_MID[2] - BONE_LO[2]) * k; }
+    else { const k = (t - 0.5) / 0.5; R = BONE_MID[0] + (BONE_HI[0] - BONE_MID[0]) * k; G = BONE_MID[1] + (BONE_HI[1] - BONE_MID[1]) * k; B = BONE_MID[2] + (BONE_HI[2] - BONE_MID[2]) * k; }
+    // rags: coloured cloth and leather keep a quarter of their own hue, dimmed (skin green is dropped)
+    const skin = g > r && g >= b;
+    if (sat > 0.22 && !skin) { const m = 0.28; R = R * (1 - m) + r * 0.7 * m * 1.6 * 0.6; G = G * (1 - m) + g * 0.7 * m * 1.6 * 0.6; B = B * (1 - m) + b * 0.7 * m * 1.6 * 0.6; R *= 0.78; G *= 0.78; B *= 0.78; }
+    else if (skin && sat > 0.18) { R *= 0.97; G *= 0.97; B *= 0.9; }  // sallow, gone off
+    if (edge || luma < 40) { R = Math.min(R, 34); G = Math.min(G, 40); B = Math.min(B, 32); }
+    if (sock[p]) { R = 22; G = 26; B = 22; }
+    else if (cheek[p]) { R *= 0.62; G *= 0.68; B *= 0.6; }
+    else if (upright && y > rt && y < rb && Math.abs(x - rcx) < rhw && t > 0.2) {
+      const row = (y - rt) / 6 | 0;                                   // ribs: dark gaps, rows 3 art px apart, short at the ends
+      const ph = ((y - rt) % 6);
+      if (ph < 2 && Math.abs(x - rcx) < rhw - Math.abs(row - 2) * 2) { R *= 0.55; G *= 0.6; B *= 0.52; }
+    }
+    d[i] = R; d[i + 1] = G; d[i + 2] = B;
   }
   c.putImageData(img, 0, 0);
 };
