@@ -224,7 +224,7 @@ very frame drawn burns, read through `e._rf` set in enemies.js, edge data per fr
 step, at most 2 bakes a frame; a burning foe is a small `addLight`, 12 a frame, draw.js); raise **B** without the clods or the
 grave's lines (rings.js `case "raise"`: three ribbons whose far half is in the GR layer, under the risen; the whole grave drawn `RAISE_UP` 4 higher so the risen's feet stand in the dark earth, owner: "looks like he's floating"; the lab's TODAY raise now places him as enemies.js does); frost nova **B + C**
 (rings.js `case "frostnova"`: C's lit glass floor and glaze, B's see-through spikes rising in turn round the circle, the glass floor
-coming in WITH them as a wedge swept from the top (owner: "have it come in with the icicles"; rings.js `novaWedge`), over `NOVA_SWEEP` 0.45 of its 800 ms (owner: "i liked the spinny effect from b"; the nova was 500 ms, both pushes now carry `life: 800`), then shattering; ringflash.js flashes each foe as its spike rises). The risen look
+coming in WITH them, swept from the top with curled, wobbling edges, no straight spoke (owner: "have it come in with the icicles", "more rounded irregular sweep"; rings.js `novaWedge`, `curl`), over `NOVA_SWEEP` 0.45 of its 800 ms (owner: "i liked the spinny effect from b"; the nova was 500 ms, both pushes now carry `life: 800`), then shattering; ringflash.js flashes each foe as its spike rises). The risen look
 (rigs.js `boneify`) was redone: a five-step bone ramp keeping the figure's shading, rags keep a dim hint of their colour, the eyes
 witch-fire green each in its own socket, ribs only on small upright figures.
 The same day the **Rimecaller's nova fires only with a foe in its aura** (update.js: the clock charges, then holds until a

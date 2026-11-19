@@ -874,11 +874,11 @@ const novaSpikes = (R, sd) => memo(`nsp|${Math.round(R)}|${sd}`, () => {
   }
   return out;
 });
-// a spike rises as the sweep reaches its angle (the inner ring a moment after the outer); ringflash.js matches
+// a spike rises as the sweep reaches its angle (the rim a touch later: the floor's front curls back); ringflash.js matches
 // the sweep round the circle takes NOVA_SWEEP of the nova's life (owner, 2026-11-18: "i liked the spinny effect from b")
 const NOVA_SWEEP = 0.45;
 // (owner, same day: the floor comes in WITH the spikes, a wedge sweeping round from the top, not a full circle first)
-const novaAt = (a, rho) => 0.02 + 0.03 * (1 - rho) + NOVA_SWEEP * ((((a + Math.PI / 2) / TAU) % 1 + 1) % 1);
+const novaAt = (a, rho) => 0.02 + 0.028 * rho + NOVA_SWEEP * ((((a + Math.PI / 2) / TAU) % 1 + 1) % 1);
 const novaWedge = (p) => clamp01((p - 0.02) / NOVA_SWEEP);
 const NOVA_COL = [ICE[0], ICE[1], ICE[3]];
 // the frost nova's lit glass floor, baked per radius: a pale film with slanted streaks (art px)
@@ -902,7 +902,20 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       const life = 800, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = NOVA_SQ;
       const r = R, A = stepA(a), hall = hallOf(g, fx), wq = novaWedge(p), wa = -Math.PI / 2 + wq * TAU;
       // everything on the floor is clipped to the wedge swept so far
-      const wedge = () => { ctx.beginPath(); if (wq >= 1) ctx.ellipse(fx.x, fx.y, R + 2, (R + 2) * SQ, 0, 0, TAU); else { ctx.moveTo(fx.x, fx.y); ctx.ellipse(fx.x, fx.y, R + 2, (R + 2) * SQ, 0, -Math.PI / 2, wa); ctx.closePath(); } ctx.clip(); };
+      // the swept floor's edges are soft curls, not straight spokes: each edge leans back like a spiral arm and wobbles
+      const ck = Math.min(1, wq * 6), curl = (t, ph) => ck * -0.55 * t * (1 - 0.35 * t) + 0.09 * Math.sin(t * 7.3 + ph) + 0.05 * Math.sin(t * 15.1 + ph * 1.7);
+      const edgePts = (a0, ph, back) => { const o = []; for (let i = 0; i <= 14; i++) { const t = back ? 1 - i / 14 : i / 14, an = a0 + curl(t, ph); o.push(fx.x + Math.cos(an) * (R + 2) * t, fx.y + Math.sin(an) * (R + 2) * SQ * t); } return o; };
+      const wedge = () => {
+        ctx.beginPath();
+        if (wq >= 1) { ctx.ellipse(fx.x, fx.y, R + 2, (R + 2) * SQ, 0, 0, TAU); ctx.clip(); return; }
+        const s0 = edgePts(-Math.PI / 2, sd, false), s1 = edgePts(wa, sd + 2.3 + p * 9, true);
+        ctx.moveTo(s0[0], s0[1]); for (let i = 2; i < s0.length; i += 2) ctx.lineTo(s0[i], s0[i + 1]);
+        // the rim, from where the start edge reaches it round to where the front edge does (a little past: its curl leans back)
+        const e0 = -Math.PI / 2 + curl(1, sd), e1 = wa + curl(1, sd + 2.3 + p * 9);
+        if (e1 > e0) ctx.ellipse(fx.x, fx.y, R + 2, (R + 2) * SQ, 0, e0, e1);
+        for (let i = 0; i < s1.length; i += 2) ctx.lineTo(s1[i], s1[i + 1]);
+        ctx.closePath(); ctx.clip();
+      };
       const fd = p < 0.5 ? 1 : Math.max(0, 1 - (p - 0.5) / 0.5);
       ctx.save();
       ctx.globalAlpha *= A;
@@ -962,8 +975,6 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           ctx.restore();
         }
         rimLine();
-        // the sweep's bright leading edge, centre to rim
-        if (wq < 1) { const pts = []; for (let t = 0.15; t <= 1; t += 0.5 / R) pts.push(fx.x + Math.cos(wa) * R * t, fx.y + Math.sin(wa) * R * SQ * t, t > 0.85 ? 1 : 0.5); dots(ctx, pts, ICE[0]); }
         }
         ctx.restore();
         // the centre flash where it was loosed: a bright disc on the ground, falling off outward
