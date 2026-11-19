@@ -8,7 +8,7 @@
 // render/halls/band.js reads the same numbers to stand the real figures.
 //
 // The forms: a boarded platform with a pennant (1), a stone-footed stand with a rail and bunting (2),
-// a raised eight-panelled bandstand, open to the sky (3); the Drum Corps' drum-racked stand
+// a raised eight-panelled bandstand before a painted bandshell (3); the Drum Corps' drum-racked stand
 // with crown banners (a), the Royal Tattoo's grand stand with standards and torches (aa), Thunder Drums'
 // wheeled carriage with a pair of kettledrums (ab); the Heralds' crimson dais (b), the Royal Fanfare's
 // gilded dais under a cloth-of-gold canopy (ba), the War Horn's stone platform with its forked stand,
@@ -76,6 +76,8 @@ const standard = (back, x, DY, top, bw, bh, cloth, trim, z = -7) => {
   beam(back, x - bw / 2 - 1, DY - top + 2, x + bw / 2 + 1, DY - top + 2, 2, GOLD, z + 0.1, { grain: false });
   wallBanner(back, x, DY - top + 4, bw, bh, cloth, trim, z + 0.2, { tail: "point", stripe: true, fold: 2 });
 };
+// a little gold crown (a band and five points)
+const crown = (px, x, y, z) => { px.part(); px.rect(x - 4, y, 8, 2.5, GOLD, z, { n: [0, -0.3, 0.9] }); for (const dx of [-4, -2, 0, 2, 4]) px.dot(x + dx - 0.5, y - 1 - (dx === 0 ? 1 : 0), GOLD_L, z + 0.05, { cast: 0 }); px.dot(x - 0.5, y + 0.5, CRIM, z + 0.1, { cast: 0 }); };
 // a torch on a post: the flame is live, the light is baked
 const torchPost = (back, x, DY, top) => { beam(back, x, DY - 2, x, DY - top, 3, IRON, -7, { grain: false }); back.part(); back.rect(x - 3, DY - top - 3, 6, 3, IRON_L, -6.9, { n: [0, -0.5, 0.8] }); };
 
@@ -108,11 +110,19 @@ export const build = (o = {}) => (back, front) => {
   } else if (key === "3") {
     // the raised bandstand: eight boarded panels, a stair at the front
     platform(back, front, L, { ...base, foot: TIMBER, footSt: STYLES.A, boards: Math.PI / 4, course: 99, deckM: TIMBER_L, planks: 5, rail: OAK, trim: GOLD, posts: 8, strings: [[DY + 1, 1.6, GOLD], [DY + 12, 1.4, OAK]] });
-    // no canopy (owner, 2026-11-18: "messed up roof ... take it off, it looks too crowded"):
-    // an open stand, a pennant pole at the back like level 2's
+    // no canopy (owner, 2026-11-18: "messed up roof ... take it off, it looks too crowded")
     // the stair, two treads down the front, clear of the players
     for (const [w, y, h] of [[10, 8, 5], [7, 2.5, 5.5]]) { front.part(); front.rect(-w, DY + 11 + y - 1, w * 2, h, TIMBER_L, 12 + (w < 8 ? 0.2 : 0), { n: [0, -0.5, 0.85] }); front.toneLine(-w, DY + 11 + y + h - 1, w, DY + 11 + y + h - 1, -1); }
-    live.push({ kind: "pennant", x: R - 5, y: DY - 2, col: "#284a8c", pole: 52, len: 13 });
+    // a bandshell (owner's pick B, 2026-11-18, of three flair options): a painted half-shell behind the players, blue with gold sun-rays and a crown at its crest
+    const cy = DY - 2, rx = R + 1, ry = 72;
+    back.part();
+    const arc = []; for (let i = 0; i <= 24; i++) { const a = Math.PI * (i / 24); arc.push([-Math.cos(a) * rx, cy - Math.sin(a) * ry]); }
+    back.poly(arc, BLUE_D, -7.5, { n: [0, 0.2, 0.98] });
+    for (let k = 1; k < 8; k++) { const a = Math.PI * (k / 8); back.part(); back.line(-Math.cos(a) * 6, cy - Math.sin(a) * 8, -Math.cos(a) * (rx - 2), cy - Math.sin(a) * (ry - 2), k % 2 ? GOLD : GOLD_L, -7.4, { cast: 0 }); }
+    back.part(); for (let i = 0; i <= 48; i++) { const a = Math.PI * (i / 48); back.dot(-Math.cos(a) * rx, cy - Math.sin(a) * ry, GOLD, -7.3, { cast: 0 }); }
+    back.part(); back.ellipse(0, cy - 2, 7, 5, GOLD_L, -7.35, { round: 0.9 });
+    crown(back, 0, cy - ry + 1, -7.2);
+    live.push({ kind: "pennant", x: 0, y: cy - ry - 4, col: "#284a8c", pole: 8, len: 12 });
   } else if (key === "a" || key === "aa") {
     const gild = key === "aa";
     platform(back, front, L, { ...base, foot: S, deckM: SL, rail: S, trim: GOLD, course: 5, strings: [[DY + 1, 1.8, GOLD], [DY + band + 6, 1.4, gild ? GOLD : SL]], railSt: st });
