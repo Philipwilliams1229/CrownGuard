@@ -812,6 +812,7 @@ const batchDraw = (ctx, m, base) => {
 const stepN = (v, n) => Math.ceil(clamp01(v) * n) / n;
 // the ribbons that coil round the risen (three strands, thick at the foot) and the motes off the top; art px from the foot
 const RAD = (t) => 19 - 4 * t;
+const RAISE_UP = 4;
 const raiseRibbons = (m, p, front) => {
   const side = (an) => (Math.sin(an) >= 0) === front;
   for (let s = 0; s < 3; s++) for (let i = 0; i < 7; i++) for (let tr = 0; tr < 3; tr++) {
@@ -1439,6 +1440,9 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       // ROUND the risen: their far half is drawn under the figure, the near half over it. No clods, no cracks.
       const life = fx.life || 600, p = lifeP(fx, life), sd = seedOf(fx), fi = Math.min(11, Math.floor(p * 12));
       ctx.save();
+      // the whole grave sits RAISE_UP higher, so the risen's feet (y + size x 0.55) stand in the dark earth, not
+      // on its far rim (owner, 2026-11-18: "looks like he's floating")
+      ctx.translate(0, -RAISE_UP);
       ctx.globalAlpha *= stepA(a);
       const base = ctx.globalAlpha;
       if (GR) {
