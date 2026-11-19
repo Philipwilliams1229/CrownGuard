@@ -8,7 +8,7 @@
 // render/halls/band.js reads the same numbers to stand the real figures.
 //
 // The forms: a boarded platform with a pennant (1), a stone-footed stand with a rail and bunting (2),
-// a raised eight-panelled bandstand with a canopy on thin posts (3); the Drum Corps' drum-racked stand
+// a raised eight-panelled bandstand, open to the sky (3); the Drum Corps' drum-racked stand
 // with crown banners (a), the Royal Tattoo's grand stand with standards and torches (aa), Thunder Drums'
 // wheeled carriage with a pair of kettledrums (ab); the Heralds' crimson dais (b), the Royal Fanfare's
 // gilded dais under a cloth-of-gold canopy (ba), the War Horn's stone platform with its forked stand,
@@ -32,7 +32,7 @@ const FORMS = {
   "2": { R: 28, DY: -11, band: 7, p: [["drum", -16, 4], ["drum", 15, 4], ["fife", 0, -2]] },
   // (owner, 2026-11-18: the three players stand where they did on level 2; the drum major on the
   // ground in front of the stand, past the foot of its stair: y is from the deck, so 42 + DY is the grass)
-  "3": { R: 29, DY: -13, band: 8, p: [["bass", -16, 4], ["drum", 15, 4], ["fife", 0, -2], ["major", 0, 42, "ground"]] },
+  "3": { R: 29, DY: -13, band: 8, p: [["bass", -16, 4], ["drum", 15, 4], ["fife", 0, -2], ["major", -14, 42, "ground"]] },
   a: { R: 30, DY: -15, band: 8, p: [["bass", -20, 4], ["major", 0, -4], ["drum", -8, 7], ["drum", 18, 4]] },
   aa: { R: 30, DY: -19, band: 8, v: "gold", p: [["bass", -21, 3], ["drum", -8, -4], ["drum", 9, -4], ["drum", 21, 3], ["major", 0, 7]] },
   ab: { R: 28, DY: -9, band: 7, v: "gold", p: [["drum", -19, -1], ["bass", 19, -1], ["kettle", -7, 3]], kettles: [[3, -20], [10, -20]] },
@@ -106,22 +106,13 @@ export const build = (o = {}) => (back, front) => {
     back.part(); for (let i = 0; i <= 30; i++) { const t = i / 30; back.dot(lx + (rx - lx) * t, top + 1.5 + Math.sin(t * Math.PI) * 6, ROPE, -6.95, { cast: 0 }); }
     live.push({ kind: "pennant", x: rx, y: DY - 2, col: "#284a8c", pole: 49, len: 13 });
   } else if (key === "3") {
-    // the raised bandstand: eight boarded panels, a stair at the front, eight posts and a blue slate canopy standing clear of every head
+    // the raised bandstand: eight boarded panels, a stair at the front
     platform(back, front, L, { ...base, foot: TIMBER, footSt: STYLES.A, boards: Math.PI / 4, course: 99, deckM: TIMBER_L, planks: 5, rail: OAK, trim: GOLD, posts: 8, strings: [[DY + 1, 1.6, GOLD], [DY + 12, 1.4, OAK]] });
-    // (owner, 2026-11-18: "too tall and has poles connected to the outside": the posts stand on the
-    // deck inside its rail and the roof sits just over the players' heads, no wider than the deck)
-    const ring = 23, roofY = DY - 60;
-    for (const a of [-157.5, -112.5, 112.5, 157.5, -67.5, 67.5]) {
-      const r = (a * Math.PI) / 180, px = ring * Math.sin(r), py = DY + ring * SQ * Math.cos(r) * -1 + 0;
-      const yb = DY - ring * SQ * Math.abs(Math.cos(r)) * (Math.abs(a) > 90 ? 1 : -1);
-      beam(Math.abs(a) < 90 ? front : back, px, yb + 1, px, roofY + ring * SQ * Math.cos(r) * -1 + 2, 3, OAK, Math.abs(a) < 90 ? 11 : -7, { grain: false });
-      void py;
-    }
-    cone(back, { cx: 0, y: roofY, r: 26, h: 16, sq: SQ, m: BLUE, z: -6, st, rows: 5, seed });
-    back.part(); back.ellipse(0, roofY - 17, 2, 2, GOLD, -5.9, { round: 0.9 }); back.line(0, roofY - 17, 0, roofY - 23, GOLD, -5.8, { cast: 0 });
+    // no canopy (owner, 2026-11-18: "messed up roof ... take it off, it looks too crowded"):
+    // an open stand, a pennant pole at the back like level 2's
     // the stair, two treads down the front, clear of the players
     for (const [w, y, h] of [[10, 8, 5], [7, 2.5, 5.5]]) { front.part(); front.rect(-w, DY + 11 + y - 1, w * 2, h, TIMBER_L, 12 + (w < 8 ? 0.2 : 0), { n: [0, -0.5, 0.85] }); front.toneLine(-w, DY + 11 + y + h - 1, w, DY + 11 + y + h - 1, -1); }
-    live.push({ kind: "pennant", x: 0, y: roofY - 23, col: "#284a8c", pole: 0, len: 12 });
+    live.push({ kind: "pennant", x: R - 5, y: DY - 2, col: "#284a8c", pole: 52, len: 13 });
   } else if (key === "a" || key === "aa") {
     const gild = key === "aa";
     platform(back, front, L, { ...base, foot: S, deckM: SL, rail: S, trim: GOLD, course: 5, strings: [[DY + 1, 1.8, GOLD], [DY + band + 6, 1.4, gild ? GOLD : SL]], railSt: st });
