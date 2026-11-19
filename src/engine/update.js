@@ -3297,7 +3297,7 @@ export function updateGame(g, dt) {
             // draws the stuck bolt and a light chain from it to e.pinAnchor while it holds
             if (p.pin && !target.dead && !target.boss) {
               target.pinUntil = Math.max(target.pinUntil || 0, tms + p.pin);
-              const [ax, ay] = lanePos(Math.max(0, target.dist - 22), target.lane || 0);
+              const [ax, ay] = lanePos(Math.max(0, target.dist - 32), target.lane || 0);
               target.pinAnchor = [ax, ay + (target.flying ? 10 : 2)];
               target.pinAt = tms;
               target.pinAng = Math.atan2(p.ty - (p.oy ?? p.ty), p.tx - (p.ox ?? p.tx));   // (the bolt stays in it at the angle it flew)

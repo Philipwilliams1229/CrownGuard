@@ -2137,8 +2137,9 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
 - **The chain harpoon** (owner, same day; a heavy chain in flight was tried and called "horrible"):
   only EVERY THIRD bolt of the tier-4 Ballista pins (`cd.balShots`); it flies as a plain bolt. Where
   it strikes it stays in the foe at the angle it flew (`e.pinAng`, fx.js `drawStuckBolt`), and a light
-  chain (single-pixel links) shoots from it to a small stake in the road 22 steps behind the foe in
-  140 ms, holds taut, then sags and fades (`src/render/chains.js` `drawPinnedChains`, over the crowd).
+  chain (single-pixel links) shoots from it to a small stake in the road 32 steps behind the foe in
+  140 ms, holds taut while the foe walks in place at half pace, straining (enemies.js `strain`), then
+  SNAPS (a flash at the break, the stake's half drops, the bolt's half whips back, links fly) (`src/render/chains.js` `drawPinnedChains`, over the crowd).
   **Bosses are never pinned** (owner: "the dragon was just completely nullified").
 - Any new tray aim (`g.rallyFor` string) must be added to the game loop's keep-list in
   CrownguardGame.jsx (the line that clears an unknown `rallyFor` every frame): "barricade" was missing

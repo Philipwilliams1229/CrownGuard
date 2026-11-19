@@ -157,7 +157,10 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // (a flier's "walk" is its wingbeat, on the clock; a walker may be mid-chant or sounding a horn)
   // (up and down the screen a walker steps under himself, render/march.js)
   const heading = vertOf(e);
-  if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = vertSheet(skin, marchSheet(skin, e, tms), airborne || e.swimming ? 0 : heading); }
+  // (pinned by the Ballista's chain harpoon, e.pinUntil: it keeps walking in place, slowed, straining
+  // against the chain, owner 2026-11-18; its wings beat slower too)
+  const strain = e.pinUntil > tms ? 0.5 : 0;
+  if (rsheet === "walk") { pf = def.fly || strain ? walkByTime(skin, time * (strain || 1), e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = vertSheet(skin, marchSheet(skin, e, tms), airborne || e.swimming ? 0 : heading); }
   else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
   // a foe archer's bow or crossbow turns to its last mark (engine: e.aimDeg, aim.js)
   const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
