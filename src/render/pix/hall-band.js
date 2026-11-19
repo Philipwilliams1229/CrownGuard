@@ -30,7 +30,9 @@ const SQ = 0.38;                 // one squash for every ring of the hall
 const FORMS = {
   "1": { R: 26, DY: -8, band: 6, p: [["drum", -10, 4], ["fife", 10, 2]] },
   "2": { R: 28, DY: -11, band: 7, p: [["drum", -16, 4], ["drum", 15, 4], ["fife", 0, -2]] },
-  "3": { R: 29, DY: -18, band: 8, p: [["bass", -19, 3], ["fife", -5, -4], ["drum", 19, 3], ["major", 6, 8]] },
+  // (owner, 2026-11-18: the three players stand where they did on level 2; the drum major on the
+  // ground in front of the stand, past the foot of its stair: y is from the deck, so 42 + DY is the grass)
+  "3": { R: 29, DY: -13, band: 8, p: [["bass", -16, 4], ["drum", 15, 4], ["fife", 0, -2], ["major", 0, 42, "ground"]] },
   a: { R: 30, DY: -15, band: 8, p: [["bass", -20, 4], ["major", 0, -4], ["drum", -8, 7], ["drum", 18, 4]] },
   aa: { R: 30, DY: -19, band: 8, v: "gold", p: [["bass", -21, 3], ["drum", -8, -4], ["drum", 9, -4], ["drum", 21, 3], ["major", 0, 7]] },
   ab: { R: 28, DY: -9, band: 7, v: "gold", p: [["drum", -19, -1], ["bass", 19, -1], ["kettle", -7, 3]], kettles: [[3, -20], [10, -20]] },
@@ -41,7 +43,8 @@ const FORMS = {
 export const keyOf = (o = {}) => (o.rank4 ? (o.branch || "") + o.rank4 : o.branch || String(o.level || 3));
 export const layout = (o = {}) => {
   const key = keyOf(o), F = FORMS[key] || FORMS["3"], { R, DY } = F;
-  const players = F.p.map(([role, x, y]) => ({ role, x, y: DY + y, variant: F.v ? role + ":" + F.v : role }));
+  // a 4th entry "ground": he stands on the grass before the stand, drawn after its front wall
+  const players = F.p.map(([role, x, y, on]) => ({ role, x, y: DY + y, variant: F.v ? role + ":" + F.v : role, ground: on === "ground" }));
   // the drum finals dress "gold"; the Heralds (path b) wear crimson; no form mixes them
   return {
     key, R, DY, band: F.band, players,
@@ -105,18 +108,20 @@ export const build = (o = {}) => (back, front) => {
   } else if (key === "3") {
     // the raised bandstand: eight boarded panels, a stair at the front, eight posts and a blue slate canopy standing clear of every head
     platform(back, front, L, { ...base, foot: TIMBER, footSt: STYLES.A, boards: Math.PI / 4, course: 99, deckM: TIMBER_L, planks: 5, rail: OAK, trim: GOLD, posts: 8, strings: [[DY + 1, 1.6, GOLD], [DY + 12, 1.4, OAK]] });
-    const ring = 26, roofY = DY - 86;
+    // (owner, 2026-11-18: "too tall and has poles connected to the outside": the posts stand on the
+    // deck inside its rail and the roof sits just over the players' heads, no wider than the deck)
+    const ring = 23, roofY = DY - 60;
     for (const a of [-157.5, -112.5, 112.5, 157.5, -67.5, 67.5]) {
       const r = (a * Math.PI) / 180, px = ring * Math.sin(r), py = DY + ring * SQ * Math.cos(r) * -1 + 0;
       const yb = DY - ring * SQ * Math.abs(Math.cos(r)) * (Math.abs(a) > 90 ? 1 : -1);
       beam(Math.abs(a) < 90 ? front : back, px, yb + 1, px, roofY + ring * SQ * Math.cos(r) * -1 + 2, 3, OAK, Math.abs(a) < 90 ? 11 : -7, { grain: false });
       void py;
     }
-    cone(back, { cx: 0, y: roofY, r: 29, h: 20, sq: SQ, m: BLUE, z: -6, st, rows: 5, seed });
-    back.part(); back.ellipse(0, roofY - 21, 2, 2, GOLD, -5.9, { round: 0.9 }); back.line(0, roofY - 21, 0, roofY - 27, GOLD, -5.8, { cast: 0 });
+    cone(back, { cx: 0, y: roofY, r: 26, h: 16, sq: SQ, m: BLUE, z: -6, st, rows: 5, seed });
+    back.part(); back.ellipse(0, roofY - 17, 2, 2, GOLD, -5.9, { round: 0.9 }); back.line(0, roofY - 17, 0, roofY - 23, GOLD, -5.8, { cast: 0 });
     // the stair, two treads down the front, clear of the players
     for (const [w, y, h] of [[10, 8, 5], [7, 2.5, 5.5]]) { front.part(); front.rect(-w, DY + 11 + y - 1, w * 2, h, TIMBER_L, 12 + (w < 8 ? 0.2 : 0), { n: [0, -0.5, 0.85] }); front.toneLine(-w, DY + 11 + y + h - 1, w, DY + 11 + y + h - 1, -1); }
-    live.push({ kind: "pennant", x: 0, y: roofY - 27, col: "#284a8c", pole: 0, len: 12 });
+    live.push({ kind: "pennant", x: 0, y: roofY - 23, col: "#284a8c", pole: 0, len: 12 });
   } else if (key === "a" || key === "aa") {
     const gild = key === "aa";
     platform(back, front, L, { ...base, foot: S, deckM: SL, rail: S, trim: GOLD, course: 5, strings: [[DY + 1, 1.8, GOLD], [DY + band + 6, 1.4, gild ? GOLD : SL]], railSt: st });
@@ -176,13 +181,14 @@ export const build = (o = {}) => (back, front) => {
       standard(back, R - 3, DY, 54, 11, 26, CRIM, GOLD);
     } else {
       // cloth-of-gold canopy on four posts: back pair behind the players, side pair in front of nothing
-      const roofY = DY - 84;
+      // (owner, 2026-11-18: the same as the Full Company's: lower, posts on the deck, no wider than it;
+      // the long side banners that hung outside the stand are gone)
+      const roofY = DY - 64, CR = R - 2;
       for (const x of [-14, 14]) beam(back, x, DY - 9, x, roofY + 2, 3, GOLD, -7, { grain: false });
-      for (const x of [-(R - 2), R - 2]) beam(front, x, DY + 1, x, roofY + 4, 3, GOLD, 11, { grain: false });
-      cone(back, { cx: 0, y: roofY, r: 36, h: 15, sq: 0.3, m: GOLD, z: -6, st, rows: 6, seed });
-      back.part(); back.ellipse(0, roofY - 16, 2, 2, CRIM, -5.9, { round: 0.9 });
-      for (let x = -35; x <= 35; x += 5) { const u = x / 36, y = roofY + 36 * 0.3 * Math.sqrt(Math.max(0, 1 - u * u)) + 0.5, c = (Math.round(x / 5) & 1) ? CRIM : GOLD_L; back.part(); back.poly([[x - 2.5, y], [x + 2.5, y], [x, y + 5]], c, -5.8, { cast: 0 }); }
-      for (const x of [-34, 34]) { back.part(); back.rect(x - 4, roofY + 8, 8, 34, CRIM, -5.7, { n: [-0.15, 0, 0.98] }); back.rect(x - 4, roofY + 8, 8, 1.6, GOLD, -5.6, { cast: 0 }); back.line(x - 3, roofY + 40, x, roofY + 44, GOLD, -5.6, { cast: 0 }); back.line(x + 3, roofY + 40, x, roofY + 44, GOLD, -5.6, { cast: 0 }); }
+      for (const x of [-(R - 4), R - 4]) beam(front, x, DY + 4, x, roofY + 4, 3, GOLD, 11, { grain: false });
+      cone(back, { cx: 0, y: roofY, r: CR, h: 13, sq: 0.3, m: GOLD, z: -6, st, rows: 5, seed });
+      back.part(); back.ellipse(0, roofY - 14, 2, 2, CRIM, -5.9, { round: 0.9 });
+      for (let x = -(CR - 1); x <= CR - 1; x += 5) { const u = x / CR, y = roofY + CR * 0.3 * Math.sqrt(Math.max(0, 1 - u * u)) + 0.5, c = (Math.round(x / 5) & 1) ? CRIM : GOLD_L; back.part(); back.poly([[x - 2.5, y], [x + 2.5, y], [x, y + 4]], c, -5.8, { cast: 0 }); }
     }
   } else if (key === "bb") {
     platform(back, front, L, { ...base, foot: S, deckM: mat("#8a8884"), rail: S, trim: SL, course: 6, stoneW: 0.55, strings: [[DY + 1, 1.8, SL]], railSt: st });

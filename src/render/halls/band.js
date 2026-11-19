@@ -43,12 +43,17 @@ export const drawBandTower = (ctx, t, time) => {
   // the players, back to front, all on one clock
   if (!t.noFolk) {
     const clip = silent ? "idle" : "play";
-    for (const p of [...L.players].sort((a, b) => a.y - b.y)) {
+    for (const p of [...L.players].filter((q) => !q.ground).sort((a, b) => a.y - b.y)) {
       const fig = FIG_OF[p.role], f = loopFrame(fig, clip, time, 0);
       drawCrewPix(ctx, fig, x + p.x / 2, y + p.y / 2, 1, clip, f, { variant: p.variant });
     }
   }
   drawHallFront(ctx, H, x, y, time, { id: t.id });
+  // whoever stands on the grass before the stand (the Full Company's drum major) goes over its front wall
+  if (!t.noFolk) for (const p of L.players.filter((q) => q.ground)) {
+    const clip = silent ? "idle" : "play", fig = FIG_OF[p.role], f = loopFrame(fig, clip, time, 0);
+    drawCrewPix(ctx, fig, x + p.x / 2, y + p.y / 2, 1, clip, f, { variant: p.variant });
+  }
   // the War Horn's blast: rings of sound leave the horn's mouth
   if (L.horn && !t.noFolk && t.hornAt != null) {
     const age = ms - t.hornAt;
