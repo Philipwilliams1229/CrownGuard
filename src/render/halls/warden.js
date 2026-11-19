@@ -60,7 +60,8 @@ export const drawSupportTower = (ctx, t, time) => {
   const live = t._auraLive || 0;
   if (live > 0) {
     const pr = (time * 34 + t.id * 40) % st.range;
-    pxArc(ctx, x, y, pr, pr * 0.7, rgba(auraCol, Math.min(0.8, (0.3 + Math.min(0.45, live * 0.08)) * (1.1 - pr / st.range))), { th: 3 });
+    pxArc(ctx, x, y, pr, pr * 0.55,   // the frost nova's angle (rings.js SQ), so the two rings lie on one ground
+       rgba(auraCol, Math.min(0.8, (0.3 + Math.min(0.45, live * 0.08)) * (1.1 - pr / st.range))), { th: 3 });
   }
   // The building (pix/hall-support.js): its
   // BACK picture is the ground, the steps and everything tall behind the warden, its FRONT the

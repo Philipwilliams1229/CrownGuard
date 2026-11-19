@@ -1599,8 +1599,10 @@ export function updateGame(g, dt) {
       }
       // Rimecaller frost nova: periodically flash-freeze everything in the aura
       if (st.nova) {
-        t.novaCd = (t.novaCd ?? st.novaEvery * 0.5) - sdt * 1000;
-        if (t.novaCd <= 0) {
+        // it charges on its clock, then holds the charge until a foe is in the aura (owner,
+        // 2026-11-18: a nova only when it has someone to freeze)
+        t.novaCd = Math.max(0, (t.novaCd ?? st.novaEvery * 0.5) - sdt * 1000);
+        if (t.novaCd <= 0 && g.enemies.some((e) => !e.dead && !e.neutral && !e.submerged && Math.hypot(e.x - t.x, e.y - t.y) <= st.range)) {
           t.novaCd = st.novaEvery;
           g.effects.push({ type: "frostnova", x: t.x, y: t.y, ttl: 500, r: st.range });
           sfx.play("nova");

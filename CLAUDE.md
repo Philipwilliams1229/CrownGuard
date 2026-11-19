@@ -214,6 +214,15 @@ line, outer tinted shade, Bayer band fading inward, drifting dashes; baked per r
 the build ghost (owner: "i dont want the square at all"; `drawPlate` is unused); draw.js's `rangeRing` wraps it, every caller unchanged; selected gold
 is now rgba(240,176,40). `rr-lab.html` (`mode=sel|build&build=<kind>&wx=1&old=1`). ~+0.05 ms a ring.
 
+**Round 5** (2026-11-18, owner: "The on fire effect, i dont like", the raise-dead spiral should coil "around the enemy
+being raised, not in front", "some lighting effects", and "revisit nova effect for ice"; brief `art/briefs/fx-round5.md`):
+FOUR options a row (A-D; the lab and viewer take an optional `D`), all with light painted as `addLight` would.
+`concept/fx-r5-{burn,raise,nova}.js` (rows `burn5`, `raise5`, `frostnova5`), gathered by `concept/fx-r5.js`; private
+Artifact "Crownguard Effects Concepts, Round 5" (`node scripts/build-fx-concepts.mjs round5`). Awaiting the owner's picks.
+The same day the **Rimecaller's nova fires only with a foe in its aura** (update.js: the clock charges, then holds until a
+live, non-neutral, surfaced foe is within range; it used to go off every `novaEvery` even between waves), and the Warden
+Mage's slow-aura pulse (halls/warden.js, the "second ring") lies at the nova's 0.55, not 0.7.
+
 ## Smaller blasts, a slower catapult that loads by hand (2026-11-17, owner request)
 
 Provisional ("we'll see how that feels"). `aoe-lab.html` showed every blast PICTURE is exactly
