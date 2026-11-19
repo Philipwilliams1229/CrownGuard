@@ -78,9 +78,9 @@ export const CASTLE_WORKS = {
     // killed in it, the net goes with it (engine/update.js, castle works).
     tiers: [
       { cost: 5000, label: "Wooden barricades, mend one life a wave", mend: 1, rows: 1, cooldown: 60000, spikeHp: 128, thorns: 4, mat: "wood" },
-      { cost: 10000, label: "Iron-shod barricades, a thicker gate (+5 castle life)", mend: 1, hp: 5, rows: 1, cooldown: 52000, spikeHp: 255, thorns: 8, mat: "iron" },
-      { cost: 15000, label: "Steel barricades, two rows at once, the wall shored up (+5 more life)", mend: 1, hp: 10, rows: 2, cooldown: 45000, spikeHp: 408, thorns: 14, mat: "steel" },
-      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricades", mend: 2, hp: 10, rows: 2, cooldown: 38000, spikeHp: 408, thorns: 14, mat: "steel", net: { every: 15000, hp: 240, zone: 30 } },
+      { cost: 10000, label: "Iron-shod barricades, a thicker gate (+5 castle life)", mend: 1, hp: 5, rows: 1, cooldown: 60000, spikeHp: 255, thorns: 8, mat: "iron" },
+      { cost: 15000, label: "Steel barricades, two rows at once, the wall shored up (+5 more life)", mend: 1, hp: 10, rows: 2, cooldown: 60000, spikeHp: 408, thorns: 14, mat: "steel" },
+      { cost: 25000, label: "Mend two lives a wave, a net launcher snares fliers at the barricades", mend: 2, hp: 10, rows: 2, cooldown: 60000, spikeHp: 408, thorns: 14, mat: "steel", net: { every: 15000, hp: 240, zone: 30 } },
     ],
   },
   wizards: {
