@@ -812,7 +812,6 @@ const batchDraw = (ctx, m, base) => {
 const stepN = (v, n) => Math.ceil(clamp01(v) * n) / n;
 // the ribbons that coil round the risen (three strands, thick at the foot) and the motes off the top; art px from the foot
 const RAD = (t) => 19 - 4 * t;
-const RAISE_UP = 4;
 const raiseRibbons = (m, p, front) => {
   const side = (an) => (Math.sin(an) >= 0) === front;
   for (let s = 0; s < 3; s++) for (let i = 0; i < 7; i++) for (let tr = 0; tr < 3; tr++) {
@@ -1460,30 +1459,28 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       // ROUND the risen: their far half is drawn under the figure, the near half over it. No clods, no cracks.
       const life = fx.life || 600, p = lifeP(fx, life), sd = seedOf(fx), fi = Math.min(11, Math.floor(p * 12));
       ctx.save();
-      // the whole grave sits RAISE_UP higher, so the risen's feet (y + size x 0.55) stand in the dark earth, not
-      // on its far rim (owner, 2026-11-18: "looks like he's floating")
-      ctx.translate(0, -RAISE_UP);
+      const fy = fx.fy ?? fx.y + 8;   // the risen's sole line (engine: y + size x 0.55): the grave and its ring are centred on it
       ctx.globalAlpha *= stepA(a);
       const base = ctx.globalAlpha;
       if (GR) {
         // the ground darkens gradually (owner, 2026-11-17): in steps over the first 40% of the rise
         ctx.globalAlpha = base * Math.min(1, Math.ceil(clamp01(p / 0.4) * 5) / 5);
-        put(ctx, graveS(p < 0.15 ? 1 : p < 0.35 ? 2 : 3), fx.x, fx.y + 6);
+        put(ctx, graveS(p < 0.15 ? 1 : p < 0.35 ? 2 : 3), fx.x, fy + 1);
         ctx.globalAlpha = base;
         for (let k = 0; k < 4; k++) {
           const q = ((p * life / 1250) + k * 0.25 + hash(sd, k) * 0.1) % 1, f = Math.min(3, Math.floor(q * 4));
           if (p > 0.92 && q > 0.5) continue;
           // low, thin and to the sides: the risen figure stays clear of it
           ctx.globalAlpha = base * 0.55 * (1 - q);
-          put(ctx, mistS((sd + k) % 5, f), fx.x + (k - 1.5) * 9 + Math.sin(q * 5 + k) * 3, fx.y + 7 - q * 12);
+          put(ctx, mistS((sd + k) % 5, f), fx.x + (k - 1.5) * 9 + Math.sin(q * 5 + k) * 3, fy + 2 - q * 12);
           ctx.globalAlpha = base;
         }
-        ctx.save(); ctx.translate(fx.x, fx.y);
+        ctx.save(); ctx.translate(fx.x, fy - 2);
         const m = new Map(); raiseRing(m, p, fi, false, sd); raiseRibbons(m, p, false); batchDraw(ctx, m, base);
         ctx.restore();
       }
       if (AIR) {
-        ctx.save(); ctx.translate(fx.x, fx.y);
+        ctx.save(); ctx.translate(fx.x, fy - 2);
         const m = new Map(); raiseRing(m, p, fi, true, sd); raiseRibbons(m, p, true); batchDraw(ctx, m, base);
         ctx.restore();
       }

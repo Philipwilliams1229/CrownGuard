@@ -661,7 +661,7 @@ const raiseFrom = (g, killer, u, tms) => {
   // onto the road and joins the march
   w.born = tms - 400;
   w.riseAt = tms; w.riseMs = RISE_MS; w.riseX = u.x; w.riseY = u.y;
-  g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: RISE_MS, life: RISE_MS });
+  g.effects.push({ type: "raise", x: u.x, y: u.y, fy: u.y + w.size * 0.55, ttl: RISE_MS, life: RISE_MS });   // fy: the risen's sole line (rings.js)
   sfx.play("raise");
 };
 
@@ -1958,7 +1958,7 @@ export function updateGame(g, dt) {
           for (let i = 0; i < e.summonCount; i++) {
             const u = spawnAt(g, e.summonType, e.mult * 0.8, e.summonAhead ? Math.min(TOTAL_LEN - 6, e.dist + 16 + i * step) : e.dist - 14 - i * 7, tms);
             u.bounty = Math.max(1, Math.ceil(u.bounty / 2)); // conjured chaff pays half
-            g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 600, life: 600 });
+            g.effects.push({ type: "raise", x: u.x, y: u.y, fy: u.y + u.size * 0.55, ttl: 600, life: 600 });
           }
           g.effects.push({ type: "toll", x: e.x, y: e.y, ttl: 550, r: 46 });
           sfx.play("toll");
@@ -1988,7 +1988,7 @@ export function updateGame(g, dt) {
             u.born = tms - 400;
             u.riseAt = tms; u.riseMs = NECRO_RISE_MS; u.riseX = c.x; u.riseY = c.y;
             g.enemies.push(u);
-            g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: NECRO_RISE_MS, life: NECRO_RISE_MS });
+            g.effects.push({ type: "raise", x: c.x, y: c.y, fy: c.y + u.size * 0.55, ttl: NECRO_RISE_MS, life: NECRO_RISE_MS });
             sfx.play("raise");
           }
           e.raiseCd = raised ? e.raiseEvery : 0;   // nothing to raise: stay ready
@@ -2437,7 +2437,7 @@ export function updateGame(g, dt) {
         u.revived = true;
         u.born = tms - 400;
         u.riseAt = tms; u.riseMs = e.reformMs; u.riseX = e.x; u.riseY = e.y;
-        g.effects.push({ type: "raise", x: e.x, y: e.y, ttl: e.reformMs, life: e.reformMs });
+        g.effects.push({ type: "raise", x: e.x, y: e.y, fy: e.y + u.size * 0.55, ttl: e.reformMs, life: e.reformMs });
         g.reformed = (g.reformed || 0) + 1;
       }
       if (e.deathBurst) {

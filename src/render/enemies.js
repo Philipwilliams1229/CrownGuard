@@ -166,12 +166,16 @@ export const drawEnemy = (ctx, e, time, tms) => {
   const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
   // a change of facing turns him through a squeeze, not a one-frame mirror (render/march.js)
   const tn = e.swimming ? { face: e.face, sx: 1 } : turnOf(e, e.face, tms);
+  // a walker climbing out of its grave is cut off at the ground, so it comes up OUT of the dark earth (rings.js raise)
+  const climbing = rise < 1 && !airborne;
+  if (climbing) { ctx.save(); ctx.beginPath(); ctx.rect(e.x - 60, e.y + e.size * 0.55 - 120, 120, 121); ctx.clip(); }
   drawTurned(ctx, e.x + lunge, feet, tn.sx, () => {
     drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, variant, 1, aim);
     if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "white", 0.7, aim);
     // a flier the Masons' net has dragged down: the net hugs its silhouette (rigs.js netify)
     if (e.net) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "net", 1, aim);
   });
+  if (climbing) ctx.restore();
   // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
   // licking flames, poison bubbles, mending motes — each a few cached sprites
   // (render/fx.js), cheap enough for a crowd of three hundred all on fire.

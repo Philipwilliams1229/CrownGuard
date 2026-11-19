@@ -77,10 +77,11 @@ const TODAY = {
   },
   raise: (c, e) => {
     // as the game draws a rising foe (enemies.js): feet at y + size x 0.55, sunk (1 - rise)^2 x 18 below and faded in
-    const life = 2200, fx = { type: "raise", x: 0, y: 0, life, ttl: life * (1 - e.p) }, rise = e.p;
+    const life = 2200, fx = { type: "raise", x: 0, y: 0, fy: 15 * 0.55, life, ttl: life * (1 - e.p) }, rise = e.p;
     W(c, () => drawRingFx(c, fx, 1, {}, "g"));
-    const s = foe(0, "revived"), feet = Math.round((15 * 0.55 + (1 - rise) * (1 - rise) * 18) * PX);
-    c.globalAlpha = 0.12 + 0.88 * rise * rise; c.drawImage(s.cv, -s.ax, -s.ay + feet); c.globalAlpha = 1;
+    const s = foe(0, "revived"), sole = Math.round(15 * 0.55 * PX), feet = Math.round((15 * 0.55 + (1 - rise) * (1 - rise) * 18) * PX);
+    c.save(); c.beginPath(); c.rect(-e.ax, -e.ay, e.cw, e.ay + sole + PX); c.clip();
+    c.globalAlpha = 0.12 + 0.88 * rise * rise; c.drawImage(s.cv, -s.ax, -s.ay + feet); c.globalAlpha = 1; c.restore();
     W(c, () => drawRingFx(c, fx, 1, {}, "a"));
   },
   heal: (c, e) => { const fx = { type: "healwave", x: 0, y: 0, r: 19, life: 550, ttl: 550 * (1 - e.p) }; W(c, () => drawRingFx(c, fx, Math.min(1, fx.ttl / 300), {}, "g")); foeAt(c, e, 0); W(c, () => drawRingFx(c, fx, Math.min(1, fx.ttl / 300), {}, "a")); },
