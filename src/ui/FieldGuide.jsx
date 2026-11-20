@@ -54,6 +54,7 @@ const NUMBERS = [
   ["dps", (v) => `${v}/s beam`],
   ["rampMax", (v) => `focus ramps to ×${v}`],
   ["beams", (v) => `${v} beams`],
+  ["split", (v) => `${v} beams, each on its own foe with its own focus`],
   ["eagleHp", (v) => `war-eagle: ${v} health`],
   ["eagleDmg", (v) => `${v} eagle talon damage`],
   ["eagleRate", (v) => `eagle strikes ${(1000 / v).toFixed(2)}/s`],

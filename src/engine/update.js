@@ -627,6 +627,41 @@ export const unitHosts = (g) => {
   if (g.bands) for (const b of g.bands) out.push(b);
   return out;
 };
+// The Sunforge's split light (Noon Eternal): `st.split` beams, each holding its
+// own foe (the toughest in reach not already held by a sister beam) and ramping
+// its own focus from cold, igniting at full focus. t.lances = [{ id, ramp }];
+// t.beamId / t.ramp mirror the hottest beam for the hall's glow.
+const splitBeams = (g, t, st, sdt, tms) => {
+  const lances = (t.lances || []).filter((l) => {
+    const e = g.enemies.find((en) => en.id === l.id && !en.dead);
+    return e && Math.hypot(e.x - t.x, e.y - t.y) <= st.range;
+  });
+  const held = new Set(lances.map((l) => l.id));
+  const calm = (e) => !!(e.neutral && !e.menacing);
+  while (lances.length < st.split) {
+    let best = null;
+    for (const e of g.enemies) {
+      if (e.dead || held.has(e.id)) continue;
+      if (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e)) continue;
+      if (!best || calm(best) > calm(e) || (calm(best) === calm(e) && e.hp > best.hp)) best = e;
+    }
+    if (!best) break;
+    held.add(best.id);
+    lances.push({ id: best.id, ramp: 1 });
+  }
+  let hot = null;
+  for (const l of lances) {
+    const e = g.enemies.find((en) => en.id === l.id);
+    l.ramp = Math.min(st.rampMax, l.ramp + ((sdt * 1000) / st.rampTime) * (st.rampMax - 1));
+    dealDamage(g, e, st.dps * l.ramp * sdt, "magic", false, true, t.id);
+    if (!e.dead && l.ramp >= st.rampMax - 0.01 && st.igniteBurn) { e.burnUntil = tms + st.igniteDur; e.burnDps = st.igniteBurn; e.burnSrc = t.id; }
+    if (!hot || l.ramp > hot.ramp) { hot = l; t.lastAim = Math.atan2(e.y - t.y, e.x - t.x); }
+  }
+  t.lances = lances.filter((l) => !g.enemies.find((en) => en.id === l.id).dead);
+  t.beamId = hot ? hot.id : null;
+  t.ramp = hot ? hot.ramp : 1;
+  t.beamId2 = null;
+};
 const killUnit = (g, t, u) => {
   u.state = "dead";
   u.respawn = hostStats(t).respawnMs || RESPAWN_MS;
@@ -2816,6 +2851,10 @@ export function updateGame(g, dt) {
       // heat; a new target starts the focus from cold.
       if (t.kind === "sunforge") {
         const st = getStats(t);
+        // Noon Eternal (owner, 2026-11-20): `split` beams, each on a foe of its own
+        // with its own focus, instead of one beam that spills over at full focus
+        if (st.split > 1) { splitBeams(g, t, st, sdt, tms); continue; }
+        t.lances = null;
         let tgt = t.beamId != null ? g.enemies.find((e) => e.id === t.beamId && !e.dead) : null;
         if (tgt && Math.hypot(tgt.x - t.x, tgt.y - t.y) > st.range) tgt = null;
         if (!tgt) {

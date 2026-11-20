@@ -2627,6 +2627,12 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   10 / 18 / 28; towers.js `income`), so level 3 (340 gold in all) pays itself back in ~7 waves.
   The Royal Mint line +22 to match: Royal Mint 40 -> 62, Dragon's Hoard 60 -> 82, Philosopher's
   Stone 55 -> 77 (compounding unchanged); the Transmuter path still pays no wage.
+- **Noon Eternal splits its light** (owner, 2026-11-20): four beams (`split` 4, towers.js), each on
+  a foe of its own (the toughest in reach not already held) ramping its own focus and igniting at full
+  focus (update.js `splitBeams`, `t.lances` [{ id, ramp }]; draw.js draws each at its own heat). The
+  spill (`beamSplash`) is gone from it; `dps` 92 -> 40 a beam. Bench (x3 hp, seeds 2), crowd / armor:
+  160 / 229 -> 271 / 343 (Sun Spear 174 / 246, Eclipse 183 / 224); a lone foe takes at most 160/s
+  (was 368), so Sun Spear is the boss path. Lever: `dps`.
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's

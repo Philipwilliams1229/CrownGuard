@@ -321,7 +321,7 @@ export const TOWERS = {
       a: {
         name: "Solar Lance", cost: 455, stats: { dps: 85, range: 93, rampMax: 4, rampTime: 2800, igniteBurn: 14, igniteDur: 2000, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
         rank4: {
-          a: { name: "Noon Eternal", cost: 1020, stats: { dps: 92, range: 99, rampMax: 4, rampTime: 2600, igniteBurn: 15, igniteDur: 2200, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
+          a: { name: "Noon Eternal", cost: 1020, stats: { dps: 40, range: 99, rampMax: 4, rampTime: 2600, igniteBurn: 15, igniteDur: 2200, split: 4, rate: 0 }, desc: "Four beams, each holding a foe of its own and building its own focus; each ignites at full focus." },
           b: { name: "Sun Spear", cost: 1020, stats: { dps: 85, range: 98, rampMax: 6, rampTime: 3000, igniteBurn: 15, igniteDur: 2200, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
         },
       },

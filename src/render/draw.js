@@ -465,11 +465,11 @@ export function draw(g, canvas, bufRef) {
   for (const t of g.towers) {
     if (t.kind !== "sunforge" || t.beamId == null) continue;
     const st = getStats(t);
-    const heat = ((t.ramp || 1) - 1) / Math.max(1, (st.rampMax || 3) - 1);
+    const heatAll = ((t.ramp || 1) - 1) / Math.max(1, (st.rampMax || 3) - 1);
     const moon = t.branch === "b";
     const glowC = moon ? "168,196,240" : "232,193,74";
     const coreC = moon ? "236,244,252" : "252,244,220";
-    const beamTo = (id, dim) => {
+    const beamTo = (id, dim, heat = heatAll) => {
       const e = g.enemies.find((en) => en.id === id && !en.dead);
       if (!e) return;
       const x1 = S(t.x), y1 = S(t.y) - 16, x2 = S(e.x), y2 = S(e.y) - 6;
@@ -486,8 +486,16 @@ export function draw(g, canvas, bufRef) {
       ctx.fillStyle = `rgba(${coreC},${0.9 * dim})`;
       ctx.fillRect(x2 - 1, y2 - 1, 3, 3);
     };
-    beamTo(t.beamId, 1);
-    if (t.beamId2 != null) beamTo(t.beamId2, 0.55);
+    if (t.lances) {
+      // Noon Eternal: every beam burns at its own focus
+      for (const l of t.lances) {
+        const h = (l.ramp - 1) / Math.max(1, (st.rampMax || 3) - 1);
+        beamTo(l.id, 0.75 + 0.25 * h, h);
+      }
+    } else {
+      beamTo(t.beamId, 1);
+      if (t.beamId2 != null) beamTo(t.beamId2, 0.55);
+    }
   }
   // Dragonbreath's held jet of flame, over the fray like the beam (flames.js)
   for (const t of g.towers) if (t.breath && t.breath.on > 0) drawBreath(ctx, t, g.time);
