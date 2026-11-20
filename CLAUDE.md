@@ -879,6 +879,10 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **Wishlist, later (owner, 2026-11-20): hidden mechanics.** First idea: two Powder Keg Runs
+  facing each other whose kegs MEET mid-roll go up together in one much bigger blast (not shown or
+  explained anywhere in the game: a secret to find). The owner would like more hidden mechanics like
+  it over time. Not started; put ideas to the owner before building any.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
