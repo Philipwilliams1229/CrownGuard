@@ -1623,7 +1623,8 @@ CrownguardGame.jsx `tickCheckpoint` at every horn (the wave as it began) and at 
 by `parkBattle` when the game is hidden or the battle left during a build phase (halls bought between
 waves are kept). Cleared on a win (and never kept in the Endless March), on a loss (a retried wave then
 keeps it again), when the level is started fresh, and by `resetProgress`. Mid-wave the record is the
-wave's start, so a closed game replays that wave. The title's CONTINUE resumes it directly (its line
+wave's start, so a closed game replays that wave (owner, same day: fine even once Retry Wave
+leaves the campaign, though quitting mid-wave then works as a retry). The title's CONTINUE resumes it directly (its line
 reads "<level> · wave N next"); the map card shows "Resume at wave N" over a "Start Over".
 `resumeBattle` lays it out with `restartWave`; the castle is the crown's as it stands now, the hero
 wears the talents bought since. Hall XP: leaving banks the kept ledger (up to the kept wave's start)
