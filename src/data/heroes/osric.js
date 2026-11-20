@@ -29,10 +29,11 @@ export default {
       base: { dmg: 80, r: 70, heal: 0.35, stun: 1600, daze: 0.35 }, perLevel: { dmg: 16 } },
     // dmg a second to the undead on it (the living half), a `tick` burn that
     // a shield pip shrugs off; the dead are slowed `slow`, soldiers mend
-    // `mend` of max health a second
+    // `mend` of max health a second. Was 45 +8 a level (~700 an undead foe over
+    // its 6 s at level 10); owner, 2026-11-20: 25 +4 (~360)
     { id: "consecrate", name: "Consecrate", aim: "ground", unlock: 5, cd: 32000, icon: "consecrate",
       desc: "Blesses the ground you tap for six seconds: the undead burn and slow on it, soldiers on it mend.",
-      base: { dmg: 45, r: 52, dur: 6000, mend: 0.04, slow: 0.35 }, perLevel: { dmg: 8 } },
+      base: { dmg: 25, r: 52, dur: 6000, mend: 0.04, slow: 0.35 }, perLevel: { dmg: 4 } },
   ],
   talents: [
     { id: "faith", name: "Iron Faith", desc: "+10% health a rank.", apply: (st, r) => { st.hp = Math.round(st.hp * (1 + 0.1 * r)); } },

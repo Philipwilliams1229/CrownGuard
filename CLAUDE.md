@@ -2309,7 +2309,8 @@ own, so several sessions can work on heroes side by side:
 - **Osric**: holy blows (`st.magic`) + `smite` on the undead (`isUndead`:
   Hollow faction, raised, wraiths); mends soldiers near him; Sanctuary
   (heal ring, sears and stuns the undead, dazes the living), Consecrate
-  (blessed ground). Templar retinue (paladin rig).
+  (blessed ground; its burn 45 +8 a level -> 25 +4 a second, owner 2026-11-20:
+  it wiped whole floods). Templar retinue (paladin rig).
 - **Hale**: `holds` 3 foes at once and sweeps them all. **Halberd Sweep**
   (id `brace` kept for saved talents; owner, 2026-10-05): three swings
   (lead 260 ms, gap 520, both x game speed), each striking EVERY ground foe
