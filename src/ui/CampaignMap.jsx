@@ -136,7 +136,7 @@ function Banner({ ch, open }) {
 // `arrive` ({ from, to } level ids): a level was just won — the map opens on
 // the site just left, the camera travels the road to the next, and its card
 // (hero, castle works, march) is there to choose from again.
-export default function CampaignMap({ progress, profile, onStart, onBack, onBuyWork, onRefundAll, heroKey, onHero, arrive }) {
+export default function CampaignMap({ progress, profile, resume, onResume, onStart, onBack, onBuyWork, onRefundAll, heroKey, onHero, arrive }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => (arrive && levelById(arrive.to) ? arrive.to : currentLevel(progress).id));
   const [worksOpen, setWorksOpen] = useState(false);
@@ -564,7 +564,10 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
     ...goldBtn, width: "100%", textAlign: "center", padding: "14px 10px", fontSize: 14, letterSpacing: 1, minHeight: 52,
     ...(selUnlocked ? {} : { background: "#8a8274", boxShadow: "inset -3px -3px 0 #6a6258, inset 3px 3px 0 #a8a092", color: "#4a4450", cursor: "not-allowed" }),
   };
-  const marchLabel = selUnlocked ? (selCleared ? `Ride Out Again` : `March on ${sel.short || sel.name}`) : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><LockIcon size={14} /> Sealed</span>;
+  // a battle left unfinished on this level (data/checkpoint.js): picked back up
+  // at its wave, or (the lesser button) started over from wave 1
+  const resumeHere = !!(resume && sel && selUnlocked && resume.levelId === sel.id);
+  const marchLabel = resumeHere ? "Start Over" : selUnlocked ? (selCleared ? `Ride Out Again` : `March on ${sel.short || sel.name}`) : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><LockIcon size={14} /> Sealed</span>;
 
   // The frame and its studs stand still; only the facts between them scroll
   // (inside the gold bead, never over it), and the March button stays at
@@ -600,7 +603,8 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
       {selUnlocked && heroPick}
       </div>
       <div style={{ flexShrink: 0, padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
-        <button style={marchStyle} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
+        {resumeHere && <button style={marchStyle} onClick={onResume}>Resume at wave {resume.wave}</button>}
+        <button style={resumeHere ? { ...woodBtn, width: "100%", minHeight: 40, fontSize: 12, textAlign: "center" } : marchStyle} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
       </div>
     </div>
   );
@@ -637,7 +641,8 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
       </div>
       {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-        <button style={{ ...marchStyle, flex: 1, padding: "10px 8px", fontSize: 13, minHeight: 48 }} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
+        {resumeHere && <button style={{ ...marchStyle, flex: 2, padding: "10px 8px", fontSize: 13, minHeight: 48 }} onClick={onResume}>Resume at wave {resume.wave}</button>}
+        <button style={resumeHere ? { ...woodBtn, flex: 1, minHeight: 48, fontSize: 12, textAlign: "center" } : { ...marchStyle, flex: 1, padding: "10px 8px", fontSize: 13, minHeight: 48 }} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
       </div>
     </div>
   );

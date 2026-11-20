@@ -1612,6 +1612,25 @@ Field Guide rows "Life drain" and "Its kills". Measured `--chapter hollow
 --endure`, seeds 1/2, better doctrine: 8588 / 8751 -> 8922 / 9127 (+4%; the
 Barrowdowns ~420 -> ~645, the Reedmaze ~620 -> ~890), all 15 held, none stuck.
 
+## A campaign battle is kept between waves (2026-11-20, owner request)
+
+"If I close the game at wave 16, when I continue all my towers are where I had them, gold was the
+same at the beginning of the wave, and wave 16 was up next." `src/data/checkpoint.js` keeps ONE record
+(localStorage `crownguard.checkpoint.v1`, so it rides in the save code and the iOS mirror): the last
+unfinished campaign battle, as the engine's retry snapshot (actions.js `takeSnapshot`, which now also
+keeps a Gold Works' `mintBonus` / `paidTotal`) plus `g.run` and the weather's clock / soak. Written by
+CrownguardGame.jsx `tickCheckpoint` at every horn (the wave as it began) and at every wave cleared, and
+by `parkBattle` when the game is hidden or the battle left during a build phase (halls bought between
+waves are kept). Cleared on a win (and never kept in the Endless March), on a loss (a retried wave then
+keeps it again), when the level is started fresh, and by `resetProgress`. Mid-wave the record is the
+wave's start, so a closed game replays that wave. The title's CONTINUE resumes it directly (its line
+reads "<level> · wave N next"); the map card shows "Resume at wave N" over a "Start Over".
+`resumeBattle` lays it out with `restartWave`; the castle is the crown's as it stands now, the hero
+wears the talents bought since. Hall XP: leaving banks the kept ledger (up to the kept wave's start)
+and zeroes it, so the replayed wave is not counted twice; a killed app keeps the ledger unbanked in
+the record. `g.ckLevel` names the level a battle keeps (null in Free Play and once left). Checked in
+headless Chromium: reload mid-wave, hide-then-reload in a build phase, leave mid-wave for the map.
+
 ## Restarting takes two taps (2026-11-09, owner request)
 
 Every restart button now arms on the first tap and acts on the second (the

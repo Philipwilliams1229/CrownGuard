@@ -81,12 +81,14 @@ export const buildableAt = (g, x, y, kind = null) => {
 };
 
 const ARCHER_SPREAD = [0.4, 1], ARCHER_GAP = 350;   // archers' place in their column (startWave)
-export const startWave = (g) => {
-  if (!g || g.phase !== "build") return;
-  g.snapshot = {
+// The battle as it stands between waves: what a retried wave puts back
+// (restartWave) and what a campaign battle keeps on the device so it can be
+// picked up again after the game is closed (data/checkpoint.js).
+export const takeSnapshot = (g) => ({
     wave: g.wave, gold: g.gold, lives: g.lives,
     towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim, rally: t.rally ? { ...t.rally } : null,
-      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0, formDmg: t.formDmg || 0, formTime: t.formTime || 0 })),
+      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0, formDmg: t.formDmg || 0, formTime: t.formTime || 0,
+      mintBonus: t.mintBonus || 0, paidTotal: t.paidTotal || 0 })),
     // the castle's works and the hero as they stood; the militia goes home
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
@@ -95,7 +97,10 @@ export const startWave = (g) => {
     militiaCd: g.militiaCd || 0, masonCd: g.masonCd || 0,
     towerXp: { ...(g.towerXp || {}) },
     hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally }, abCd: { ...(b.abCd || {}) } } : null; })(),
-  };
+});
+export const startWave = (g) => {
+  if (!g || g.phase !== "build") return;
+  g.snapshot = takeSnapshot(g);
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
     const bonus = Math.min(25, Math.ceil(rem * 1.0));
@@ -209,6 +214,8 @@ export const restartWave = (g) => {
     if (td.rally && t.rally) { t.rally = { ...td.rally }; if (t.units) syncUnits(t); }   // ...and where you posted them
     t.kills = td.kills || 0; t.dmgOut = td.dmgOut || 0; t.liveTime = td.liveTime || 0;
     t.formDmg = td.formDmg || 0; t.formTime = td.formTime || 0;
+    if (td.mintBonus) t.mintBonus = td.mintBonus;   // a Gold Works' compounding
+    if (td.paidTotal) t.paidTotal = td.paidTotal;
     return t;
   });
   g.enemies = []; g.projectiles = []; g.effects = []; g.blastHits = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];

@@ -28,6 +28,8 @@ import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
 import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
+import { loadCheckpoint, saveCheckpoint, clearCheckpoint } from "./data/checkpoint.js";
+import { tickWeather } from "./engine/weather.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
 import { tierGate, TIER_XP, HARM_XP } from "./data/towerxp.js";
 import { getStats, aimModes, forcedAim, powderCrew } from "./engine/towers.js";
@@ -40,7 +42,7 @@ const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade", 
 const CREW_LABELS = { gunpowder: [["Bombs", "The bombardier"], ["Musket", "The musketeer"]] };
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, lowerAllWorks, callMilitia, placeBarricade, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
+  startWave, restartWave, takeSnapshot, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, lowerAllWorks, callMilitia, placeBarricade, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -87,6 +89,53 @@ function waveComposition(waveNum) {
   }
   return out;
 }
+
+// ---- a campaign battle kept between waves (data/checkpoint.js) ----
+// g.ckLevel names the level a campaign battle is keeping; Free Play, the
+// Endless March after a win and a battle already left keep nothing.
+const checkpointOf = (g, snap) => ({ levelId: g.ckLevel, snap, run: g.run ? { ...g.run } : null,
+  weather: g.weather ? { clock: g.weather.clock || 0, wet: g.weather.wet || 0 } : null });
+// every frame: the horn's snapshot (the wave as it began) and the build phase
+// after a cleared wave are written; a won or lost level forgets it
+const tickCheckpoint = (g) => {
+  if (!g.ckLevel) return;
+  if (g.victory || g.phase === "won") { clearCheckpoint(); g.ckLevel = null; return; }
+  if (g.phase === "lost") { if (g.ckSnap !== "lost") { clearCheckpoint(); g.ckSnap = "lost"; } return; }
+  if (g.snapshot && g.ckSnap !== g.snapshot) { g.ckSnap = g.snapshot; saveCheckpoint(checkpointOf(g, g.snapshot)); }
+  if (g.phase === "build" && g.wave > 0 && g.ckWave !== g.wave) { g.ckWave = g.wave; saveCheckpoint(checkpointOf(g, takeSnapshot(g))); }
+};
+// The game hidden (`leaving` false) or the battle left: between waves the
+// battle is written as it stands now. Leaving banks the halls' XP up to the
+// kept wave's start and no further (a wave cut short is played again, and
+// earns again), so nothing is counted twice when it is picked back up.
+const parkBattle = (g, leaving = true) => {
+  if (!g?.ckLevel || g.victory || (g.phase !== "build" && g.phase !== "combat")) return;
+  if (g.phase === "build" && g.wave > 0) saveCheckpoint(checkpointOf(g, takeSnapshot(g)));
+  if (!leaving) return;
+  const ck = loadCheckpoint();
+  if (ck && ck.levelId === g.ckLevel && Object.keys(ck.snap.towerXp || {}).length) {
+    bankTowerXp(ck.snap.towerXp);
+    ck.snap.towerXp = {};
+    saveCheckpoint(ck);
+  }
+  g.towerXp = {};
+  if (g.snapshot) g.snapshot.towerXp = {};
+  g.ckLevel = null;
+};
+// Put a kept battle back on a freshly started level: the retry-wave machinery
+// (actions.js restartWave) lays out the snapshot; the castle is the crown's
+// as it stands now, the hero wears the talents bought since.
+const resumeBattle = (g, ck, scope) => {
+  const snap = JSON.parse(JSON.stringify(ck.snap));
+  if (snap.hero) snap.hero.talents = heroRecord(loadProfile(), snap.hero.key).talents;
+  g.snapshot = snap;
+  restartWave(g);
+  g.castle = { ...loadCastle(scope) };
+  if (ck.run) g.run = { ...g.run, ...ck.run };
+  tickWeather(g, 0, 0);   // the level's weather, then its clock where it stood
+  if (g.weather && ck.weather) { g.weather.clock = ck.weather.clock; g.weather.wet = ck.weather.wet; }
+  g.ckSnap = g.snapshot; g.ckWave = g.wave;
+};
 
 export default function Crownguard() {
   const canvasRef = useRef(null);
@@ -274,6 +323,7 @@ export default function Crownguard() {
 
   // opts (the Free Play sandbox): { lives, wave, rush, hero: false, heroKey, heroLevel }
   const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks(), opts = {}) => {
+    parkBattle(G.current);   // a campaign battle left unfinished is kept to pick up again (data/checkpoint.js)
     bankLedger(G.current);   // the battle being left behind banks what its halls learned
     music.forget();   // a new battle: its wave music starts from the top
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -341,7 +391,9 @@ export default function Crownguard() {
 
   // Ride out on one campaign level: its map, its army, its slice of the wave
   // script, and the war chest it starts you with.
-  const startLevel = (lv) => {
+  // `ck` (data/checkpoint.js) picks a battle left unfinished back up between
+  // waves: its halls, purse, walls and hero as the wave found them.
+  const startLevel = (lv, ck = null) => {
     selectRealm(lv.realm);
     endSandbox(lv.chapter.faction);
     setWaveWindow(lv.window);
@@ -355,10 +407,16 @@ export default function Crownguard() {
     setArrive(null);
     castleScope.current = lv.chapter.id;
     initGame(lv.gold, false, loadCastle(castleScope.current));
+    const g = G.current;
+    g.ckLevel = lv.id;
+    if (ck && ck.levelId === lv.id) resumeBattle(g, ck, castleScope.current);
+    else if (loadCheckpoint()?.levelId === lv.id) clearCheckpoint();   // the level started over
     setRealmOpen(false);
     setMenuOpen(false);
     setScreen("game");
   };
+  // the battle the Continue button picks back up, if one was left unfinished
+  const kept = (() => { const ck = loadCheckpoint(); const lv = ck && levelById(ck.levelId); return lv ? { ck, lv, wave: ck.snap.wave + 1 } : null; })();
 
   // Start the level over from its first wave: a campaign level is ridden out
   // again as written; a Free Play run takes its setup settings again.
@@ -418,6 +476,7 @@ export default function Crownguard() {
     return r;
   };
   const openMap = () => {
+    parkBattle(G.current);
     bankLedger(G.current);
     if (G.current) G.current.paused = false;
     setArrive(null);
@@ -456,10 +515,13 @@ export default function Crownguard() {
   const awayRef = useRef(null);
   awayRef.current = () => {
     const g = G.current;
+    // the game may be closed from here: halls bought since the wave was cleared are kept
+    if (screen === "game") parkBattle(g, false);
     if (screen === "game" && g && !g.paused && g.phase !== "won" && g.phase !== "lost") openMenu();
   };
   useEffect(() => onAway(() => awayRef.current()), []);
   const goHome = () => {
+    parkBattle(G.current);
     bankLedger(G.current);
     if (G.current) G.current.paused = false;
     setMenuOpen(false);
@@ -557,6 +619,7 @@ export default function Crownguard() {
       // per message and carry on drawing
       try { updateGame(g, dt); }
       catch (err) { const k = String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("updateGame failed", err); noteCrash("update", err); } }
+      try { tickCheckpoint(g); } catch (err) { console.error("checkpoint failed", err); }
       // a garrison sold mid-move takes its rally prompt with it
       const abAim = typeof g.rallyFor === "string" && g.rallyFor.startsWith("ab:");
       if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && g.rallyFor !== "barricade" && !abAim && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
@@ -965,7 +1028,8 @@ export default function Crownguard() {
       <HomeScreen
         progress={progress}
         profile={profile}
-        onContinue={openMap}
+        onContinue={() => (kept ? startLevel(kept.lv, kept.ck) : openMap())}
+        resume={kept && { name: kept.lv.name, wave: kept.wave }}
         onNewCampaign={() => { setProgress(resetProgress()); setScreen("map"); }}
         onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
         onCouncil={() => setScreen("council")}
@@ -987,7 +1051,9 @@ export default function Crownguard() {
       <CampaignMap
         progress={progress}
         profile={profile}
-        onStart={startLevel}
+        onStart={(lv) => startLevel(lv)}
+        resume={kept && { levelId: kept.lv.id, wave: kept.wave }}
+        onResume={() => kept && startLevel(kept.lv, kept.ck)}
         heroKey={heroKey}
         onHero={pickHero}
         arrive={arrive}

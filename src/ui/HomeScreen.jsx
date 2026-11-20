@@ -28,7 +28,7 @@ import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onBuyWork, onRefundAll, onCampaignReset }) {
+export default function HomeScreen({ progress, profile, resume, onNewCampaign, onContinue, onFreePlay, onCouncil, onBuyWork, onRefundAll, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [worksOpen, setWorksOpen] = useState(false);
@@ -42,7 +42,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
     setArmNew(true);
     armTimer.current = setTimeout(() => setArmNew(false), 4000);
   };
-  const saved = hasProgress(progress);
+  const saved = hasProgress(progress) || !!resume;   // a battle left on the first level is a save too
   const upTo = currentLevel(progress);
   const cleared = LEVELS.filter((l) => progress.cleared[l.id]).length;
   const free = starsFree(profile);
@@ -139,7 +139,8 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       {saved ? (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>
           CONTINUE CAMPAIGN
-          <div style={sub}>{cleared}/{LEVELS.length} held · next: {upTo.name}</div>
+          {/* a battle left unfinished (data/checkpoint.js) is picked straight back up */}
+          <div style={sub}>{resume ? `${resume.name} · wave ${resume.wave} next` : `${cleared}/${LEVELS.length} held · next: ${upTo.name}`}</div>
         </button>
       ) : (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>

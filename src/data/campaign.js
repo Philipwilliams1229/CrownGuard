@@ -24,6 +24,7 @@ import { REGIONS, LEVEL_POS } from "./mapLayout.js";
 import { IRON_LEVELS } from "./levels-iron.js";
 import { HOLLOW_LEVELS } from "./levels-hollow.js";
 import { RIME_LEVELS } from "./levels-rime.js";
+import { clearCheckpoint } from "./checkpoint.js";
 
 export const CHAPTERS = [
   {
@@ -264,6 +265,7 @@ export function markCleared(levelId) {
 export function resetProgress() {
   const p = { cleared: {}, castle: {}, heroes: {}, treasury: 0 };
   save(p);
+  clearCheckpoint();   // a battle left unfinished goes with the campaign
   return p;
 }
 
