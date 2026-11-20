@@ -151,10 +151,10 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Royal Mint", cost: 415, stats: { income: 40, compound: 2, range: 0, rate: 0 }, desc: "Compounding wealth: its payout grows every wave it survives. Plant it early; let time do the sums.",
+        name: "Royal Mint", cost: 415, stats: { income: 62, compound: 2, range: 0, rate: 0 }, desc: "Compounding wealth: its payout grows every wave it survives. Plant it early; let time do the sums.",
         rank4: {
-          a: { name: "Dragon's Hoard", cost: 975, stats: { income: 60, compound: 3, hoard: true, range: 0, rate: 0 }, desc: "Doubled payouts — but a wave where the castle bleeds pays NOTHING. Greed with a heartbeat." },
-          b: { name: "Philosopher's Stone", cost: 975, stats: { income: 55, compound: 3, range: 0, rate: 0 }, desc: "Lead into gold into more gold: the richest single wage on the board, compounding every wave." },
+          a: { name: "Dragon's Hoard", cost: 975, stats: { income: 82, compound: 3, hoard: true, range: 0, rate: 0 }, desc: "Doubled payouts — but a wave where the castle bleeds pays NOTHING. Greed with a heartbeat." },
+          b: { name: "Philosopher's Stone", cost: 975, stats: { income: 77, compound: 3, range: 0, rate: 0 }, desc: "Lead into gold into more gold: the richest single wage on the board, compounding every wave." },
         },
       },
       b: {
