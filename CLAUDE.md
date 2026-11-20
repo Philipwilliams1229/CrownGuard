@@ -1494,7 +1494,7 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   bounty, once (enemies.js; `dealDamage` marks `e.reforms`, update.js's death
   loop raises it with the necromancer's rising: untouchable while it climbs,
   then `revived`, bone-pale). Magic, fire and holy (Paladin) blows put it down
-  for good. Its magic resistance stays 0.4 (owner). The Gravecaller's and
+  for good. Its magic resistance stayed 0.4 (owner), then 0.25 (owner, 2026-11-20). The Gravecaller's and
   Hollow King's conjured Risen reassemble too. `sim.mjs` prints `reformed`
   (~800-1800 a Grave Road run). Field Guide row "On death".
 - **Tougher chaff:** Risen hp 44 -> 60, Ghoul 72 -> 95.

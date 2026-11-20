@@ -222,7 +222,7 @@ export const ENEMIES = {
   // The dead of a drowned kingdom. They come in floods, they keep coming
   // while their callers stand, and killing some of them is its own mistake.
   skeleton: {
-    faction: "hollow", hp: 60, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
+    faction: "hollow", hp: 60, speed: 70, bounty: 5, armor: 0, mres: 0.25, size: 15,
     name: "Risen", atk: 9, atkRate: 850, castleDmg: 1,
     // hp 44 -> 60 -> 75 -> 60, the ghoul 72 -> 95 -> 115 (owner, 2026-11-09/10: the fen
     // was too easy; then "we went too far with the buffs on the skeletons")
