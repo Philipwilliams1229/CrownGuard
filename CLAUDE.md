@@ -1590,6 +1590,13 @@ doctrine, against the build before it (wraith 800 ms, ghast and amalgam
 mres): 8457 / 9067 -> 8626 / 9120 castle damage (all 15 held, none stuck);
 the Log Rollers' damage fell ~28% (1526k / 1612k -> 1089k / 1176k over ~35
 halls a chapter) even with the sim's short rolls.
+**The Powder Keg goes up on the road** (owner, 2026-11-20): at launch `kegFuse` (update.js) walks the
+log's bearing to the board's edge and finds where it leaves the road for the LAST time (a bearing
+that crosses two stretches rolls on over the first): the last point of that stretch within the outer
+lanes (`LANE_OFF`), else its last point on the road. The keg blows there (`lg.fuse`, `lg.rolled`);
+it still blows where it stalls in a crowd first; a bearing that never meets the road goes up at the
+edge as before. Headless, 200 random aims on five boards: every keg whose bearing met the road blew
+on it, and all 55 that crossed two stretches blew on the last.
 
 ## The Barrow Wight (2026-11-10, owner request)
 

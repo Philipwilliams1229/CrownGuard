@@ -379,6 +379,30 @@ const logBlast = (g, lg, bx, by) => {
   }
 };
 
+// Where a Powder Keg Run's keg should go up (owner, 2026-11-20): just before it
+// leaves the road for the LAST time on its way off the board, so the blast lands
+// on the marching lanes, not in the grass at the edge. A bearing that crosses
+// two stretches of road rolls on over the first; only the last stretch counts.
+// Walks the straight bearing from (x, y) to the board's edge: the last point
+// within the outer lanes (LANE_OFF) of the final stretch, else its last point
+// on the road at all. Null when the bearing never meets the road on the board
+// (then it goes up at the edge, as before).
+const kegFuse = (x, y, a) => {
+  const cx = Math.cos(a), cy = Math.sin(a);
+  let lastRoad = null, lastLane = null, onNow = false;
+  for (let s = 0; s < 2000; s += 2) {
+    const px = x + cx * s, py = y + cy * s;
+    if (px < 0 || px > FIELD_W || py < 0 || py > H) { if (s > 0) break; else continue; }
+    const d = nearestOnPath(px, py).d;
+    const on = d <= PATH_HALF;
+    if (on && !onNow) lastLane = null;   // a new stretch of road: only the last one counts
+    onNow = on;
+    if (on) lastRoad = s;
+    if (d <= LANE_OFF) lastLane = s;
+  }
+  return lastLane ?? lastRoad;
+};
+
 // How many bodies one blast can take (a tower may carry its own splashCap).
 const SPLASH_CAP = 16;
 
@@ -2930,7 +2954,8 @@ export function updateGame(g, dt) {
           stun: st.logStun || 0, slow: st.logSlow || 0, slowDur: st.logSlowDur || 0,
           burn: st.logBurn || 0, burnDur: st.logBurnDur || 0,
           blast: st.logBlast || 0, blastDmg: st.logBlastDmg || 0,
-          hitIds: [], spin: 0,
+          hitIds: [], spin: 0, rolled: 0,
+          fuse: st.logBlast ? kegFuse(t.x, t.y, bearing) : null,
         });
         sfx.play("rock");
         g.shake = Math.max(g.shake, 3);
@@ -3142,6 +3167,7 @@ export function updateGame(g, dt) {
         if (lg.via && Math.hypot(lg.via[0] - lg.x, lg.via[1] - lg.y) <= step) { lg.x = lg.via[0]; lg.y = lg.via[1]; lg.via = null; lg.a = lg.bearing; }
         lg.x += Math.cos(lg.a) * step;
         lg.y += Math.sin(lg.a) * step;
+        lg.rolled = (lg.rolled || 0) + step;
         lg.spin += step * 0.09;
         for (const e of g.enemies) {
           if (e.dead || e.flying || lg.hitIds.includes(e.id)) continue;
@@ -3176,6 +3202,13 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "dust", x: lg.x, y: lg.y, ttl: 520, r: 30 });
           if (lg.blast) logBlast(g, lg, lg.x, lg.y);
           else sfx.play("rock");
+          continue;
+        }
+        // the powder keg goes up on the road, just before it rolls off it for good
+        if (lg.blast && lg.fuse != null && lg.rolled >= lg.fuse) {
+          lg.done = true;
+          const back = lg.rolled - lg.fuse;
+          logBlast(g, lg, lg.x - Math.cos(lg.a) * back, lg.y - Math.sin(lg.a) * back);
           continue;
         }
         // off the board: the powder keg makes its point on the way out
