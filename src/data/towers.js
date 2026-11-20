@@ -345,10 +345,10 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Rimecaller", cost: 405, stats: { slow: 0.4, range: 51, nova: 10, novaFreeze: 900, novaEvery: 7000 }, desc: "Deep cold thickens the air — and every few heartbeats a frost nova flash-freezes the whole aura.",
+        name: "Rimecaller", cost: 405, stats: { slow: 0.4, range: 72, nova: 10, novaFreeze: 900, novaEvery: 7000 }, desc: "Deep cold thickens the air — and every few heartbeats a frost nova flash-freezes the whole aura.",
         rank4: {
-          a: { name: "Absolute Zero", cost: 915, stats: { slow: 0.5, range: 55, colddps: 11, nova: 16, novaFreeze: 1100, novaEvery: 6000 }, desc: "The air itself turns lethal: everything in the aura slows to a crawl and freezes by inches." },
-          b: { name: "Permafrost Heart", cost: 915, stats: { slow: 0.38, range: 55, nova: 10, novaFreeze: 900, novaEvery: 6000, brittle: 0.35, brittleDur: 4000 }, desc: "Novas leave foes BRITTLE — frozen flesh takes a third more from every arrow, blade, and stone." },
+          a: { name: "Absolute Zero", cost: 915, stats: { slow: 0.5, range: 76, colddps: 11, nova: 16, novaFreeze: 1100, novaEvery: 6000 }, desc: "The air itself turns lethal: everything in the aura slows to a crawl and freezes by inches." },
+          b: { name: "Permafrost Heart", cost: 915, stats: { slow: 0.38, range: 76, nova: 10, novaFreeze: 900, novaEvery: 6000, brittle: 0.35, brittleDur: 4000 }, desc: "Novas leave foes BRITTLE — frozen flesh takes a third more from every arrow, blade, and stone." },
         },
       },
       b: {

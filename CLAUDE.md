@@ -270,7 +270,9 @@ shot's and the Powder Keg's blast pick their victims at the blow as before, then
 `g.blastHits`, run in the effects tick, cleared by a retried wave); a foe dead or gone meanwhile is
 skipped. Burn / slow / crack land with the hit. Traps' bombs and the Powder Works' charge are untouched. The Powder Keg Run's blast AREA halved
 (`logBlast` 96 -> 48; its damage 220 kept); the Rimecaller's `range` 101 -> 51 and its finals' 109 ->
-55 (Absolute Zero, Permafrost Heart). Provisional.
+55 (Absolute Zero, Permafrost Heart). Provisional. Then (owner, 2026-11-20: "touch the far side of the
+track when placed on the other side") 72 / finals 76: a Warden Mage hugging the road stands 39-45 from its
+centre line (footing `support`), so the far marching lane (+21) is 60-66 away and the road's far edge 71-77.
 
 ## Walking up the screen; the squeeze turn (2026-11-17, owner request)
 
