@@ -146,8 +146,8 @@ export const TOWERS = {
     blurb: "Mints gold instead of arrows: a payout every wave it stands. Greed early, or guns early — you can't have both.",
     levels: [
       { income: 10, range: 0, rate: 0 },
-      { income: 18, range: 0, rate: 0, cost: 80, label: "Second Furnace" },
-      { income: 28, range: 0, rate: 0, cost: 140, label: "Master Minters" },
+      { income: 25, range: 0, rate: 0, cost: 80, label: "Second Furnace" },
+      { income: 50, range: 0, rate: 0, cost: 140, label: "Master Minters" },
     ],
     branches: {
       a: {

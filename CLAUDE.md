@@ -2623,6 +2623,8 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   2026-11-07: "couldn't get past wave 3", with the Fierce fog lingering).
   `--endure` seeds 1-2: the opening waves bleed ~0; swarm 388/156 ->
   170/439 (noise), burst 1064/1076 -> 856/691.
+- **The Gold Works pay more** (owner, 2026-11-20): levels 1-3 pay 10 / 25 / 50 a wave held (was
+  10 / 18 / 28; towers.js `income`), so level 3 (340 gold in all) pays itself back in ~7 waves.
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's
