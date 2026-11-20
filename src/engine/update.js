@@ -2185,7 +2185,8 @@ export function updateGame(g, dt) {
       if (e.swarms && !stunned && !held) {
         let prey = null, host = null, pd = e.swarms;
         for (const t of unitHosts(g)) for (const u of t.units) {
-          if (u.state === "dead" || t.kind === "assassin") continue;
+          // (never a River Watch boat: owner, 2026-11-20, wraiths swooped on the skiffs)
+          if (u.state === "dead" || t.kind === "assassin" || t.kind === "riverwatch") continue;
           const d = Math.hypot(u.x - e.x, u.y - e.y);
           if (d < pd) { pd = d; prey = u; host = t; }
         }

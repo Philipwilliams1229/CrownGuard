@@ -1912,7 +1912,7 @@ Some foes never walk alone, and these are engine rules, not just numbers:
 - **Wraiths bunch up** (`swarms`): any wraith within 34 of a friendly soldier
   stops and claws at it, blocker or not, so several can be on one knight and
   each kill raises another (update.js). A 22 s budget (`clawLeft`) stops a
-  stalemate. Only wraiths do this: every other foe is held by at most one
+  stalemate. Never a River Watch skiff (owner, 2026-11-20). Only wraiths do this: every other foe is held by at most one
   soldier per soldier (`blockedBy`), measured at max 6-9 held at once in the
   Hollow sims, and walks past the rest. Barrow archers and crossbowmen also
   stand still while a soldier is in reach (the archer rule above).
