@@ -1759,6 +1759,11 @@ starting post (`fieldHero`, which used to stand him 40-55 px off the road on
 most boards) and Aldric's Charge (its landing). So foes walk into a ranged hero
 and hold her (`RANGED_ENGAGE`). The sims already posted the hero on the centre
 line, so they barely move. Provisional, pending the owner's playtest.
+**Soldiers too** (owner, 2026-11-20): a Knight Hall's rally flag goes on the road (`onRoadNear`,
+engine/path.js: the road spot within `LANE_OFF` of the centre line nearest the tap AND within the
+rally reach; a hall with no road in reach keeps the old rim clamp; CrownguardGame.jsx `postRally`),
+and the militia horn musters on the road (`callMilitia` runs the call through `onRoad`). Checked
+headless: 824 taps round knight halls on Thornbrook and Ironford, every flag on the road and in reach.
 
 ## Bowmen post back and are engaged; the militia is recalled (2026-10-07, owner request)
 

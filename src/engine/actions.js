@@ -669,6 +669,7 @@ export const placeBarricade = (g, x, y) => {
 // works' tier, if one is built (bands.js militiaStats); none, the plain two.
 export const callMilitia = (g, x, y) => {
   if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
+  ({ x, y } = onRoad(x, y));   // the militia musters on the road, as the hero does (owner, 2026-11-20)
   if (!g.bands) g.bands = [];
   // the horn answered again: whoever is left of the last call is replaced by fresh men
   for (const old of g.bands) {
