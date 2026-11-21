@@ -1590,6 +1590,13 @@ doctrine, against the build before it (wraith 800 ms, ghast and amalgam
 mres): 8457 / 9067 -> 8626 / 9120 castle damage (all 15 held, none stuck);
 the Log Rollers' damage fell ~28% (1526k / 1612k -> 1089k / 1176k over ~35
 halls a chapter) even with the sim's short rolls.
+**The Powder Keg goes up on the road** (owner, 2026-11-20): at launch `kegFuse` (update.js) walks the
+log's bearing to the board's edge and finds where it leaves the road for the LAST time (a bearing
+that crosses two stretches rolls on over the first): the last point of that stretch within the outer
+lanes (`LANE_OFF`), else its last point on the road. The keg blows there (`lg.fuse`, `lg.rolled`);
+it still blows where it stalls in a crowd first; a bearing that never meets the road goes up at the
+edge as before. Headless, 200 random aims on five boards: every keg whose bearing met the road blew
+on it, and all 55 that crossed two stretches blew on the last.
 
 ## The Barrow Wight (2026-11-10, owner request)
 
@@ -1779,6 +1786,11 @@ starting post (`fieldHero`, which used to stand him 40-55 px off the road on
 most boards) and Aldric's Charge (its landing). So foes walk into a ranged hero
 and hold her (`RANGED_ENGAGE`). The sims already posted the hero on the centre
 line, so they barely move. Provisional, pending the owner's playtest.
+**Soldiers too** (owner, 2026-11-20): a Knight Hall's rally flag goes on the road (`onRoadNear`,
+engine/path.js: the road spot within `LANE_OFF` of the centre line nearest the tap AND within the
+rally reach; a hall with no road in reach keeps the old rim clamp; CrownguardGame.jsx `postRally`),
+and the militia horn musters on the road (`callMilitia` runs the call through `onRoad`). Checked
+headless: 824 taps round knight halls on Thornbrook and Ironford, every flag on the road and in reach.
 
 ## Bowmen post back and are engaged; the militia is recalled (2026-10-07, owner request)
 
@@ -2638,6 +2650,16 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   2026-11-07: "couldn't get past wave 3", with the Fierce fog lingering).
   `--endure` seeds 1-2: the opening waves bleed ~0; swarm 388/156 ->
   170/439 (noise), burst 1064/1076 -> 856/691.
+- **The Gold Works pay more** (owner, 2026-11-20): levels 1-3 pay 10 / 25 / 50 a wave held (was
+  10 / 18 / 28; towers.js `income`), so level 3 (340 gold in all) pays itself back in ~7 waves.
+  The Royal Mint line +22 to match: Royal Mint 40 -> 62, Dragon's Hoard 60 -> 82, Philosopher's
+  Stone 55 -> 77 (compounding unchanged); the Transmuter path still pays no wage.
+- **Noon Eternal splits its light** (owner, 2026-11-20): four beams (`split` 4, towers.js), each on
+  a foe of its own (the toughest in reach not already held) ramping its own focus and igniting at full
+  focus (update.js `splitBeams`, `t.lances` [{ id, ramp }]; draw.js draws each at its own heat). The
+  spill (`beamSplash`) is gone from it; `dps` 92 -> 40 a beam. Bench (x3 hp, seeds 2), crowd / armor:
+  160 / 229 -> 271 / 343 (Sun Spear 174 / 246, Eclipse 183 / 224); a lone foe takes at most 160/s
+  (was 368), so Sun Spear is the boss path. Lever: `dps`.
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's

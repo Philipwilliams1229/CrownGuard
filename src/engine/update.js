@@ -379,6 +379,30 @@ const logBlast = (g, lg, bx, by) => {
   }
 };
 
+// Where a Powder Keg Run's keg should go up (owner, 2026-11-20): just before it
+// leaves the road for the LAST time on its way off the board, so the blast lands
+// on the marching lanes, not in the grass at the edge. A bearing that crosses
+// two stretches of road rolls on over the first; only the last stretch counts.
+// Walks the straight bearing from (x, y) to the board's edge: the last point
+// within the outer lanes (LANE_OFF) of the final stretch, else its last point
+// on the road at all. Null when the bearing never meets the road on the board
+// (then it goes up at the edge, as before).
+const kegFuse = (x, y, a) => {
+  const cx = Math.cos(a), cy = Math.sin(a);
+  let lastRoad = null, lastLane = null, onNow = false;
+  for (let s = 0; s < 2000; s += 2) {
+    const px = x + cx * s, py = y + cy * s;
+    if (px < 0 || px > FIELD_W || py < 0 || py > H) { if (s > 0) break; else continue; }
+    const d = nearestOnPath(px, py).d;
+    const on = d <= PATH_HALF;
+    if (on && !onNow) lastLane = null;   // a new stretch of road: only the last one counts
+    onNow = on;
+    if (on) lastRoad = s;
+    if (d <= LANE_OFF) lastLane = s;
+  }
+  return lastLane ?? lastRoad;
+};
+
 // How many bodies one blast can take (a tower may carry its own splashCap).
 const SPLASH_CAP = 16;
 
@@ -626,6 +650,41 @@ export const unitHosts = (g) => {
   for (const t of g.towers) if (t.units && isBuilt(t, g)) out.push(t);   // (a hall still going up keeps its people back)
   if (g.bands) for (const b of g.bands) out.push(b);
   return out;
+};
+// The Sunforge's split light (Noon Eternal): `st.split` beams, each holding its
+// own foe (the toughest in reach not already held by a sister beam) and ramping
+// its own focus from cold, igniting at full focus. t.lances = [{ id, ramp }];
+// t.beamId / t.ramp mirror the hottest beam for the hall's glow.
+const splitBeams = (g, t, st, sdt, tms) => {
+  const lances = (t.lances || []).filter((l) => {
+    const e = g.enemies.find((en) => en.id === l.id && !en.dead);
+    return e && Math.hypot(e.x - t.x, e.y - t.y) <= st.range;
+  });
+  const held = new Set(lances.map((l) => l.id));
+  const calm = (e) => !!(e.neutral && !e.menacing);
+  while (lances.length < st.split) {
+    let best = null;
+    for (const e of g.enemies) {
+      if (e.dead || held.has(e.id)) continue;
+      if (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e)) continue;
+      if (!best || calm(best) > calm(e) || (calm(best) === calm(e) && e.hp > best.hp)) best = e;
+    }
+    if (!best) break;
+    held.add(best.id);
+    lances.push({ id: best.id, ramp: 1 });
+  }
+  let hot = null;
+  for (const l of lances) {
+    const e = g.enemies.find((en) => en.id === l.id);
+    l.ramp = Math.min(st.rampMax, l.ramp + ((sdt * 1000) / st.rampTime) * (st.rampMax - 1));
+    dealDamage(g, e, st.dps * l.ramp * sdt, "magic", false, true, t.id);
+    if (!e.dead && l.ramp >= st.rampMax - 0.01 && st.igniteBurn) { e.burnUntil = tms + st.igniteDur; e.burnDps = st.igniteBurn; e.burnSrc = t.id; }
+    if (!hot || l.ramp > hot.ramp) { hot = l; t.lastAim = Math.atan2(e.y - t.y, e.x - t.x); }
+  }
+  t.lances = lances.filter((l) => !g.enemies.find((en) => en.id === l.id).dead);
+  t.beamId = hot ? hot.id : null;
+  t.ramp = hot ? hot.ramp : 1;
+  t.beamId2 = null;
 };
 const killUnit = (g, t, u) => {
   u.state = "dead";
@@ -2816,6 +2875,10 @@ export function updateGame(g, dt) {
       // heat; a new target starts the focus from cold.
       if (t.kind === "sunforge") {
         const st = getStats(t);
+        // Noon Eternal (owner, 2026-11-20): `split` beams, each on a foe of its own
+        // with its own focus, instead of one beam that spills over at full focus
+        if (st.split > 1) { splitBeams(g, t, st, sdt, tms); continue; }
+        t.lances = null;
         let tgt = t.beamId != null ? g.enemies.find((e) => e.id === t.beamId && !e.dead) : null;
         if (tgt && Math.hypot(tgt.x - t.x, tgt.y - t.y) > st.range) tgt = null;
         if (!tgt) {
@@ -2891,7 +2954,8 @@ export function updateGame(g, dt) {
           stun: st.logStun || 0, slow: st.logSlow || 0, slowDur: st.logSlowDur || 0,
           burn: st.logBurn || 0, burnDur: st.logBurnDur || 0,
           blast: st.logBlast || 0, blastDmg: st.logBlastDmg || 0,
-          hitIds: [], spin: 0,
+          hitIds: [], spin: 0, rolled: 0,
+          fuse: st.logBlast ? kegFuse(t.x, t.y, bearing) : null,
         });
         sfx.play("rock");
         g.shake = Math.max(g.shake, 3);
@@ -3103,6 +3167,7 @@ export function updateGame(g, dt) {
         if (lg.via && Math.hypot(lg.via[0] - lg.x, lg.via[1] - lg.y) <= step) { lg.x = lg.via[0]; lg.y = lg.via[1]; lg.via = null; lg.a = lg.bearing; }
         lg.x += Math.cos(lg.a) * step;
         lg.y += Math.sin(lg.a) * step;
+        lg.rolled = (lg.rolled || 0) + step;
         lg.spin += step * 0.09;
         for (const e of g.enemies) {
           if (e.dead || e.flying || lg.hitIds.includes(e.id)) continue;
@@ -3137,6 +3202,13 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "dust", x: lg.x, y: lg.y, ttl: 520, r: 30 });
           if (lg.blast) logBlast(g, lg, lg.x, lg.y);
           else sfx.play("rock");
+          continue;
+        }
+        // the powder keg goes up on the road, just before it rolls off it for good
+        if (lg.blast && lg.fuse != null && lg.rolled >= lg.fuse) {
+          lg.done = true;
+          const back = lg.rolled - lg.fuse;
+          logBlast(g, lg, lg.x - Math.cos(lg.a) * back, lg.y - Math.sin(lg.a) * back);
           continue;
         }
         // off the board: the powder keg makes its point on the way out

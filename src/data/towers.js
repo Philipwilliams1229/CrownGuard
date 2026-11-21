@@ -146,15 +146,15 @@ export const TOWERS = {
     blurb: "Mints gold instead of arrows: a payout every wave it stands. Greed early, or guns early — you can't have both.",
     levels: [
       { income: 10, range: 0, rate: 0 },
-      { income: 18, range: 0, rate: 0, cost: 80, label: "Second Furnace" },
-      { income: 28, range: 0, rate: 0, cost: 140, label: "Master Minters" },
+      { income: 25, range: 0, rate: 0, cost: 80, label: "Second Furnace" },
+      { income: 50, range: 0, rate: 0, cost: 140, label: "Master Minters" },
     ],
     branches: {
       a: {
-        name: "Royal Mint", cost: 415, stats: { income: 40, compound: 2, range: 0, rate: 0 }, desc: "Compounding wealth: its payout grows every wave it survives. Plant it early; let time do the sums.",
+        name: "Royal Mint", cost: 415, stats: { income: 62, compound: 2, range: 0, rate: 0 }, desc: "Compounding wealth: its payout grows every wave it survives. Plant it early; let time do the sums.",
         rank4: {
-          a: { name: "Dragon's Hoard", cost: 975, stats: { income: 60, compound: 3, hoard: true, range: 0, rate: 0 }, desc: "Doubled payouts — but a wave where the castle bleeds pays NOTHING. Greed with a heartbeat." },
-          b: { name: "Philosopher's Stone", cost: 975, stats: { income: 55, compound: 3, range: 0, rate: 0 }, desc: "Lead into gold into more gold: the richest single wage on the board, compounding every wave." },
+          a: { name: "Dragon's Hoard", cost: 975, stats: { income: 82, compound: 3, hoard: true, range: 0, rate: 0 }, desc: "Doubled payouts — but a wave where the castle bleeds pays NOTHING. Greed with a heartbeat." },
+          b: { name: "Philosopher's Stone", cost: 975, stats: { income: 77, compound: 3, range: 0, rate: 0 }, desc: "Lead into gold into more gold: the richest single wage on the board, compounding every wave." },
         },
       },
       b: {
@@ -321,7 +321,7 @@ export const TOWERS = {
       a: {
         name: "Solar Lance", cost: 455, stats: { dps: 85, range: 93, rampMax: 4, rampTime: 2800, igniteBurn: 14, igniteDur: 2000, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
         rank4: {
-          a: { name: "Noon Eternal", cost: 1020, stats: { dps: 92, range: 99, rampMax: 4, rampTime: 2600, igniteBurn: 15, igniteDur: 2200, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
+          a: { name: "Noon Eternal", cost: 1020, stats: { dps: 40, range: 99, rampMax: 4, rampTime: 2600, igniteBurn: 15, igniteDur: 2200, split: 4, rate: 0 }, desc: "Four beams, each holding a foe of its own and building its own focus; each ignites at full focus." },
           b: { name: "Sun Spear", cost: 1020, stats: { dps: 85, range: 98, rampMax: 6, rampTime: 3000, igniteBurn: 15, igniteDur: 2200, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
         },
       },

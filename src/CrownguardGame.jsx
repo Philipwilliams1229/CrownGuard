@@ -26,7 +26,7 @@ import CastleWorksList from "./ui/CastleWorks.jsx";
 import CrewIcon from "./ui/CrewIcon.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
-import { PTS, onRoad } from "./engine/path.js";
+import { PTS, onRoad, onRoadNear } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadCheckpoint, saveCheckpoint, clearCheckpoint } from "./data/checkpoint.js";
 import { tickWeather } from "./engine/weather.js";
@@ -780,7 +780,9 @@ export default function Crownguard() {
     const d = Math.hypot(dx, dy);
     const reach = t.kind === "assassin" ? ASSASSIN_RALLY_RANGE : RALLY_RANGE;
     const k = d > reach ? reach / d : 1;
-    t.rally = { x: t.x + dx * k, y: t.y + dy * k };
+    // the flag goes on the road, as the hero does (owner, 2026-11-20): the
+    // nearest spot of it in reach; a hall with no road in reach keeps the rim
+    t.rally = (t.kind === "knight" && onRoadNear(x, y, t.x, t.y, reach)) || { x: t.x + dx * k, y: t.y + dy * k };
     g.effects.push({ type: "levelup", x: t.rally.x, y: t.rally.y, ttl: 500 });
     g.rallyFor = null;
     // the flag is planted: the tower's card stays closed rather than popping

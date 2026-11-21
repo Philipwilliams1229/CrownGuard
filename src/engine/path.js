@@ -119,3 +119,24 @@ export function onRoad(x, y) {
   const k = r.d > ROAD_POST ? ROAD_POST / r.d : 1;
   return { x: r.x + (x - r.x) * k, y: r.y + (y - r.y) * k };
 }
+
+// The same, for soldiers posted from a hall (owner, 2026-11-20: a Knight Hall's
+// rally flag goes on the road like the hero): the spot on the road (within the
+// outer marching lanes) nearest to (x, y) that is also within `reach` of the
+// hall at (cx, cy). Null when no stretch of road lies in reach.
+export function onRoadNear(x, y, cx, cy, reach) {
+  const p = onRoad(x, y);
+  if (Math.hypot(p.x - cx, p.y - cy) <= reach) return p;
+  let best = null, bd = Infinity;
+  for (let d = 0; d <= TOTAL_LEN; d += 3) {
+    const [mx, my] = posAt(d);
+    if (Math.hypot(mx - cx, my - cy) > reach + ROAD_POST) continue;
+    for (let lane = -ROAD_POST; lane <= ROAD_POST; lane += 3) {
+      const [qx, qy] = lanePos(d, lane);
+      if (Math.hypot(qx - cx, qy - cy) > reach) continue;
+      const dd = Math.hypot(qx - x, qy - y);
+      if (dd < bd) { bd = dd; best = { x: qx, y: qy }; }
+    }
+  }
+  return best;
+}
