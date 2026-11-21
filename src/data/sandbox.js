@@ -69,7 +69,7 @@ export const DEFAULTS = {
   weatherPower: 0.7,      // its strength, 0.2-1 (a kind's `grade`)
 };
 // the weather choices the setup screen offers (keys of engine/weather.js WEATHER_KINDS)
-export const WEATHER_CHOICES = ["realm", "none", "fog", "storm", "gravemist", "blizzard", "eruption"];
+export const WEATHER_CHOICES = ["realm", "none", "fog", "storm", "bloodmoon", "gravemist", "blizzard", "eruption"];
 
 // Bounds for every number, for the setup screen's sliders and steppers
 // (and for sanitising anything loaded from storage).
@@ -107,6 +107,8 @@ export const PRESETS = [
   // their test strand (landings, blizzards, frost shrouds, the sea monsters
   // on the fjord boards), and zone V's eruptions over the Ember Wastes
   { id: "rimewater", name: "The Rimewater", tag: "ZONE IV PREVIEW", blurb: "The Rime Clans off the frozen sea: longships beaching behind your lines, blizzards, seers who ice your halls, a serpent and a kraken in the water. Not tuned yet: 50 lives to see it all.", patch: { army: "rime", realm: "rimewatch", gold: 1000, lives: 50 } },
+  // the Hollowfen's blood moon (owner, 2026-11-21): in Free Play it rises at wave 2's horn
+  { id: "bloodmoon", name: "Blood Moon", tag: "HOLLOWFEN", blurb: "The Hollow Court at Bellmarsh. The moon rises red at the second horn: under it the dead get back up and mend.", patch: { army: "hollow", realm: "bellmarsh", weather: "bloodmoon", weatherPower: 0.8, gold: 1500 } },
   { id: "eruptions", name: "Ashen Eruptions", tag: "ZONE V PREVIEW", blurb: "The Ember Wastes with the earth awake: burning rocks rain on the road and set halls near it alight.", patch: { realm: "ember", weather: "eruption", weatherPower: 1 } },
   { id: "chaos", name: "Chaos", tag: "STRESS TEST", blurb: "Every army, five times the crowd, infinite gold and an unbreakable castle. How much can the road hold?", patch: { army: "all", script: false, countMul: 5, gapMul: 0.4, infiniteGold: true, invincible: true } },
 ];

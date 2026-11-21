@@ -5,7 +5,8 @@
 // kind (engine/weather.js weatherDefOf), so a retuned kind retells itself;
 // only the lore and the advice are written here, one entry per kind.
 
-import { weatherDefOf, strengthTier, weatherDef, WX, FORECAST, fogLength } from "../engine/weather.js";
+import { weatherDefOf, strengthTier, weatherDef, WX, FORECAST, fogLength, moonWaveOf } from "../engine/weather.js";
+import { RISE_ONLY_IN_MOON } from "./enemies.js";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const secs = ([a, b]) => {
@@ -48,6 +49,16 @@ export const WEATHER_INFO = {
       `${d.banks} bank${d.banks > 1 ? "s" : ""} of mist at a time, drifting along the road.`,
     ],
     tip: "Spread your halls down the road so something is always close, and keep knights where the mist gathers.",
+  },
+  bloodmoon: {
+    blurb: "Night falls over the fen and the moon comes up red. Under it the dead will not stay dead.",
+    effects: (d) => [
+      `While the moon is full, a Risen felled by steel, arrows or stones pulls itself back together once, at half health. Magic, fire and holy blows keep it down.${RISE_ONLY_IN_MOON ? " With no moon, the dead stay down." : ""}`,
+      `Every undead foe mends ${pct(d.mend)} of its health a second while the moon is full, unless it is burning.`,
+    ],
+    opens: (d) => d.whole ? "The moon is up from the first horn" : "One blood moon, past the middle of the level",
+    rhythm: (d) => d.whole ? "It never sets this level" : `Red light creeps in for about ${secs(d.rollIn)}, then the moon is full for ${secs(d.lasts)} of fighting, then it fades, and it does not rise again`,
+    tip: "Save your wizards and fire for the moon: what they kill stays down, and burning foes cannot mend.",
   },
   blizzard: {
     blurb: "A freezing wind off the Rimewater whips the snow across the field.",
@@ -121,6 +132,14 @@ export const nowOf = (g) => {
     }
     if (w.phase === "squall" && def.rockEvery) lines.push(`Burning rocks fall about every ${secs(def.rockEvery)}.`);
   }
+  if (def.moon) {
+    lines.length = 0;
+    if (g.moonUp) {
+      lines.push("The dead rise: a Risen felled by steel, arrows or stones gets back up once, at half health. Magic, fire and holy blows keep it down.");
+      lines.push(`Undead mend ${Math.round((def.mend || 0) * 1000) / 10}% of their health a second, unless burning.`);
+    } else if (w.phase === "rising") lines.push("The red light is coming. The dead will rise once the moon is full.");
+    else lines.push(RISE_ONLY_IN_MOON ? "The dead stay down." : "No effect on the fight right now.");
+  }
   if (!lines.length) lines.push("No effect on the fight right now.");
   // what comes next
   let next = "";
@@ -130,6 +149,13 @@ export const nowOf = (g) => {
     next = r <= 0 ? (def.floor > 0 ? "A light fog lingers for the rest of the level." : "It will not return this level.")
       : r > 0.5 ? `About half as thick by wave ${half}, and ${end}.`
         : `${end[0].toUpperCase()}${end.slice(1)}.`;
+  } else if (def.moon) {
+    const left = w.seg && w.clock != null ? Math.max(0, w.seg.t1 - w.clock) : 0;
+    next = !w.moonStarted ? `The blood moon rises at the horn of wave ${moonWaveOf(w, def)}.`
+      : w.phase === "rising" ? `Full in about ${about(left)}.`
+        : w.phase === "squall" ? (def.whole ? "It does not set this level." : `It sets in about ${about(left)} of fighting.`)
+          : w.phase === "easing" ? `Gone in about ${about(left)}.` : "It will not rise again this level.";
+    if (next && w.phase !== "calm" && g.phase !== "combat") next += " Its clock stands still between waves.";
   } else if (w.seg && w.clock != null) {
     const left = Math.max(0, w.seg.t1 - w.clock);
     next = { calm: `The next spell begins in about ${about(left)} of fighting.`, rising: `At full strength in about ${about(left)}.`,

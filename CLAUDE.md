@@ -797,9 +797,8 @@ uses; existing levels sim byte-identical). Read the headers of
   seaserpent, kraken, krakenarm). rimefx.js only aliases a type that has
   no rig yet.
 - **Weather in every zone** (`src/data/weather-plan.js`): greenwood `fog`,
-  iron `storm`, hollow `gravemist` (OFF since 2026-11-21, owner: "turn off
-  gravemist for now": `hollow: null` in CHAPTER_WEATHER gives the Hollowfen
-  clear skies; Free Play can still pick it), rime `blizzard`, ash `eruption`; none
+  iron `storm`, hollow `bloodmoon` (since 2026-11-21, replacing `gravemist`,
+  which Free Play can still pick; see "The Blood Moon"), rime `blizzard`, ash `eruption`; none
   in a chapter's first third, 0.35-0.55 in the middle, 0.7-0.9 in the last
   third, 1 at the boss; a level may set `weather: false` or its own.
   `sim.mjs --weather kind:strength|none`. Free Play: `weather` /
@@ -877,6 +876,32 @@ skiff, rowing 16 px out, always has open water under it. The only campaign board
 estuary shows on the test board `rimefjord` until a level gets one.
 Lesson: the session limit cut three of four agents off; resume a cut-off
 agent with a tool-call budget instead of starting a fresh one.
+
+## The Blood Moon (2026-11-21, owner request; NOT on main yet, on claude/exciting-einstein-pcc5zb)
+
+The Hollowfen's weather, replacing the grave mist, and a rework of the dead getting back up. The
+owner wants it reversible and played in a preview before it reaches main.
+- **Rule:** Risen get back up ONLY while the blood moon is full (`g.moonUp`, set by tickWeather;
+  dealDamage in actions.js). Same as before otherwise: a physical blow, once, at half health;
+  magic, fire and holy keep it down; one killed under the moon still rises if it sets during the
+  2 s. Under the full moon every undead foe (Hollow faction, raised, wraiths; not neutral) mends
+  `mend` 1.5% of max health a second unless burning (update.js, beside `regen`).
+  **The switch back:** `RISE_ONLY_IN_MOON` in src/data/enemies.js (false = the old rule).
+- **One moon a level** (owner: "one moon per level only"): kind `bloodmoon` (engine/weather.js),
+  `moon: true`; first/calm are 1e7 so the clock never brings a second spell. `moonStart` cuts the
+  first calm at the horn of `moonWaveOf` (seeded: `moonAt` 0.5-0.7 of the level's waves when mild,
+  0.4-0.6 strong; `whole` at wave 1; Free Play at wave 2). Then ~20-25 s creeping in, the height
+  (`lasts`: mild 60-85 s, strong 120-180 s; owner: at least 60 s mild, 2-3 min strong, "likely i
+  will want longer moons"), ~20 s fading. The forecast says "The moon rises red" for its wave.
+- **Where** (`CURVES.hollow`, weather-plan.js): none on the Grave Road, mild on levels 2-7, strong
+  on 8-14, and the Throne of Dust under it the whole level (`whole: true`, lasts 1e7).
+- The checkpoint keeps the moon's wave and schedule (CrownguardGame.jsx `checkpointOf` / resume).
+- Words: weather-info.js `bloodmoon` (card brief) and `nowOf` (battle (i)); the Field Guide's Risen
+  row. Free Play: weather choice "Blood moon" and the preset "Blood Moon" (Bellmarsh, the Hollow).
+- Look: `art/briefs/blood-moon.md` (owner: no moon in the sky, red light from the upper left,
+  real torchlight on the halls (reusable for night maps), eyes in the sockets).
+  `wx-lab.html?realm=bellmarsh&faction=hollow&weather=bloodmoon:1&whole=1&rise=0&snaps=0,10,30`.
+- Mock-ups of the four options the owner chose from: `hwx-concepts.html`.
 
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 

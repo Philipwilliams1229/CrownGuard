@@ -50,7 +50,7 @@ const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const diffs = (s, keys = CORE) => { const base = fromPreset(s.preset); return keys.filter((k) => !same(s[k], base[k])); };
 
 // the weather kinds' names (engine/weather.js WEATHER_KINDS), for the chips
-const WEATHER_NAMES = { fog: "Morning fog", storm: "Thunderstorm", gravemist: "Grave mist", blizzard: "Blizzard", eruption: "Eruption" };
+const WEATHER_NAMES = { fog: "Morning fog", storm: "Thunderstorm", bloodmoon: "Blood moon", gravemist: "Grave mist", blizzard: "Blizzard", eruption: "Eruption" };
 
 // the tabs, and the settings each one edits (for its "edited" mark)
 const TABS = [
