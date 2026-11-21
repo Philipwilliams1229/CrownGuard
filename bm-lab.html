@@ -30,6 +30,7 @@
       import { setLevelWeather, weatherDef, segAt, forecast } from "/src/engine/weather.js";
       const q = new URLSearchParams(location.search);
       const TAG = q.get("tag") || "x", DT = 1 / 60;
+      if (q.get("norim")) window.__noRim = 1;
       selectRealm(q.get("realm") || "crowstair");
       selectFaction(q.get("faction") || "iron");
       setWaveWindow(null);
@@ -97,6 +98,15 @@
         }
       }
       for (let i = 0; i < frames.length; i++) await fetch(`/__shot?name=bm_${TAG}_${i}`, { method: "POST", body: frames[i].toDataURL("image/png").slice(22) });
+      if (q.get("perf")) {
+        // clone foes to ~200 for a measure; compare k as it stands with the weather muted
+        while (g.enemies.length < 200 && g.enemies.length) g.enemies.push({ ...g.enemies[g.enemies.length % Math.max(1, g.enemies.length)], id: 1000 + g.enemies.length });
+        const time = (n) => { const t0 = performance.now(); for (let i = 0; i < n; i++) { g.time += 0.016; draw(g, cv, { current: null }); } return (performance.now() - t0) / n; };
+        let worst = 0; for (let i = 0; i < 40; i++) { const t0 = performance.now(); g.time += 0.016; draw(g, cv, { current: null }); worst = Math.max(worst, performance.now() - t0); } window.__worst = worst;
+        const on = time(120); const k0 = g.weather.k; g.weather.k = 0; const off = time(120); g.weather.k = k0;
+        window.__perf = `worst cold frame ${window.__worst.toFixed(1)} ms; perf foes ${g.enemies.length} towers ${g.towers.length}: moon ${on.toFixed(2)} ms, none ${off.toFixed(2)} ms`;
+        console.log(window.__perf);
+      }
       document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/wx_${TAG}.png`;
     </script>
   </body>

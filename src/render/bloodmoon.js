@@ -34,16 +34,17 @@ const bakeLayers = () => {
   const shade = mk(), rake = mk();
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const x = i + 0.5, y = j + 0.5, r = reach(x, y), o = (j * w + i) * 4, b = BAYER[(j & 3) * 4 + (i & 3)] - 0.5;
-    // the shade: dark wine, thin at the lit corner and deepening away from it, six dithered steps
-    const dark = 0.12 + 0.68 * Math.pow(r, 1.25);
-    const ls = Math.round(clamp01(dark / 0.74 + b * 0.2) * 6);
-    if (ls > 0) { const a = [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.74][ls]; shade.img.data[o] = 54; shade.img.data[o + 1] = 2; shade.img.data[o + 2] = 26; shade.img.data[o + 3] = Math.round(a * 255); }
+    // the shade, MULTIPLIED over the board (lead, 2026-11-21: laid on plain it greyed the board to
+    // mauve): night that darkens and reddens, lighter at the lit corner, six dithered steps
+    const dark = 0.45 + 0.5 * Math.pow(r, 1.1);
+    const ls = Math.round(clamp01(dark + b * 0.12) * 6);
+    if (ls > 0) { const a = [0, 0.3, 0.42, 0.54, 0.66, 0.78, 0.9][ls]; shade.img.data[o] = 74; shade.img.data[o + 1] = 22; shade.img.data[o + 2] = 44; shade.img.data[o + 3] = Math.round(a * 255); }
     // the rake: red light laid on by 'lighter', brightest at the upper-left corner, an elliptical reach
     // that stretches along the diagonal, in steps
-    const d = Math.hypot((x + 40) / (W * 0.66), (y + 40) / (H * 0.8));
-    const v = Math.pow(clamp01(1 - d), 1.5);
+    const d = Math.hypot((x + 40) / (W * 0.95), (y + 40) / (H * 1.1));
+    const v = Math.pow(clamp01(1 - d), 1.3);
     const lr = Math.round(clamp01(v + b * 0.18) * 5);
-    if (lr > 0) { const a = [0, 0.06, 0.13, 0.2, 0.28, 0.38][lr]; rake.img.data[o] = 255; rake.img.data[o + 1] = 24 + lr * 3; rake.img.data[o + 2] = 30; rake.img.data[o + 3] = Math.round(a * 255); }
+    if (lr > 0) { const a = [0, 0.05, 0.1, 0.16, 0.22, 0.3][lr]; rake.img.data[o] = 255; rake.img.data[o + 1] = 24 + lr * 3; rake.img.data[o + 2] = 30; rake.img.data[o + 3] = Math.round(a * 255); }
   }
   shade.c.putImageData(shade.img, 0, 0); rake.c.putImageData(rake.img, 0, 0);
   return { shade: shade.cv, rake: rake.cv };
@@ -56,15 +57,18 @@ const bakeLayers = () => {
 // Nothing is drawn for the BACK view (the head faces away) and a frame with no eye pixels glows nothing.
 const EYES = new WeakMap();
 let bakedAt = -1, bakedN = 0;
-const isEye = (r, g, b) => (r > 165 && r > g + 60 && r > b + 60) || (r > 200 && g > 150 && b < 90) || (g > 190 && b > 140 && r < 175 && g > r + 50) || (r > 215 && g > 235 && b > 220 && false);
-const eyeSprite = (rec) => {
+const isEyeStrict = (r, g, b) => (r > 165 && r > g + 60 && r > b + 60) || (g > 190 && b > 140 && r < 140 && g < 236 && g > r + 50);   // red, or witch-fire green
+const isEyeLoose = (r, g, b) => (r > 200 && g > 150 && b < 90) || (g > 200 && b < 110 && r > 140 && g > r + 12);          // orange, yellow, yellow-green (gold trim matches too, so a last resort)
+export const eyeSprite = (rec) => {
   const cv = rec.cv;
   if (EYES.has(cv)) return EYES.get(cv);
   const w = cv.width, h = cv.height, d = cv.getContext("2d").getImageData(0, 0, w, h).data;
   let y0 = h, y1 = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 40) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  const lim = y0 + (y1 - y0 + 1) * 0.45, pts = [];
-  for (let y = y0; y < lim; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d[i + 3] > 200 && isEye(d[i], d[i + 1], d[i + 2])) pts.push([x, y]); }
+  const lim = y0 + (y1 - y0 + 1) * 0.45;
+  const scan = (test) => { const out = []; for (let y = y0; y < lim; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (d[i + 3] > 200 && test(d[i], d[i + 1], d[i + 2])) out.push([x, y]); } return out; };
+  let pts = scan(isEyeStrict);
+  if (!pts.length || pts.length > 30) pts = scan(isEyeLoose);
   let s = null;
   if (pts.length && pts.length <= 30) {
     let bx0 = w, bx1 = 0, by0 = h, by1 = 0;
@@ -134,6 +138,7 @@ export const bloodmoonPaint = (ctx, g, w) => {
   const swell = 0.96 + 0.04 * Math.sin(t * 0.7);
   // the shade over the whole board, then the red rake from the upper left
   ctx.globalAlpha = Math.ceil(k * 8) / 8;
+  ctx.globalCompositeOperation = "multiply";
   ctx.drawImage(LAYERS.shade, -8, -8, W + 16, H + 16);
   ctx.globalCompositeOperation = "lighter";
   ctx.globalAlpha = Math.ceil(k * 8) / 8 * swell;

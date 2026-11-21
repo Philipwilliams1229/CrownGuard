@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><body style="background:#222"><div id="status">…</div>
+<script type="module">
+import { pixRec, hasPix, PIX } from "/src/render/pix/pixrigs.js";
+import { eyeSprite } from "/src/render/bloodmoon.js";
+const q = new URLSearchParams(location.search), types = (q.get("types") || "").split(","), Z = Number(q.get("z") || 3);
+const sheets = [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ["atk", 0.5], ["walkFront", 0], ["walkFront", 2], ["walkBack", 1]];
+const cell = Number(q.get("cell") || 200), out = document.createElement("canvas"); out.width = cell * sheets.length; out.height = cell * types.length;
+const o = out.getContext("2d"); o.fillStyle = "#1a1214"; o.fillRect(0, 0, out.width, out.height); o.imageSmoothingEnabled = false;
+const log = [];
+types.forEach((t, r) => {
+  if (!hasPix(t)) { log.push(t + ": no pix"); return; }
+  sheets.forEach(([sh, f], c) => {
+    let rec; try { rec = pixRec(t, sh, f, false, 0); } catch (e) { log.push(`${t} ${sh}: ${e.message}`); return; }
+    const x = c * cell + cell / 2, y = r * cell + cell * 0.85;
+    o.drawImage(rec.cv, x - (rec.ox * Z) / 2, y - (rec.oy * Z) / 2, (rec.cv.width * Z) / 2, (rec.cv.height * Z) / 2);
+    const s = eyeSprite(rec);
+    if (s && sh !== "walkBack") o.drawImage(s.cv, x + ((s.x0 - rec.ox) * Z) / 2, y + ((s.y0 - rec.oy) * Z) / 2, (s.cv.width * Z) / 2, (s.cv.height * Z) / 2);
+    log.push(`${t} ${sh}${f}: ${s ? "eyes" : "none"}${sh === "walkBack" && s ? " (skipped)" : ""}`);
+  });
+  o.fillStyle = "#fff"; o.font = "12px monospace"; o.fillText(t, 4, r * cell + 14);
+});
+window.__log = log.join("\n");
+await fetch(`/__shot?name=bm_eyes_${q.get("tag") || "x"}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+document.title = "DONE";
+</script>
