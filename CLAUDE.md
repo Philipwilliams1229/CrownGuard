@@ -878,6 +878,11 @@ estuary shows on the test board `rimefjord` until a level gets one.
 Lesson: the session limit cut three of four agents off; resume a cut-off
 agent with a tool-call budget instead of starting a fresh one.
 
+## The owner's wishlist (ideas for later: do NOT build unasked)
+
+The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated.
+- **Night maps** (2026-11-21): levels fought at night.
+
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
