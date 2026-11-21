@@ -53,6 +53,7 @@ import { PX } from "./paint.js";
 import * as B from "./weatherbake.js";
 import { apronShade } from "./apron.js";
 import { drawnSpans } from "./bridge.js";
+import { bloodmoonPaint, bloodmoonGround } from "./bloodmoon.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const frac = (v) => v - Math.floor(v);
@@ -1244,8 +1245,8 @@ const eruption = (ctx, g, w) => {
   ctx.globalAlpha = 1;
 };
 
-export const PAINTERS = { blizzard, fog, storm, gravemist, eruption };
-const GROUND = { storm: stormGround, eruption: eruptionGround };
+export const PAINTERS = { blizzard, fog, storm, gravemist, eruption, bloodmoon: bloodmoonPaint };
+const GROUND = { storm: stormGround, eruption: eruptionGround, bloodmoon: bloodmoonGround };
 
 // halls set burning by a falling rock: flame tongues licking up the hall and
 // smoke climbing off it, smaller as the fire burns down
@@ -1370,7 +1371,7 @@ export const drawWeather = (ctx, g) => {
 // the board's own layer gets, so a long storm leaves no lit edge. null = none.
 // (No fog veil: the board gets no fog wash, so a flat one beyond it read as a
 // band; the fog itself runs out past the board now, see paintWeatherEdge.)
-const VEIL = { storm: ["14,20,40", 0.42 * SKY_LOOK], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22] };
+const VEIL = { storm: ["14,20,40", 0.42 * SKY_LOOK], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22], bloodmoon: ["34,6,26", 0.5] };
 export const weatherVeil = (g) => {
   const w = g?.weather, v = w && VEIL[w.paint];
   if (!v || !(w.k > 0.01)) return null;

@@ -17,6 +17,7 @@ import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
 import { drawStatus } from "./fx.js";
 import { statusShield } from "./statusfx.js";
+import { noteEyes } from "./bloodmoon.js";
 import { canvasFont } from "../ui/fonts.js";
 import { HEROES } from "../data/bands.js";
 import { heroPose } from "./heroes/index.js";
@@ -176,6 +177,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
     if (e.net) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "net", 1, aim);
   });
   if (climbing) ctx.restore();
+  // under a blood moon the undead's eyes glow red in their own sockets (render/bloodmoon.js; drawn over the shade)
+  if (rise >= 1) noteEyes(e, skin, e.x + lunge, feet, tn.face, ps, pf, aim, time);
   // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
   // licking flames, poison bubbles, mending motes — each a few cached sprites
   // (render/fx.js), cheap enough for a crowd of three hundred all on fire.

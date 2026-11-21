@@ -16,6 +16,7 @@
 // each light's overlay, and the frames of what moves (a pennant, a flame). One form bakes in
 // a few milliseconds the first time it is drawn (three stonework variants a form, t.id % 3).
 import { prefs } from "../../data/prefs.js";
+import { nightOn, noteLamp } from "../nightlight.js";
 import { toCanvas } from "./pix.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
 
@@ -100,6 +101,8 @@ const glows = (ctx, H, x, y, time, side, o, id, dir = 1) => {
 //   o.dir  -1: the hall drawn mirrored (bake it with hallPix's flip)
 export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
   const id = o.id || 0, dir = o.dir < 0 ? -1 : 1;
+  // at night (render/nightlight.js) each torch / lamp of the hall is a light on the board
+  if (nightOn(time) && prefs.spellLight !== false) for (const l of H.spec.lights || []) if (l.key === "torch") noteLamp(x + dir * l.x / 2, y + l.y / 2, l.r / 2, l.col, l.a ?? 0.7, -l.y / 2);
   if (H.shadow) stampPix(ctx, H.shadow, x, y);
   lay(ctx, H.back, H, x, y, dir);
   live(ctx, H, x, y, time, "back", id, dir);

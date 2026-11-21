@@ -56,6 +56,7 @@ import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
 import { drawShip, drawFrostShells, drawFrostGround, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
+import { moonKeyLight, MOON_KEY } from "./bloodmoon.js";
 import { drawHit, drawDeathPoof } from "./statusfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, spikeBehind, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
@@ -348,6 +349,8 @@ export function draw(g, canvas, bufRef) {
   // a Dragonbreath jet is three lights along its reach, flickering in steps
   warmPix();      // (once: bakes the new figures' walks in the background so none hitches on its first step)
   beginLights();
+  // the blood moon's red key light, far off at the upper left: every figure catches a red rim on its upper-left edge
+  if (prefs.spellLight !== false) { const mk = moonKeyLight(g); if (mk) addLight(MOON_KEY.x, MOON_KEY.y, MOON_KEY.r, MOON_KEY.col, 0.55 * mk); }
   if (prefs.spellLight !== false) for (const t of g.towers) if (t.breath && t.breath.on > 0) {
     const b = t.breath, fl = [1, 0.86, 0.94, 0.8, 1, 0.9, 0.78, 0.96][Math.floor(g.time * 14 + (t.id | 0)) % 8];
     const k = Math.min(1, b.on * 1.4) * fl, ca = Math.cos(b.ang), sa = Math.sin(b.ang), r = b.len * 0.42 + 16;
