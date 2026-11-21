@@ -902,6 +902,19 @@ owner wants it reversible and played in a preview before it reaches main.
   real torchlight on the halls (reusable for night maps), eyes in the sockets).
   `wx-lab.html?realm=bellmarsh&faction=hollow&weather=bloodmoon:1&whole=1&rise=0&snaps=0,10,30`.
 - Mock-ups of the four options the owner chose from: `hwx-concepts.html`.
+- **The look is in** (render/bloodmoon.js: a MULTIPLIED wine shade deepening to the lower right, a red
+  rake from the upper left laid with `lighter`, eye glows read from each baked frame's own eye pixels,
+  none from behind; render/nightlight.js: reusable torchlight for night maps, lamps noted from each
+  hall's `"torch"` lights in pix/halls.js). Measured +6 ms a frame in headless software Chromium (the
+  storm costs the same there); not measured on a device. `bm-lab.html` (full-res snaps, `&perf=1`),
+  `bm-eyes.html`. Weak: eyes draw over a hall standing in front; health bars dim a little.
+- **Balance** (`--chapter hollow --endure`, seeds 1/2, better doctrine): 11419 / 11363 -> 6113 / 6489
+  castle damage; the early levels halved (Risen got up 2300-4000 times a level, now 150-550). Not
+  retuned yet: the owner plays the preview first (levers: longer moons, Risen / Ghoul hp, crowds).
+- **The preview** (owner: "see how it plays before putting into main"): a private Artifact "Crownguard
+  Preview: Blood Moon" (slug 3644f913-b27d-449b-a2b9-86db42d05039), the built game published with
+  publish_files from `npx vite build --outDir <scratchpad>/preview` (all files but the webmanifests,
+  vp.html, privacy.html). Its saves are its own. Republish with slug + base_version after each change.
 
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
