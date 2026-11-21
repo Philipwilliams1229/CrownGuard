@@ -1,0 +1,228 @@
+<!doctype html>
+<!--
+  Hollowfen weather concepts (2026-11-21): a real Hollow board on the real engine, then each
+  option's look painted over it as a MOCK-UP (nothing here is in the game).
+    /hwx-concepts.html?realm=bellmarsh&wave=10&tag=a
+  Saves .shots/hwx_<tag>_<option>.png at 2x.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>hwx concepts</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, RES } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "a", DT = 1 / 60;
+      selectRealm(q.get("realm") || "bellmarsh");
+      selectFaction("hollow");
+      setWaveWindow(null);
+      setLevelWeather(null);
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 10) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
+      };
+      const halls = [];
+      for (const [kd, at, lv] of [["archer", 0.22, 3], ["wizard", 0.36, 3], ["knight", 0.48, 2], ["catapult", 0.6, 2], ["archer", 0.72, 3], ["wizard", 0.84, 2]]) {
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 52; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < lv; l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null; halls.push(t);
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      startWave(g);
+      const secs = Number(q.get("secs") || 16);
+      for (let i = 0; i < 60 * secs; i++) { updateGame(g, DT); g.lives = 9999; }
+
+      // ---- pixel helpers (board px; the board draws ~1 art px a board px) ----
+      const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+      const bay = (x, y) => (B4[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+      let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+      // dithered fill: alpha(x,y) 0..1 decides pixel by Bayer threshold
+      const dither = (o, x0, y0, x1, y1, col, alphaAt) => {
+        o.fillStyle = col;
+        for (let y = Math.max(0, y0 | 0); y < Math.min(H, y1); y++) for (let x = Math.max(0, x0 | 0); x < Math.min(W, x1); x++) {
+          const a = alphaAt(x, y); if (a > 0 && a >= bay(x, y)) o.fillRect(x, y, 1, 1);
+        }
+      };
+      const px = (o, x, y, c) => { o.fillStyle = c; o.fillRect(Math.round(x), Math.round(y), 1, 1); };
+      const disc = (o, cx, cy, r, c) => { o.fillStyle = c; for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r - y * y)); o.fillRect(Math.round(cx - w), Math.round(cy + y), w * 2 + 1, 1); } };
+      const ell = (o, cx, cy, rx, ry, c) => { o.fillStyle = c; for (let y = -ry; y <= ry; y++) { const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry)))); o.fillRect(Math.round(cx - w), Math.round(cy + y), w * 2 + 1, 1); } };
+      // multiply a whole canvas by a colour (night wash), keeping pixels crisp
+      const wash = (o, col, a) => { o.save(); o.globalCompositeOperation = "multiply"; o.globalAlpha = a; o.fillStyle = col; o.fillRect(0, 0, W, H); o.restore(); };
+      // a light pool: additive, stepped in 4 bands so it reads as pixel light
+      const pool = (o, cx, cy, r, col, a, sq = 0.6) => {
+        o.save(); o.globalCompositeOperation = "lighter";
+        const [R, G, Bc] = rgb(col);
+        for (let s = 4; s >= 1; s--) {
+          const rr = r * s / 4;
+          o.fillStyle = `rgba(${R},${G},${Bc},${(a * (5 - s)) / 10})`;
+          dither(o, cx - rr, cy - rr * sq, cx + rr + 1, cy + rr * sq + 1, o.fillStyle, (x, y) => { const d = Math.hypot((x - cx) / rr, (y - cy) / (rr * sq)); return d < 1 ? 1 - d * 0.35 : 0; });
+        }
+        o.restore();
+      };
+      const roadAt = (f) => { const d = f * TOTAL_LEN; const [x, y] = posAt(d); return { x, y, a: angleAt(d) }; };
+      const foes = () => g.enemies.filter((e) => e.hp > 0 && e.x > 0 && e.x < W);
+
+      const render = (mut) => { const keep = { en: g.enemies, fx: g.effects }; if (mut) mut(); const c = document.createElement("canvas"); draw(g, c, { current: null }); g.enemies = keep.en; g.effects = keep.fx; return c; };
+      const base = render();
+      const bare = render(() => { g.enemies = []; });
+      const fresh = (src = base) => { const c = document.createElement("canvas"); c.width = W * RES; c.height = H * RES; const o = c.getContext("2d"); o.drawImage(src, 0, 0); o.scale(RES, RES); return [c, o]; };
+      // a soft organic patch: several dithered blobs
+      const cloud = (o, cx, cy, rx, ry, col, a, n = 5, sd = 1) => {
+        seed = sd;
+        for (let i = 0; i < n; i++) {
+          const x = cx + (rnd() - 0.5) * rx, y = cy + (rnd() - 0.5) * ry, r1 = rx * (0.35 + rnd() * 0.3), r2 = ry * (0.4 + rnd() * 0.35);
+          dither(o, x - r1, y - r2, x + r1 + 1, y + r2 + 1, col, (X, Y) => { const d = Math.hypot((X - x) / r1, (Y - y) / r2); return d < 1 ? (1 - d * d) * a : 0; });
+        }
+      };
+
+      const opts = {};
+      // 0. today: clear skies
+      opts.clear = () => fresh()[0];
+
+      // A. BLOOD MOON: the fen at night under a red moon
+      opts.bloodmoon = () => {
+        const [c, o] = fresh();
+        wash(o, "#3a2030", 0.78); wash(o, "#c04a5a", 0.35);
+        pool(o, 120, 70, 360, "#8c2030", 0.2, 0.7);
+        for (const t of halls) { pool(o, t.x, t.y - 4, 50, "#ffb050", 0.34); pool(o, t.x, t.y - 14, 20, "#ffd890", 0.35); }
+        for (const e of foes()) { const s = e.size || 10; px(o, e.x - 2, e.y - s * 0.55, "#ff3040"); px(o, e.x + 1, e.y - s * 0.55, "#ff3040"); }
+        // the moon
+        const mx = 86, my = 62, mr = 26;
+        pool(o, mx, my, 70, "#ff4050", 0.35, 1);
+        disc(o, mx, my, mr + 1, "#5a1018"); disc(o, mx, my, mr, "#c8343c");
+        disc(o, mx - 4, my - 4, mr - 6, "#e0505a");
+        for (const [dx, dy, r] of [[8, 6, 5], [-10, 8, 3], [2, -12, 4], [-14, -4, 2], [12, -6, 2]]) disc(o, mx + dx, my + dy, r, "#a8262e");
+        // red souls curling up from the dead on the road
+        for (let i = 0; i < 6; i++) { const p = roadAt(0.12 + i * 0.15); const x = p.x + (i % 2 ? 16 : -18), y = p.y + 6; for (let k = 0; k < 16; k++) px(o, x + Math.sin(k * 0.6 + i) * 3, y - k * 1.6, k > 11 ? "#ffb0b8" : k % 3 ? "#ff5060" : "#c02838"); }
+        return c;
+      };
+
+      // B. MARSH GAS: pockets of bog gas bubble up on the road; fire sets them off
+      const lit = roadAt(0.5);
+      const boomed = render(() => { g.effects = [...g.effects, { type: "boom", x: lit.x, y: lit.y, ttl: 330, life: 420, r: 46 }]; });
+      opts.marshgas = () => {
+        const [c, o] = fresh(boomed);
+        [0.17, 0.32, 0.67, 0.83].forEach((f, i) => {
+          const p = roadAt(f);
+          cloud(o, p.x, p.y - 4, 56, 26, "#5e7a2a", 0.5, 7, 40 + i);
+          cloud(o, p.x, p.y - 8, 40, 20, "#a8c448", 0.55, 6, 60 + i);
+          cloud(o, p.x, p.y - 14, 22, 12, "#d4ec80", 0.45, 4, 80 + i);
+          seed = 100 + i;
+          for (let k = 0; k < 14; k++) { const bx = p.x + (rnd() - 0.5) * 60, by = p.y + (rnd() - 0.5) * 26, br = rnd() < 0.3 ? 2 : 1; disc(o, bx, by, br, "#c8e070"); px(o, bx - br + 1, by - br + 1, "#f8ffd0"); }
+        });
+        // the lit pocket: flame tongues round the game's own blast, a fire arrow coming in
+        const p = lit;
+        pool(o, p.x, p.y - 4, 110, "#ff7020", 0.5);
+        seed = 9;
+        for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2 + rnd() * 0.3, r = 30 + rnd() * 8; const x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r * 0.6; const hgt = 6 + rnd() * 8; for (let s = 0; s < hgt; s++) { const w = Math.max(0, 2 - Math.floor(s / 4)); o.fillStyle = s < hgt * 0.4 ? "#ffe070" : s < hgt * 0.75 ? "#ff9a20" : "#e04a10"; o.fillRect(Math.round(x - w + Math.sin(s * 0.7 + k)), Math.round(y - s), w * 2 + 1, 1); } }
+        const t = halls.reduce((b, h) => (Math.hypot(h.x - p.x, h.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? h : b), halls[0]);
+        for (let s = 0; s <= 0.8; s += 0.015) { const x = t.x + (p.x - t.x) * s, y = t.y - 20 + (p.y - 8 - t.y + 20) * s - Math.sin(s * Math.PI) * 30; px(o, x, y, s > 0.7 ? "#ffe070" : "#ff8a30"); }
+        return c;
+      };
+
+      // C. THE DROWNING TIDE: black bog water creeps over stretches of the road; hands reach up
+      opts.tide = () => {
+        const [c, o] = fresh(bare);
+        wash(o, "#9098a8", 0.3);
+        const mask = document.createElement("canvas"); mask.width = W; mask.height = H; const mo = mask.getContext("2d");
+        for (const [f0, f1] of [[0.07, 0.2], [0.55, 0.68]]) {
+          const n = Math.round((f1 - f0) / 0.004);
+          for (let i = 0; i <= n; i++) {
+            const p = roadAt(f0 + i * 0.004), e = Math.min(1, i / 10, (n - i) / 10), hw = (40 + Math.sin(i * 0.35) * 6 + Math.sin(i * 1.3) * 3) * e;
+            ell(mo, p.x, p.y, Math.max(1, hw), Math.max(1, hw * 0.62), "#000");
+          }
+        }
+        // keep the halls dry
+        mo.globalCompositeOperation = "destination-out"; for (const t of halls) ell(mo, t.x, t.y + 4, 22, 14, "#000");
+        const img = mo.getImageData(0, 0, W, H).data;
+        const inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H && img[(y * W + x) * 4 + 3] > 0;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          if (!inside(x, y)) continue;
+          const edge = !inside(x - 2, y) || !inside(x + 2, y) || !inside(x, y - 2) || !inside(x, y + 2);
+          const sheen = (Math.sin(x * 0.11 + y * 0.35) + Math.sin(x * 0.05 - y * 0.2)) > 1.4;
+          px(o, x, y, edge ? "#4a4030" : sheen ? "#34444e" : ((x * 3 + y * 5) % 11 === 0 ? "#1e252a" : "#161a1e"));
+        }
+        // the foes on top again, cut at a waterline where they wade
+        const fc = base.getContext("2d").getImageData(0, 0, W * RES, H * RES), bc = bare.getContext("2d").getImageData(0, 0, W * RES, H * RES);
+        const out = o.getImageData(0, 0, W * RES, H * RES), D = out.data;
+        const wl = new Float32Array(W).fill(1e9);
+        const waders = foes().filter((e) => inside(Math.round(e.x), Math.round(e.y)));
+        for (let Y = 0; Y < H * RES; Y++) for (let X = 0; X < W * RES; X++) {
+          const i = (Y * W * RES + X) * 4;
+          if (Math.abs(fc.data[i] - bc.data[i]) + Math.abs(fc.data[i + 1] - bc.data[i + 1]) + Math.abs(fc.data[i + 2] - bc.data[i + 2]) < 24) continue;
+          const bx = X / RES, by = Y / RES;
+          if (!g.enemies.some((e) => Math.abs(e.x - bx) < 12 && by - e.y > -34 && by - e.y < 12)) continue;
+          if (inside(Math.round(bx), Math.round(by))) {
+            const e = waders.find((e) => Math.abs(e.x - bx) < 9 && by - e.y > -30 && by - e.y < 12);
+            if (e && by > e.y - (e.size || 10) * 0.15) continue;
+          }
+          D[i] = fc.data[i]; D[i + 1] = fc.data[i + 1]; D[i + 2] = fc.data[i + 2];
+        }
+        o.putImageData(out, 0, 0);
+        for (const e of waders) { const y = e.y - (e.size || 10) * 0.15; ell(o, e.x, y + 1, 7, 2, "#5a6a78"); ell(o, e.x, y + 1, 5, 1, "#161a1e"); }
+        // hands of the drowned, drawn at the canvas's own pixels for detail
+        o.save(); o.setTransform(1, 0, 0, 1, 0, 0);
+        const hand = (bx, by, flip) => {
+          const X = Math.round(bx * RES), Y = Math.round(by * RES), bone = "#e0d8c0", sh = "#a09880", dk = "#605848";
+          const r = (x, y, w, h, col) => { o.fillStyle = col; o.fillRect(flip ? X - x - w : X + x, Y + y, w, h); };
+          r(-1, -16, 4, 16, sh); r(-1, -16, 3, 16, bone);         // forearm
+          r(-3, -22, 8, 6, sh); r(-3, -22, 7, 5, bone);           // palm
+          for (const [fx, fy, h] of [[-3, -30, 8], [0, -32, 10], [3, -31, 9], [6, -28, 6]]) { r(fx, fy, 2, h, sh); r(fx, fy, 1, h, bone); r(fx, fy + 3, 2, 1, dk); }
+          r(-6, -21, 3, 2, bone); r(-8, -24, 2, 3, bone);         // thumb
+          o.fillStyle = "#5a6a78"; o.fillRect(X - 8, Y, 18, 2); o.fillStyle = "#2a343c"; o.fillRect(X - 5, Y, 12, 1);
+        };
+        seed = 21;
+        for (const [f, off, fl] of [[0.1, 22, 0], [0.15, -24, 1], [0.18, 14, 0], [0.58, -20, 1], [0.62, 24, 0], [0.66, -10, 0]]) { const p = roadAt(f); const x = p.x + Math.cos(p.a + Math.PI / 2) * off, y = p.y + Math.sin(p.a + Math.PI / 2) * off; if (inside(Math.round(x), Math.round(y))) hand(x, y, fl); }
+        o.restore();
+        return c;
+      };
+
+      // D. CORPSE CANDLES: will-o'-wisps drift over the fen and lure the halls' shots
+      opts.wisps = () => {
+        const [c, o] = fresh();
+        wash(o, "#4a5a68", 0.6); wash(o, "#a0c0c0", 0.4);
+        seed = 3;
+        const wisps = [];
+        for (let i = 0; i < 14; i++) wisps.push({ x: 60 + rnd() * (W - 160), y: 40 + rnd() * (H - 80) });
+        // one wisp drifts by a hall and pulls its shot away from the road
+        const t = halls[1] || halls[0];
+        const lure = { x: t.x - 46, y: t.y - 52 }; wisps.push(lure);
+        for (const w of wisps) {
+          pool(o, w.x, w.y + 14, 34, "#40c8a0", 0.32);
+          for (let s = 1; s < 9; s++) px(o, w.x - s * 3, w.y + Math.sin(s * 0.9) * 2 + s * 0.6, s % 2 ? "#5af0c0" : "#2a9a80");
+          pool(o, w.x, w.y, 12, "#80ffe0", 0.5, 1);
+          disc(o, w.x, w.y, 3, "#5af0c0"); disc(o, w.x, w.y, 2, "#c0fff0"); px(o, w.x, w.y, "#ffffff");
+        }
+        // the lured shot, curving off its road mark to the wisp
+        for (let s = 0; s <= 1; s += 0.025) { const x = t.x + (lure.x - t.x) * s + Math.sin(s * Math.PI) * 26, y = t.y - 22 + (lure.y - t.y + 22) * s; px(o, x, y, "#a0fff0"); px(o, x + 1, y, "#40c8a0"); }
+        return c;
+      };
+
+      const out = (name, c) => {
+        return fetch(`/__shot?name=hwx_${TAG}_${name}`, { method: "POST", body: c.toDataURL("image/png").slice(22) });
+      };
+      for (const [k, f] of Object.entries(opts)) await out(k, f());
+      document.title = "DONE"; document.getElementById("status").textContent = "saved";
+    </script>
+  </body>
+</html>
