@@ -49,6 +49,11 @@
 //   deathBurst     {r, dmg, dps, dur} — dies violently: hurts knights in r,
 //                  and leaves plague ground that keeps hurting them
 
+// The Risen get back up ONLY under the blood moon (owner, 2026-11-21: "skeletons no longer
+// resurrect, except during the blood moon"). false = the old rule: every Risen felled by a
+// physical blow gets back up once, any time (engine/actions.js dealDamage).
+export const RISE_ONLY_IN_MOON = true;
+
 export const ENEMIES = {
   // ---- THE GREENWOOD HORDE ----
   goblin: {

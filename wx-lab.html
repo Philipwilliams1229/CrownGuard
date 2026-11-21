@@ -6,6 +6,7 @@
     /wx-lab.html?realm=crowstair&faction=iron&wave=15&weather=storm:1&rise=-3&snaps=0,8,16,24,32,40&bolt=1&tag=x
       rise=S     put the clock S seconds after the first spell starts rolling in
                  (negative: before it); snaps are seconds of combat from there
+      whole=1    a blood moon (weather=bloodmoon:1) rises at the first horn and never sets
       bolt=1     after the snaps, run on to the first lightning stroke and snap it
       freeze=1   instead: run the wave to its end and snap its last frame, a frame
                  10 s into the build phase, and one 1 s after the next horn
@@ -33,7 +34,7 @@
       selectFaction(q.get("faction") || "iron");
       setWaveWindow(null);
       const [kind, str] = (q.get("weather") || "storm:1").split(":");
-      setLevelWeather({ kind, strength: Number(str ?? 1) });
+      setLevelWeather({ kind, strength: Number(str ?? 1), ...(q.get("whole") ? { whole: true } : {}) });   // whole=1: a blood moon rises at the first horn
       const g = {
         run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 15) - 1, phase: "build",
         towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,

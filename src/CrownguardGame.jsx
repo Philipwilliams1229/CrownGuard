@@ -94,7 +94,9 @@ function waveComposition(waveNum) {
 // g.ckLevel names the level a campaign battle is keeping; Free Play, the
 // Endless March after a win and a battle already left keep nothing.
 const checkpointOf = (g, snap) => ({ levelId: g.ckLevel, snap, run: g.run ? { ...g.run } : null,
-  weather: g.weather ? { clock: g.weather.clock || 0, wet: g.weather.wet || 0 } : null });
+  weather: g.weather ? { clock: g.weather.clock || 0, wet: g.weather.wet || 0,
+    // the blood moon's one rising: its wave, and once risen its schedule (engine/weather.js moonStart)
+    moon: g.weather.moonWave != null ? { wave: g.weather.moonWave, segs: g.weather.moonStarted ? g.weather.segs.slice(0, 6) : null } : null } : null });
 // every frame: the horn's snapshot (the wave as it began) and the build phase
 // after a cleared wave are written; a won or lost level forgets it
 const tickCheckpoint = (g) => {
@@ -133,7 +135,12 @@ const resumeBattle = (g, ck, scope) => {
   g.castle = { ...loadCastle(scope) };
   if (ck.run) g.run = { ...g.run, ...ck.run };
   tickWeather(g, 0, 0);   // the level's weather, then its clock where it stood
-  if (g.weather && ck.weather) { g.weather.clock = ck.weather.clock; g.weather.wet = ck.weather.wet; }
+  if (g.weather && ck.weather) {
+    g.weather.clock = ck.weather.clock; g.weather.wet = ck.weather.wet;
+    const m = ck.weather.moon;
+    if (m) { g.weather.moonWave = m.wave; if (m.segs) { g.weather.moonStarted = true; g.weather.segs = m.segs.map((x) => ({ ...x })); g.weather.segI = 0; } }
+    tickWeather(g, 0, 0);
+  }
   g.ckSnap = g.snapshot; g.ckWave = g.wave;
 };
 

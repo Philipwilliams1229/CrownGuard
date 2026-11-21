@@ -195,6 +195,24 @@ export const WEATHER_KINDS = {
     tick: (g, w, def, sdt, tms) => driftMist(g, w, def, sdt, tms),
     paint: "gravemist", sound: "moan",
   },
+  // ---- the Hollowfen: the BLOOD MOON (owner, 2026-11-21; replaces the grave mist) ----
+  // ONE moon a level: the red light creeps in (`rollIn`), holds at its height
+  // (`lasts`), then fades (`rollOut`) and never comes back that level. It
+  // rises at the horn of a seeded wave `moonAt` of the way through the level
+  // (whole: true, the Throne of Dust, at the first horn and never sets; Free
+  // Play at wave 2). Only while it is at its height (g.moonUp, read by
+  // dealDamage) does a Risen felled by a physical blow get back up; and every
+  // undead foe that is not burning mends `mend` of its health a second
+  // (update.js). RISE_ONLY_IN_MOON (data/enemies.js) is the switch back to
+  // the old rule (Risen always get back up).
+  bloodmoon: {
+    name: "Blood Moon", moon: true,
+    first: [1e7, 1e7], calm: [1e7, 1e7], rollIn: [20, 25], lasts: [60, 80], rollOut: [18, 22],
+    moonAt: [0.5, 0.7], mend: 0.015, fx: {},
+    grade: (s) => ({ lasts: s < 0.6 ? span(60, 70, 75, 85, (s - 0.35) / 0.25) : span(120, 150, 150, 180, Math.min(1, (s - 0.7) / 0.2)),
+      moonAt: s < 0.6 ? [0.5, 0.7] : [0.4, 0.6] }),
+    paint: "bloodmoon", sound: "moan",
+  },
   // ---- zone V, the Ashen Reach: ERUPTIONS (no level yet) ----
   // Burning rocks fall on and near the road after a shadow and a whistle
   // (`rockWarn` ms) while it is at its height: they hurt the foes they land
@@ -253,7 +271,9 @@ export const weatherDefOf = (w) => {
   const kind = w && WEATHER_KINDS[w.kind];
   if (!kind) return null;
   const gr = w.strength != null && kind.grade ? kind.grade(Math.max(0, Math.min(1, w.strength))) : {};
-  return { ...kind, ...gr, ...w, fx: { ...kind.fx, ...(gr.fx || {}), ...(w.fx || {}) } };
+  const def = { ...kind, ...gr, ...w, fx: { ...kind.fx, ...(gr.fx || {}), ...(w.fx || {}) } };
+  if (def.moon && def.whole) def.lasts = [1e7, 1e7];   // the Throne of Dust: the moon never sets
+  return def;
 };
 
 const roll = (w, [a, b]) => a + (b - a) * w.rng();   // (w: anything with an rng())
@@ -302,10 +322,28 @@ const ensure = (g, def) => {
   return w;
 };
 
+// The blood moon's one rising: which wave's horn brings it (seeded, a share of
+// the level's waves; `whole` at the first; Free Play at wave 2), and when that
+// wave is in hand the first calm is cut short at the clock as it stands.
+export const moonWaveOf = (w, def) => {
+  if (w.moonWave == null) {
+    const V = victoryWave() || 20;
+    w.moonWave = def.whole ? 1 : SANDBOX ? 2 : Math.max(2, Math.round(V * roll(w.srng, def.moonAt || [0.5, 0.7])));
+  }
+  return w.moonWave;
+};
+const moonStart = (g, w, def, combat) => {
+  if (w.moonStarted || !combat || g.wave < moonWaveOf(w, def)) return;
+  w.moonStarted = true;
+  w.segs = [{ ph: "calm", t0: 0, t1: Math.max(0.01, w.clock), spell: 0 }];
+  w.segI = 0; w.spells = 0;
+};
+
 // Advance the weather one frame (update.js calls it every frame, any phase).
 export const tickWeather = (g, sdt, tms) => {
   Object.assign(WX, NEUTRAL);
   const def = weatherDef();
+  g.moonUp = false; g.moonMend = 0;
   if (!def) { g.weather = null; return; }
   const w = ensure(g, def);
   burnHalls(g, sdt);
@@ -313,6 +351,7 @@ export const tickWeather = (g, sdt, tms) => {
   if (def.fade) { fogTick(g, w, def, sdt, combat); return; }
   if (combat) w.clock += sdt;            // between waves the clock (and so the weather) stands still
   else w.marks.length = 0;               // no one is fighting: a gathering stroke never falls
+  if (def.moon) moonStart(g, w, def, combat);
   const seg = segAt(w, def, w.clock);
   const was = w.phase;
   w.phase = seg.ph;
@@ -326,6 +365,7 @@ export const tickWeather = (g, sdt, tms) => {
     if (combat) w.wet = w.k > wet ? Math.min(w.k, wet + sdt / (def.wetIn || 25)) : Math.max(w.k, wet - sdt / (def.wetOut || 45));
     else w.wet = wet;
   }
+  if (def.moon && w.phase === "squall") { g.moonUp = true; g.moonMend = def.mend || 0; }
   w.bite = w.k > 0.02 || w.wet > 0.02;
   if (w.bite) applyFx(def, w.k, def.soaks ? w.wet : w.k);
   if (def.floods) tickFloods(w, def);
@@ -688,6 +728,7 @@ export const FORECAST = {
   storm:     { brewing: "Storm brewing", rising: "Storm rolling in", height: "Storm overhead", easing: "Storm passing", likely: "Storm likely" },
   gravemist: { brewing: "Mist gathering", rising: "Mist rising", height: "Grave mist", easing: "Mist thinning", likely: "Mist likely" },
   blizzard:  { brewing: "Snow coming", rising: "Wind rising", height: "Blizzard", easing: "Blizzard easing", likely: "Snow likely" },
+  bloodmoon: { brewing: "The moon rises red", rising: "Blood moon rising", height: "Blood moon", easing: "Blood moon setting", likely: "Blood moon likely" },
   eruption:  { brewing: "The mountain rumbles", rising: "Ash falling", height: "Eruptions", easing: "Eruptions dying down", likely: "Eruptions likely" },
 };
 // the last foe out of the wood still has the road to walk (~55 px/s)
@@ -710,7 +751,12 @@ export const forecast = (g, n) => {
     const r = fogThickness(Math.max(w.fogP || 0, (n - 1) / fogLength()));
     return say(r >= 0.999 ? "height" : r > 0 ? "easing" : def.floor > 0 ? "lingering" : "clear");
   }
+  if (def.moon && !w.moonStarted) {
+    const mw = moonWaveOf(w, def);
+    return n >= mw ? say("brewing") : say("clear");
+  }
   const seg = segAt(w, def, w.clock);
+  if (def.moon && seg.ph === "calm") return say("clear");
   if (seg.ph === "rising") return say("rising");
   if (seg.ph === "squall") return say("height");
   if (seg.ph === "easing") return say("easing");

@@ -14,7 +14,7 @@ import { TOWERS } from "../data/towers.js";
 import { cragBlocks } from "../data/gatecrag.js";
 import { barrowBlocks } from "../data/barrowgate.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
-import { ENEMIES } from "../data/enemies.js";
+import { ENEMIES, RISE_ONLY_IN_MOON } from "../data/enemies.js";
 import { makeTower, syncUnits, getStats, bowPosts } from "./towers.js";
 import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
@@ -521,8 +521,10 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
       }
     }
     // a Risen knocked apart by steel, arrows or stones gets back up, once
-    // (`reassemble`, enemies.js); magic and holy blows end it (update.js)
-    if (e.reassemble && !e.revived && dtype === "phys" && !holy) e.reforms = true;
+    // (`reassemble`, enemies.js); magic and holy blows end it (update.js).
+    // Only under the blood moon (g.moonUp, engine/weather.js) unless the old
+    // rule is switched back on (RISE_ONLY_IN_MOON false, enemies.js)
+    if (e.reassemble && !e.revived && dtype === "phys" && !holy && (!RISE_ONLY_IN_MOON || g.moonUp)) e.reforms = true;
     // a transmuter's aura makes every nearby death pay better — in fractions,
     // carried over, so a one-coin goblin in the aura pays 1.25 and not 2
     let pay = e.bounty;

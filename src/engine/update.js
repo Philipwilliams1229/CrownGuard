@@ -1950,6 +1950,9 @@ export function updateGame(g, dt) {
     for (const e of g.enemies) {
       if (e.dead || e.ship || e.sea) continue;    // (a longship sails by rime.js, a sea monster swims by serpent.js, not the road)
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
+      // the blood moon mends the undead (engine/weather.js g.moonMend), never while they burn
+      if (g.moonMend && e.hp < e.maxHp && !e.neutral && !(e.burnUntil > tms) && (e.revived || e.haunts || ENEMIES[e.type]?.faction === "hollow"))
+        e.hp = Math.min(e.maxHp, e.hp + e.maxHp * g.moonMend * sdt);
       // Goblin Shaman: a rhythmic chant mends the WHOLE warband
       // Battle Chaplain: the same, but only for those near him, by a share of
       // each one's own health (capped, so a ram is not mended like a levy)
