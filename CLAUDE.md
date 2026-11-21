@@ -797,7 +797,9 @@ uses; existing levels sim byte-identical). Read the headers of
   seaserpent, kraken, krakenarm). rimefx.js only aliases a type that has
   no rig yet.
 - **Weather in every zone** (`src/data/weather-plan.js`): greenwood `fog`,
-  iron `storm`, hollow `gravemist`, rime `blizzard`, ash `eruption`; none
+  iron `storm`, hollow `gravemist` (OFF since 2026-11-21, owner: "turn off
+  gravemist for now": `hollow: null` in CHAPTER_WEATHER gives the Hollowfen
+  clear skies; Free Play can still pick it), rime `blizzard`, ash `eruption`; none
   in a chapter's first third, 0.35-0.55 in the middle, 0.7-0.9 in the last
   third, 1 at the boss; a level may set `weather: false` or its own.
   `sim.mjs --weather kind:strength|none`. Free Play: `weather` /

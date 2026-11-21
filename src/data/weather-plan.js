@@ -19,7 +19,7 @@
 export const CHAPTER_WEATHER = {
   greenwood: "fog",          // the Greenwood's morning fog
   iron: "storm",             // the Iron Marches' thunderstorms
-  hollow: "gravemist",       // the Hollowfen's grave mist
+  hollow: null,              // the Hollowfen's grave mist ("gravemist"): OFF for now (owner, 2026-11-21)
   rime: "blizzard",          // zone IV, the Rimewater
   ash: "eruption",           // zone V, the Ashen Reach
 };
@@ -40,6 +40,7 @@ export const weatherFor = (lv) => {
   if (lv.weather === false) return null;
   if (lv.weather && typeof lv.weather === "object") return lv.weather;
   const ch = lv.chapter || {};
+  if (CHAPTER_WEATHER[ch.id] === null) return null;   // a chapter whose weather is switched off: clear skies
   const kind = CHAPTER_WEATHER[ch.id] || CHAPTER_WEATHER[ch.faction];
   if (!kind) return undefined;
   const s = weatherStrength(lv.index ?? 0, ch.levels ? ch.levels.length : 1, !!lv.window?.boss);
