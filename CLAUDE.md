@@ -881,6 +881,9 @@ agent with a tool-call budget instead of starting a fresh one.
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
 The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated.
+- **Hidden mechanics** (2026-11-20): secrets the game never shows or explains. First idea: two
+  Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
+  blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
 
 ## Open threads (as of 2026-09-29)
