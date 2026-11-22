@@ -877,7 +877,7 @@ estuary shows on the test board `rimefjord` until a level gets one.
 Lesson: the session limit cut three of four agents off; resume a cut-off
 agent with a tool-call budget instead of starting a fresh one.
 
-## The Blood Moon (2026-11-21, owner request; NOT on main yet, on claude/exciting-einstein-pcc5zb)
+## The Blood Moon (2026-11-21, owner request; on main since 2026-11-22)
 
 The Hollowfen's weather, replacing the grave mist, and a rework of the dead getting back up. The
 owner wants it reversible and played in a preview before it reaches main.
