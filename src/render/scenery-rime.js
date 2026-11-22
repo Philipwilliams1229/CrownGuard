@@ -129,7 +129,7 @@ const rimeTurf = (ctx, kit) => {
     drift[j * FW + i] = fbm((u + wx) / 150, (v + wy) / 48, seed + 11);
     rip[j * FW + i] = vn(u / 70, v / 34, seed + 21);
     wood[j * FW + i] = forestDepthAt(x, y);
-    dmask[j * FW + i] = sstep(0.56, 0.76, fbm(u / 170, v / 30, seed + 31));
+    dmask[j * FW + i] = sstep(0.62, 0.8, fbm(u / 170, v / 30, seed + 31));
     // crests scalloped into crescents, horns trailing downwind, every ~40 units across the wind
     const sv = v + (vn(u / 80, v / 60, seed + 45) - 0.5) * 40;
     dwob[j * FW + i] = (fbm(u / 140, v / 90, seed + 41) - 0.5) * 60 + 16 * (1 - Math.cos(sv * Math.PI * 2 / 40)) * 0.5;
@@ -144,13 +144,13 @@ const rimeTurf = (ctx, kit) => {
   const tone = new Uint8Array(PW * PHh), temp = new Uint8Array(PW * PHh);
   const put = (i, c) => { const o = i << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; };
   const SX = -DAY.side, LOW = DAY.on ? 1 - DAY.elev : 0;           // the sun's side (1 = west, as at noon); how low it stands
-  const DP = 84, FC = 0.8;                                          // dune spacing along the wind; where the crest stands in it
-  const DUNE = { f: 0, A: 0 };
+  const DP = 110, FC = 0.8;                                          // dune spacing along the wind; where the crest stands in it
+  const DUNE = { f: 0, A: 0, i: 0 };
   const dune = (x, y) => {                                          // its slope along the wind (per unit) and its height 0..1
     const A = at(dmask, x, y) * 0.5;
     if (A < 0.004) { DUNE.A = 0; DUNE.f = 0; return [0, 0]; }
     const p = (windU(x, y) + at(dwob, x, y)) / DP, f = p - Math.floor(p);
-    DUNE.A = A; DUNE.f = f;
+    DUNE.A = A; DUNE.f = f; DUNE.i = Math.floor(p);
     if (f < FC) { const t = f / FC; return [A * 6 * t * (1 - t) / FC / DP, A * t * t * (3 - 2 * t)]; }
     const t = (f - FC) / (1 - FC);
     return [-A * 2 * (1 - t) / (1 - FC) / DP, A * (1 - t) * (1 - t)];
@@ -178,10 +178,14 @@ const rimeTurf = (ctx, kit) => {
       let tp = sun + dz2 * 0.45 < -0.3 ? 0 : sun + dz2 * 0.4 > 0.35 ? 2 : 1;
       if (sun + dz2 * 0.4 < -0.95 && tn > 2) tn--;          // the deep lee, one step down and blue
       // the dune's cornice: a lit lip right on the crest, a dark seam of shadow under its overhang
-      if (DUNE.A > 0.2) {
-        const e = DUNE.f - FC, lip = 0.01 + (DUNE.A - 0.2) * 0.06;
-        if (e > -lip && e < 0) { tn = Math.min(6, Math.max(tn, 4) + 1); tp = 2; }
-        else if (e >= 0 && e < 0.016 + DUNE.A * 0.03 && SX > 0) { tn = Math.max(1, tn - 1); tp = 0; }
+      // a dune reads by its shade: a soft stepped blue wedge under the crest fading downwind (sun in the
+      // west); only the strongest third of crests carry a short, broken lit lip, never a seam
+      if (DUNE.A > 0.12) {
+        const e = DUNE.f - FC;
+        if (e >= 0 && SX > 0) {
+          const t = e / (1 - FC), reach = Math.min(1, DUNE.A * 1.6);
+          if (t < reach && hash(px >> 1, py >> 1) < 1 - t / reach) { tn = Math.max(2, tn - 1); tp = 0; }
+        } else if (e < 0 && e > -0.012 && DUNE.A > 0.3 && hash(DUNE.i, seed + 77) < 0.33 && streak(px, py) < 0.7) { tn = Math.min(6, tn + 1); tp = 2; }
       }
       // wind ripples on the drifts' backs: fine lines across the wind
       const m = at(rip, x, y) * sstep(0.38, 0.62, D);
