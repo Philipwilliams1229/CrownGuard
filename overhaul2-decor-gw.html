@@ -5,7 +5,7 @@
   board's own decor in the patch (not its trees, not the mill) is lifted and the variation painted over it.
     /overhaul2-decor-gw.html?scene=gw|mr&opt=today|1|2|3&sun=noon|golden|night&save=1
     &strip=1       also saves a 4-frame life strip of the yard (ovh2_decorgw_strip_<scene>_<opt>.png)
-    ?sheet=rocks|build|ruins[&sun=night]   a close-up sheet on the board's grass (210 x 140 board units at 4x)
+    ?sheet=rocks|build|ruins|build2|ruins2|fixes[&sun=night]   a close-up sheet (round 3: build2, ruins2, fixes) on the board's grass (210 x 140 board units at 4x)
   Saves .shots/ovh2_decorgw_<scene>_<opt>[_<sun>].png: a 420 x 280 board patch at 4x (1680 x 1120).
 -->
 <html>
@@ -14,6 +14,22 @@
   <body>
     <div id="status">running…</div>
     <script type="module">
+      // ?batch=<query>;<query>;...  runs each lab query in an iframe in turn (round 3), title BATCH DONE at the end
+      const bq = new URLSearchParams(location.search).get("batch");
+      if (bq) {
+        const log = [];
+        for (const one of bq.split(";")) {
+          const f = document.createElement("iframe"); f.style.cssText = "width:900px;height:200px"; f.src = "/overhaul2-decor-gw.html?" + one + "&save=1"; document.body.appendChild(f);
+          const t0 = performance.now();
+          await new Promise((res) => { const tick = () => { let ti = ""; try { ti = f.contentDocument.title; } catch (e) {} if (ti === "DONE" || performance.now() - t0 > 90000) res(); else setTimeout(tick, 300); }; tick(); });
+          let err = ""; try { err = f.contentDocument.title === "DONE" ? "ok" : "TIMEOUT"; } catch (e) { err = "?"; }
+          log.push(one + ": " + err); f.remove();
+        }
+        document.getElementById("status").textContent = log.join(" | "); document.title = "BATCH DONE";
+      }
+    </script>
+    <script type="module">
+      if (new URLSearchParams(location.search).get("batch")) await new Promise(() => {});
       import { selectRealm } from "/src/data/maps.js";
       import { selectFaction } from "/src/data/factions.js";
       import { setWaveWindow } from "/src/data/waves.js";
@@ -61,15 +77,42 @@
       const out = document.createElement("canvas"); out.width = 1680; out.height = 1120;
       const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
       let name;
+      let out2 = out, o2 = o;
       if (SHEET) {
         // the board's own grass, a clean field patch tiled with flips, then the pieces
-        const sh = document.createElement("canvas"); sh.width = 420; sh.height = 280; const sc = sh.getContext("2d"); sc.imageSmoothingEnabled = false;
-        const [px0, py0, pw, ph] = [700, 500, 150, 130];
-        for (let j = 0; j * ph < 280; j++) for (let i = 0; i * pw < 420; i++) { sc.save(); sc.translate(i * pw + (i % 2 ? pw : 0), j * ph + (j % 2 ? ph : 0)); sc.scale(i % 2 ? -1 : 1, j % 2 ? -1 : 1); sc.drawImage(base, px0, py0, pw, ph, 0, 0, pw, ph); sc.restore(); }
-        const labels = paintSheet(sc, SHEET, { mode: SUN === "night" ? "night" : SUN === "golden" ? "golden" : "noon" });
-        o.drawImage(sh, 0, 0, 1680, 1120);
-        o.save(); o.scale(4, 4); for (const [x, y, s] of labels) label(o, x * 2, y * 2, s); o.restore();
-        name = `ovh2_decorgw_sheet_${SHEET}${SUN !== "noon" ? "_" + SUN : ""}`;
+        const grassFrom = (src, w, h) => {
+          const sh = document.createElement("canvas"); sh.width = w; sh.height = h; const sc = sh.getContext("2d"); sc.imageSmoothingEnabled = false;
+          const [px0, py0, pw, ph] = [700, 500, 150, 130];
+          for (let j = 0; j * ph < h; j++) for (let i = 0; i * pw < w; i++) { sc.save(); sc.translate(i * pw + (i % 2 ? pw : 0), j * ph + (j % 2 ? ph : 0)); sc.scale(i % 2 ? -1 : 1, j % 2 ? -1 : 1); sc.drawImage(src, px0, py0, pw, ph, 0, 0, pw, ph); sc.restore(); }
+          return sh;
+        };
+        const baseAt = (sun) => { setDay(sun); draw(g, cv, { current: null }); draw(g, cv, { current: null }); const b = document.createElement("canvas"); b.width = cv.width; b.height = cv.height; b.getContext("2d").drawImage(cv, 0, 0); return b; };
+        const panel = (kind, w, h, sun) => { const B = sun === "golden" ? baseAt("golden") : (setDay("noon"), base); const sh = grassFrom(B, w, h); const lab = paintSheet(sh.getContext("2d"), kind, { mode: sun }); return [sh, lab]; };
+        const tag = (c, x, y, s) => { c.font = "bold 26px monospace"; c.fillStyle = "rgba(20,16,24,0.85)"; c.fillText(s, x + 2, y + 2); c.fillStyle = "#f4ecd8"; c.fillText(s, x, y); };
+        if (SHEET === "ruins2") {
+          const [top, lab] = panel("ruins2", 420, 176, "noon");
+          o.drawImage(top, 0, 0, 1680, 704);
+          o.save(); o.scale(4, 4); for (const [x, y, s] of lab) label(o, x * 2, y * 2, s); o.restore();
+          const [p1] = panel("chapelOne", 210, 208, "golden"); o.drawImage(p1, 0, 704, 420, 416);
+          const [p2] = panel("chapelOne", 210, 208, "night"); o.drawImage(p2, 420, 704, 420, 416);
+          const [p3] = panel("boardSize", 420, 416, "noon"); o.drawImage(p3, 840, 704);
+          const [p4] = panel("boardSize", 420, 416, "night"); o.drawImage(p4, 1260, 704);
+          o.fillStyle = "#20242c"; for (const x of [419, 839, 1259]) o.fillRect(x, 704, 2, 416); o.fillRect(0, 703, 1680, 2);
+          tag(o, 10, 734, "GOLDEN HOUR, 2x"); tag(o, 430, 734, "DUSK: LANTERN + CANDLE, 2x"); tag(o, 850, 734, "BOARD SIZE: before | after"); tag(o, 1270, 734, "BOARD SIZE, DUSK");
+          name = "ovh2_decorgw_sheet_ruins2";
+        } else if (SHEET === "fixes") {
+          out2 = document.createElement("canvas"); out2.width = 1680; out2.height = 704; o2 = out2.getContext("2d"); o2.imageSmoothingEnabled = false;
+          const [top, lab] = panel("fixes", 420, 176, SUN);
+          o2.drawImage(top, 0, 0, 1680, 704);
+          o2.save(); o2.scale(4, 4); for (const [x, y, s] of lab) label(o2, x * 2, y * 2, s); o2.restore();
+          o2.fillStyle = "#20242c"; o2.fillRect(698, 0, 3, 704);
+          name = "ovh2_decorgw_fixes";
+        } else {
+          const [sh, labels] = panel(SHEET, 420, 280, SUN === "night" ? "night" : SUN === "golden" ? "golden" : "noon");
+          o.drawImage(sh, 0, 0, 1680, 1120);
+          o.save(); o.scale(4, 4); for (const [x, y, s] of labels) label(o, x * 2, y * 2, s); o.restore();
+          name = `ovh2_decorgw_sheet_${SHEET}${SUN !== "noon" ? "_" + SUN : ""}`;
+        }
       } else {
         if (OPT !== "today") paintDecor2(ctx, SC, OPT, { mode: SUN, frame: 0 });
         else if (SUN === "night") nightOnly(ctx);
@@ -77,8 +120,8 @@
         o.drawImage(cv, bx * 2, by * 2, 840, 560, 0, 0, 1680, 1120);
         name = `ovh2_decorgw_${SCN}_${OPT}${SUN !== "noon" ? "_" + SUN : ""}`;
       }
-      document.body.appendChild(out);
-      if (q.get("save")) await fetch(`/__shot?name=${name}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.body.appendChild(out2);
+      if (q.get("save")) await fetch(`/__shot?name=${name}`, { method: "POST", body: out2.toDataURL("image/png").slice(22) });
       const ST = q.get("strip");
       if (ST && !SHEET && OPT !== "today") {
         const [sx, sy, sw, sh2] = ST.split(",").map(Number), N = 4, st = document.createElement("canvas");

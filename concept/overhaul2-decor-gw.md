@@ -122,3 +122,64 @@ are the existing nightlight stamps (each lamp one pool + one bloom). Ledges bake
 beside water** (Millrace, Gullwick's strand) so the vale has a village somewhere, and **1's croft** as the
 light touch for boards that need their corners for halls. The farm gives the most story for its footprint, keeps
 today's house look at a hall's scale, and its two short ledges show C's bones without re-shaping the board.
+
+## ROUND 3 (2026-11-22, the owner's picks on the round-2 page)
+
+**The farm is chosen** (Gullwick "I like the little village here best", Millrace "This one"): `opt=farm` (= 2) is the
+Greenwood's village language. Polished at full size:
+- **Everything stands IN the turf** (owner: "This stone fence thing is floating off the ground"). Two causes: the
+  wall's shadow was sheared from the sprite's anchor row, so a wall on a slope hung above its shadow; and nothing
+  had a contact line. Now: `Scene2` paints a dark earth line (and a softer pixel away from the sun) under every
+  column whose lowest pixel stands on the ground (`bottoms`, within 3 px of the foot); walls and fences carry
+  `spr.foot` (their own foot line) and their shadow is cast column by column from it; `legacy: true` on an item
+  draws it the round-2 way (the BEFORE pictures). Helpers `tufts` (grass against a foot, behind and in front),
+  `collar` (a turf collar for posts), `footOf`.
+- **Drystone wall** redrawn (`dryWall`; round 2's is `dryWallOld`): one coursed face of flat field stones
+  (beds, staggered joints, each stone its own value), a base course of bigger darker footing stones a pixel
+  proud of the face and set into the ground, upright cope stones, a dark line where stone meets earth, tufts in
+  front and at the ends, grass in the joints.
+- **Fences** (`fence`, round 2's `fenceOld`): posts driven in with a turf tongue and a tuft each, a field gate
+  hung in a run (`gate`), and `fenceRun(S, pts, lx, ly)` places each segment at its own foot (runs going up the
+  page are separate posts plus a shadowless rail sprite), so every post and its shadow stand where they are.
+- Also given feet: haystacks (flared darker skirt, spilled straw, tufts), the tent (pegs, hem line, tufts), the
+  net rack (poles wedged in beach stones), the fingerpost (a cairn of field stones), the shrine (a plinth step),
+  the lamp post (a stone footing), the well (tufts, a step stone), washing-line posts, stile, field gate, bench,
+  woodpile (a sill), every house's plinth (tufts against it), rocks (they had a skirt; now the contact line too).
+- **Lanterns** (`lantern`): a cap, a dark iron body, warm horn panes with the flame in them, a base ring:
+  readable at noon. The panes are laid on AFTER the sculpt resolves (`Lt.paint` in `spriteL`): a 2-px part in
+  front of another is eaten by the tinted edge line in pix.js (worth knowing for any small lit detail).
+- **Hens** (`hen3`): plump body, cocked tail, head with comb, wattle and beak, two legs; white, brown, russet.
+- **Deer**: ported from the trees artist's roe deer (grey-fawn, pale rump, clear head, neck and legs) at 0.8 size.
+- **Thatch**: combed in broken runs every 2 rows along the slope, lit straws on the sunny slope, hazel liggers
+  along the ridge.
+- Gullwick's farm gained a fenced kitchen garden with its gate toward the yard and a woodpile by the barn; the
+  hens moved into the yard. Millrace's garden moved from the far field to beside the hen run.
+
+**The chapel** (owner: "The roof looks disconnected from the little tower"): `chapel(seed, { lamp })`, one
+building. Plan: a small nave running back up the page with its WEST GABLE toward us carrying a bellcote. The
+bellcote is the gable wall grown up past the roof line, one polygon, the same courses running through both,
+quoins up the gable corners and the bellcote's corners; the raking copings run from kneelers at the eaves and
+stop against the bellcote's piers. Behind: slates still tucked under the north-west coping, bare rafters on both
+slopes, one fallen; the side walls stand full height only where the rafters rest and are broken lowest toward the
+back, the east gable low and ragged with a slit. A Y-traceried west lancet with hood-mould and sill, a pointed
+doorway with its hood and step, a plinth course, buttresses with set-offs, ivy up the north-west corner, a yew,
+two leaning headstones, fallen blocks. At dusk: a lantern by the door and a candle on the window sill. The
+hamlet (variation 3) now uses it; round 2's `chapelGable` is kept for the BEFORE pictures.
+
+Lab additions: `?opt=farm`; `?sheet=build2|ruins2|fixes`; `?batch=<query>;<query>...` runs lab queries in turn in
+iframes (title BATCH DONE). Other sessions' edits reload the page and restart a batch: keep batches short.
+
+Pictures (`.shots/`): `ovh2_decorgw_gw_farm.png` (+ `_golden`, `_night`), `ovh2_decorgw_mr_farm.png` (+ `_golden`,
+`_night`), `ovh2_decorgw_sheet_build2.png` (every farm piece at 4x), `ovh2_decorgw_sheet_ruins2.png` (the old
+tower, the new chapel at 4x, walls / fence / kerbs; below: the chapel at golden hour 2x, at dusk with its lights
+2x, and at board size before | after, noon and dusk), `ovh2_decorgw_fixes.png` (wall + fence and chapel, before
+and after, 4x).
+
+Weak spots (round 3):
+- The chapel's side-wall tops, seen straight up the page, read as two short pale piers at the back corners at
+  board size (the board's camera shows a north-south wall only as its top).
+- The yew reads as a dark round broadleaf more than a yew at board size.
+- The wall's coursing is fine at 4x but reads as a pale strip with a crenellated top at board size.
+- The deer were ported, not redrawn; if the trees artist changes theirs, take it again.
+- The lantern panes are painted after the bake: in the game they would be part of the baked sprite the same way.
+- The night is still the stand-in Greenwood night (a blue multiply), not a game night.
