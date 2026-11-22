@@ -159,3 +159,17 @@ GROUND
 - **The tarn's culverts** (a comment on round 3's lake variety sheet): "these like pipe entrances need work. we
   should be able to see in the one on the bottom". (The culvert on the lake's south side opens toward the viewer:
   draw its dark mouth with the water running into it; the north one is seen from behind / above.)
+
+## The owner's answers to round 3's five questions (2026-11-22, late)
+
+1. Willow (the green everyday willow on the bare winter shape): "yes". APPROVED.
+2. Tree mix: "yeah thats originally what i said but actually can you just do 4 now, but give me a bit of variety in
+   how the foliage fills out the tree 'skeleton'?" So: TREATMENT 4 ONLY (broken canopy); no 3. Variety comes from
+   how the leaf masses sit on the boughs: fuller / sparser, lopsided, gaps in different places, a bare bough.
+3. Farmland: "I think that went too far. I didnt mind how much farm there was total, i think it was more that the
+   lots were small and it swapped textures between the different crops too much. lets see another few ideas for
+   that." So: keep roughly round 3's AMOUNT of farmland; make lots bigger and change crop texture less often
+   between neighbours. Show a few options.
+4. Chapel and wall: "they look great." APPROVED.
+5. The mere's bank: "perfect". APPROVED. (They did not answer whether lakes should be added to boards that have
+   none: do not assume; ask again when it matters.)

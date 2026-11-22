@@ -1083,6 +1083,9 @@ overhaul, show bold options before building.
   current version of each thing, a status table, the four questions waiting on the owner (willow reading, tree-mix reading,
   farmland calm, chapel / wall redraws), stills and playing loops together. Over ~64 MB a publish must be split in two
   calls (stills first, then the loop sheets with slug + base_version). New owner comments go there.
+  **Answers to round 3's questions:** the strand willow APPROVED; trees are TREATMENT 4 ONLY now (not the 3+4 mix), with
+  variety in how the foliage fills each tree's skeleton; the chapel and wall redraws APPROVED; the mere's bank "perfect";
+  farmland "went too far": keep the amount of farm, bigger lots, fewer texture changes between neighbours: more options asked.
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
