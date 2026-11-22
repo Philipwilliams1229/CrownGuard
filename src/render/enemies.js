@@ -182,7 +182,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
   {
     const feetY = e.y + e.size * 0.55 + hover;
     // (a shielded foe shrugs every status off, so none is shown on it)
-    if (e.burnUntil > tms) e._rf = { skin, ps, pf };   // the frame drawn: the burn reads its silhouette (statusfx.js)
+    if (e.burnUntil > tms || (!e.immSlow && (e.slowUntil > tms || e.auraSlow > 0))) e._rf = { skin, ps, pf };   // the frame drawn: the burn and the slow's mist read its silhouette (statusfx.js)
     if (!(e.guard > 0)) drawStatus(ctx, e, time, tms, feetY, feetY - headroom(skin));
   }
   // the falconer's mark: four gold corners closing on the prey

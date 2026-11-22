@@ -900,7 +900,12 @@ Bring these up with the owner; don't act on them unasked.
   brief `art/briefs/fx-round6.md`, row `slow6` in `concept/fx-r6-slow.js`,
   `node scripts/build-fx-concepts.mjs round6`. Private Artifact "Crownguard Effects Concepts, Round 6"
   (slug fd2dba94-116f-4103-8043-3937261a295e): Today / A hoarfrost edge / B creeping ice / C cold mist /
-  D chilled colours, plus B on a burning foe (fire + frost). Waiting on the owner's pick.
+  D chilled colours, plus B on a burning foe (fire + frost). The owner picked **C, cold mist** (it
+  overlaps least with fire, stun and poison); IN THE GAME the same day, a step stronger than the
+  concept (brief `art/briefs/slow-mist-build.md`): statusfx.js `statusSlow` (the old ring is only
+  the fallback for a figure with no `e._rf`), no star wheel over the head. 200 slowed foes 0.37 ->
+  0.41 ms through statusSlow (the old path also blitted the star wheel); ~4-5 MB of mist bakes for 8
+  types. A newly slowed type fills in over a few frames (2 bakes a frame). Pending the owner's look.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
