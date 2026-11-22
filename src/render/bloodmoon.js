@@ -129,6 +129,21 @@ export const moonKeyLight = (g) => {
 export const MOON_KEY = { x: -150, y: -130, r: 1500, col: "#ff4a38" };
 
 // ---- the painter ----
+// The night is laid in two layers (lead, 2026-11-22; owner: "a little bit too hard to see ... increase
+// contrast on the towers"): the full shade goes on the GROUND (bloodmoonGround, before the halls and
+// figures are drawn), and only SHADE_ACTORS of it over them, so towers, soldiers and foes stand out
+// lighter against the dark land. The fade follows k continuously (it was stepped in eighths, owner:
+// "the fading in and out was kind of choppy").
+const SHADE_GROUND = 0.85, SHADE_ACTORS = 0.4;
+const shade = (ctx, a) => {
+  if (!LAYERS) LAYERS = bakeLayers();
+  const prevOp = ctx.globalCompositeOperation, pa = ctx.globalAlpha;
+  ctx.globalAlpha = a;
+  ctx.globalCompositeOperation = "multiply";
+  ctx.drawImage(LAYERS.shade, -8, -8, W + 16, H + 16);
+  ctx.globalCompositeOperation = prevOp;
+  ctx.globalAlpha = pa;
+};
 // k eases in with the rising moon; a small slow swell keeps the light alive between waves too (g.time)
 export const bloodmoonPaint = (ctx, g, w) => {
   const k = clamp01(w.k), t = g.time;
@@ -136,16 +151,14 @@ export const bloodmoonPaint = (ctx, g, w) => {
   if (!LAYERS) LAYERS = bakeLayers();
   const prevOp = ctx.globalCompositeOperation, pa = ctx.globalAlpha;
   const swell = 0.96 + 0.04 * Math.sin(t * 0.7);
-  // the shade over the whole board, then the red rake from the upper left
-  ctx.globalAlpha = Math.ceil(k * 8) / 8;
-  ctx.globalCompositeOperation = "multiply";
-  ctx.drawImage(LAYERS.shade, -8, -8, W + 16, H + 16);
+  // a lighter shade over the actors, then the red rake from the upper left
+  shade(ctx, k * SHADE_ACTORS);
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = Math.ceil(k * 8) / 8 * swell;
+  ctx.globalAlpha = k * swell;
   ctx.drawImage(LAYERS.rake, -8, -8, W + 16, H + 16);
   ctx.globalCompositeOperation = prevOp;
   // each hall's torches as light
-  ctx.globalAlpha = Math.ceil(k * 8) / 8;
+  ctx.globalAlpha = k;
   drawLampBloom(ctx, t);
   swapLamps();
   // the undead's eyes, over the shade: they are the brightest thing on the board
@@ -154,10 +167,12 @@ export const bloodmoonPaint = (ctx, g, w) => {
 };
 export const bloodmoonGround = (ctx, g, w) => {
   const k = clamp01(w.k);
-  if (k < 0.02) return;
+  if (k < 0.01) return;
   nightTick(g.time);
+  // the land's full night, under everything standing on it
+  shade(ctx, k * SHADE_GROUND);
   const pa = ctx.globalAlpha;
-  ctx.globalAlpha = Math.ceil(k * 8) / 8;
+  ctx.globalAlpha = k;
   drawLampPools(ctx, g.time);
   ctx.globalAlpha = pa;
 };

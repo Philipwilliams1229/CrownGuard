@@ -890,9 +890,12 @@ owner wants it reversible and played in a preview before it reaches main.
 - **One moon a level** (owner: "one moon per level only"): kind `bloodmoon` (engine/weather.js),
   `moon: true`; first/calm are 1e7 so the clock never brings a second spell. `moonStart` cuts the
   first calm at the horn of `moonWaveOf` (seeded: `moonAt` 0.5-0.7 of the level's waves when mild,
-  0.4-0.6 strong; `whole` at wave 1; Free Play at wave 2). Then ~20-25 s creeping in, the height
-  (`lasts`: mild 60-85 s, strong 120-180 s; owner: at least 60 s mild, 2-3 min strong, "likely i
-  will want longer moons"), ~20 s fading. The forecast says "The moon rises red" for its wave.
+  0.4-0.6 strong; `whole` at wave 1; Free Play at wave 2). Then ~30-35 s creeping in, the height
+  (`lasts`, owner 2026-11-22 after playing it: "a full 3 minutes on mild and we can go longer on the
+  higher settings": mild 180 s, strong 240-300 s by strength; `moonAt` mild 0.45-0.6, strong 0.35-0.5
+  so it fits), ~30-35 s fading. The forecast says "The moon rises red" for its wave. Owner on the
+  first play (Saltgrave, died at wave 14): "significantly harder ... a good balance" to the chapter
+  being "really punishing in the beginning, but then got easier".
 - **Where** (`CURVES.hollow`, weather-plan.js): none on the Grave Road, mild on levels 2-7, strong
   on 8-14, and the Throne of Dust under it the whole level (`whole: true`, lasts 1e7).
 - The checkpoint keeps the moon's wave and schedule (CrownguardGame.jsx `checkpointOf` / resume).
@@ -908,6 +911,11 @@ owner wants it reversible and played in a preview before it reaches main.
   hall's `"torch"` lights in pix/halls.js). Measured +6 ms a frame in headless software Chromium (the
   storm costs the same there); not measured on a device. `bm-lab.html` (full-res snaps, `&perf=1`),
   `bm-eyes.html`. Weak: eyes draw over a hall standing in front; health bars dim a little.
+  Then (owner, 2026-11-22: "a little bit too hard to see ... increase contrast on the towers", "the
+  fading in and out was kind of choppy"): the shade is split, `SHADE_GROUND` 0.85 laid in the ground
+  pass (`bloodmoonGround`, before halls, figures and standing scenery) and only `SHADE_ACTORS` 0.4 over
+  them, so they stand out light on the dark land; every layer follows k continuously (it was stepped
+  in eighths).
 - **Balance** (`--chapter hollow --endure`, seeds 1/2, better doctrine): 11419 / 11363 -> 6113 / 6489
   castle damage; the early levels halved (Risen got up 2300-4000 times a level, now 150-550). Not
   retuned yet: the owner plays the preview first (levers: longer moons, Risen / Ghoul hp, crowds).

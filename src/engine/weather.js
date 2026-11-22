@@ -207,10 +207,12 @@ export const WEATHER_KINDS = {
   // the old rule (Risen always get back up).
   bloodmoon: {
     name: "Blood Moon", moon: true,
-    first: [1e7, 1e7], calm: [1e7, 1e7], rollIn: [20, 25], lasts: [60, 80], rollOut: [18, 22],
+    first: [1e7, 1e7], calm: [1e7, 1e7], rollIn: [30, 35], lasts: [180, 180], rollOut: [30, 35],
     moonAt: [0.5, 0.7], mend: 0.015, fx: {},
-    grade: (s) => ({ lasts: s < 0.6 ? span(60, 70, 75, 85, (s - 0.35) / 0.25) : span(120, 150, 150, 180, Math.min(1, (s - 0.7) / 0.2)),
-      moonAt: s < 0.6 ? [0.5, 0.7] : [0.4, 0.6] }),
+    // the height (owner, 2026-11-22: "a full 3 minutes on mild and we can go longer on the higher
+    // settings"): mild 3 min, strong 4-5 min by strength; ~30 s creeping in and ~30 s fading
+    grade: (s) => ({ lasts: s < 0.6 ? [180, 180] : span(240, 255, 285, 300, Math.min(1, (s - 0.7) / 0.2)),
+      moonAt: s < 0.6 ? [0.45, 0.6] : [0.35, 0.5] }),
     paint: "bloodmoon", sound: "moan",
   },
   // ---- zone V, the Ashen Reach: ERUPTIONS (no level yet) ----
