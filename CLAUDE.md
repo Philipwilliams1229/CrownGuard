@@ -966,6 +966,57 @@ owner wants it reversible and played in a preview before it reaches main.
   Iron Marches and the Grave Road cleared (Saltgrave next), every hall's paths and finals open and
   the treasury topped up to 350,000 once per `SEED_V` (bump it to top up again). The real build never loads it (no chunk is emitted without the flag).
 
+## The time of day: a fixed sun for every level (2026-11-22, owner request)
+
+"Static lighting environments ... the light in different positions across the sky ... the lower the sun
+position, the more into the 'sunset' look ... a sunrise position if it comes up in the east (right) ...
+dynamic shadow positions for each time of day ... color adjustments as we get into the golden hour", and
+"foliage and other decorative items (stones, rocks, old towers, etc) too". The owner's answers: SEVEN
+positions, fixed per level, the lead proposes the list, LOOK ONLY (no rule reads it), and the painted
+bright side of towers and figures moves to the sun's side (they picked it from a trial,
+`node scripts/sun-sides.mjs`). Built overnight by an Opus team (brief, ownership and status:
+`art/briefs/time-of-day.md`). NOT yet seen by the owner; NOT pushed.
+- **`src/data/sun.js`** (a leaf): `SUN_POS` (sunrise, early, morning in the EAST, the right, over the
+  castle: shadows fall left; noon; afternoon, late, golden in the WEST), the live sun `DAY` (`on` false at
+  noon, `side`, `elev`, `L`, `fall`, `len`, `col`, `warm`, `rim`, `shade`, `tone`, `v`), `setDay(id)`,
+  `onDay(fn)` for cache clearers, `SUN_PLAN` (15 a chapter for greenwood / iron / rime; a level may set
+  `sun: "golden"`), `sunFor(lv)`. **Noon is the game as it was: every painter stays pixel-identical at
+  noon** (guard new paths with `DAY.on`). The Hollowfen has no plan (its own sunset and moon), and a
+  blood-moon level is forced to noon in `startLevel`. A level has ONE sun, so everything bakes once and the
+  old sun's bakes are dropped (no seven-fold memory).
+- **Sculpted light:** pix.js `resolve` reads `spriteSun(flip)` (or `o.sun`), so every pix figure, hall and
+  prop is lit from the level's sun; bake.js hands a figure's draw `flip` = "the light is on my right"
+  (`lightRight`); bake.js and pix/halls.js clear on `onDay`.
+- **The seam:** `src/render/daylight.js` (`dayGround` in the ground pass, `dayOver` after everything
+  standing, `dayLights` with the frame's lights; off at noon and under the blood moon).
+  `dayshadows.js` + sunset.js (generalised: optional direction / colour parameters, the blood moon's calls
+  unchanged, checked 0 pixels): halls' own silhouettes and every soldier's and foe's long shadow along
+  `DAY.fall`, the halls' sunward edge line and wash (`dayFrame`); the hall's small baked ellipse is skipped
+  while a sun is up. `daygrade.js`: the hour's colour, three dithered layers baked per sun and board
+  (soft-light rake from the sun's edge, a warm / cool multiply, an additive edge glow and water glints;
+  dials in `GRADE`; `dayGradeRect` for the apron), and one far key light for the figures' edge
+  (`dayKeyLights`; shows only with "Spell light" on, as the moon's does). ~0.5 ms a frame, ~110 ms bake.
+- **The castle** (castle.js `castleDay`, `castleDayGround`, `dayStoneBake`, `dayGroundShadow`): west suns
+  wash the west faces in `DAY.col` (peach-amber at golden) with a hot west edge and tower shadows east
+  over the walks; east suns shade the west faces, light the tops' east rims and throw the castle's skyline
+  (merlons, towers, stair-turret roofs, the keep) west onto the ground.
+- **Scenery** (`src/render/sceneryday.js`, scenery*.js, world.js, apron.js): under an eastern sun
+  `drawTree` draws each piece MIRRORED about its anchor (its painted light lands on the right; pix parts
+  are baked with the sun's west twin, `decorSun()`, so nothing flips twice); `NO_MIRROR` (scenery-gwpix.js)
+  lists pieces that must not turn (mills, boats, quays, gates, rune stones...). Each piece's own silhouette
+  is its cast shadow, all in one mask baked into `groundLayer` (keyed on `DAY.id`); `sunRim` is a stepped
+  warm edge on sunward sprites. The apron mirrors and casts with the board.
+- **UI:** the level card's WEATHER label names the hour at its right (not at midday); Free Play's Hero
+  and Pace tab has "Time of day" chips (`sun` in sandbox.js; look only, not in isHonest).
+- **Labs:** `sun-lab.html?realm=&faction=&sun=&tag=` (`all=1`: every sun) saves `.shots/sun_<tag>_*.png`;
+  `scn-apron-lab.html?sun=` for the land beyond the board; `col-lab.html` (`&perf=1`). No playwright on
+  the owner's Mac: open labs in the built-in browser (own tab), not `scripts/shoot.mjs`.
+- **Weak / not done** (see the brief's STATUS for the latest): rally flags, banners and the ballistae cast
+  nothing; a hall on a beach casts onto the water; hall and figure shadows double-darken where they cross;
+  the sun's rim beats nearby firelight on a figure at sunrise / golden; a hurt castle's lost merlons still
+  cast; none of it seen on a phone or iPad (the soft-light blend's cost there is unmeasured).
+- **Future** (owner: "mark it down"): the time of day changing play (wishlist).
+
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
 The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated.
@@ -976,14 +1027,6 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
 - **Time of day changes play** (2026-11-22, owner: "look only for now, but mark it down as a future
   thing to think about"): a low sun doing something in the rules (e.g. glare for halls shooting into
   it). Put ideas to the owner before building any.
-- **Time of day, a fixed sun per level** (2026-11-22, IN PROGRESS, the owner's answers): seven sun
-  positions from sunrise (low in the east, the right) to golden hour (low in the west), fixed per
-  level, the lead proposes each chapter's list; the Hollowfen keeps its moving sunset. Look only.
-  The trial: `node scripts/sun-sides.mjs sun=morning|sunrise|golden` (today | shadows + edge light +
-  colour | the same plus the painted light re-sculpted, pix.js resolve `sun`, hall-kit bakeHall
-  `sun`). Re-sculpting is cheap for pix figures and halls (one light vector; a level has one sun, so
-  no extra bakes); the hand-painted ground, scenery and castle are what it does not reach. The owner
-  is choosing between the two from the trial sheets.
 - **Sunsets elsewhere** (2026-11-22, owner: "sunset lighting type things in the other levels as well ...
   this is a good first step"): the Blood Moon's dusk wash and night lighting (render/bloodmoon.js,
   render/nightlight.js) are the starting point.

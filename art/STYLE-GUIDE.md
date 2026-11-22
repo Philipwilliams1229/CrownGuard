@@ -1201,6 +1201,25 @@ enemies.js flashes a foe while a front is over it. A new area attack: give its e
 `RING` there. A new ring effect follows the same rule. **Attacks that come out of a hall** (owner, 2026-11-17: "it looks like its coming out of the tower"): the frost and fire novas stay ground layer, plus their FRONT line redrawn in the air layer only inside a clip of the source hall's foot (rings.js `hallOf` / `clipFront`), and their spikes / flames standing behind the hall drop to the ground layer (`behindHall`); Bladewheel spikes flying up or sideways draw in the ground pass while inside their hall's box (fx.js `spikeBehind`, draw.js), and the Brazier's flame ring draws its back half before the wheel, its front after (halls/spiker.js `firePass`). The box is a fixed 22 x 44 px round the foot: check it on the tallest finals. The concept pages' C option now means LIT (light thrown on the
 ground), not chunky icons (owner: the bold C's were "pretty far off").
 
+## The time of day: one sun, but not always the same one (2026-11-22)
+
+"One sun" still holds on every board, but a level now picks WHERE it stands (`src/data/sun.js`:
+seven positions from sunrise in the east to golden hour in the west; CLAUDE.md "The time of day").
+Rules for any new art:
+- **Noon is the art as drawn** (light from the upper left, a short shadow down-right). Draw for noon;
+  the other suns are derived. Anything you add must leave noon pixel-identical.
+- **Never paint a shadow or a lit side that cannot follow the sun.** Pix sculpts follow it by themselves
+  (the sculptor reads the level's sun). A hand-painted scenery piece follows it by being drawn mirrored
+  under an eastern sun, so keep a piece's own shading consistent with ONE upper-left light, and list a
+  piece that must not turn (writing, a door on the road, a wheel in water) in `NO_MIRROR`
+  (scenery-gwpix.js). A piece's cast shadow is its own silhouette, made for it (sceneryday.js): do not
+  bake a long shadow into a sprite.
+- **A new cache of sprites must clear on `onDay`** (or key on `DAY.v`), or it keeps the last level's sun.
+- **The hour is told by the world, never by a tinted screen:** shadow direction and length, a lit edge
+  on the sunward side in `DAY.col`, lit ground that warms while shade cools. Stepped and dithered in
+  art pixels, no smooth gradients.
+- Look at new art under at least sunrise, noon and golden: `sun-lab.html?...&all=1`.
+
 ## Performance (target: iPad mini 6)
 
 - Bake anything static. Per frame, keep to stamps and small live bits.
