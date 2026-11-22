@@ -4047,7 +4047,7 @@ const fenGraveS = (ctx, x, y, s, o) => {
     // crack down the stone; the grave's mound of earth in front of it
     const gf = hash(seed, 9);
     if (kind !== 2) {
-      obj.part(); obj.ellipse(1 * s, 4 * s, 9 * s, 2.6 * s, fenMat(mix(REALM.GRASS, "#4a4434", 0.45), 0.6), 0.3, { round: 0.5, ny: -0.5, cast: 0 });
+      obj.part(); obj.ellipse(1 * s, 3 * s, 8 * s, 2.2 * s, fenMat(mix(lighten(REALM.GRASS, 0.12), "#7a6c50", 0.3), 0.5), 0.3, { round: 0.9, cast: 0, noLine: true });
       if (gf < 0.4) {
         obj.part(); obj.rect(5 * s, 1, 2, 4, fenMat("#d8ceb0", 0.6), 2, { round: 0.6 });
         obj.dot(5 * s + 0.5, 0.5, pixFlat("#2a2228"), 2.1); obj.ellipse(5 * s + 1, 5, 2.4, 0.8, fenMat("#c8bea0", 0.5), 1.9, { cast: 0 });
