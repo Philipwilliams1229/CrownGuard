@@ -1,0 +1,90 @@
+<!doctype html>
+<!--
+  Colour lab (the colour agent's copy of sun-lab.html, with &perf=1: times the hour's grade, daygrade.js)
+  Sun lab (the time of day, data/sun.js): the REAL engine and draw() on a board under one fixed sun.
+
+    /sun-lab.html?realm=thornbrook&faction=greenwood&sun=golden&wave=6&snaps=6,14&tag=x
+      sun=sunrise|early|morning|noon|afternoon|late|golden   (all=1: one snap of EVERY sun, in sky order)
+      snaps=    seconds of combat at which to snap (default 8)
+      towers=archer@0.3:3,knight@0.45:2   (kind@road-fraction:level[,branch])
+      weather=fog:1   (default none)
+  Saved to .shots/sun_<tag>_<i>.png (full board, 1680x1120). With all=1 the files are sun_<tag>_<sun id>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>col lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay, SUN_ORDER } from "/src/data/sun.js";
+      import { GRADE } from "/src/render/daygrade.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", DT = 1 / 60;
+      if (q.get("norim")) window.__noRim = 1;
+      setDay(q.get("sun") || "golden");
+      selectRealm(q.get("realm") || "thornbrook");
+      selectFaction(q.get("faction") || "greenwood");
+      setWaveWindow(null);
+      if (q.get("weather")) { const [kind, str] = q.get("weather").split(":"); setLevelWeather({ kind, strength: Number(str ?? 1) }); } else setLevelWeather(null);
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 6) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (const spec of (q.get("towers") ?? "archer@0.3:3,knight@0.45:3,wizard@0.6:2").split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const frames = [];
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      const snap = (label) => {
+        draw(g, cv, { current: null }); draw(g, cv, { current: null });
+        const c = document.createElement("canvas"); c.width = cv.width; c.height = cv.height;
+        c.getContext("2d").drawImage(cv, 0, 0);
+        frames.push(c);
+      };
+      const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
+      startWave(g);
+      let el = 0;
+      const names = [];
+      for (const at of (q.get("snaps") || "8").split(",").map(Number)) {
+        while (el < at) { updateGame(g, DT); el += DT; hold(); if (g.phase !== "combat") startWave(g); }
+        if (q.get("all")) for (const id of SUN_ORDER) { setDay(id); snap(id); names.push(id); }
+        else { snap(`+${at}s`); names.push(String(names.length)); }
+      }
+      if (q.get("perf")) {
+        const time = (n) => { const t0 = performance.now(); for (let i = 0; i < n; i++) { g.time += 0.016; draw(g, cv, { current: null }); } return (performance.now() - t0) / n; };
+        time(30); const res = [];
+        for (let rep = 0; rep < 4; rep++) { GRADE.off = false; const on = time(200); GRADE.off = true; const off = time(200); res.push(on - off); }
+        GRADE.off = false; res.sort((a, b) => a - b);
+        window.__perf = `grade on-off per frame (ms, 4 runs of 200, sorted): ${res.map((v) => v.toFixed(2)).join(" ")}; board bake ${GRADE.bakeMs.toFixed(1)} ms`;
+        document.title = "DONE"; document.getElementById("status").textContent = window.__perf; frames.length = 0;
+      }
+      for (let i = 0; i < frames.length; i++) await fetch(`/__shot?name=sun_${TAG}_${names[i]}`, { method: "POST", body: frames[i].toDataURL("image/png").slice(22) });
+      window.__g = g;
+      if (!q.get("perf")) document.title = "DONE", document.getElementById("status").textContent = `saved .shots/sun_${TAG}_*.png`;
+    </script>
+  </body>
+</html>
