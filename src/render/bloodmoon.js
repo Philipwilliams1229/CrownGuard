@@ -18,7 +18,7 @@ import { W, H } from "../data/constants.js";
 import { ENEMIES } from "../data/enemies.js";
 import { pixRec, hasPix, isViewSheet } from "./pix/pixrigs.js";
 import { nightTick, nightOn, drawLampPools, drawLampBloom, swapLamps } from "./nightlight.js";
-import { sunCurves, drawLongShadows, SUN_KEY, SUN_RIM } from "./sunset.js";
+import { sunCurves, drawLongShadows, drawHallShadows, sunFrame, SUN_KEY, SUN_RIM } from "./sunset.js";
 
 const PX = 2;
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
@@ -184,6 +184,8 @@ export const bloodmoonGround = (ctx, g, w) => {
   shade(ctx, c.shade * SHADE_GROUND);
   // the long shadows of the setting sun (and, shorter, of the moon), laid on the land
   drawLongShadows(ctx, g, c.len, c.shadow);
+  drawHallShadows(ctx, c.len, c.shadow);
+  sunFrame(g.time, c);   // the halls drawn next note themselves (shadow next frame) and take the amber line
   const pa = ctx.globalAlpha;
   ctx.globalAlpha = c.lamps;
   drawLampPools(ctx, g.time);
