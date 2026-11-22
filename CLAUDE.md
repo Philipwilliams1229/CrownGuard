@@ -1074,6 +1074,10 @@ overhaul, show bold options before building.
   the page plays them on a canvas). More owner picks from the page comments: trees = treatments 3 and 4 mixed, treatment 4
   wood edge with fireflies, no leaf litter under evergreens, winter trees keep their structure; the farm; the calm meadow;
   the full patchwork with a different field pattern on every map; bold steps need better road crossings.
+  **Lakes** (started over after three failed passes on one design; `concept/overhaul3-lakes.js`, which runs the approved
+  river painter itself so lake water IS river water): the mere, the tarn and the reed fen are APPROVED, to be varied across
+  the maps; the millpond is rejected. Farmland: bigger, calmer plots on Bramblewick and Millrace and a minimum size for any
+  cultivated field (in progress). Terraces are parked (wishlist).
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,

@@ -145,3 +145,6 @@ GROUND
   steps comparison): "round 3 is much worse. Lets do it with round 2, but actually take this out for now, put it
   on the to do." (No terraces in the first build. When they come back, start from ROUND 2's long steps, not
   round 3's short ones with ramp wedges; the road crossings are the unsolved part.)
+- **Lakes: 1 (mere), 2 (tarn) and 4 (reed fen) APPROVED; 3 (millpond) removed.** "1 2 and 4 are all good here.
+  Good job. 3 the millpond doesnt look good, remove. would love to see a variety of 1 2 and 4 throughout the
+  maps." (Deal the three lake kinds across the boards for variety.)
