@@ -19,7 +19,7 @@ import { prefs } from "../../data/prefs.js";
 import { nightOn, noteLamp } from "../nightlight.js";
 import { noteHall, hallRim } from "../sunset.js";
 import { toCanvas } from "./pix.js";
-import { onDay } from "../../data/sun.js";
+import { onDay, DAY } from "../../data/sun.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
 
 const BAKES = new Map(), FRAMES = new Map();
@@ -122,9 +122,9 @@ export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
     const warm = isWarm(l.col);
     noteLamp(x + dir * l.x / 2, y + l.y / 2, Math.min(l.r, warm ? 24 : 18) / 2, l.col, (l.a ?? 0.7) * Math.min(1, on + 0.3) * (warm ? 1 : 0.75), -l.y / 2, !warm);
   }
-  if (H.shadow) stampPix(ctx, H.shadow, x, y);
+  if (H.shadow && !DAY.on) stampPix(ctx, H.shadow, x, y);   // under a fixed sun the hall throws its own cast shadow (render/dayshadows.js)
   lay(ctx, H.back, H, x, y, dir);
-  noteHall(H, x, y, dir, time); hallRim(ctx, H, x, y, dir, "back", time);   // the setting sun (render/sunset.js)
+  noteHall(H, x, y, dir, time, ctx.globalAlpha); hallRim(ctx, H, x, y, dir, "back", time);   // the setting sun (render/sunset.js)
   live(ctx, H, x, y, time, "back", id, dir);
   glows(ctx, H, x, y, time, "back", o, id, dir);
 };

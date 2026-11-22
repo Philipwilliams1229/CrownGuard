@@ -31,44 +31,63 @@ export const SUN_RIM = 1.8;      // k > 1: past 1 the OUTER LINE alone is stampe
 // ---- the long shadows: baked per length and width, art-pixel stepped, dithered at the tip ----
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const SHS = new Map();
-const DIR = [0.93, 0.37], PERP = [-0.37, 0.93];          // down-right, away from a sun low at the left
+const DIR = [0.93, 0.37];          // down-right, away from a sun low at the left (the blood moon's sunset)
 export const SUN_DIR = DIR;
-const shadowSprite = (L, wd) => {
-  const key = L + "|" + wd;
+const BM_RGB = [22, 10, 26];       // the sunset's shadow colour
+// The time of day (data/sun.js, render/dayshadows.js) lays the same shadows along any fall F, in its own
+// colour; the blood moon's sunset passes neither and gets exactly what it always had.
+const shadowSprite = (L, wd, F = DIR, rgb = BM_RGB) => {
+  const PERP = [-F[1], F[0]];
+  const key = L + "|" + wd + (F === DIR && rgb === BM_RGB ? "" : "|" + F[0] + "," + F[1] + "|" + rgb.join(","));
   let s = SHS.get(key);
   if (s) return s;
   const LA = L * 2, WA = wd * 2, ox = Math.ceil(WA) + 2, oy = Math.ceil(WA) + 2;
-  const w = Math.ceil(LA * DIR[0] + ox + WA + 4), h = Math.ceil(LA * DIR[1] + oy + WA + 4);
+  // a shadow falling LEFT is laid from the sprite's right (ox measured from the far side)
+  const west = F[0] < 0, ex = Math.ceil(LA * Math.abs(F[0]) + ox + WA + 4), h = Math.ceil(LA * F[1] + oy + WA + 4), w = ex;
+  const ox2 = west ? w - ox : ox;
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-    const rx = i + 0.5 - ox, ry = j + 0.5 - oy, al = rx * DIR[0] + ry * DIR[1], ac = rx * PERP[0] + ry * PERP[1];
+    const rx = i + 0.5 - ox2, ry = j + 0.5 - oy, al = rx * F[0] + ry * F[1], ac = rx * PERP[0] + ry * PERP[1];
     if (al < -WA * 0.6 || al > LA) continue;
     const t = Math.max(0, al / LA), half = WA * (1 - 0.82 * t) * (al < 0 ? Math.sqrt(1 + al / (WA * 0.6)) : 1);
     if (Math.abs(ac) > half) continue;
     if (t > 0.62 && BAYER[(j & 3) * 4 + (i & 3)] < (t - 0.62) * 2.2) continue;
     const o = (j * w + i) * 4;
-    d[o] = 22; d[o + 1] = 10; d[o + 2] = 26; d[o + 3] = Math.abs(ac) > half - 1.2 ? 120 : 160;
+    d[o] = rgb[0]; d[o + 1] = rgb[1]; d[o + 2] = rgb[2]; d[o + 3] = Math.abs(ac) > half - 1.2 ? 120 : 160;
   }
   c.putImageData(img, 0, 0);
-  s = { cv, w, h, ox, oy };
+  s = { cv, w, h, ox: ox2, oy };
   SHS.set(key, s);
   if (SHS.size > 120) SHS.delete(SHS.keys().next().value);
   return s;
 };
 
 // Lay them under everything standing (call it in a ground pass). len: x the base length; a: strength.
-export const drawLongShadows = (ctx, g, len, a) => {
+// o (the time of day only): { fall, rgb, unitH, foeK, fliers } (the caster's height x len; fliers' shadows
+// on the ground below them, along the fall). Without o: the blood moon's sunset, unchanged.
+export const drawLongShadows = (ctx, g, len, a, o = null) => {
   if (a < 0.01) return;
   const pa = ctx.globalAlpha, op = ctx.globalCompositeOperation;
   ctx.globalAlpha = a; ctx.globalCompositeOperation = "source-over";
+  const F = o ? o.fall : DIR, rgb = o ? o.rgb : BM_RGB, sxo = F[0] < 0 ? -1 : 1;
   const one = (x, y, L0, wd) => {
-    if (x < -40 || x > W + 40) return;
-    const sp = shadowSprite(Math.max(3, Math.round(L0 * len)), Math.max(1, Math.round(wd)));
+    if (x < -40 - (o ? L0 * len : 0) || x > W + 40 + (o ? L0 * len : 0)) return;
+    const sp = shadowSprite(Math.max(3, Math.round(L0 * len)), Math.max(1, Math.round(wd)), F, rgb);
     ctx.drawImage(sp.cv, Math.round(x * 2) / 2 - sp.ox / 2, Math.round(y * 2) / 2 - sp.oy / 2, sp.w / 2, sp.h / 2);
   };
-  for (const b of g.bands || []) for (const u of b.units || []) if (u.x != null && !u.dead && !u.gone) one(u.x + 1, u.y + 9, 8, 2.6);
-  for (const e of g.enemies) if (!e.dead && !e.flying && !e.submerged && e.x != null) one(e.x + 1.5, e.y + e.size * 0.55, e.size * 0.9, Math.max(1.8, e.size * 0.2));
+  for (const b of g.bands || []) for (const u of b.units || []) if (u.x != null && !u.dead && !u.gone && !(o && u.state === "dead")) one(u.x + sxo, u.y + 9, o ? o.unitH : 8, 2.6);
+  // the halls' own men (knights, blades; not the River Watch's skiffs, on the water): the time of day only
+  if (o) for (const t of g.towers || []) if (t.units && t.kind !== "riverwatch" && !(t.readyAt > g.time)) for (const u of t.units) if (u.x != null && u.state !== "dead") one(u.x + sxo, u.y + 9, o.unitH, 2.6);
+  for (const e of g.enemies) if (!e.dead && !e.flying && !e.submerged && e.x != null) one(e.x + 1.5 * sxo, e.y + e.size * 0.55, e.size * (o ? o.foeK : 0.9), Math.max(1.8, e.size * 0.2));
+  // a flier's shadow lies on the ground below it, thrown along the fall (short: only its body, no legs to the ground)
+  if (o && o.fliers) {
+    ctx.globalAlpha = a * 0.6;
+    for (const e of g.enemies) if (!e.dead && e.flying && e.x != null) {
+      const off = 14 + 9 * len;
+      one(e.x + F[0] * off, e.y + 16 + F[1] * off, e.size * 0.45, Math.max(1.8, e.size * 0.22));
+    }
+  }
   ctx.globalAlpha = pa; ctx.globalCompositeOperation = op;
 };
 
@@ -78,27 +97,36 @@ export const drawLongShadows = (ctx, g, len, a) => {
 // each hall's OWN silhouette as its shadow, sheared along the ground from its base line (the anchor
 // row: rows below it are the base's near face and cast nothing), and the hall stamps a burning amber
 // line on its sunward edge (hallRim). Both baked once per hall form and facing.
-export const SUN = { t: -1, amber: 0, len: 1, shadow: 0, list: [] };
+export const SUN = { t: -1, amber: 0, len: 1, shadow: 0, list: [], P: null, day: -1 };
 // bloodmoonGround (or any sunset painter) arms it for this frame
-export const sunFrame = (time, c) => { SUN.t = time; SUN.amber = c.amber; SUN.len = c.len; SUN.shadow = c.shadow; };
+export const sunFrame = (time, c) => { SUN.t = time; SUN.amber = c.amber; SUN.len = c.len; SUN.shadow = c.shadow; SUN.P = null; SUN.day = -1; };
+// the time of day (render/dayshadows.js) arms it with its own sun P (see dayParams there): while that sun
+// stands (DAY.v unchanged and DAY.on), every hall drawn notes itself and takes the edge light, whatever
+// time it is drawn at (a hall struck by lightning is drawn at its shock's time and must keep its shadow)
+export const dayFrame = (time, P, v) => { SUN.t = NaN; SUN.amber = P.rim; SUN.len = P.len; SUN.shadow = P.a; SUN.P = P; SUN.day = v; };
+const armed = (time) => SUN.t === time || (SUN.P && SUN.P.live(SUN.day));
 export const sunOn = (time) => SUN.t === time;
-export const noteHall = (H, x, y, dir, time) => { if (SUN.t === time && SUN.list.length < 80) SUN.list.push({ H, x, y, dir }); };
+export const noteHall = (H, x, y, dir, time, a = 1) => { if (armed(time) && SUN.list.length < 80) SUN.list.push({ H, x, y, dir, a }); };
 
 const HSIL = new WeakMap();
 const opaqueOf = (cv) => { const c = cv.getContext("2d"), d = c.getImageData(0, 0, cv.width, cv.height).data, n = cv.width * cv.height, o = new Uint8Array(n); for (let k = 0; k < n; k++) o[k] = d[k * 4 + 3] > 40 ? 1 : 0; return o; };
-const bakeHallSun = (H, dir) => {
+// P: the time of day's sun (null: the blood moon's sunset, low in the west, amber, shadows down-right).
+// P.side: the sun's side on the board; P.F: the fall as seen in the WEST-sun frame (an eastern sun's shadow is
+// baked as its mirror image and laid mirrored, so the owner-approved rule for a shadow falling right is kept)
+const bakeHallSun = (H, dir, P = null) => {
   let per = HSIL.get(H);
   if (!per) HSIL.set(H, (per = {}));
-  const pk = dir + "|" + SHADOW_TUNE.v;
+  const pk = dir + "|" + SHADOW_TUNE.v + (P ? "|" + P.key : "");
   if (per[pk]) return per[pk];
   const w = H.back.width, h = H.back.height, B = H.box;
   const ob = opaqueOf(H.back), of = H.front ? opaqueOf(H.front) : new Uint8Array(w * h);
   const op = (i, j) => i >= 0 && j >= 0 && i < w && j < h && (ob[j * w + i] || of[j * w + i]);
-  const sx = dir < 0 ? 1 : -1;                       // the step TOWARD the sun in the canvas (a mirrored hall is baked flipped)
+  const sx = (P ? P.side : -1) * (dir < 0 ? -1 : 1);   // the step TOWARD the sun in the canvas (a mirrored hall is baked flipped)
+  const FD = P ? P.F : DIR, SRGB = P ? P.rgb : BM_RGB;
   const mk = () => { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const c = cv.getContext("2d"); return { cv, c, img: c.createImageData(w, h) }; };
   const back = mk(), front = mk(), sil = mk();
   const put = (L, k, rgb, a) => { const d = L.img.data; if (d[k * 4 + 3] >= a) return; d[k * 4] = rgb[0]; d[k * 4 + 1] = rgb[1]; d[k * 4 + 2] = rgb[2]; d[k * 4 + 3] = a; };
-  const LINE = [255, 168, 70], SOFT = [255, 140, 46];
+  const LINE = P ? P.line : [255, 168, 70], SOFT = P ? P.soft : [255, 140, 46];
   let top = h;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (op(i, j)) { top = Math.min(top, j); break; }
   // the shadow's root, measured on the base AS DRAWN (Fable, 2026-11-22: the footing in hallfoot.js is the
@@ -133,7 +161,7 @@ const bakeHallSun = (H, dir) => {
     if ((op(Math.round(ox + Bp[0] * 2), Math.round(oy + Bp[1] * 2)) && op(Math.round(ox + Bp[0] * 2), Math.round(oy + Bp[1] * 2) - 4)) || Lc < 0.6 * rx) break;
     Lc -= 0.1 * rx;
   }
-  const across = Lc * Math.abs(CH[0] * DIR[1] - CH[1] * DIR[0]), S = Math.max(1, ((T.widen ?? 1.8) * rx) / Math.max(1, across));
+  const across = Lc * Math.abs(CH[0] * FD[1] - CH[1] * FD[0]), S = Math.max(1, ((T.widen ?? 1.8) * rx) / Math.max(1, across));
   // the sprite's x lies along the chord (x = +rx at A), S times as long, its rows narrowed by 1/S at the foot
   const M = [(A[0] + Bp[0]) / 2, (A[1] + Bp[1]) / 2], col = [-(S * Lc / (2 * rx)) * CH[0], -(S * Lc / (2 * rx)) * CH[1]];
   const k0 = 1 / S;
@@ -149,8 +177,8 @@ const bakeHallSun = (H, dir) => {
   // the sunward quarter of each run of stone in a row takes a stepped amber wash (so the wall matches
   // the crew at board size, not only its edge line)
   for (let j = 0; j < h; j++) {
-    let i = dir < 0 ? w - 1 : 0;
-    const step = dir < 0 ? -1 : 1;
+    let i = sx > 0 ? w - 1 : 0;
+    const step = -sx;
     while (i >= 0 && i < w) {
       if (!op(i, j)) { i += step; continue; }
       let e = i; while (e + step >= 0 && e + step < w && op(e + step, j)) e += step;
@@ -172,7 +200,7 @@ const bakeHallSun = (H, dir) => {
       for (let i = 0; i < w; i++) {
         const si = Math.round(ox + (i + 0.5 - ox) / f - 0.5);
         if (!op(si, j)) continue;
-        const k = j * w + i; d[k * 4] = 22; d[k * 4 + 1] = 10; d[k * 4 + 2] = 26; d[k * 4 + 3] = a;
+        const k = j * w + i; d[k * 4] = SRGB[0]; d[k * 4 + 1] = SRGB[1]; d[k * 4 + 2] = SRGB[2]; d[k * 4 + 3] = a;
       }
     } }
   for (const L of [back, front, sil]) L.c.putImageData(L.img, 0, 0);
@@ -188,8 +216,8 @@ const layBox = (ctx, cv, H, x, y, dir) => {
 };
 // pix/halls.js, right after the building (side "back") and its front piece (side "front")
 export const hallRim = (ctx, H, x, y, dir, side, time) => {
-  if (SUN.t !== time || SUN.amber < 0.02) return;
-  const s = bakeHallSun(H, dir < 0 ? -1 : 1), pa = ctx.globalAlpha;
+  if (!armed(time) || SUN.amber < 0.02) return;
+  const s = bakeHallSun(H, dir < 0 ? -1 : 1, SUN.P), pa = ctx.globalAlpha;
   ctx.globalAlpha = pa * Math.min(1, SUN.amber * 1.15);
   layBox(ctx, s[side], H, x, y, dir);
   ctx.globalAlpha = pa;
@@ -202,20 +230,34 @@ const CH0 = (() => { const l = Math.hypot(0.3, 0.95); return [-0.3 / l, -0.95 / 
 // owner's pick (2026-11-22, option A of sun-try.html): from the middle of the base's drawn front edge, the foot
 // slanting up-right behind the body, widening over 16 units
 export const SHADOW_TUNE = { v: 0, mode: "lip", ax: 0, ch: [0.49, -0.63], widen: 1.8, flare: 16 };
-export const drawHallShadows = (ctx, len, a) => {
+export const drawHallShadows = (ctx, len, a, P = null) => {
   const list = SUN.list;
   SUN.list = [];
   if (a < 0.01) return;
-  const pa = ctx.globalAlpha, L = SHEAR * len;
+  const pa = ctx.globalAlpha, L = P ? P.shear * len : SHEAR * len;
   ctx.globalAlpha = pa * a;
   for (const q of list) {
-    const s = bakeHallSun(q.H, q.dir < 0 ? -1 : 1), B = q.H.box;
+    const s = bakeHallSun(q.H, q.dir < 0 ? -1 : 1, P), B = q.H.box;
+    if (P) ctx.globalAlpha = pa * a * Math.min(1, q.a);   // the time of day: a hall drawn faint (the build ghost) casts as faint
+    if (P && P.side > 0) {
+      // an eastern sun: the whole picture mirrored about the anchor (the hall's mirror image under a western sun)
+      const d = q.dir < 0 ? 1 : -1;
+      ctx.save();
+      ctx.translate(q.x, q.y); ctx.scale(-1, 1);
+      ctx.translate(s.M[0], s.M[1]);
+      ctx.transform(s.col[0], s.col[1], -L * P.F[0], -L * P.F[1], 0, 0);
+      if (d < 0) ctx.scale(-1, 1);
+      ctx.drawImage(s.sil, -B.ox / 2, -s.base / 2, B.w / 2, B.h / 2);
+      ctx.restore();
+      continue;
+    }
+    const FD = P ? P.F : DIR;
     ctx.save();
     ctx.translate(q.x + s.M[0], q.y + s.M[1]);
     // a point h above the base falls h*L along DIR; the tower's WIDTH lies across the light (QW, the
     // ground's perpendicular to DIR as the camera sees it), so the shadow is as wide as the tower
     // (owner: "make sure the shadows take the full width of the towers")
-    ctx.transform(s.col[0], s.col[1], -L * DIR[0], -L * DIR[1], 0, 0);
+    ctx.transform(s.col[0], s.col[1], -L * FD[0], -L * FD[1], 0, 0);
     if (q.dir < 0) ctx.scale(-1, 1);
     ctx.drawImage(s.sil, -B.ox / 2, -s.base / 2, B.w / 2, B.h / 2);
     ctx.restore();
