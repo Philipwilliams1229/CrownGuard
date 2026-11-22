@@ -23,6 +23,7 @@
 import { PX, INK_LINE, hash } from "./paint.js";
 import { inkTint as inkOutline } from "./inktint.js";
 import { ringPx } from "./fx.js";
+import { LOD, RAISE_FULL } from "./lod.js";
 
 // ---- palette -------------------------------------------------------------
 const ICE = ["#ffffff", "#d4f2fa", "#9fd4e8", "#62a4cc", "#3a6a98"];
@@ -1517,6 +1518,10 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       const fy = fx.fy ?? fx.y + 8;   // the risen's sole line (engine: y + size x 0.55): the grave and its ring are centred on it
       ctx.globalAlpha *= stepA(a);
       const base = ctx.globalAlpha;
+      // a toll raises ten or fifty at once: the first RAISE_FULL standing get the ring and ribbons, the
+      // rest the turned earth and its mist alone (decided once for each, so none changes mid-rise; lod.js)
+      if (GR) { if (fx._lite === undefined) fx._lite = LOD.raiseFull >= RAISE_FULL; if (!fx._lite) LOD.raiseFull++; }
+      const lite = fx._lite === true;
       if (GR) {
         // the ground darkens gradually (owner, 2026-11-17): in steps over the first 40% of the rise
         ctx.globalAlpha = base * Math.min(1, Math.ceil(clamp01(p / 0.4) * 5) / 5);
@@ -1530,11 +1535,13 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
           put(ctx, mistS((sd + k) % 5, f), fx.x + (k - 1.5) * 9 + Math.sin(q * 5 + k) * 3, fy + 2 - q * 12);
           ctx.globalAlpha = base;
         }
-        ctx.save(); ctx.translate(fx.x, fy - 2);
-        const m = new Map(); raiseRing(m, p, fi, false, sd); raiseRibbons(m, p, false); batchDraw(ctx, m, base);
-        ctx.restore();
+        if (!lite) {
+          ctx.save(); ctx.translate(fx.x, fy - 2);
+          const m = new Map(); raiseRing(m, p, fi, false, sd); raiseRibbons(m, p, false); batchDraw(ctx, m, base);
+          ctx.restore();
+        }
       }
-      if (AIR) {
+      if (AIR && !lite) {
         ctx.save(); ctx.translate(fx.x, fy - 2);
         const m = new Map(); raiseRing(m, p, fi, true, sd); raiseRibbons(m, p, true); batchDraw(ctx, m, base);
         ctx.restore();

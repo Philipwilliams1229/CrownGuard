@@ -80,6 +80,9 @@ const versionFile = {
 // any folder or subpath — including GitHub Pages at /CrownGuard/.
 export default defineConfig({
   base: "./",
+  // a second dev server (a worktree with a symlinked node_modules) must keep its own cache, or it
+  // rewrites the shared node_modules/.vite under the main one: CG_VITE_CACHE=<dir> npm run dev
+  ...(process.env.CG_VITE_CACHE ? { cacheDir: process.env.CG_VITE_CACHE } : {}),
   plugins: [react(), shotSink, versionSink, versionFile],
   define: { __BUILD__: JSON.stringify(BUILD) },
   // lab screenshots land in .shots/; a write there must not reload every page

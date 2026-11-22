@@ -62,6 +62,7 @@ import { drawHit, drawDeathPoof } from "./statusfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, spikeBehind, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { prefs } from "../data/prefs.js";
+import { lodFrame } from "./lod.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
 // buffer space over the finished board, so it reads at any camera zoom. It's
@@ -118,13 +119,12 @@ export function draw(g, canvas, bufRef) {
   // The buffer is RES times the board on each side: everything below draws
   // in world units and the transform does the rest, so curves come out curved.
   if (cv.width !== W * RES) { cv.width = W * RES; cv.height = H * RES; }
-  let buf = bufRef.current;
-  if (!buf || buf.width !== W * RES) {
-    buf = document.createElement("canvas");
-    buf.width = W * RES; buf.height = H * RES;
-    bufRef.current = buf;
-  }
-  const ctx = buf.getContext("2d");
+  // Painted straight onto the screen's canvas (2026-11-22: it used to go to a hidden copy first and be
+  // copied across, a whole board of pixels a frame for nothing; the browser shows a canvas only once
+  // the frame's work is done, so nothing half-drawn is ever seen). `bufRef` is no longer used.
+  const ctx = cv.getContext("2d");
+  // how packed the road is this frame, for the crowd's small extras (render/lod.js)
+  lodFrame(g, typeof performance !== "undefined" ? performance.now() : g.time * 1000);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W * RES, H * RES);
   ctx.save();
@@ -788,11 +788,8 @@ export function draw(g, canvas, bufRef) {
   drawBanner(ctx, g);
   ctx.restore();
 
-  const sc = cv.getContext("2d");
+  const sc = ctx;
   sc.setTransform(1, 0, 0, 1, 0, 0);
-  sc.imageSmoothingEnabled = true;
-  sc.clearRect(0, 0, W * RES, H * RES);
-  sc.drawImage(buf, 0, 0);
 
   if (g.paused && g.phase !== "won" && g.phase !== "lost") {
     sc.save();

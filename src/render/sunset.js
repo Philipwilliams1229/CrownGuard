@@ -11,6 +11,7 @@
 //   - the night (the caller's shade), the lamps and the moon's red come in after.
 // Concept and clip: sunset-concepts.html (option C), sunset-anim.html.
 import { W } from "../data/constants.js";
+import { LOD } from "./lod.js";
 
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -68,6 +69,7 @@ const shadowSprite = (L, wd, F = DIR, rgb = BM_RGB) => {
 // on the ground below them, along the fall). Without o: the blood moon's sunset, unchanged.
 export const drawLongShadows = (ctx, g, len, a, o = null) => {
   if (a < 0.01) return;
+  LOD.long = g.time;   // enemies.js: a small foe in a crowd drops its short shadow under this one
   const pa = ctx.globalAlpha, op = ctx.globalCompositeOperation;
   ctx.globalAlpha = a; ctx.globalCompositeOperation = "source-over";
   const F = o ? o.fall : DIR, rgb = o ? o.rgb : BM_RGB, sxo = F[0] < 0 ? -1 : 1;

@@ -2095,6 +2095,45 @@ Fable's audit: most likely iOS killed the page for memory. Fixed the same day (n
   pixrigs.js `clipFrame` now falls back to the walk for a missing idle (or attack) clip. Settings'
   Copy crash report shows a "Copied!" tag.
 
+## A cooler phone (2026-11-22, owner request; branch `worktree-perf-cooler-phone`, NOT on main)
+
+"I was playing on my iphone 18 pro last night and it got so hot. I was in the hallowfen." The
+research: the ENGINE is cheap (`sim.mjs --perf`: 0.2-0.5 ms a tick with 270 foes); the heat is the
+drawing, and the loop redrew the whole board on every screen refresh (120 a second on a ProMotion
+phone), paused or not. Measured in desktop Chromium on a frozen Bellmarsh fight under a full Blood
+Moon (6 halls, 50 raise effects up), old -> new: 290 foes 7.3 -> 4.0 ms a frame and 1948 -> 1685
+sprite stamps; 145 foes 5.7 -> 2.5 ms; pixels painted a frame ~22 -> ~17.6 million (the board is
+1.9 million). Not yet measured or seen on a phone. Pending the owner's look and a merge to main.
+- **Pacing** (CrownguardGame.jsx, the main loop's header): 60 frames a second at most, 30 with
+  **Battery saver** (Settings, Display; `prefs.saver`). The engine takes the real time between
+  the frames it runs, so the game's speed is the same (checked: 1.6 game s per 2 s at every rate).
+  The board is REPAINTED only when it can have changed: paused = 4 a second; a quiet build phase
+  (no foes, no shots, nothing touched for 1.5 s) = 30 a second; any touch (the `k2` signature:
+  selection, build ghost, camera, gold, phase...) paints at once at full pace for 1.5 s. A new
+  thing the player can change on the board without any of those fields changing must join `k2`.
+- **Crowd detail** (`src/render/lod.js`, a leaf): `LOD.k` slides 0 -> 1 between 100 and 140 live
+  foes over about a second. For the rank and file (`smallFoe`: not a boss, size under 20) it
+  fades out: foot dust, the far key light's rim (the sun's / moon's, `FAR_LIGHT` in pixrigs.js;
+  nearby fire and spell light always stays), the short shadow under a long one (sunset.js stamps
+  `LOD.long`). Raise-dead: the first `RAISE_FULL` 12 standing get the ring and ribbons, the rest
+  only the turned earth and mist (`fx._lite`, decided once each; rings.js). The eyes stay.
+- **Straight to the screen canvas** (draw.js): no hidden copy of the board copied across each
+  frame. `bufRef` is unused (labs may still pass it). A painter's fault now leaves a half-painted
+  frame for one frame instead of the last good one.
+- **The realm's light is one layer** (atmosphere.js `gradeLayer`): tint and vignette baked into
+  one multiplied canvas per light (they were two whole-board passes, one a live radial gradient).
+  Not pixel-identical: the darkest pixels toward the corners come out up to 8 / 255 darker on the
+  strongest vignette (mean 0.9). A realm with `glow` (the Ember Wastes) keeps the old passes.
+- **NOT done: the Blood Moon's own layers.** Its ground shade can't be baked into the ground
+  (live water, road marks and bridges are painted between the ground and the shade), and a
+  multiply can't be folded into the actors' lighter shade without changing the owner's approved
+  look. It is still three whole-board blended passes: the biggest pixel cost left under a moon.
+- Left on the list (not asked for): the React panels re-render on every gold change; `getStats`
+  is rebuilt several times a hall a frame; draw.js scans every foe per hall for its idle pose.
+- A second dev server (a worktree with a symlinked `node_modules`): `CG_VITE_CACHE=<dir>` gives
+  it its own cache (vite.config.js). The built-in browser's pane throttles frames when hidden:
+  drive the loop by stubbing `requestAnimationFrame` and calling the callback with made-up times.
+
 ## Several sessions at once
 
 The owner often runs several Claude sessions in this folder at the same

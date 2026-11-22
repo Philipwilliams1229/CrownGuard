@@ -3,6 +3,7 @@
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
 import { ringFlash } from "./ringflash.js";
+import { LOD, smallFoe } from "./lod.js";
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { ASSASSIN_PALS } from "../sprites/sprites.js";
@@ -95,8 +96,10 @@ export const drawEnemy = (ctx, e, time, tms) => {
   const airborne = !!e.flying;
   const walkRate = FOOT_RATE[skin] || 4;
   // dust first, so the shadow sits on top of it and the foot stays grounded
+  // (on a packed road the rank and file's dust, far rim light and doubled shadow ease away: render/lod.js)
+  const thin = smallFoe(e) ? LOD.k : 0;
   if (!fighting && !airborne && !e.swimming) {
-    footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
+    if (thin < 1) footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, (e.size >= 15 || e.boss ? 0.55 : 0.28) * (1 - thin), time);
     if (skin === "loosehorse") gallopDust(ctx, e.x, e.y + e.size * 0.55, e.face, time, e.id, e._mv || 0);
   }
   // riding the current: a spreading wake instead of a shadow on the road
@@ -111,7 +114,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillStyle = "rgba(180,214,228,0.55)";
     ctx.fillRect(S(e.x - 9), S(e.y + 7), 18, CELL);
   }
-  softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, airborne ? 0.22 : 0.3);
+  // (the short shadow under a long one, sunset.js: a small foe in a crowd lets it go)
+  const shadeK = thin > 0 && !airborne && LOD.long === time ? 1 - thin : 1;
+  if (shadeK > 0) softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, (airborne ? 0.22 : 0.3) * shadeK);
   // Fresh arrivals resolve out of the shadow of the wood over a third of a
   // second, so nothing ever simply blinks into being at the spawn point.
   const age = e.born === undefined ? 999 : tms - e.born;
@@ -170,12 +175,14 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // a walker climbing out of its grave is cut off at the ground, so it comes up OUT of the dark earth (rings.js raise)
   const climbing = rise < 1 && !airborne;
   if (climbing) { ctx.save(); ctx.beginPath(); ctx.rect(e.x - 60, e.y + e.size * 0.55 - 120, 120, 121); ctx.clip(); }
+  LOD.small = thin > 0;
   drawTurned(ctx, e.x + lunge, feet, tn.sx, () => {
     drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, variant, 1, aim);
     if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "white", 0.7, aim);
     // a flier the Masons' net has dragged down: the net hugs its silhouette (rigs.js netify)
     if (e.net) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "net", 1, aim);
   });
+  LOD.small = false;
   if (climbing) ctx.restore();
   // under a blood moon the undead's eyes glow red in their own sockets (render/bloodmoon.js; drawn over the shade)
   if (rise >= 1) noteEyes(e, skin, e.x + lunge, feet, tn.face, ps, pf, aim, time);

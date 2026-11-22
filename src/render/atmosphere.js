@@ -34,8 +34,35 @@ const vignetteFor = (ctx, strength) => {
   return vignetteCache;
 };
 
+// The tint and the vignette as ONE multiplied layer, baked once per light (2026-11-22: they were two
+// whole-board passes a frame, the second a live radial gradient). The vignette's own colour is nearly
+// black, so multiplying by it is the same picture to within a shade in the far corners (measured: see
+// CLAUDE.md "A cooler phone"). A realm with a `glow` keeps the old three passes: its glow sits between them.
+let gradeCv = null, gradeKey = "";
+const gradeLayer = (L) => {
+  const key = `${L.tint}|${L.amount}|${L.vignette}`;
+  if (gradeKey === key) return gradeCv;
+  const cv = gradeCv || document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+  c.fillStyle = "#fff"; c.fillRect(0, 0, W, H);
+  if (L.amount > 0) { c.globalCompositeOperation = "multiply"; c.fillStyle = `rgba(${L.tint},${L.amount})`; c.fillRect(0, 0, W, H); c.globalCompositeOperation = "source-over"; }
+  if (L.vignette > 0) { vignetteKey = ""; c.fillStyle = vignetteFor(c, L.vignette); c.fillRect(0, 0, W, H); vignetteKey = ""; }
+  gradeCv = cv; gradeKey = key;
+  return cv;
+};
+
 export const drawGrade = (ctx) => {
   const L = REALM.light || DEFAULT_LIGHT;
+  if (!L.glow && (L.amount > 0 || L.vignette > 0)) {
+    const sm = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalCompositeOperation = "multiply";
+    ctx.drawImage(gradeLayer(L), 0, 0, W, H);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.imageSmoothingEnabled = sm;
+    return;
+  }
   if (L.amount > 0) {
     ctx.globalCompositeOperation = "multiply";
     ctx.fillStyle = `rgba(${L.tint},${L.amount})`;
