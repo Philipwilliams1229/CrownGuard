@@ -105,3 +105,29 @@ campaign map gets "likeminded changes" too.
   the normal time and then more bare for winter." (The lead's reading, to be confirmed by the owner: they like
   the WINTER willow's shape best: the clear trunk, arching boughs and thin hanging strands; they want that
   strand-built shape, in green, as the everyday willow, and an even barer one for winter.)
+
+## The owner's comments on the round-2 page (2026-11-22, evening): picks and fixes
+
+TREES
+- On treatment 3 (Thornbrook): "3. I like the leafy edge. To keep some variety, we can mix in this one and the
+  ones from 2." Then, a minute later, on treatment 4: "Actually this broken canopy mixed in with the ones from
+  C, no B anymore". (The lead's reading: the final tree look is a MIX of treatments 3 and 4, "C" being the
+  third; treatment 2, "B", is dropped.)
+- On the wood's edge, treatment 4: "Yes treatment 4, but include the fireflies and stuff from the photo below"
+  (the dusk panel: fireflies along the wood's edge, the owl).
+- On the autumn panel: "No leaves around the evergreens" (no fallen-leaf litter under pines).
+- On winter: "Make sure the tree shape does[n't] change too much. Missing branches compared to the other
+  seasons." (A winter tree is the SAME tree: same trunk, boughs and silhouette as its summer self, minus leaves.)
+- The willow: see above; the strand willow (green everyday, barer in winter) was drawn on the lead's reading and
+  is on the page awaiting their word.
+DECORATIONS
+- Gullwick, "2. The farm": "I like the little village here best". Millrace, "2. The farm": "This one".
+  (The farm is CHOSEN.)
+- Ruins sheet: "Chapel needs some work. The roof looks disconnected from the little tower." And: "This stone
+  fence thing is floating off the ground".
+GROUND
+- Meadow "1. Calm": "This one". (Strength 1 is CHOSEN as the everyday meadow.)
+- Bold steps: "Yeah bold steps are cool but we need to look again at how they interact with the paths. Doesn't
+  look great rn."
+- Full patchwork: "This one, but let's include some variation. No two maps should have the same pattern of
+  fields."
