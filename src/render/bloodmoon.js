@@ -134,7 +134,7 @@ export const MOON_KEY = { x: -150, y: -130, r: 1500, col: "#ff4a38" };
 // figures are drawn), and only SHADE_ACTORS of it over them, so towers, soldiers and foes stand out
 // lighter against the dark land. The fade follows k continuously (it was stepped in eighths, owner:
 // "the fading in and out was kind of choppy").
-const SHADE_GROUND = 0.85, SHADE_ACTORS = 0.4;
+const SHADE_GROUND = 0.85, SHADE_ACTORS = 0.5;   // actors 0.4 -> 0.5 (owner, 2026-11-22: "a liiiitttle bit more dark to the towers")
 const shade = (ctx, a) => {
   if (!LAYERS) LAYERS = bakeLayers();
   const prevOp = ctx.globalCompositeOperation, pa = ctx.globalAlpha;

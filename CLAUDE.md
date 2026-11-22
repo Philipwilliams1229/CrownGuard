@@ -913,8 +913,8 @@ owner wants it reversible and played in a preview before it reaches main.
   `bm-eyes.html`. Weak: eyes draw over a hall standing in front; health bars dim a little.
   Then (owner, 2026-11-22: "a little bit too hard to see ... increase contrast on the towers", "the
   fading in and out was kind of choppy"): the shade is split, `SHADE_GROUND` 0.85 laid in the ground
-  pass (`bloodmoonGround`, before halls, figures and standing scenery) and only `SHADE_ACTORS` 0.4 over
-  them, so they stand out light on the dark land; every layer follows k continuously (it was stepped
+  pass (`bloodmoonGround`, before halls, figures and standing scenery) and only `SHADE_ACTORS` over
+  them (0.5 since the owner asked for "a little bit more dark to the towers"), so they stand out light on the dark land; every layer follows k continuously (it was stepped
   in eighths).
 - **Balance** (`--chapter hollow --endure`, seeds 1/2, better doctrine): 11419 / 11363 -> 6113 / 6489
   castle damage; the early levels halved (Risen got up 2300-4000 times a level, now 150-550). Not
