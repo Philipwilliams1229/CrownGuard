@@ -48,6 +48,8 @@ import {
 // the shared kit — called only inside painters, never at module load
 import { leafPart } from "./scenery.js";
 import { Pix, mat, toCanvas } from "./pix/pix.js";
+import { decorSun, sunKey } from "./scenery-gwpix.js";
+import { onDay } from "../data/sun.js";
 import { saltPanPix, sluicePix, wreckPix } from "./pix/iron-works.js";
 
 // ---- the Kingdom's colours and the country's -------------------------------
@@ -71,7 +73,9 @@ const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
 // A still body baked once (inked), then stamped — for the live pieces, whose
 // cloth or flame is painted over it every frame.
 const BODIES = new Map();
-const body = (key, hw, top, bot, paint) => {
+onDay(() => { BODIES.clear(); LOW.clear(); sbodies.clear(); });
+const body = (key0, hw, top, bot, paint) => {
+  const key = key0 + sunKey();
   let sp = BODIES.get(key);
   if (!sp) {
     const cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top));
@@ -262,7 +266,7 @@ const pixShade = (ctx, x, gy, cx, cy, rx, ry, a, holes, seed = 1) => {
 };
 // resolve a sculpt and stamp it, its foot (0, 0) on (x, gy)
 const stampSculpt = (ctx, obj, x, gy) => {
-  const img = obj.resolve({ line: "tint" }), cv = toCanvas(img), q = 1 / RES;
+  const img = obj.resolve({ line: "tint", sun: decorSun() }), cv = toCanvas(img), q = 1 / RES;
   ctx.drawImage(cv, x - img.ox * q, gy - img.oy * q, img.w * q, img.h * q);
 };
 const sculpt = (w, h, build, ctx, x, gy) => {
@@ -1387,7 +1391,7 @@ const tussPix = (v, sz, cols, heads = false) => {
 
 const LOW = new Map();
 const lowSprite = (kind, v, sz) => {
-  const key = `${kind}|${v}|${sz}|${REALM.GRASS_DK}|${PX}`;
+  const key = `${kind}|${v}|${sz}|${REALM.GRASS_DK}|${PX}${sunKey()}`;
   if (LOW.has(key)) return LOW.get(key);
   let sp;
   const R = REALM;
@@ -2842,7 +2846,8 @@ const CM = () => CM_ || (CM_ = {
 });
 // a baked still body for a live piece: sculpted, 1-px tinted line, no ring
 const sbodies = new Map();
-const sbody = (key, hw, top, bot, build, after) => {
+const sbody = (key0, hw, top, bot, build, after) => {
+  const key = key0 + sunKey();
   let sp = sbodies.get(key);
   if (!sp) {
     const cv = bakeSprite(hw * 2, top + bot, (c) => {

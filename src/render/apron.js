@@ -38,7 +38,10 @@ import { REALM } from "../data/maps.js";
 import { tintRing } from "./scenery-gwpix.js";
 import { PTS } from "../engine/path.js";
 import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data/terrain.js";
-import { drawTree, drawRiver } from "./scenery.js";
+import { drawTree, drawRiver, decorShadowItem } from "./scenery.js";
+import { DAY, onDay } from "../data/sun.js";
+import { dayGradeRect } from "./daygrade.js";
+import { paintCastShadows } from "./sceneryday.js";
 import { IRON_ART } from "./scenery-iron.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
@@ -1055,6 +1058,8 @@ function paveOut(g, lx0, ly0, lw, lh, k, road) {
 // which hides its cut end. Baked once per realm and gate, and again only if
 // a taller screen needs a longer one.
 const RUNS = { key: "", top: null, bot: null };
+// a new sun: the castle runs (castle.js bakes the sun into them) bake again
+onDay(() => Object.assign(RUNS, { key: "", top: null, bot: null }));
 function paintWallOut(ctx, vy0, vy1) {
   if (!PTS.length) return;
   const [gx, gy] = PTS[PTS.length - 1];
@@ -1082,7 +1087,7 @@ export const apronStats = () => STATS;
 export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
   if (!canvas || !board) return;
   const R = REALM;
-  const key = `${R.id}|${cssW}|${cssH}|${dpr}|${board.x}|${board.y}|${board.w}|${board.h}|${PTS.length}|${PTS[0]}`;
+  const key = `${R.id}|${cssW}|${cssH}|${dpr}|${board.x}|${board.y}|${board.w}|${board.h}|${PTS.length}|${PTS[0]}|${DAY.on ? DAY.id : ""}|${DAY.v}`;
   if (canvas.__apronKey === key) return;
   const t0 = performance.now();
   const pw = Math.max(1, Math.round(cssW * dpr)), ph = Math.max(1, Math.round(cssH * dpr));
@@ -1279,6 +1284,13 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
     if (d.x - hw < 0 || d.x + hw > W || d.y - up - z < 0 || d.y + dn > H) items.push(d);
   }
   items.sort((a, b) => a.y - b.y);
+  // the time of day: the cast shadows of everything out here, and of every board piece (a board tree's
+  // shadow runs on past the edge), on the ground under them all, as the board's are (sceneryday.js)
+  if (DAY.on && DAY.len > 0) {
+    const sh = [];
+    for (const d of [...items, ...DECOR]) { const it = decorShadowItem(d); if (it) { if (d.lift) it.lift = (it.lift || 0) + d.lift; sh.push(it); } }
+    paintCastShadows(ctx, sh, vx0, vy0, vx1, vy1, r);
+  }
   for (const d of items) {
     if (!d.lift) { drawTree(ctx, d, 0); continue; }
     ctx.save(); ctx.translate(0, -d.lift); drawTree(ctx, d, 0); ctx.restore();
@@ -1287,6 +1299,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
 
   // 4. the realm's light, in the board's own coordinates so it runs straight
   //    across the seam, then the falloff into the distance
+  if (DAY.on) dayGradeRect(ctx, vx0, vy0, vx1, vy1);   // the hour's colour, as the board's (daygrade.js)
   grade(ctx, vx0, vy0, vx1, vy1);
   falloff(ctx, vx0, vy0, vx1, vy1);
 

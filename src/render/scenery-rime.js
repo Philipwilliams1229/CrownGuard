@@ -55,6 +55,8 @@ import {
 import { turfTones, groundLayer } from "./world.js";
 import { SEA_ICE } from "./coast.js";
 import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
+import { decorSun, sunKey } from "./scenery-gwpix.js";
+import { onDay } from "../data/sun.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
@@ -441,7 +443,7 @@ const MM = () => PXM.snow ? PXM : Object.assign(PXM, {
 const sculpt = (w, above, below, build, ctx, x, gy) => {
   const obj = new Pix(w, above + below, w >> 1, above);
   build(obj, MM());
-  const img = obj.resolve({ line: "tint" }), cv = toCanvas(img);
+  const img = obj.resolve({ line: "tint", sun: decorSun() }), cv = toCanvas(img);
   ctx.drawImage(cv, x - img.ox * Q, gy - img.oy * Q, img.w * Q, img.h * Q);
 };
 // the cast shadow in blue-violet: rows of whole art pixels, its rim broken
@@ -771,8 +773,9 @@ const rmtussock = (ctx, x, y, s, o) => {
 // over each end of the ridge and carved into dragon heads (ochre, teal eyes),
 // a timber door with a teal lintel, a woodpile, smoke from the roof-hole.
 const BODIES = new Map();
+onDay(() => { BODIES.clear(); FLOE_SP.clear(); });
 const longhouseBody = (s, v) => {
-  const key = `lh|${s}|${v}`;
+  const key = `lh|${s}|${v}${sunKey()}`;
   let sp = BODIES.get(key);
   if (sp) return sp;
   const hw = Math.ceil(30 * s + 8), top = Math.ceil(38 * s + 8), bot = Math.ceil(12 + 6 * s);
@@ -1468,7 +1471,7 @@ const floeSprite = (f) => {
     ob.part(); ob.ellipse(-rx * 0.45, -ry * 0.6, rx * 0.35, 2, M.snow, 3, { round: 0.8 });
     for (let i = 0; i < 4; i++) { ob.part(); ob.rect(-rx * 0.8 + i * rx * 0.45, -ry * (1.0 + hash(sd, i) * 0.1), 2 + hash(sd, i + 60) * 2, 1, M.snow, 3, {}); }
   }
-  const img = ob.resolve({ line: "tint" }), over = toCanvas(img);
+  const img = ob.resolve({ line: "tint", sun: decorSun() }), over = toCanvas(img);
   { const c2 = cv.getContext("2d"); c2.setTransform(1, 0, 0, 1, 0, 0); c2.drawImage(over, 0, 0); }
   sp = { cv, hw, top, bot };
   FLOE_SP.set(key, sp);

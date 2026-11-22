@@ -11,7 +11,10 @@ import { W, H, PATH_HALF, RES, WALL_W, MX, MXR, mulberry32 } from "../data/const
 // border widened, so every realm's turf looks as it did
 const SW = W - (MXR - MX);
 import { REALM } from "../data/maps.js";
-import { tintRing } from "./scenery-gwpix.js";
+import { tintRing, mirrorsFor } from "./scenery-gwpix.js";
+import { DAY } from "../data/sun.js";
+import { paintCastShadows } from "./sceneryday.js";
+import { decorShadowItems } from "./scenery.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PONDS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, inSea, decorFootprint } from "../data/terrain.js";
 import { lighten, darken, mix, rgb, hash, ball, bakeSprite, part, PX } from "./paint.js";
@@ -1180,14 +1183,21 @@ function paintTurf(ctx) {
     }
     const ok = ([x, y]) => !(nearestOnPath(x, y).d < PATH_HALF + 12 || inPond(x, y, 4) || inRiver(x, y, 6) || x > W - WALL_W - 8 || y > H - 4);
     const snapW = (v) => Math.round(v * PX) / PX;
+    const hemMir = mirrorsFor("tree");
     items.filter(ok).sort((a, b) => a[1] - b[1]).forEach(([x, y, i, isFern, size]) => {
+      // (under an eastern sun each is laid mirrored about its own middle: its light on the right)
+      const lay = (cv, X, Y) => {
+        const w = cv.width / PX, h = cv.height / PX;
+        if (!hemMir) { ctx.drawImage(cv, X, Y, w, h); return; }
+        ctx.save(); ctx.translate(2 * X + w, 0); ctx.scale(-1, 1); ctx.drawImage(cv, X, Y, w, h); ctx.restore();
+      };
       if (isFern) {
         const cv = fernSprite(fern, R.GRASS_LT, Math.floor(hash(i, 77) * 3), size);
-        ctx.drawImage(cv, snapW(x - 14), snapW(y - 17), cv.width / PX, cv.height / PX);
+        lay(cv, snapW(x - 14), snapW(y - 17));
       } else {
         const v = Math.floor(hash(i, 75) * 3), cv = bushSprite((v + size) & 1 ? lighten(leaf, 0.1) : leaf, v, size);
         const bw = BUSH_W[size], bh = cv.height / PX;
-        ctx.drawImage(cv, snapW(x - bw * 0.5), snapW(y - bh + 5), cv.width / PX, bh);
+        lay(cv, snapW(x - bw * 0.5), snapW(y - bh + 5));
       }
     });
   }
@@ -1196,7 +1206,7 @@ function paintTurf(ctx) {
 // The cached ground for the realm currently loaded. Rebuilt whenever the
 // road changes underneath it (a new realm) — and only then.
 export function groundLayer() {
-  const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}`;
+  const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}|${DAY.on ? DAY.id : ""}`;
   if (layer && key === layerKey) return layer;
   layer = document.createElement("canvas");
   layer.width = W * RES;
@@ -1209,6 +1219,9 @@ export function groundLayer() {
   paintRoad(ctx);
   if (artFor("road", art)) artFor("road", art)(ctx, kit());
   bakeWater(ctx);
+  // the time of day: every piece of scenery's cast shadow along the level's sun (sceneryday.js), baked
+  // into the ground once per sun (nothing at noon)
+  if (DAY.on && DAY.len > 0) paintCastShadows(ctx, decorShadowItems(), 0, 0, W, H);
   layerKey = key;
   return layer;
 }

@@ -9,7 +9,9 @@
 // unless a carpenter made it.
 
 import { rich } from "./look-c.js";
-import { pixRock, pixMushroom, pixDeadTree, tintRing, baking, pixTowerBody } from "./scenery-gwpix.js";
+import { pixRock, pixMushroom, pixDeadTree, tintRing, baking, pixTowerBody, mirrorBake, mirrorsFor } from "./scenery-gwpix.js";
+import { DAY, onDay } from "../data/sun.js";
+import { sunRim } from "./sceneryday.js";
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
 import { FOREST, DECOR, COAST, forestDepthAt, seaDepthAt, inRiver, archAt, BRIDGE_HALF } from "../data/terrain.js";
@@ -927,6 +929,8 @@ const banner = (ctx, x, y, s, time) => {
 // size, variant) — and stamped from then on. Things that glow, flicker or
 // fly a flag are painted live so they keep moving.
 const SPRITES = new Map();
+// a new sun (data/sun.js): every piece re-bakes (its lit side, its warm edge, the pix sculpts in it)
+onDay(() => { SPRITES.clear(); GATE.key = ""; });
 // how many bakes the scenery holds, and their pixels (for the lab pages)
 export const sceneryBakeStats = () => { let px = 0; for (const sp of SPRITES.values()) px += sp.cv.width * sp.cv.height; return { n: SPRITES.size, mb: +(px * 4 / 1048576).toFixed(1) }; };
 export const resetSceneryBakes = () => { SPRITES.clear(); GATE.key = ""; resetCastleBakes(); };
@@ -1012,10 +1016,12 @@ const decorSprite = (d) => {
   const [bw, bt] = reg().box[d.t] || (tall ? [27, 48] : [38, 42]);
   const hw = Math.ceil(bw * s + (tall ? 6 : 8)), top = Math.ceil(bt * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
   const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29 + sd * 577;
+  const mir = mirrorsFor(d.t), wasM = mirrorBake(mir);
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas; const was = baking(true);
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; baking(was); }
   }, false);
+  mirrorBake(wasM);
   if (NEWRING) tintRing(cv);
   const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
@@ -1024,6 +1030,8 @@ const decorSprite = (d) => {
     groundDress(c, hw, top + (d.t.includes("rock") ? 8 : 10), dress[0] * s, seed, dress[1]);
     c.restore();
   }
+  // the time of day: the sunward edge warmed (as baked: a mirrored piece has the sun on its own left)
+  if (DAY.on) sunRim(cv, mir || DAY.side < 0);
   sp = { cv, hw, top, bot };
   SPRITES.set(key, sp);
   return sp;
@@ -1050,23 +1058,56 @@ const gateTree = (d) => {
   GATE.trees.set(d, m);
   return m;
 };
+// how high a piece stands on the gate's crag (0 on the ground), or -1: left out (it would hide the mouth)
+const treeLift = (d) => {
+  if (d.forest && GATE.hAt && GATE.rid === REALM.id && (REALM.spawn === "grove" || !REALM.spawn)) return gateTree(d);
+  if (reg().gateTree[REALM.spawn]) return reg().gateTree[REALM.spawn](d);
+  return 0;
+};
 export const drawTree = (ctx, d, time) => {
-  let lift = 0;
-  if (d.forest && GATE.hAt && GATE.rid === REALM.id && (REALM.spawn === "grove" || !REALM.spawn)) {
-    lift = gateTree(d);
-    if (lift < 0) return;
-  } else if (reg().gateTree[REALM.spawn]) {
-    lift = reg().gateTree[REALM.spawn](d);
-    if (lift < 0) return;
-  }
+  const lift = treeLift(d);
+  if (lift < 0) return;
   if (lift) { ctx.save(); ctx.translate(0, -Math.round(lift * PX) / PX); }
+  // under an eastern sun the piece is drawn mirrored about its anchor (its light on the right; sceneryday.js)
+  const mir = mirrorsFor(d.t);
+  if (mir) { ctx.save(); ctx.translate(2 * d.x, 0); ctx.scale(-1, 1); }
   if (!reg().live.has(d.t) && typeof document !== "undefined") {
     const sp = decorSprite(d);
     ctx.drawImage(sp.cv, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
     const lb = LIVE_BITS[d.t];
     if (lb) lb(ctx, d.x, d.y, variantOf(d).s, time);
-  } else paintDecor(ctx, { ...d, ...variantOf(d), s: d.s || 1 }, time);
+  } else {
+    const wasM = mirrorBake(mir);
+    try { paintDecor(ctx, { ...d, ...variantOf(d), s: d.s || 1 }, time); } finally { mirrorBake(wasM); }
+  }
+  if (mir) ctx.restore();
   if (lift) ctx.restore();
+};
+
+// ---- the cast shadows of the scenery under the level's sun (sceneryday.js paints them) ----
+// pieces whose shadow is a sheared copy along the screen (wide things: walls, houses, tents, boats)
+// rather than spread across the light from the foot (round things: trees, rocks, stones)
+const WIDE = new Set(["tent", "watchtower", "gravestone", "cottage", "watermill", "haywain", "netrack", "boat", "trilithon", "creels", "skeps",
+  "irwall", "irwagon", "irtent", "irruin", "irquay", "irtoll", "irsalthouse", "irsalt", "irboat", "irwreck", "irgate", "irpikes", "irmuster",
+  "irrack", "irbutts", "irtower", "ireyrie", "irgibbet", "irsluice", "irpan", "irmoor", "irquintain", "irdummy",
+  "rmlonghouse", "rmlongship", "rmwhale", "rmboat", "rmrack"]);
+// pieces with no shadow of their own to cast (flat on the ground, or in the water)
+const NO_CAST = new Set(["reeds", "rmice", "irpan", "irheather", "rmtussock", "marram"]);
+// one piece as the shadow painter wants it (null: nothing to cast); the gate is baked first so the wood
+// round it knows which trees stand on the crag
+export const decorShadowItem = (d) => {
+  if (!DAY.on || NO_CAST.has(d.t) || typeof document === "undefined") return null;
+  const lift = treeLift(d);
+  if (lift < 0) return null;
+  const sp = decorSprite(d);
+  return { sp, x: d.x, y: d.y, lift: lift ? Math.round(lift * PX) / PX : 0, mirror: mirrorsFor(d.t), round: !WIDE.has(d.t) };
+};
+export const decorShadowItems = () => {
+  if (!DAY.on) return [];
+  warmScenery();
+  const out = [];
+  for (const d of DECOR) { const it = decorShadowItem(d); if (it) out.push(it); }
+  return out;
 };
 
 // ---- water and bridges: src/render/water.js and src/render/bridge.js ----

@@ -10,6 +10,8 @@ import { RES } from "../../data/constants.js";
 import { REALM } from "../../data/maps.js";
 import { darken, lighten, mix, rgba, hash, PX, bakeSprite } from "../paint.js";
 import { Pix, mat, flat, toCanvas } from "./pix.js";
+import { decorSun, sunKey } from "../scenery-gwpix.js";
+import { onDay } from "../../data/sun.js";
 
 const U = RES;                                   // art pixels per board unit
 const ap = (v) => Math.round(v * PX) / PX;
@@ -45,7 +47,7 @@ const stoneMat = (col) => mat(col, { contrast: 0.95 });
 const sculpt = (ctx, x, gy, w, h, below, build) => {
   const b = new Pix(w, h, w >> 1, h - below);
   build(b);
-  const img = b.resolve({ line: "tint" }), cv = toCanvas(img), q = 1 / RES;
+  const img = b.resolve({ line: "tint", sun: decorSun() }), cv = toCanvas(img), q = 1 / RES;
   ctx.drawImage(cv, x - img.ox * q, gy - img.oy * q, img.w * q, img.h * q);
 };
 // a cast shadow in whole art pixels, thrown to the lower right, a few holes
@@ -60,8 +62,9 @@ const dapple = (ctx, cx, cy, rx, ry, a, seed) => {
 };
 // a body baked once for a live piece (its wheel / smoke are painted over it each frame)
 const BODIES = new Map();
+onDay(() => BODIES.clear());
 export const pixBody = (key, hw, top, bot, paint) => {
-  const k = `${key}|${REALM.GRASS}|${REALM.GRASS_DK}`;
+  const k = `${key}|${REALM.GRASS}|${REALM.GRASS_DK}${sunKey()}`;
   let sp = BODIES.get(k);
   if (!sp) {
     const cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top), false);

@@ -8,6 +8,25 @@ import { RES } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { hash, mix, lighten, rgba } from "./paint.js";
 import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
+import { DAY, onDay } from "../data/sun.js";
+
+// ---- the time of day (data/sun.js; art/briefs/time-of-day.md, the scenery row) ----
+// Under an EASTERN sun most scenery is drawn MIRRORED about its anchor (scenery.js drawTree), so its
+// painted lit side and ground shadow land on the right. A pix sculpt inside such a piece must then be
+// baked with the light on its LEFT (the west twin of the level's sun), or the mirror would undo it:
+// `mirrorBake(true)` while baking a piece that will be mirrored; every resolve in the scenery files passes
+// `sun: decorSun()`. At noon both return nothing (pixel-identical to before).
+let MIR = false;
+export const mirrorBake = (on) => { const was = MIR; MIR = !!on; return was; };
+export const decorSun = () => (DAY.on && MIR ? [-Math.abs(DAY.L[0]), DAY.L[1], DAY.L[2]] : undefined);
+// a cache key for anything sculpted: "" at noon, else the sun and the mirror
+export const sunKey = () => (DAY.on ? `|${DAY.id}${MIR ? "m" : ""}` : "");
+// pieces NEVER mirrored: a wheel in a mill race, boats, quays and moorings against the water, gates on
+// the road, writing (milestones, runes, the toll board). They keep their own lit side (the sculptor lights
+// pix ones from the real sun) and only their cast shadow follows the hour.
+export const NO_MIRROR = new Set(["watermill", "boat", "irquay", "irmoor", "irsluice", "irwreck", "irboat", "irgate", "irmile", "irtoll",
+  "irstack", "rmlongship", "rmboat", "rmgate", "rmrunestone", "rmskaldstone", "rmice"]);
+export const mirrorsFor = (t) => DAY.on && DAY.side > 0 && !NO_MIRROR.has(t);
 
 const h3 = (a, b, c) => hash(a * 31 + c * 7, b);
 const R = RES;
@@ -24,7 +43,7 @@ export const pixShade = (ctx, x, gy, cx, cy, rx, ry, a, seed = 1) => {
   }
 };
 export const stamp = (ctx, obj, x, gy) => {
-  const img = obj.resolve({ line: "tint" }), cv = toCanvas(img), q = 1 / R;
+  const img = obj.resolve({ line: "tint", sun: decorSun() }), cv = toCanvas(img), q = 1 / R;
   ctx.drawImage(cv, x - img.ox * q, gy - img.oy * q, img.w * q, img.h * q);
 };
 const sculpt = (w, h, build, ctx, x, gy) => {
@@ -200,8 +219,9 @@ export const tintedPart = (plain) => (ctx, fn, o = {}) => {
 
 // ---- the Gullwick watchtower's stone (the window glow and the flag stay live) -----
 const TOWERS = new Map();
+onDay(() => TOWERS.clear());
 export const pixTowerBody = (ctx, x, y, s, stone) => {
-  const k = `${s}|${stone}`;
+  const k = `${s}|${stone}${sunKey()}`;
   let t = TOWERS.get(k);
   if (!t) {
     const w = 7 * s * R, hgt = 27 * s * R;
@@ -224,7 +244,7 @@ export const pixTowerBody = (ctx, x, y, s, stone) => {
     obj.part(); obj.poly([[w - side + 0, -hgt - 3], [w, -hgt - 4], [w, -hgt - 3 - 5 * R * 0.7], [w - side + 0, -hgt - 3 - 5 * R * 0.7]], M, 1.2, { n: [0.55, 0.05, 0.7] });
     // the door, low on the front
     obj.part(); obj.rect(-3, -9, 7, 9, mat("#4a3622"), 1, { n: [0, 0, 1] });
-    const img = obj.resolve({ line: "tint" });
+    const img = obj.resolve({ line: "tint", sun: decorSun() });
     t = { cv: toCanvas(img), ox: img.ox, oy: img.oy, w: img.w, h: img.h };
     TOWERS.set(k, t);
   }

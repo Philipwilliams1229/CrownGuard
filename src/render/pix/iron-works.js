@@ -9,6 +9,7 @@ import { RES } from "../../data/constants.js";
 import { REALM } from "../../data/maps.js";
 import { darken, lighten, mix, rgba, tuft, hash, PX } from "../paint.js";
 import { Pix, mat, toCanvas } from "./pix.js";
+import { decorSun } from "../scenery-gwpix.js";
 
 const ap = (v) => Math.round(v * PX) / PX;
 const U = RES;                                   // art pixels per board unit
@@ -40,7 +41,7 @@ const M = () => M_ || (M_ = {
 const sculpt = (ctx, x, gy, w, h, build) => {
   const b = new Pix(w, h, w >> 1, h - 12);
   build(b);
-  const img = b.resolve({ line: "tint" }), cv = toCanvas(img), q = 1 / RES;
+  const img = b.resolve({ line: "tint", sun: decorSun() }), cv = toCanvas(img), q = 1 / RES;
   ctx.drawImage(cv, x - img.ox * q, gy - img.oy * q, img.w * q, img.h * q);
 };
 const dapple = (ctx, cx, cy, rx, ry, a, seed) => {     // a cast shadow in whole art pixels, a few holes
