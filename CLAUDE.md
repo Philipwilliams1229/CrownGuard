@@ -922,6 +922,12 @@ Bring these up with the owner; don't act on them unasked.
   update.js `runGhastHits`; cleared by a retried wave). `deathBurst` with `dps` would still lay a
   pool. Measured `--chapter hollow --endure`, better doctrine, seeds 1/2: 9551 / 9199 -> 9824 /
   10507 (the Dead Weir 994 -> 1676 on seed 2); all 15 held, none stuck. Pending the owner's playtest.
+  Then (owner: "looks a bit whack. Maybe because the biggest bubbles fall towards the outside?")
+  **Round 8** variations on the burst (brief `art/briefs/fx-round8.md`, row `burst8` in
+  `concept/fx-r8-burst.js`, `build-fx-concepts.mjs round8`): private Artifact "Crownguard Effects
+  Concepts, Round 8" (slug 67072951-4f90-4be3-9fe8-abd0357b8df3): A heavy falls close, B streaked
+  splatter, C spray burst (droplets vanish fast), D bouncing gobbets + a ring of droplets on the rim.
+  All keep the engine's timing. Waiting on the owner's pick.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
