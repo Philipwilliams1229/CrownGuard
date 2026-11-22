@@ -148,3 +148,7 @@ GROUND
 - **Lakes: 1 (mere), 2 (tarn) and 4 (reed fen) APPROVED; 3 (millpond) removed.** "1 2 and 4 are all good here.
   Good job. 3 the millpond doesnt look good, remove. would love to see a variety of 1 2 and 4 throughout the
   maps." (Deal the three lake kinds across the boards for variety.)
+- **Autumn colours** (a comment on the autumn-leaves loop, about the big oak): "just fix the colors on this big
+  tree, make sure they are closer. Like green and yellow, yellow and orange, orange and red. but not jumping
+  from green to orange." (Within ONE tree the leaf masses must be NEIGHBOURS on the autumn ramp green -> yellow
+  -> orange -> red: a tree may mix two adjacent colours, never two apart.)
