@@ -42,13 +42,15 @@ import { PTS, SEGS, TOTAL_LEN, nearestOnPath } from "../engine/path.js";
 import { FOREST, forestDepthAt, PONDS, RIVERS, inRiver, DECOR } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import {
-  lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, blade, tuft, stone,
+  lighten, darken, mix, rgba, soft, shadow as shadow0, ball, glow, roundRect, cylinder, blade, tuft, stone,
   blobPath, blobBall, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
 } from "./paint.js";
 // the shared kit — called only inside painters, never at module load
 import { leafPart } from "./scenery.js";
 import { Pix, mat, toCanvas } from "./pix/pix.js";
-import { decorSun, sunKey } from "./scenery-gwpix.js";
+import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
+// (the short painted ground shadows stand down under a long-shadow sun: sceneryday.js casts them)
+const shadow = (...a) => (longShade() ? undefined : shadow0(...a));
 import { onDay } from "../data/sun.js";
 import { saltPanPix, sluicePix, wreckPix } from "./pix/iron-works.js";
 
@@ -255,6 +257,7 @@ const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
 const CRAG_MAT = () => mat(mix(GRIT, "#6c7468", 0.35), { contrast: 0.4 });
 // a dappled cast shadow on the turf: rows of whole art pixels, holes letting the turf through
 const pixShade = (ctx, x, gy, cx, cy, rx, ry, a, holes, seed = 1) => {
+  if (longShade()) return;
   const q = 1 / RES;
   ctx.fillStyle = rgba("#2a1c2c", a);
   for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
@@ -1146,6 +1149,14 @@ const drawIronCamp = (ctx, time) => {
   ctx.drawImage(C.build, C.x0, C.y0, C.w, C.h);
   // a board with no "irgate" piece stands the gatehouse here, under the foes
   if (!gatePieces().far && !gatePieces().near) { drawGateFar(ctx, time); drawGateNear(ctx, time); }
+};
+
+// what of the camp stands up and throws a shadow under the level's sun (sceneryday.js columnCast)
+const castIronCamp = (ctx) => {
+  if (PTS.length < 2) return;
+  const C = bakeCamp();
+  ctx.drawImage(C.build, C.x0, C.y0, C.w, C.h);
+  if (!gatePieces().far && !gatePieces().near) { drawGateFar(ctx, 0); drawGateNear(ctx, 0); }
 };
 
 // ---- the ground: heather, bracken, bare stone ----------------------------------
@@ -3722,6 +3733,7 @@ export const IRON_ART = {
     irstack: [10, true], irdummy: [3, false], irmuster: [3, false],
   },
   spawn: { ironcamp: drawIronCamp },
+  cast: { ironcamp: castIronCamp },
   turf: { iron: ironTurf },
   road: { iron: ironRoad },
   // the country beyond the board's edges (render/apron.js)

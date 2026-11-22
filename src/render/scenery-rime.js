@@ -55,7 +55,7 @@ import {
 import { turfTones, groundLayer } from "./world.js";
 import { SEA_ICE } from "./coast.js";
 import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
-import { decorSun, sunKey } from "./scenery-gwpix.js";
+import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
 import { onDay } from "../data/sun.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
@@ -448,6 +448,7 @@ const sculpt = (w, above, below, build, ctx, x, gy) => {
 };
 // the cast shadow in blue-violet: rows of whole art pixels, its rim broken
 const vShade = (ctx, x, gy, cx, cy, rx, ry, a) => {
+  if (longShade()) return;
   ctx.fillStyle = `${VIO}${a})`;
   for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
     const u = (i + 0.5 - cx) / rx, v = (j + 0.5 - cy) / ry, d = u * u + v * v;
@@ -1507,6 +1508,13 @@ const drawRimeGate = (ctx, time) => {
   if (!hasNear()) drawGateNear(ctx);
 };
 
+// the gate's posts and arch throw a shadow under the level's sun (sceneryday.js columnCast); the ice is flat
+const castRimeGate = (ctx) => {
+  if (PTS.length < 2) return;
+  drawGateFar(ctx, 0);
+  if (!hasNear()) drawGateNear(ctx);
+};
+
 // ============ THE REGISTRY ============
 export const RIME_ART = {
   // baked without the 2px ring: the tussock carries its own underline
@@ -1523,6 +1531,7 @@ export const RIME_ART = {
   },
   dress: {},
   spawn: { rimegate: drawRimeGate },
+  cast: { rimegate: castRimeGate },
   gateTree: { rimegate: rimeGateTree },
   turf: { rime: rimeTurf },
   road: { rime: rimeRoad },

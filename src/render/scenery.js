@@ -9,9 +9,12 @@
 // unless a carpenter made it.
 
 import { rich } from "./look-c.js";
-import { pixRock, pixMushroom, pixDeadTree, tintRing, baking, pixTowerBody, mirrorBake, mirrorsFor } from "./scenery-gwpix.js";
+import { pixRock, pixMushroom, pixDeadTree, tintRing, baking, pixTowerBody, mirrorBake, mirrorsFor, longShade } from "./scenery-gwpix.js";
+const shadow = (...a) => (longShade() ? undefined : shadow0(...a));
 import { DAY, onDay } from "../data/sun.js";
-import { sunRim } from "./sceneryday.js";
+import { sunRim, columnCast, liftCast, heightCast } from "./sceneryday.js";
+import { castBridges } from "./bridge.js";
+import { BRIDGES, BRIDGE_RISE } from "../data/terrain.js";
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
 import { FOREST, DECOR, COAST, forestDepthAt, seaDepthAt, inRiver, archAt, BRIDGE_HALF } from "../data/terrain.js";
@@ -24,8 +27,9 @@ import { HOLLOW_ART } from "./scenery-hollow.js";
 import { VALE_ART } from "./scenery-vale.js";
 import { RIME_ART } from "./scenery-rime.js";
 import {
-  lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
+  lighten, darken, mix, rgb, rgba, soft, shadow as shadow0, ball, glow, roundRect, cylinder, cone,
   blade, tuft, stone, strokePts, blobPath, blobBall, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
+// (shadow below: the short painted ground shadows stand down under a long-shadow sun, sceneryday.js casts them)
 
 // ---- palettes ---------------------------------------------------------
 const OAK = { leaf: "#5e9f45", trunk: "#7a5334" };
@@ -124,10 +128,12 @@ const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
   leaf = rich(leaf);
   // the crown's cast shadow, thrown firm and lower right (a ragged hard-edged
   // blob, then a pool at the roots)
-  blobPath(ctx, x + 11 * s, base + 0.5, 19 * s, 5.4 * s, seed + 3, 0.16, 11);
-  ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
-  blobPath(ctx, x + 6 * s, base, 11 * s, 3.2 * s, seed + 5, 0.14, 9);
-  ctx.fillStyle = "rgba(28,20,34,0.22)"; ctx.fill();
+  if (!longShade()) {
+    blobPath(ctx, x + 11 * s, base + 0.5, 19 * s, 5.4 * s, seed + 3, 0.16, 11);
+    ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+    blobPath(ctx, x + 6 * s, base, 11 * s, 3.2 * s, seed + 5, 0.14, 9);
+    ctx.fillStyle = "rgba(28,20,34,0.22)"; ctx.fill();
+  }
   shadow(ctx, x + 1 * s, base, 8 * s, 2.4 * s, 0.34);
   const R = (18 + H(1) * 3.5) * s, Ry = R * (0.84 + H(2) * 0.1);
   const cx = x + (H(3) - 0.5) * 3 * s, cy = y - 3 * s - Ry;
@@ -237,8 +243,10 @@ const pineTree = (ctx, x, y, s, leaf, trunk, seed, caps = null) => {
   const H = (i) => hash(seed, i);
   const base = y + 10;
   leaf = rich(leaf, 1.2);
-  blobPath(ctx, x + 8 * s, base + 0.5, 13 * s, 4 * s, seed + 3, 0.16, 11);
-  ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  if (!longShade()) {
+    blobPath(ctx, x + 8 * s, base + 0.5, 13 * s, 4 * s, seed + 3, 0.16, 11);
+    ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  }
   shadow(ctx, x + 1.5 * s, base, 6 * s, 2 * s, 0.34);
   leafPart(ctx, (c) => {
     c.beginPath();
@@ -608,8 +616,10 @@ const willow = (ctx, x, y, s, sway, seed = 1) => {
   const H = (i) => hash(seed, i);
   const base = y + 12;
   const leaf = rich("#5f8a44");
-  blobPath(ctx, x + 10 * s, base + 0.5, 18 * s, 5 * s, seed + 3, 0.16, 11);
-  ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  if (!longShade()) {
+    blobPath(ctx, x + 10 * s, base + 0.5, 18 * s, 5 * s, seed + 3, 0.16, 11);
+    ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  }
   shadow(ctx, x + 1 * s, base, 7 * s, 2.2 * s, 0.34);
   const box = [x - 26 * s, y - 34 * s, x + 26 * s, base + 3];
   limb(ctx, [[x - 0.5, base], [x + 0.5 * s, base - 7 * s], [x + 1.5 * s, base - 14 * s]], 2.8 * s, 1.8 * s, "#5a4230", box);
@@ -945,6 +955,7 @@ const reg = () => REG || (REG = (() => {
     box: Object.assign({}, ...ART.map((a) => a.box)),
     dress: Object.assign({}, ...ART.map((a) => a.dress)),
     spawn: Object.assign({}, ...ART.map((a) => a.spawn)),
+    cast: Object.assign({}, ...ART.map((a) => a.cast || {})),
     // a chapter gate's own rule for the edge wood round it (drop a tree that
     // would hide its mouth, lift one onto its mound): HOLLOW_ART.gateTree
     gateTree: Object.assign({}, ...ART.map((a) => a.gateTree || {})),
@@ -1092,7 +1103,7 @@ const WIDE = new Set(["tent", "watchtower", "gravestone", "cottage", "watermill"
   "irrack", "irbutts", "irtower", "ireyrie", "irgibbet", "irsluice", "irpan", "irmoor", "irquintain", "irdummy",
   "rmlonghouse", "rmlongship", "rmwhale", "rmboat", "rmrack"]);
 // pieces with no shadow of their own to cast (flat on the ground, or in the water)
-const NO_CAST = new Set(["reeds", "rmice", "irpan", "irheather", "rmtussock", "marram"]);
+const NO_CAST = new Set(["reeds", "rmice", "irpan"]);
 // one piece as the shadow painter wants it (null: nothing to cast); the gate is baked first so the wood
 // round it knows which trees stand on the crag
 export const decorShadowItem = (d) => {
@@ -1107,6 +1118,17 @@ export const decorShadowItems = () => {
   warmScenery();
   const out = [];
   for (const d of DECOR) { const it = decorShadowItem(d); if (it) out.push(it); }
+  // the spawn: the gate's crag by its height field; a chapter's camp or gate by its standing parts
+  const k = REALM.spawn;
+  if (PTS.length >= 2 && hasCrag() && !reg().spawn[k]) {
+    const G = bakeGate(k === "grove" ? "grove" : "cave");
+    if (G && G.cv && G.hAt) { const pre = heightCast(G.hAt, G.x, G.y, G.x + G.w, G.y + G.h, G.top); if (pre) out.push({ pre }); }
+  } else if (reg().cast[k]) {
+    const pre = columnCast((c) => reg().cast[k](c), W, H);
+    if (pre) out.push({ pre });
+  }
+  // the bridges: each deck stands a few units over the water (its shadow beside it, short)
+  if (BRIDGES.length) { const pre = liftCast(castBridges, W, H, BRIDGE_RISE * 0.5); if (pre) out.push({ pre }); }
   return out;
 };
 

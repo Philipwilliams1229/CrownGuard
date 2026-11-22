@@ -26,6 +26,9 @@ export const sunKey = () => (DAY.on ? `|${DAY.id}${MIR ? "m" : ""}` : "");
 // pix ones from the real sun) and only their cast shadow follows the hour.
 export const NO_MIRROR = new Set(["watermill", "boat", "irquay", "irmoor", "irsluice", "irwreck", "irboat", "irgate", "irmile", "irtoll",
   "irstack", "rmlongship", "rmboat", "rmgate", "rmrunestone", "rmskaldstone", "rmice"]);
+// a long cast shadow is laid (sceneryday.js): the pieces' own short painted ground shadows stand down
+// (otherwise the roots read doubly dark). Read at bake time.
+export const longShade = () => DAY.on && DAY.len > 0;
 export const mirrorsFor = (t) => DAY.on && DAY.side > 0 && !NO_MIRROR.has(t);
 
 const h3 = (a, b, c) => hash(a * 31 + c * 7, b);
@@ -33,6 +36,7 @@ const R = RES;
 
 // a dappled cast shadow, whole art pixels, to the lower right
 export const pixShade = (ctx, x, gy, cx, cy, rx, ry, a, seed = 1) => {
+  if (longShade()) return;
   const q = 1 / R;
   ctx.fillStyle = rgba("#2a1c2c", a);
   for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {

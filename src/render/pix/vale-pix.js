@@ -10,7 +10,7 @@ import { RES } from "../../data/constants.js";
 import { REALM } from "../../data/maps.js";
 import { darken, lighten, mix, rgba, hash, PX, bakeSprite } from "../paint.js";
 import { Pix, mat, flat, toCanvas } from "./pix.js";
-import { decorSun, sunKey } from "../scenery-gwpix.js";
+import { decorSun, sunKey, longShade } from "../scenery-gwpix.js";
 import { onDay } from "../../data/sun.js";
 
 const U = RES;                                   // art pixels per board unit
@@ -52,6 +52,7 @@ const sculpt = (ctx, x, gy, w, h, below, build) => {
 };
 // a cast shadow in whole art pixels, thrown to the lower right, a few holes
 const dapple = (ctx, cx, cy, rx, ry, a, seed) => {
+  if (longShade()) return;
   const q = 1 / RES;
   ctx.fillStyle = rgba("#2a1c2c", a);
   for (let j = Math.floor((cy - ry) / q); j <= Math.ceil((cy + ry) / q); j++) for (let i = Math.floor((cx - rx) / q); i <= Math.ceil((cx + rx) / q); i++) {

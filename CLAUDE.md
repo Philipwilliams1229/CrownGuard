@@ -1011,6 +1011,10 @@ bright side of towers and figures moves to the sun's side (they picked it from a
 - **Labs:** `sun-lab.html?realm=&faction=&sun=&tag=` (`all=1`: every sun) saves `.shots/sun_<tag>_*.png`;
   `scn-apron-lab.html?sun=` for the land beyond the board; `col-lab.html` (`&perf=1`). No playwright on
   the owner's Mac: open labs in the built-in browser (own tab), not `scripts/shoot.mjs`.
+- Second pass the same night: no short painted shadow under a long one (`longShade()`), the spawn crag /
+  Iron camp / Rime gate and the bridges cast (not mirrored, their lit side unchanged), hem bushes cast, the
+  apron's trees throw shadows onto the board (`setEdgeCasters`, world.js; the ground layer rebuilds once
+  after the apron's first paint). A level's first ground bake under a sun is ~1 s on the dev Mac.
 - **Weak / not done** (see the brief's STATUS for the latest): rally flags, banners and the ballistae cast
   nothing; a hall on a beach casts onto the water; hall and figure shadows double-darken where they cross;
   the sun's rim beats nearby firelight on a figure at sunrise / golden; a hurt castle's lost merlons still

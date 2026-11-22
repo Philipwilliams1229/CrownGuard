@@ -79,6 +79,8 @@
           const warm = document.createElement("canvas");
           paintApron(warm, { cssW: L.cssW, cssH: L.cssH, dpr: DPR, board: { ...L.board, x: L.board.x + 1 } });
           const st2 = apronStats();
+          // (the board again: the apron reports the trees past its edges whose shadows fall onto it)
+          draw(base(3.1), boardCv, { current: null });
           const cv = document.createElement("canvas");
           cv.width = L.cssW * DPR; cv.height = L.cssH * DPR;
           const c = cv.getContext("2d");

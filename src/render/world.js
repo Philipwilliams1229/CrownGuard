@@ -14,7 +14,7 @@ import { REALM } from "../data/maps.js";
 import { tintRing, mirrorsFor } from "./scenery-gwpix.js";
 import { DAY } from "../data/sun.js";
 import { paintCastShadows } from "./sceneryday.js";
-import { decorShadowItems } from "./scenery.js";
+import { decorShadowItems, decorShadowItem } from "./scenery.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PONDS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, inSea, decorFootprint } from "../data/terrain.js";
 import { lighten, darken, mix, rgb, hash, ball, bakeSprite, part, PX } from "./paint.js";
@@ -1188,6 +1188,9 @@ function paintTurf(ctx) {
       // (under an eastern sun each is laid mirrored about its own middle: its light on the right)
       const lay = (cv, X, Y) => {
         const w = cv.width / PX, h = cv.height / PX;
+        // under a long-shadow sun the hem waits until the cast shadows are laid (groundLayer), so its own
+        // small shadows fall under it and the scenery's long ones over the turf round it
+        if (HEM) { HEM.push({ cv, X, Y, w, h }); return; }
         if (!hemMir) { ctx.drawImage(cv, X, Y, w, h); return; }
         ctx.save(); ctx.translate(2 * X + w, 0); ctx.scale(-1, 1); ctx.drawImage(cv, X, Y, w, h); ctx.restore();
       };
@@ -1203,17 +1206,35 @@ function paintTurf(ctx) {
   }
 }
 
+// the wood's hem, held back under a long-shadow sun (see paintTurf); null otherwise
+let HEM = null;
+const layHem = (ctx, list) => {
+  const mir = mirrorsFor("tree");
+  for (const { cv, X, Y, w, h } of list) {
+    if (!mir) { ctx.drawImage(cv, X, Y, w, h); continue; }
+    ctx.save(); ctx.translate(2 * X + w, 0); ctx.scale(-1, 1); ctx.drawImage(cv, X, Y, w, h); ctx.restore();
+  }
+};
+// the apron's pieces just past the board's edges (apron.js reports them once it has painted): their
+// shadows reach onto the board, so the edge is no line where shadows start
+let EDGE = { key: "", items: [] };
+export const setEdgeCasters = (key, items) => { if (key !== EDGE.key) EDGE = { key, items }; };
+
 // The cached ground for the realm currently loaded. Rebuilt whenever the
 // road changes underneath it (a new realm) — and only then.
 export function groundLayer() {
-  const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}|${DAY.on ? DAY.id : ""}`;
+  const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}|${DAY.on ? DAY.id : ""}|${DAY.on && DAY.len > 0 ? EDGE.key : ""}`;
   if (layer && key === layerKey) return layer;
   layer = document.createElement("canvas");
   layer.width = W * RES;
   layer.height = H * RES;
   const ctx = layer.getContext("2d");
   ctx.scale(RES, RES);
+  const long = DAY.on && DAY.len > 0;
+  HEM = long ? [] : null;
   paintTurf(ctx);
+  const hem = HEM;
+  HEM = null;
   const art = REALM.groundArt, kit = () => ({ clear, rng: mulberry32((REALM.seed ^ 0x6a7d) >>> 0), SW });
   if (artFor("turf", art)) artFor("turf", art)(ctx, kit());
   paintRoad(ctx);
@@ -1221,7 +1242,15 @@ export function groundLayer() {
   bakeWater(ctx);
   // the time of day: every piece of scenery's cast shadow along the level's sun (sceneryday.js), baked
   // into the ground once per sun (nothing at noon)
-  if (DAY.on && DAY.len > 0) paintCastShadows(ctx, decorShadowItems(), 0, 0, W, H);
+  if (long) {
+    const items = decorShadowItems();
+    // the hem's bushes and ferns: a small shadow each (anchored at their middle, foot at the sprite's bottom)
+    const mir = mirrorsFor("tree");
+    for (const { cv, X, Y, w, h } of hem) items.push({ sp: { cv, hw: w / 2, top: 0, bot: h }, x: X + w / 2, y: Y, mirror: mir, round: true });
+    for (const d of EDGE.items) { const it = decorShadowItem(d); if (it) { if (d.lift) it.lift = (it.lift || 0) + d.lift; items.push(it); } }
+    paintCastShadows(ctx, items, 0, 0, W, H);
+    layHem(ctx, hem);
+  }
   layerKey = key;
   return layer;
 }

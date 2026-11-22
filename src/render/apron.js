@@ -35,7 +35,7 @@
 
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
-import { tintRing } from "./scenery-gwpix.js";
+import { tintRing, mirrorsFor } from "./scenery-gwpix.js";
 import { PTS } from "../engine/path.js";
 import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data/terrain.js";
 import { drawTree, drawRiver, decorShadowItem } from "./scenery.js";
@@ -47,7 +47,7 @@ import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { bakeCastleRun } from "./castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
-import { turfTones } from "./world.js";
+import { turfTones, setEdgeCasters } from "./world.js";
 import { punchCols, toneOf as meadowTone } from "./look-c.js";
 import { groundKind, pixelTuft } from "./groundblend.js";
 import { paintRoadStrip } from "./road.js";
@@ -384,7 +384,7 @@ const lowReach = (kind, h, dn) => ((kind === "drift" && h < 0.38) || (kind === "
 // The small stuff is stamped, not painted: each look (eight per kind, three
 // thicknesses of cover) is baked once per realm into a little un-inked sprite.
 const LOWS = new Map();
-function stampLow(ctx, kind, R, x, y, h, dens) {
+function stampLow(ctx, kind, R, x, y, h, dens, hold = null) {
   const hv = Math.floor(h * 8), dv = Math.min(2, Math.floor(dens * 3));
   const key = `${kind}|${R.id}|${hv}|${dv}`;
   let cv = LOWS.get(key);
@@ -393,6 +393,7 @@ function stampLow(ctx, kind, R, x, y, h, dens) {
     cv = bakeSprite(36, 24, (c) => paintLow(c, kind, R, 18, 16, (hv + 0.5) / 8, (dv + 0.5) / 3), false);
     LOWS.set(key, cv);
   }
+  if (hold) { hold.push({ cv, x, y }); return; }   // (a long-shadow sun: laid after the shadows, see paintApron)
   ctx.drawImage(cv, x - 18, y - 16, 36, 24);
 }
 
@@ -1226,6 +1227,9 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
   const M = 60, lx0 = vx0 - M, lx1 = vx1 + M, ly0 = vy0 - 20, ly1 = vy1 + 60;
   // small stuff, on a finer grid
   const lc = 12;
+  // under a long-shadow sun the small stuff waits for the cast shadows (its own fall under it), mirrored
+  // under an eastern sun like the board's hem
+  const longSun = DAY.on && DAY.len > 0, lows = longSun ? [] : null;
   for (let j = Math.floor(ly0 / lc); j <= Math.ceil(ly1 / lc); j++) {
     for (let i = Math.floor(lx0 / lc); i <= Math.ceil(lx1 / lc); i++) {
       const h = hash(seed + i * 131, j * 7 + 5);
@@ -1244,7 +1248,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
       if (x + rw > 0 && x - rw < W && y + rd > 0 && y - ru < H) continue;
       if (x + rw > W - WALL_W - 6 && x - rw < W + 170) continue;
       if (wet(x, y, 4) || onRoad(x, y, 4) || (hill && hill.at(x, y) > 1)) continue;
-      stampLow(ctx, B.low, R, x, y, h, dn);
+      stampLow(ctx, B.low, R, x, y, h, dn, lows);
     }
   }
   const tL = performance.now();
@@ -1289,7 +1293,17 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
   if (DAY.on && DAY.len > 0) {
     const sh = [];
     for (const d of [...items, ...DECOR]) { const it = decorShadowItem(d); if (it) { if (d.lift) it.lift = (it.lift || 0) + d.lift; sh.push(it); } }
+    for (const L of lows) sh.push({ sp: { cv: L.cv, hw: 18, top: 16, bot: 8 }, x: L.x, y: L.y, mirror: mirrorsFor("tree"), round: true });
     paintCastShadows(ctx, sh, vx0, vy0, vx1, vy1, r);
+    const mir = mirrorsFor("tree");
+    for (const L of lows) {
+      if (!mir) { ctx.drawImage(L.cv, L.x - 18, L.y - 16, 36, 24); continue; }
+      ctx.save(); ctx.translate(2 * L.x, 0); ctx.scale(-1, 1); ctx.drawImage(L.cv, L.x - 18, L.y - 16, 36, 24); ctx.restore();
+    }
+    // the pieces just past the board's edges throw their shadows onto it too (world.js lays them)
+    const reachOut = DAY.len * 70;
+    const edge = items.filter((d) => !DECOR.includes(d) && d.x > -reachOut && d.x < W + 10 && d.y > -reachOut * 0.4 && d.y < H + 10 && (d.x < 0 || d.y < 0 || d.x > W || d.y > H));
+    setEdgeCasters(`${R.id}|${DAY.id}|${edge.length}|${edge.length ? Math.round(edge[0].x) + "," + Math.round(edge[0].y) : ""}`, edge);
   }
   for (const d of items) {
     if (!d.lift) { drawTree(ctx, d, 0); continue; }

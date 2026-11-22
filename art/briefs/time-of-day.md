@@ -85,16 +85,16 @@ and REPORT it; otherwise ask the lead in your report.
 
 ## STATUS (the lead keeps this current)
 
-- DONE and committed: the sun's core (`data/sun.js`), the sculptor reading it, the lab page, the seam,
-  the first level plan (`SUN_PLAN`), the level card's hour, Free Play's "Time of day" chips; the
-  SHADOWS agent (dayshadows.js, sunset.js generalised); the CASTLE agent's first pass (castle.js);
-  the COLOUR agent (daygrade.js; `GRADE` holds its dials).
-- RUNNING (2026-11-22, night): the SCENERY agent (trees, rocks, props, apron; uncommitted edits in
-  scenery*.js, world.js, sceneryday.js, pix/vale-pix.js, pix/iron-works.js); the castle agent's
-  polish pass (the sunrise ground shadow's skyline, a stronger golden glow).
-- LEFT: commit those two when they report (node --check, look at the shots); apron hooks
-  (`dayGradeRect` in apron.js paintApron + `DAY.v` in its key; clear apron `RUNS` on `onDay`) if the
-  scenery agent did not do them; a full build check (`npx vite build --outDir <scratch dir>`); the
-  sims still run (`node scripts/sim.mjs --level gw1`); a preview for the owner of all seven suns;
-  guides (CLAUDE.md, STYLE-GUIDE.md); final commit.
-- Pushing to GitHub: NOT approved yet (the owner has not seen it). Commit locally only.
+ALL DONE (2026-11-22, night), committed locally, build passing, gw1 sim won. For the owner to look
+at: Free Play > Hero and Pace > "Time of day" on any board, or the campaign (each level's card names
+its hour). Preview pictures of every sun: `.shots/preview/`.
+- Built: the sun's core and plan (`data/sun.js`), sculpted light, cast shadows (halls, soldiers, foes),
+  the castle, scenery (mirrored lit side, silhouette shadows, spawn crag / camp / gate, bridges, hem
+  bushes, the apron and its trees' shadows onto the board), the hour's colour (board and apron), the
+  level card's hour, Free Play's chips, guides.
+- NOT DONE / weak (put to the owner): the lit side of the crag, Iron camp and bridges; rally flags,
+  banners, ballistae cast nothing; figures' amber edge is strong at sunrise / golden (daygrade.js
+  `dayKeyLights` k); tall halls' shadows cross the road at the lowest suns (dayshadows.js `P.shear`);
+  the ground layer rebuilds ~1 s on the Mac at a level's start under a sun (unmeasured on a phone);
+  a hurt castle's lost merlons still cast; nothing seen on a real device.
+- Pushing to GitHub: NOT approved yet (asked; the owner has not answered). Commit locally only.

@@ -1777,4 +1777,9 @@ export const bakeBridges = () => {
   for (const b of BRIDGES) spriteOf(b);
 };
 
+// every span's still picture, for its shadow on the water under the level's sun (sceneryday.js liftCast)
+export const castBridges = (ctx) => {
+  for (const b of BRIDGES) { const s = spriteOf(b); ctx.drawImage(s.cv, s.x0, s.y0, s.w, s.h); }
+};
+
 export { DEFAULT_BRIDGE };

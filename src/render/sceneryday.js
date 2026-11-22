@@ -127,6 +127,13 @@ export const paintCastShadows = (ctx, items, x0, y0, x1, y1, k = PX) => {
   m.imageSmoothingEnabled = false;
   let n = 0;
   for (const it of items) {
+    if (it.pre) {   // a shadow already laid out in world space (spawn, bridges): { pre: { cv, x, y } } at PX
+      const P = it.pre;
+      if (k === PX) m.drawImage(P.cv, Math.round((P.x - x0) * k), Math.round((P.y - y0) * k));
+      else m.drawImage(P.cv, (P.x - x0) * k, (P.y - y0) * k, P.cv.width * k / PX, P.cv.height * k / PX);
+      n++;
+      continue;
+    }
     const s = castShadow(it.sp, it.mirror, it.round);
     if (!s) continue;
     // the foot on the art-pixel grid, then the mask's corner from it
@@ -148,4 +155,89 @@ export const paintCastShadows = (ctx, items, x0, y0, x1, y1, k = PX) => {
   ctx.globalAlpha = pa;
   ctx.imageSmoothingEnabled = ps;
   return n;
+};
+
+// ---- big pieces drawn in place (the spawn's camp and gate, the bridges): shadows laid out in world space ----
+// A world-space mask helper: points in art px of the board (0..W*PX), kept as a tight canvas.
+const maskOf = (pts) => {
+  if (!pts.length) return null;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (let p = 0; p < pts.length; p += 2) { const X = pts[p], Y = pts[p + 1]; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data;
+  for (let p = 0; p < pts.length; p += 2) { const q = ((pts[p + 1] - y0) * w + (pts[p] - x0)) * 4; d[q] = d[q + 1] = d[q + 2] = d[q + 3] = 255; }
+  c.putImageData(img, 0, 0);
+  return { cv, x: x0 / PX, y: y0 / PX };
+};
+const tipOff = (frac, X, Y) => (frac > 0.74 && ((X + Y) & 1)) || (frac > 0.9 && ((X & 1) || (Y & 1)));
+// paint `draw(ctx)` (world units) into a board-sized scratch at PX and read its solid pixels
+const scratchOf = (draw, W, H) => {
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(W * PX); cv.height = Math.ceil(H * PX);
+  const c = cv.getContext("2d", { willReadFrequently: true });
+  c.imageSmoothingEnabled = false; c.scale(PX, PX);
+  draw(c);
+  return { w: cv.width, h: cv.height, a: c.getImageData(0, 0, cv.width, cv.height).data };
+};
+// Standing things (tents, a palisade, gate posts): each column's solid RUNS stand on their own lowest
+// pixel; a pixel h above its run's foot falls h x len along the light. A sheared copy, run by run.
+export const columnCast = (draw, W, H, maxH = 90) => {
+  if (!DAY.on || !(DAY.len > 0)) return null;
+  const S = scratchOf(draw, W, H), L = DAY.len, fx = DAY.fall[0], fy = DAY.fall[1], sub = Math.max(2, Math.ceil(L * 1.3) + 1);
+  const pts = [];
+  for (let i = 0; i < S.w; i++) {
+    let j = S.h - 1;
+    while (j >= 0) {
+      while (j >= 0 && S.a[(j * S.w + i) * 4 + 3] < 160) j--;
+      if (j < 0) break;
+      const foot = j;
+      while (j >= 0 && S.a[(j * S.w + i) * 4 + 3] >= 160 && foot - j < maxH * PX) j--;
+      const top = j + 1, Hr = foot - top + 1;
+      if (Hr < 4) continue;
+      for (let jj = top; jj <= foot; jj++) for (let sh = 0; sh < sub; sh++) {
+        const hh = foot - jj + (sh + 0.5) / sub, X = Math.floor(i + 0.5 + hh * L * fx), Y = Math.floor(foot + hh * L * fy);
+        if (tipOff(hh / Hr, X, Y)) continue;
+        pts.push(X, Y);
+      }
+    }
+  }
+  return maskOf(pts);
+};
+// Low things on legs (a bridge deck over the water): the whole silhouette lifted `hb` units, its shadow
+// the silhouette slid along the light from 0 to hb x len (short: a deck stands low).
+export const liftCast = (draw, W, H, hb) => {
+  if (!DAY.on || !(DAY.len > 0)) return null;
+  const S = scratchOf(draw, W, H), L = DAY.len, fx = DAY.fall[0], fy = DAY.fall[1];
+  const steps = Math.max(1, Math.ceil(hb * L * PX));
+  const pts = [];
+  for (let j = 0; j < S.h; j++) for (let i = 0; i < S.w; i++) {
+    if (S.a[(j * S.w + i) * 4 + 3] < 160) continue;
+    // only the far edge needs stepping: interior pixels slide over each other
+    const edge = S.a[(j * S.w + i + Math.sign(fx || 1)) * 4 + 3] < 160 || S.a[((j + 1) * S.w + i) * 4 + 3] < 160;
+    if (!edge) { pts.push(Math.floor(i + hb * L * PX * fx), Math.floor(j + hb * L * PX * fy)); continue; }
+    for (let t = 1; t <= steps; t++) pts.push(Math.floor(i + 0.5 + t * fx), Math.floor(j + 0.5 + t * fy));
+  }
+  return maskOf(pts);
+};
+// A mound with a height field (the gate's crag): every ground point q stands hAt(q) high and throws its
+// top hAt(q) x len along the light; a pixel p is in shadow if some q behind it along the light stands
+// tall enough to reach it. Box: the mound's ground [x0, y0, x1, y1] (world units), top: its height.
+export const heightCast = (hAt, x0, y0, x1, y1, top) => {
+  if (!DAY.on || !(DAY.len > 0) || !hAt) return null;
+  const L = DAY.len, fx = DAY.fall[0], fy = DAY.fall[1], g = 1 / PX;
+  const gw = Math.ceil((x1 - x0) * PX), gh = Math.ceil((y1 - y0) * PX), Z = new Float32Array(gw * gh);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) Z[j * gw + i] = Math.max(0, hAt(x0 + (i + 0.5) * g, y0 + (j + 0.5) * g) || 0);
+  const zAt = (x, y) => { const i = Math.floor((x - x0) * PX), j = Math.floor((y - y0) * PX); return i < 0 || j < 0 || i >= gw || j >= gh ? 0 : Z[j * gw + i]; };
+  const reach = L * top, pts = [];
+  const X0 = Math.floor(Math.min(x0, x0 + fx * reach) * PX), X1 = Math.ceil(Math.max(x1, x1 + fx * reach) * PX);
+  const Y0 = Math.floor(Math.min(y0, y0 + fy * reach) * PX), Y1 = Math.ceil(Math.max(y1, y1 + fy * reach) * PX);
+  for (let Y = Y0; Y <= Y1; Y++) for (let X = X0; X <= X1; X++) {
+    const px = (X + 0.5) * g, py = (Y + 0.5) * g;
+    for (let t = 0.5; t <= reach; t += 0.5) {
+      const z = zAt(px - fx * t, py - fy * t);
+      if (z > 0.6 && z * L >= t) { if (!tipOff(t / (z * L), X, Y)) pts.push(X, Y); break; }
+    }
+  }
+  return maskOf(pts);
 };
