@@ -50,7 +50,7 @@ import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawC
 import { drawTree, drawCastle, drawCastleWorks, drawSpawn } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
 import { drawWatchWater, drawSkiffReach, drawSkiffMarks, drawWatchStation, warmWaterReach } from "./waterreach.js";
-import { drawBridges } from "./bridge.js";
+import { drawBridges, pushBridgeFronts } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
@@ -453,6 +453,7 @@ export function draw(g, canvas, bufRef) {
     const low = e.flying ? flierDrop(g) : 0;
     if (!e.dead) drawables.push({ y: e.y + 10 + (e.flying ? 1000 : 0), fn: () => (e.flying ? (low ? (ctx.save(), ctx.translate(0, low), drawEnemy(ctx, e, g.time, tms), ctx.restore()) : drawEnemy(ctx, e, g.time, tms)) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
   }
+  pushBridgeFronts(drawables, ctx);   // a span's near rail, in front of the walkers on its deck (bridge.js)
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
   drawBandNotes(ctx, g);   // the King's Band: a note over every hall it plays for, on the beat

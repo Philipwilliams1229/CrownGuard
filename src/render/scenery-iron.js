@@ -51,7 +51,7 @@ import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
 import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
 // (the short painted ground shadows stand down under a long-shadow sun: sceneryday.js casts them)
 const shadow = (...a) => (longShade() ? undefined : shadow0(...a));
-import { onDay } from "../data/sun.js";
+import { onDay, DAY } from "../data/sun.js";
 import { saltPanPix, sluicePix, wreckPix } from "./pix/iron-works.js";
 
 // ---- the Kingdom's colours and the country's -------------------------------
@@ -346,13 +346,26 @@ const scotsPine = (ctx, x, y, s, o) => {
 // crag: faceted grit, a lit top and left face, a dark right face, an arris, a crack, moss in the crevices
 const cragBody = (obj, x, w, h, seed, MOSS) => {
   const GRIT_M = CRAG_MAT(), J = (i) => h3(i, seed, 5) - 0.5, y = 0;
-  const pk = [[x - w * 0.5, y], [x - w * 0.42, y - h * 0.5 + J(1) * 3], [x - w * 0.12, y - h + J(2) * 2], [x + w * 0.2, y - h * 0.86 + J(3) * 2], [x + w * 0.5, y - h * 0.34 + J(4) * 2], [x + w * 0.5, y]];
-  const tp = pk[2];
-  obj.part(); obj.poly([pk[0], pk[1], tp, [tp[0] + w * 0.12, tp[1] + h * 0.45], [x + w * 0.02, y]], GRIT_M, 0, { n: [-0.38, 0.02, 0.8] });
-  obj.part(); obj.poly([tp, pk[3], pk[4], pk[5], [x + w * 0.02, y], [tp[0] + w * 0.12, tp[1] + h * 0.45]], GRIT_M, 0.2, { n: [0.34, 0.08, 0.78], bias: -1 });
-  obj.part(); obj.poly([tp, pk[3], [tp[0] + w * 0.46, tp[1] + h * 0.3], [tp[0] + w * 0.12, tp[1] + h * 0.45]], GRIT_M, 0.4, { n: [-0.12, -0.5, 0.8], bias: 1 });
-  obj.part(); obj.line(tp[0] + w * 0.12, tp[1] + h * 0.45, x + w * 0.02, y - 1, GRIT_M, 0.6, { bias: -1, noLine: true });
-  obj.part(); obj.line(x - w * 0.3, y - h * 0.25, x - w * 0.12, y - h * 0.6, GRIT_M, 0.6, { bias: -1, noLine: true });
+  // (ir2, 2026-11-22) a broken silhouette, not a fin: a stepped ledge low on the west, a shoulder, a
+  // top broken in two blocks with a notch, an overhanging lip on the east over an undercut, then the
+  // slope to the foot. Same footprint (x - w/2 .. x + w/2, 0 .. -h).
+  const P = (fx, fh, j) => [x + w * fx + J(j) * 1.2, y - h * fh + J(j + 40) * 1.4];
+  const pk = [[x - w * 0.5, y], P(-0.5, 0.3, 1), P(-0.39, 0.36, 2), P(-0.4, 0.66, 3), P(-0.29, 0.72, 4), P(-0.28, 0.95, 5),
+    [x - w * 0.12, y - h], P(-0.03, 0.85, 7), P(0.06, 0.93, 8), P(0.21, 0.9, 9), P(0.28, 0.74, 10), P(0.43, 0.69, 11), P(0.38, 0.54, 12), P(0.5, 0.3, 13), [x + w * 0.5, y]];
+  const tp = pk[9], R1 = [x + w * 0.2, y - h * 0.5], R2 = [x + w * 0.15, y];
+  obj.part(); obj.poly([...pk.slice(0, 10), R1, R2], GRIT_M, 0, { n: [-0.38, 0.02, 0.8] });
+  obj.part(); obj.poly([...pk.slice(9), R2, R1], GRIT_M, 0.2, { n: [0.34, 0.08, 0.78], bias: -1 });
+  // the broken top's two blocks, lit from above, the notch between them dark
+  obj.part(); obj.poly([pk[5], pk[6], pk[7], [pk[7][0], pk[7][1] + 1.6], [pk[5][0] + 0.6, pk[5][1] + 2.2]], GRIT_M, 0.4, { n: [-0.2, -0.6, 0.75], bias: 1 });
+  obj.part(); obj.poly([pk[8], pk[9], [pk[9][0] - 0.5, pk[9][1] + 2], [pk[8][0], pk[8][1] + 2]], GRIT_M, 0.4, { n: [0.05, -0.6, 0.78], bias: 1 });
+  // the ledges' tops
+  obj.part(); obj.poly([pk[1], pk[2], [pk[2][0] + 0.3, pk[2][1] + 1.6], [pk[1][0] + 0.3, pk[1][1] + 1.6]], GRIT_M, 0.5, { n: [-0.1, -0.7, 0.7], bias: 1 });
+  obj.part(); obj.poly([pk[3], pk[4], [pk[4][0] + 0.3, pk[4][1] + 1.6], [pk[3][0] + 0.3, pk[3][1] + 1.6]], GRIT_M, 0.5, { n: [-0.1, -0.7, 0.7], bias: 1 });
+  obj.part(); obj.poly([pk[10], pk[11], [pk[11][0] - 0.3, pk[11][1] + 1.6], [pk[10][0] - 0.3, pk[10][1] + 1.6]], GRIT_M, 0.5, { n: [0.1, -0.7, 0.7] });
+  // under the east lip: the undercut in its own shade
+  obj.part(); obj.poly([pk[11], pk[12], [pk[12][0] - w * 0.08, pk[12][1] - 0.5], [pk[11][0] - w * 0.1, pk[11][1] + 1]], GRIT_M, 0.5, { n: [0.3, 0.75, 0.5], bias: -1 });
+  obj.part(); obj.line(R1[0], R1[1], R2[0], y - 1, GRIT_M, 0.6, { bias: -1, noLine: true });
+  obj.part(); obj.line(tp[0] - 0.5, tp[1] + 2, R1[0], R1[1], GRIT_M, 0.6, { bias: 1, noLine: true });
   // (upgrade 2026-11-22) gritstone weathers in BEDS: broken horizontal bedding joints across both faces
   // (a dark joint under a lit lip), a vertical joint or two, rain streaks down from the top, pale lichen
   // on the lit face, scree and a fallen block at the foot. Same silhouette, same footprint.
@@ -397,7 +410,7 @@ const cragBody = (obj, x, w, h, seed, MOSS) => {
 const crag = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed | 0, v = o.forest ? (o.v % 2 ? 1 : 3) : o.v % 4, sc = s * 2.2;
   const MOSS = mat(o.forest ? "#4a6a46" : "#5e7a4a");
-  const parts = v === 0 ? [[-4, 17, 27], [9, 12, 15]] : v === 1 ? [[0, 27, 19], [-9, 14, 10]] : v === 2 ? [[-7, 15, 26], [8, 14, 20]] : [[-3, 26, 13], [9, 9, 9]];
+  const parts = v === 0 ? [[-4, 20, 26], [10, 14, 14]] : v === 1 ? [[0, 28, 19], [-10, 15, 10]] : v === 2 ? [[-7, 18, 25], [9, 16, 19]] : [[-3, 27, 13], [10, 11, 9]];
   pixShade(ctx, x, gy, 8 * sc, 1, 21 * sc, 3.2 * sc, 0.32, false, sd);
   sculpt(Math.ceil(60 * sc) + 10, Math.ceil(34 * sc) + 20, (obj) => {
     parts.forEach(([dx, w, h], i) => cragBody(obj, dx * sc, w * sc, h * sc, sd + i * 3, MOSS));
@@ -841,9 +854,13 @@ const logRow = (p, z, top, l, seed, w = 2.5) => {
   const tip = top - 1.8 * Math.abs(f * 2 - 1) - hash(k, seed) * 0.8;
   if (z >= tip) return null;
   const v = l + (hash(k, seed + 3) - 0.5) * 0.7;
-  if (f > 0.8) return gt("log", 1.2 + v * 0.4);
-  if (z > tip - 1) return gt("log", 4.8 + v);
-  return gt("log", (f < 0.36 ? 4.1 : 3.1) + v);
+  // (ir2) round logs: a seam in the shade, the sunward third lit, a bark streak or two, the cut tip
+  // pale on the sun's side and dark on the other (the sun's side follows the level's sun)
+  const g = DAY.side > 0 ? 1 - f : f;
+  if (g > 0.8) return gt("log", 1.2 + v * 0.4);
+  if (z > tip - 1.2) return gt("log", g < 0.5 ? 5.4 + v : 3.4 + v);
+  if (hash(k * 7 + Math.floor(z / 2.2), seed + 5) < 0.12 && g > 0.3) return gt("log", 2.2 + v);
+  return gt("log", (g < 0.22 ? 4.6 : g < 0.42 ? 3.9 : g < 0.62 ? 3.1 : 2.4) + v);
 };
 // a tower's timber wall: a stone footing, lapped boards between corner posts,
 // an iron band, an arrow slit
@@ -895,6 +912,7 @@ const wallFace = (pl, z, hw, ZG, seed) => {
     return null;
   }
   if (a < jam && z < top + 1.6) return gt("post", 3.2 + l);                 // the knee braces
+  if (z >= ZG + 1.4 && z < ZG + 2.6) return ropeAt(pl + hw, z);           // (ir2) the lashing
   if (z >= ZG) return logRow(pl + hw, z, ZG + 6.5, l, seed);                // the breastwork
   if (a >= jam) {
     // the jambs: great squared posts, iron hinge straps
@@ -910,6 +928,12 @@ const wallFace = (pl, z, hw, ZG, seed) => {
   // over the lintel: the palisade's logs (no tips: the walk is on them), an iron band
   if (z > ZG - 3 && z < ZG - 2) return gt("iron", 2.4 + l * 0.5);
   return logRow(pl + hw, z, 99, l, seed);
+};
+// (ir2) a hemp lashing round the logs: twisted, a dark turn every log's seam
+const ropeAt = (p, z) => {
+  const t = (p * 1.6 + z * 1.6) % 2;
+  if (p / 2.5 - Math.floor(p / 2.5) > 0.82) return gt("post", 1.4);
+  return hexRGB(t < 0.8 ? "#b89c68" : t < 1.4 ? "#8e7448" : "#5e4a30");
 };
 // what shows through the arch: the passage's dark, its floor lit a little at
 // the mouth, the camp's fires a smoulder far down it
@@ -976,7 +1000,7 @@ const paintWall = (S, G, part) => {
 // ---- the standing gatehouse (the irgate pieces' bakes) ------------------------------
 const GATEH = { key: "", near: null, far: null, x0: 0, y0: 0, w: 0, h: 0, G: null, fire: null, pole: null, flag: null, smoke: [] };
 const bakeGatehouse = () => {
-  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}`;
+  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}|${DAY.v}`;
   if (GATEH.key === key) return GATEH;
   GATEH.key = key;
   const G = plan(), { F, A, N, hw, D, ZG, P, T1, T2 } = G;
@@ -999,6 +1023,7 @@ const bakeGatehouse = () => {
   const wp = hw * 0.5;
   GATEH.fire = [F[0] + A[0] * wp + N[0] * D * 0.45, F[1] + A[1] * wp + N[1] * D * 0.45 - ZG];
   GATEH.flag = [F[0], F[1] - ZG - 4];
+  GATEH.torches = [-1, 1].map((k) => [F[0] + A[0] * (hw + 1.2) * k, F[1] + A[1] * (hw + 1.2) * k - 17]);
   const back = (s, k) => [F[0] + A[0] * s + N[0] * (D + k), F[1] + A[1] * s + N[1] * (D + k) - ZG + 2];
   GATEH.smoke = [back(-hw * 0.35, 8), back(hw * 0.3, 16)];
   GATEH.far = rasterSprite(S1, true, (c) => {
@@ -1015,6 +1040,12 @@ const bakeGatehouse = () => {
     for (const dx of [-2.5, -0.5, 1.5]) c.fillRect(ap(bx + dx), ap(by - 3.5), 1, 3.5);
     c.fillRect(ap(bx - 3), ap(by - 1.5), 7, 1);
     ellipse(c, bx + 0.5, by - 3.5, 3.5, 1.1); c.fillStyle = "#3a2420"; c.fill();
+    // (ir2) a torch on an iron bracket each side of the arch
+    for (const [tx, ty] of GATEH.torches) {
+      c.fillStyle = IRON; c.fillRect(ap(tx - 0.5), ap(ty), 1, 3); c.fillRect(ap(tx - 1), ap(ty + 2.5), 2, 0.5);
+      c.fillStyle = WOOD_DK; c.fillRect(ap(tx - 0.5), ap(ty - 2.5), 1, 2.5);
+      c.fillStyle = "#3a2420"; c.fillRect(ap(tx - 1), ap(ty - 3), 2, 1);
+    }
     const [fx, fy] = GATEH.flag;
     c.fillStyle = IRON; c.fillRect(ap(fx - 6.5), ap(fy - 1), 13, 1);
     c.fillStyle = BRASS; c.fillRect(ap(fx - 7), ap(fy - 1.5), 1, 1.5); c.fillRect(ap(fx + 6.5), ap(fy - 1.5), 1, 1.5);
@@ -1034,6 +1065,7 @@ const drawGateNear = (ctx, time) => {
   const sway = Math.sin(time * 1.6) * 0.6 + Math.sin(time * 2.9 + 1) * 0.2;
   cloth(ctx, ap(fx - 5.5), ap(fy), 11, 15, sway);
   fire(ctx, B.fire[0] + 0.5, B.fire[1] - 3.5, 0.75, time, 2.1);
+  B.torches.forEach(([tx, ty], i) => fire(ctx, tx, ty - 3, 0.32, time, 4.7 + i * 1.9));
   smoke(ctx, B.smoke[0][0], B.smoke[0][1], time, 0.1, 1.3, "140,138,144", 0.34);
 };
 // which pieces this board has (maps.js places them; looked up once a board).
@@ -1073,13 +1105,31 @@ const tentPeak = (c, x, gy, s) => {
   part(c, (cc) => { cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 0.5), gy - h - 3 * s, 1, 3 * s); ball(cc, x, gy - h - 3 * s, 0.9, 0.9, BRASS, { hi: 0.5, lo: 0.3 }); });
 };
 // a palisade stake, upright, pointed (painted north to south so they overlap)
+// (ir2) painted column by column in art pixels: a round log lit on the sun's side, a bark streak, the
+// cut point pale on the sunward facet, a rope lashing near the top and an iron band low down
 const PALE = (c, x, gy, hh, k) => {
-  cylinder(c, x - 1.6, gy - hh, 3.2, hh, k % 3 ? WOOD : mix(WOOD, "#7a6a50", 0.3), { r: 0.8, hi: 0.35, lo: 0.55 });
-  c.fillStyle = mix(WOOD_LT, "#c8a878", 0.4);
-  c.beginPath(); c.moveTo(x - 1.6, gy - hh + 0.5); c.lineTo(x, gy - hh - 2.6); c.lineTo(x + 1.6, gy - hh + 0.5); c.closePath(); c.fill();
+  const q = 1 / PX, n = Math.max(3, Math.round(3.2 * PX)), x0 = ap(x - 1.6), top = ap(gy - hh), wt = k % 3 ? 0 : 0.5;
+  const rgb = (t) => { const v = gt("log", t); return `rgb(${v[0] | 0},${v[1] | 0},${v[2] | 0})`; };
+  const streak = Math.floor(hash(k, 71) * n);
+  for (let i = 0; i < n; i++) {
+    const g0 = (i + 0.5) / n, g = DAY.side > 0 ? 1 - g0 : g0;
+    const t = (g < 0.25 ? 4.4 : g < 0.5 ? 3.6 : g < 0.78 ? 2.8 : 1.6) + wt + (i === streak && g > 0.25 ? -0.8 : 0);
+    c.fillStyle = rgb(t); c.fillRect(x0 + i * q, top, q, ap(gy) - top);
+    const tipH = Math.max(q, ap(2.8 * (1 - Math.abs(g0 * 2 - 1)) + 0.3));
+    c.fillStyle = rgb(g < 0.5 ? 5.6 : 3.2); c.fillRect(x0 + i * q, top - tipH, q, tipH);
+    // the lashing: two turns of hemp, a dark turn between
+    const ry = top + ap(2.6);
+    c.fillStyle = (i + k) % 2 ? "#b89c68" : "#8e7448"; c.fillRect(x0 + i * q, ry, q, q);
+    c.fillStyle = "#5e4a30"; c.fillRect(x0 + i * q, ry + q, q, q);
+    c.fillStyle = (i + k) % 2 ? "#8e7448" : "#b89c68"; c.fillRect(x0 + i * q, ry + 2 * q, q, q);
+    // the iron band, its sunward rivet lit
+    const by = ap(gy - hh * 0.3);
+    c.fillStyle = g < 0.3 ? "#646a76" : "#2e3038"; c.fillRect(x0 + i * q, by, q, q);
+  }
+  c.fillStyle = "#1e140e"; c.fillRect(x0, ap(gy) - q, n * q, q);
 };
 const bakeCamp = () => {
-  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}`;
+  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}|${DAY.v}`;
   if (CAMP.key === key) return CAMP;
   CAMP.key = key;
   const G = bakeGatehouse().G, { S: [sx, sy], u: [ux, uy], F, A, N, O, hw, D, T1, T2 } = G;
@@ -1124,9 +1174,9 @@ const bakeCamp = () => {
       if (lvl > 0) { rput(R1, i, dark, [0, 70, 120, 160, 196][lvl]); continue; }
     }
     // in the wall's or a tower's shadow? (light from the upper left)
-    const sh = hits(G.ZG + 3, span(-D, 0, out, -SO), span(-hw, hw, along, -SA))
+    const sh = !longShade() && (hits(G.ZG + 3, span(-D, 0, out, -SO), span(-hw, hw, along, -SA))
       || hits(G.t1, span(T1.xa, T1.xb, X, -SUN[0]), span(T1.ya, T1.yb, Y, -SUN[1]))
-      || hits(G.t2, span(T2.xa, T2.xb, X, -SUN[0]), span(T2.ya, T2.yb, Y, -SUN[1]));
+      || hits(G.t2, span(T2.xa, T2.xb, X, -SUN[0]), span(T2.ya, T2.yb, Y, -SUN[1])));
     if (ac < PATH_HALF + 1 && out >= 0 && out < 46) {
       // the flags out of the arch: mud trodden into their joints, thinning out
       const k = 1 - out / 46;

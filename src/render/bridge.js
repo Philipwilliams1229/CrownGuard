@@ -1003,7 +1003,7 @@ const bakeSpan = (b0, pal) => {
     const fenWet = dk(plank, 0.3);
     const tones = fen
       ? [lt(fenWet, 0.06), fenWet, mx(fenWet, plankDk, 0.5), dk(plankDk, 0.18), mx(fenWet, moss, 0.2)]
-      : [lt(plank, 0.05), plank, mx(plank, plankDk, 0.3), mx(plank, plankDk, 0.55)];
+      : [lt(plank, 0.09), plank, mx(plank, plankDk, 0.35), mx(plank, plankDk, 0.65), lt(mx(plank, rail, 0.25), 0.04)];
 
     const gap = fen ? dk(beam, 0.62) : dk(beam, 0.4);
     const worn = fen ? lt(mx(fenWet, road, 0.1), 0.04) : lt(mx(plank, road, 0.28), 0.1);
@@ -1046,14 +1046,14 @@ const bakeSpan = (b0, pal) => {
       for (let q = 0; q < 3; q++) {
         const gl = 0.22 + q * 0.27 + Math.sin(v * (0.21 + q * 0.07) + ph + q * 2) * 0.05;
         const dg = g - gl;
-        if (Math.abs(dg) < 0.08 && hash(k * 5 + q, Math.floor((v + 40) * 0.6)) < 0.8) { col = dk(col, q === 1 ? 0.15 : 0.11); break; }
-        if (dg < -0.08 && dg > -0.16 && q !== 1 && hash(k * 5 + q, Math.floor((v + 40) * 0.5) + 9) < 0.5) { col = lt(col, 0.07); break; }
+        if (Math.abs(dg) < 0.08 && hash(k * 5 + q, Math.floor((v + 40) * 0.6)) < 0.8) { col = dk(col, q === 1 ? 0.22 : 0.16); break; }
+        if (dg < -0.08 && dg > -0.16 && q !== 1 && hash(k * 5 + q, Math.floor((v + 40) * 0.5) + 9) < 0.6) { col = lt(col, 0.11); break; }
       }
       // a knot or two, with the grain darkening round it
       const kv = (hash(k * 3 + seg, 78) - 0.5) * 48, kg = 0.35 + hash(k, 79) * 0.3;
       if (hash(k * 3 + seg, 77) < 0.4) {
         const kr = Math.hypot((g - kg) * pitch, (v - kv) * 0.55);
-        if (kr < 0.42) col = dk(col, 0.34); else if (kr < 0.85) col = dk(col, 0.1);
+        if (kr < 0.45) col = dk(col, 0.42); else if (kr < 0.95) col = dk(col, 0.16);
       }
       // nail heads where the planks cross the stringers (9 and 27 out), two a
       // crossing: a dark head with a lit pixel on its sun side
@@ -1062,8 +1062,8 @@ const bakeSpan = (b0, pal) => {
         for (const ng of [0.26, 0.74]) {
           if (hash(k * 7 + sv, ng * 10 + 3) < 0.15) continue;
           const du = (g - ng) * pitch, dv = av - sv;
-          if (Math.abs(du) < 0.3 && Math.abs(dv) < 0.3) col = dk(col, 0.55);
-          else if (Math.abs(dv) < 0.3 && du > -0.8 && du < -0.3) col = lt(col, 0.2);
+          if (Math.abs(du) < 0.3 && Math.abs(dv) < 0.3) col = dk(col, 0.62);
+          else if (Math.abs(dv) < 0.3 && du > -0.8 && du < -0.3) col = lt(col, 0.28);
         }
       }
       // the fen's wet sheen: a cool pale streak along the grain of some planks, where light catches water
@@ -1168,6 +1168,7 @@ const bakeSpan = (b0, pal) => {
       }
     }
   }
+  const front = F.near ? frontOf(S, F, G, RL, stone) : null;
   // a ripple's dashes show only where no part of the span stands over them
   const bd = B.c.getImageData(0, 0, S.pw, S.ph).data;
   const clear = (x, y) => {
@@ -1181,7 +1182,59 @@ const bakeSpan = (b0, pal) => {
     if (L0 || R0) seen.push({ ...r, l: L0, r: R0 });
   }
   // (the span alone is kept only while a low sun needs its cast shadow: castBridges)
-  return { cv: G.cv, body: DAY.on ? B.cv : null, piers: piersOut, x0, y0, w: S.pw / PX, h: S.ph / PX, px: PX, ripples: seen, shine: water.shine, lampAt, lamp: P.lamp, fen };
+  return { cv: G.cv, body: DAY.on ? B.cv : null, front, piers: piersOut, x0, y0, w: S.pw / PX, h: S.ph / PX, px: PX, ripples: seen, shine: water.shine, lampAt, lamp: P.lamp, fen };
+};
+
+// ---- the near rail, drawn again in front of the walkers ---------------------
+// On a span that runs ACROSS the screen the rail (timber) or parapet and its
+// pillars (stone) on the side nearest the camera stands in front of anyone
+// walking the deck: their feet and shins go behind it. The bake copies those
+// pixels of the finished span into a small sprite of their own; draw.js sorts
+// it with the actors (pushBridgeFronts) at the near edge's line, so walkers on
+// the deck are drawn first (only their feet reach down behind it), and anyone
+// south of the span, a flier, a health bar, after it. A slanted span is cut
+// into a few strips, each sorted at its own stretch of the edge.
+const FRONT_KEY = 10.5;     // the actors' sort keys run y + 9 (soldiers) / y + 10 (foes)
+const FRONT_TOP = 17;       // the tallest thing on the near side: a newel and its lantern
+const frontOf = (S, F, G, RL, stone) => {
+  const b = F.b, v0 = F.near * HALF;
+  const gd = G.c.getImageData(0, 0, S.pw, S.ph).data, rd = RL.c.getImageData(0, 0, S.pw, S.ph).data;
+  const out = new Uint8ClampedArray(S.pw * S.ph * 4);
+  let i0 = S.pw, i1 = -1, j0 = S.ph, j1 = -1;
+  for (let i = 0; i < S.pw; i++) {
+    const X = S.x0 + (i + 0.5) / PX, u = (X - b.x + v0 * F.s) / F.c;
+    if (Math.abs(u) > F.half + 1) continue;
+    const l = F.L(Math.max(-F.half, Math.min(F.half, u)));
+    const yEdge = b.y + u * F.s + v0 * F.c - l;                 // the deck's near edge, at deck height
+    // the stone parapet's band: from its coping's back edge down to the deck's edge
+    const yPar = yEdge - 5 - (HALF - 31.4) * Math.abs(F.c);
+    for (let j = 0; j < S.ph; j++) {
+      const Y = S.y0 + (j + 0.5) / PX;
+      if (Y > yEdge + 0.25 || Y < yEdge - FRONT_TOP) continue;
+      const q = (j * S.pw + i) * 4;
+      if (gd[q + 3] < 200) continue;
+      if (!(rd[q + 3] > 0 || (stone && Y >= yPar))) continue;
+      out[q] = gd[q]; out[q + 1] = gd[q + 1]; out[q + 2] = gd[q + 2]; out[q + 3] = gd[q + 3];
+      if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j;
+    }
+  }
+  if (i1 < 0) return null;
+  const w = i1 - i0 + 1, h = j1 - j0 + 1;
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const c = cv.getContext("2d");
+  const img = c.createImageData(w, h);
+  for (let j = 0; j < h; j++) img.data.set(out.subarray(((j0 + j) * S.pw + i0) * 4, ((j0 + j) * S.pw + i0 + w) * 4), j * w * 4);
+  c.putImageData(img, 0, 0);
+  // strips: one for a level span, about 20 units wide each on a slanted one
+  const n = Math.abs(F.s) < 0.15 ? 1 : Math.max(1, Math.round(w / PX / 20));
+  const strips = [];
+  for (let k = 0; k < n; k++) {
+    const a = Math.floor((w * k) / n), z = Math.floor((w * (k + 1)) / n);
+    const X = S.x0 + (i0 + (a + z) / 2) / PX, u = (X - b.x + v0 * F.s) / F.c;
+    strips.push({ sx: a, sw: z - a, key: b.y + u * F.s + v0 * F.c + FRONT_KEY });
+  }
+  return { cv, x0: S.x0 + i0 / PX, y0: S.y0 + j0 / PX, h: h / PX, strips };
 };
 
 // ---- the face's reflection ---------------------------------------------------
@@ -1919,6 +1972,18 @@ export const drawBridge = (ctx, b, time, _posAt, _angleAt, pal) => {
     }
   }
 };
+
+// The near rails, for draw.js's depth-sorted actors: one entry a strip, sorted
+// by the span's near edge (see frontOf). Nothing on a board with no span.
+export const pushBridgeFronts = (list, ctx) => {
+  for (const b of BRIDGES) {
+    const s = b._spr, f = s && s.front;
+    if (!f) continue;
+    for (const st of f.strips) list.push({ y: st.key, fn: () => ctx.drawImage(f.cv, st.sx, 0, st.sw, f.cv.height, f.x0 + st.sx / s.px, f.y0, st.sw / s.px, f.h) });
+  }
+};
+// the same, drawn at once (labs)
+export const drawBridgeFronts = (ctx) => { const l = []; pushBridgeFronts(l, ctx); for (const d of l) d.fn(); };
 
 // Every span on the board, once a frame.
 export const drawBridges = (ctx, g) => {

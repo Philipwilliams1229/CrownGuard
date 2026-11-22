@@ -47,8 +47,8 @@ import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { bakeCastleRun } from "./castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
-import { turfTones, setEdgeCasters, reliefOf, hillTone, HILL_CELL, HILL_AMP } from "./world.js";
-import { punchCols, toneOf as meadowTone } from "./look-c.js";
+import { turfTones, setEdgeCasters, reliefOf, hillTone, HILL_CELL, HILL_AMP, bushSprite as boardBush } from "./world.js";
+import { punchCols, toneOf as meadowTone, rich } from "./look-c.js";
 import { groundKind, pixelTuft } from "./groundblend.js";
 import { paintRoadStrip } from "./road.js";
 import { coastTones, coastPixel } from "./coast.js";
@@ -260,24 +260,11 @@ const riversOut = () => RIVERS.map((rv, i) => {
 
 // ---- small things ----------------------------------------------------------
 
-// a low bush, three lit clumps inked along their undersides (as world.js
-// dresses the wood's hem). Baked once per tint.
-const BUSHES = new Map();
-const bushSprite = (leaf, v) => {
-  const key = leaf + v;
-  if (BUSHES.has(key)) return BUSHES.get(key);
-  const cv = bakeSprite(28, 20, (c) => {
-    shadow(c, 16, 15, 11, 3, 0.26);
-    const lobes = [[8, 12, 6], [20, 12, 5.5], [14, 9, 7]];
-    lobes.forEach(([x, y, r], i) => part(c, (cc) => blobBall(cc, x + (hash(v, i) - 0.5) * 2, y, r, r * 0.8, i === 2 ? lighten(leaf, 0.08) : leaf, v * 9 + i, { hi: 0.45, lo: 0.5, wobble: 0.2, n: 9 }), { ink: "under" }));
-    c.fillStyle = lighten(leaf, 0.4);
-    for (let i = 0; i < 5; i++) c.fillRect(Math.round((9 + hash(v, i + 5) * 9) * PX) / PX, Math.round((6 + hash(v, i + 9) * 5) * PX) / PX, 1, 0.5);
-  }, false);
-  tintRing(cv);
-  BUSHES.set(key, cv);
-  return cv;
+// a low bush: the board's own (world.js bushSprite, the 2026-11-22 redraw), so the two match
+const bush = (ctx, x, y, k, leaf, v) => {
+  const cv = boardBush(rich(leaf, 1.22), v % 3, 1), w = cv.width / PX, h = cv.height / PX;
+  ctx.drawImage(cv, x - (w / 2) * k, y - (h - 6) * k, w * k, h * k);
 };
-const bush = (ctx, x, y, k, leaf, v) => ctx.drawImage(bushSprite(leaf, v), x - 14 * k, y - 14 * k, 28 * k, 20 * k);
 
 // a snow drift: a long low mound of the ground's own snow, straight into the
 // pixels of the sprite being baked — its crest toward the wind (west), a lit

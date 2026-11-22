@@ -97,6 +97,30 @@ const dither = (c, col) => {
   p.setTransform(new DOMMatrix([1 / m.a, 0, 0, 1 / m.d, -m.e / m.a, -m.f / m.d]));
   return p;
 };
+// sky holes waiting to be cut once a tree's sprite is ringed (device px of the bake)
+let HOLES = [];
+const cutHoles = (cv) => {
+  if (!HOLES.length) return;
+  const c = cv.getContext("2d"), img = c.getImageData(0, 0, cv.width, cv.height), d = img.data, W0 = cv.width;
+  for (const h of HOLES) {
+    // a ragged gap: whole art pixels inside a wobbling ellipse, a few loose ones at its edge
+    const r = Math.round(h.r);
+    for (let j = -r; j <= r; j++) for (let i = -r - 1; i <= r + 1; i++) {
+      const X = Math.round(h.x) + i, Y = Math.round(h.y) + j;
+      if (X < 0 || Y < 0 || X >= W0 || Y >= cv.height) continue;
+      const u = i / (r * 1.2 + 0.5), v = j / (r + 0.5), q = u * u + v * v, n = hash(X * 7 + h.seed, Y);
+      if (q < 0.55 || (q < 1 && n > 0.45)) d[(Y * W0 + X) * 4 + 3] = 0;
+    }
+    // a twig across the first: it stays where the gap shows the ground
+    if (h.twig) for (let t = -r - 1; t <= r + 1; t++) {
+      const X = Math.round(h.x) + t, Y = Math.round(h.y + t * 0.35), o = (Y * W0 + X) * 4;
+      if (X < 0 || Y < 0 || X >= W0 || Y >= cv.height) continue;
+      d[o] = h.twig[0]; d[o + 1] = h.twig[1]; d[o + 2] = h.twig[2]; d[o + 3] = 255;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  HOLES = [];
+};
 const leafClump = (c, x, y, r, leaf, seed, lit) => {
   const b = lit > 0.62 ? lighten(leaf, 0.1) : lit > 0.3 ? leaf : darken(leaf, 0.2);
   const dk = darken(b, 0.42), lt = mix(lighten(b, 0.3), "#d8f070", 0.12), fl = mix(lighten(b, 0.4), "#eefa86", 0.6);
@@ -167,8 +191,12 @@ const leafClump = (c, x, y, r, leaf, seed, lit) => {
 // lower ones, light catching the upper-left, a sky hole or two near the rim. `seed` picks the shape;
 // `form` the kind of tree: 0 a round oak, 1 a tall oval (beech / elm), 2 a broad spreading oak, 3 a
 // birch (white bark, a lighter, airier crown of smaller clumps).
+// the wood's depth while one of its trees paints (0 the lit treeline .. 2 deep inside; -1 a lone tree)
+let WOOD_BAND = -1;
 const oakTree = (ctx, x, y, s, leaf, trunk, seed, form = 0) => {
   const H = (i) => hash(seed, i);
+  // inside the wood the trunks stand in shade: darker, cooler bark
+  if (WOOD_BAND > 0) trunk = mix(darken(trunk, WOOD_BAND === 2 ? 0.38 : 0.18), "#3a4458", WOOD_BAND === 2 ? 0.25 : 0.1);
   const base = y + 10;
   const birch = form === 3;
   leaf = rich(leaf);
@@ -286,17 +314,40 @@ const oakTree = (ctx, x, y, s, leaf, trunk, seed, form = 0) => {
   ctx.fillStyle = fs;
   ctx.fillRect(cx - R * 1.6, cy - Ry * 1.6, R * 3.2, Ry * 3.2);
   ctx.restore();
+  // deep in the wood the whole tree sinks into a cool shade (the crown and the trunk under it)
+  if (WOOD_BAND > 0) {
+    ctx.save(); ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = WOOD_BAND === 2 ? "rgba(16,30,48,0.24)" : "rgba(16,30,48,0.1)";
+    ctx.fillRect(cx - R * 1.6, cy - Ry * 1.8, R * 3.2, base - 2 * s - (cy - Ry * 1.8));
+    ctx.restore();
+  }
+  // the treeline's foot: brambles and a sapling where the wood meets the grass
+  if (WOOD_BAND === 0 && BAKE_CV && H(90) < 0.7) {
+    const bl = rich("#4f8a3c"), side = H(91) < 0.5 ? -1 : 1;
+    for (const [dx, dy, r] of [[-6.5, -0.5, 3.4], [7, 0.4, 3], [side * 11, 1, 2.4]]) {
+      const kx = x + dx * s, ky = base + dy - r * 0.5;
+      leafPart(ctx, (c) => {
+        leafClump(c, kx, ky, r * s, bl, seed + dx * 3, 0.55 - dx * 0.02);
+        c.fillStyle = "#8a2a3a"; c.fillRect(ap(kx + r * 0.3 * s), ap(ky - r * 0.2 * s), 0.5, 0.5);
+        c.fillStyle = "#2a1a2a"; c.fillRect(ap(kx - r * 0.4 * s), ap(ky + r * 0.1 * s), 0.5, 0.5);
+      }, darken(bl, 0.6), [kx - r * 1.6 * s, ky - r * 1.4 * s, kx + r * 1.6 * s, ky + r * 1.4 * s]);
+    }
+    // a sapling: a thin stem and a small crown
+    const sx = x - side * 12 * s, sb = base + 0.5;
+    leafPart(ctx, (c) => {
+      c.fillStyle = darken(trunk, 0.1); c.fillRect(ap(sx), sb - 7 * s, 0.5, 7 * s);
+      leafClump(c, sx, sb - 8 * s, 3 * s, rich("#6aab48"), seed + 5, 0.7);
+    }, darken(leaf, 0.6), [sx - 5 * s, sb - 12 * s, sx + 5 * s, sb + 1]);
+  }
   // sky holes: a gap or two near the rim, where the ground shows through the crown, a twig across one
   if (BAKE_CV) {
     const nh = birch ? 3 : 1 + Math.floor(H(70) * 2);
     for (let i = 0; i < nh; i++) {
       const a = [0.05, 0.55, 2.55, 3.05, 0.3, 2.85][Math.floor(H(i + 71) * 6)] + (H(i + 72) - 0.5) * 0.3;
       const hx = ap(cx + Math.cos(a) * R * 0.74), hy = ap(cy + Ry * 0.05 + Math.sin(a) * Ry * 0.62), hr = R * (birch ? 0.08 : 0.065);
-      ctx.save();
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.beginPath(); ctx.ellipse(hx, hy, hr * 1.2, hr, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-      if (i === 0) { ctx.fillStyle = darken(bcol, 0.3); for (let t = -hr * 1.3; t <= hr * 1.3; t += 0.5) ctx.fillRect(ap(hx + t), ap(hy + t * 0.35), 0.5, 0.5); }
+      // (cut after the sprite's ring, so a gap takes no outline: decorSprite `cutHoles`)
+      const m = ctx.getTransform();
+      HOLES.push({ x: m.a * hx + m.e, y: m.d * hy + m.f, r: Math.max(2, m.a * hr), seed: seed + i * 7, twig: i === 0 ? rgb(darken(bcol, 0.3)) : null });
     }
   }
 };
@@ -760,12 +811,14 @@ const willow = (ctx, x, y, s, sway, seed = 1) => {
       const sideLit = u < -0.2 ? 1 : u > 0.3 ? -1 : 0;
       const b0 = sideLit > 0 ? lighten(leaf, 0.12) : sideLit < 0 ? darken(leaf, 0.22) : leaf;
       const hi = lighten(b0, sideLit > 0 ? 0.32 : 0.18), dk = darken(b0, 0.28);
+      // each strand one of three tones (paler down the lit side), so the fringe reads as separate streamers
+      const tk = Math.floor(hash(k, seed + 17) * 3), sb = tk === 0 ? lighten(b0, sideLit > 0 ? 0.16 : 0.08) : tk === 1 ? b0 : darken(b0, 0.14);
       const ph = hash(k, seed + 13) * 6;
       for (let t = 0; t < len; t += 0.5) {
         const q = t / len;
         const xx = X + sway * q * 1.4 + u * q * 0.6 * s;
         const bead = ((t * 2 + ph) | 0) % 5 === 0;
-        px(xx, top + t, q > 0.8 ? dk : bead ? (sideLit >= 0 || hash(k, t * 2) < 0.3 ? hi : b0) : b0);
+        px(xx, top + t, q > 0.8 ? dk : bead ? (sideLit >= 0 || hash(k, t * 2) < 0.3 ? hi : sb) : sb);
       }
     }
   }, darken(leaf, 0.72), [cx - 22 * s, cy, cx + 22 * s, base + 4], "under");
@@ -983,10 +1036,7 @@ const watchtower = (ctx, x, y, s, time) => {
   const hh = 20 * s;
   shadow(ctx, x + 5 * s, y + 10, 11 * s, 4 * s, 0.32);
   pixTowerBody(ctx, x, y, s, CASTLE_STONE);
-  const lit = Math.sin(time * 1.9 + x * 2) > -0.5;
-  ctx.fillStyle = "#2a2430";
-  roundRect(ctx, x - 1.6, y - 6 * s, 3.2, 9, 1.2); ctx.fill();
-  if (lit) glow(ctx, x, y - 6 * s + 4.5, 3.5, "#ffd070", 0.8);
+  // (the old tower: its empty window is baked dark into the stone, scenery-gwpix.js pixTowerBody)
   cylinder(ctx, x - 0.8, y + 8 - hh - 17, 1.6, 12, "#6a4a2e", { r: 0.8 });
   const wv = Math.sin(time * 4 + x) * 1.5;
   ctx.beginPath();
@@ -1073,10 +1123,10 @@ const paintDecor = (ctx, d, time) => {
     case "icerock": pixRock(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break;
     case "obsidian": pixRock(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break;
     case "crystal": crystal(ctx, x, y, s); break;
-    case "deadtree": pixDeadTree(ctx, x, y, s, seed, REALM.ambient === "embers"); break;
+    case "deadtree": pixDeadTree(ctx, x, y, s, seed, REALM.ambient === "embers", v); break;
     case "vent": vent(ctx, x, y, s); break;
     case "willow": willow(ctx, x, y, s, sway, seed); break;
-    case "mushroom": pixMushroom(ctx, x, y, s, seed); break;
+    case "mushroom": pixMushroom(ctx, x, y, s, seed, v); break;
     case "reeds": reeds(ctx, x, y, s, time); break;
     case "gravestone": gravestone(ctx, x, y, s, seed); break;
     case "cairn": cairn(ctx, x, y, s); break;
@@ -1085,7 +1135,7 @@ const paintDecor = (ctx, d, time) => {
     case "watchtower": watchtower(ctx, x, y, s, time); break;
     case "tent": tent(ctx, x, y, s); break;
     case "banner": banner(ctx, x, y, s, time); break;
-    case "tree": { const form = d.forest ? v % 2 : groundKind(REALM) === "grass" ? v % 4 : v % 3; oakTree(ctx, x, y, s, d.forest ? WOOD_OAK[band][v % 3] : form === 3 ? "#7cbc4e" : OAK_TINTS[v % 4], OAK.trunk, seed, form); break; }
+    case "tree": { WOOD_BAND = d.forest ? band : -1; const form = d.forest ? (v === 2 ? 1 : v % 2) : groundKind(REALM) === "grass" ? v % 4 : v % 3; try { oakTree(ctx, x, y, s, d.forest ? WOOD_OAK[band][v % 3] : form === 3 ? "#7cbc4e" : OAK_TINTS[v % 4], OAK.trunk, seed, form); } finally { WOOD_BAND = -1; } break; }
     default: pixRock(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" });
   }
 };
@@ -1108,7 +1158,10 @@ const variantOf = (d) => {
     return { v, band: 0, s: Math.round((d.s || 1) * (0.92 + hash(Math.round(d.y), Math.round(d.x)) * 0.17) * 10) / 10, sd: d.sd != null ? d.sd : Math.floor(h2 * 3) };
   }
   const dep = forestDepthAt(d.x, d.y);
-  return { v: Math.floor(hv * 2), band: dep > 46 ? 2 : dep > 16 ? 1 : 0, s: Math.round((d.s || 1) * 4) / 4, sd: 0 };
+  const band = dep > 46 ? 2 : dep > 16 ? 1 : 0;
+  // a few taller crowns inside the wood break its skyline (oaks only: v 2 is the tall form, a size up)
+  const tall = d.t === "tree" && band > 0 && hash(Math.round(d.y) + 11, Math.round(d.x) + 5) < 0.16;
+  return { v: tall ? 2 : Math.floor(hv * 2), band, s: Math.round((d.s || 1) * (tall ? 1.15 : 1) * 4) / 4, sd: 0 };
 };
 
 // trees: their painted root-shadow pools take no outline
@@ -1125,12 +1178,14 @@ const decorSprite = (d) => {
   const hw = Math.ceil(bw * s + (tall ? 6 : 8)), top = Math.ceil(bt * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
   const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29 + sd * 577;
   const mir = mirrorsFor(d.t), wasM = mirrorBake(mir);
+  HOLES = [];
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas; const was = baking(true);
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; baking(was); }
   }, false);
   mirrorBake(wasM);
   if (NEWRING) tintRing(cv, LEAFY.has(d.t) ? 200 : 110);
+  cutHoles(cv);
   const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
     const c = cv.getContext("2d");
@@ -1141,8 +1196,27 @@ const decorSprite = (d) => {
   // the time of day: the sunward edge warmed (as baked: a mirrored piece has the sun on its own left)
   if (DAY.on && d.t !== "bogpool") sunRim(cv, mir || DAY.side < 0);   // (flat water takes no sunward edge)
   sp = { cv, hw, top, bot };
+  if (SWAY.has(d.t) && !d.forest) sp.sway = swayFrames(cv, Math.round((top - (d.t === "willow" ? 18 : 24) * s) * PX));
   SPRITES.set(key, sp);
   return sp;
+};
+// ---- a lone tree's crown sways: two more frames, the crown's upper part one art pixel to either side ----
+// (rows above `cut`, about the crown's middle, shift; the one-pixel step sits inside the leaves, never at the trunk). Swapped on a slow seeded
+// clock in drawTree: 0, +1, 0, -1, a step every ~1.6 s. The wood never sways.
+const SWAY = new Set(["tree", "willow"]);
+const SWAY_ON = true;
+const swayFrames = (cv, cut) => {
+  if (!SWAY_ON) return null;
+  const out = [];
+  for (const dx of [1, -1]) {
+    const f = document.createElement("canvas"); f.width = cv.width; f.height = cv.height;
+    const c = f.getContext("2d");
+    c.drawImage(cv, 0, cut, cv.width, cv.height - cut, 0, cut, cv.width, cv.height - cut);
+    // the crown's upper part a whole art pixel over
+    c.drawImage(cv, 0, 0, cv.width, cut, dx, 0, cv.width, cut);
+    out.push(f);
+  }
+  return out;
 };
 
 // The wood round the gate's crag: a tree whose foot stands on the crag's top
@@ -1181,7 +1255,9 @@ export const drawTree = (ctx, d, time) => {
   if (mir) { ctx.save(); ctx.translate(2 * d.x, 0); ctx.scale(-1, 1); }
   if (!reg().live.has(d.t) && typeof document !== "undefined") {
     const sp = decorSprite(d);
-    ctx.drawImage(sp.cv, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
+    let img = sp.cv;
+    if (sp.sway && time) { const k = Math.floor(time * 0.62 + hash(Math.round(d.x), Math.round(d.y)) * 4) & 3; img = k === 1 ? sp.sway[0] : k === 3 ? sp.sway[1] : sp.cv; }
+    ctx.drawImage(img, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
     const lb = LIVE_BITS[d.t];
     if (lb) lb(ctx, d.x, d.y, variantOf(d).s, time);
   } else {

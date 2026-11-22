@@ -56,7 +56,7 @@ import { turfTones, groundLayer } from "./world.js";
 import { SEA_ICE } from "./coast.js";
 import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
 import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
-import { onDay } from "../data/sun.js";
+import { onDay, DAY } from "../data/sun.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
@@ -120,12 +120,19 @@ const rimeTurf = (ctx, kit) => {
   // ---- the fields, every FS units, eased between
   const FS = 2, FW = Math.ceil(W / FS) + 3, FH = Math.ceil(H / FS) + 3;
   const drift = new Float32Array(FW * FH), rip = new Float32Array(FW * FH), wood = new Float32Array(FW * FH);
+  // (upgrade 2026-11-22) wind-carved DUNES: a sawtooth along the wind, a long gentle windward back and a
+  // short steep lee scarp under a lit cornice; `dmask` says where they stand, `dwob` bends their crests
+  const dmask = new Float32Array(FW * FH), dwob = new Float32Array(FW * FH);
   for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
     const x = i * FS, y = j * FS, u = windU(x, y), v = windV(x, y);
     const wx = (vn(x / 90, y / 90, seed + 1) - 0.5) * 40, wy = (vn(x / 90 + 7, y / 90, seed + 2) - 0.5) * 30;
     drift[j * FW + i] = fbm((u + wx) / 150, (v + wy) / 48, seed + 11);
     rip[j * FW + i] = vn(u / 70, v / 34, seed + 21);
     wood[j * FW + i] = forestDepthAt(x, y);
+    dmask[j * FW + i] = sstep(0.5, 0.72, fbm(u / 170, v / 30, seed + 31));
+    // crests scalloped into crescents, horns trailing downwind, every ~40 units across the wind
+    const sv = v + (vn(u / 80, v / 60, seed + 45) - 0.5) * 40;
+    dwob[j * FW + i] = (fbm(u / 140, v / 90, seed + 41) - 0.5) * 60 + 16 * (1 - Math.cos(sv * Math.PI * 2 / 40)) * 0.5;
   }
   const at = (F, x, y) => {
     const fx = Math.max(0, x / FS), fy = Math.max(0, y / FS);
@@ -136,6 +143,18 @@ const rimeTurf = (ctx, kit) => {
   const own = new Uint8Array(PW * PHh);
   const tone = new Uint8Array(PW * PHh), temp = new Uint8Array(PW * PHh);
   const put = (i, c) => { const o = i << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; };
+  const SX = -DAY.side, LOW = DAY.on ? 1 - DAY.elev : 0;           // the sun's side (1 = west, as at noon); how low it stands
+  const DP = 84, FC = 0.8;                                          // dune spacing along the wind; where the crest stands in it
+  const DUNE = { f: 0, A: 0 };
+  const dune = (x, y) => {                                          // its slope along the wind (per unit) and its height 0..1
+    const A = at(dmask, x, y) * 0.34;
+    if (A < 0.004) { DUNE.A = 0; DUNE.f = 0; return [0, 0]; }
+    const p = (windU(x, y) + at(dwob, x, y)) / DP, f = p - Math.floor(p);
+    DUNE.A = A; DUNE.f = f;
+    if (f < FC) { const t = f / FC; return [A * 6 * t * (1 - t) / FC / DP, A * t * t * (3 - 2 * t)]; }
+    const t = (f - FC) / (1 - FC);
+    return [-A * 2 * (1 - t) / (1 - FC) / DP, A * (1 - t) * (1 - t)];
+  };
   // wind-streak dither: runs 3-7 px long along each row
   const streak = (px, py) => { const L = 3 + (hash(py, seed + 5) * 5 | 0), id = Math.floor((px + hash(py, seed + 6) * 9) / L); return hash(id, py * 31 + seed); };
   for (let py = 0; py < PHh; py++) {
@@ -149,15 +168,21 @@ const rimeTurf = (ctx, kit) => {
       }
       own[i] = 1;
       const D = at(drift, x, y);
-      // slope of the drifts: lit facing the sun (upper left), lee downwind
-      const gx = (at(drift, x + 2, y) - at(drift, x - 2, y)) / 4, gy = (at(drift, x, y + 2) - at(drift, x, y - 2)) / 4;
-      const sun = Math.max(-1, Math.min(1, -(gx * 0.42 + gy * 0.58) * 42));
-      const lee = (gx * WC + gy * WS) * 60;                 // < 0: falling away downwind
+      // slope of the drifts and dunes, lit facing the level's sun (upper left at noon), blue where it turns away
+      const [dU, dH] = dune(x, y);
+      const gx = (at(drift, x + 2, y) - at(drift, x - 2, y)) / 4 + dU * WC, gy = (at(drift, x, y + 2) - at(drift, x, y - 2)) / 4 + dU * WS;
+      const sun = Math.max(-1.4, Math.min(1, -(gx * 0.42 * SX + gy * 0.58) * 42 * (1 + 0.5 * LOW)));
       const dz = streak(px, py) - 0.5, dz2 = streak(px + 37, py + 3) - 0.5;
-      let tt = 0.5 + (D - 0.5) * 0.95 + sun * 0.5 + dz * 0.05;
+      let tt = 0.5 + (D - 0.5) * 0.7 + dH * 0.55 + sun * 0.5 + dz * 0.05;
       let tn = tt < 0.2 ? 1 : tt < 0.36 ? 2 : tt < 0.68 ? 3 : tt < 0.84 ? 4 : 5;
-      let tp = lee + dz2 * 0.5 < -0.55 ? 0 : sun + dz2 * 0.4 > 0.35 ? 2 : 1;
-      if (lee + dz2 * 0.4 < -1.15 && tn > 2) tn--;          // the deep lee, one step down and blue
+      let tp = sun + dz2 * 0.45 < -0.3 ? 0 : sun + dz2 * 0.4 > 0.35 ? 2 : 1;
+      if (sun + dz2 * 0.4 < -0.95 && tn > 2) tn--;          // the deep lee, one step down and blue
+      // the dune's cornice: a lit lip right on the crest, a dark seam of shadow under its overhang
+      if (DUNE.A > 0.07) {
+        const e = DUNE.f - FC, lip = 0.022 + DUNE.A * 0.05;
+        if (e > -lip && e < 0) { tn = Math.min(6, Math.max(tn, 4) + 1); tp = 2; }
+        else if (e >= 0 && e < 0.016 + DUNE.A * 0.03 && SX > 0) { tn = Math.max(1, tn - 1); tp = 0; }
+      }
       // wind ripples on the drifts' backs: fine lines across the wind
       const m = at(rip, x, y) * sstep(0.38, 0.62, D);
       if (m > 0.62) {
@@ -206,16 +231,17 @@ const rimeTurf = (ctx, kit) => {
     taken.push([cx, cy, r + 4]);
     const rr = (a) => r * (0.62 + 0.55 * vn(Math.cos(a) * 1.6 + 3, Math.sin(a) * 1.6 + 3, sd));
     const x0 = P(cx - r * 1.4), x1 = P(cx + r * 1.4), y0 = P(cy - r), y1 = P(cy + r);
-    // its shadow on the snow, thrown down-right, cool
-    for (let py = y0; py <= y1 + P(3); py++) for (let px = x0; px <= x1 + P(4); px++) {
-      const x = px / K - cx - 2.2, y = (py / K - cy - 1.6) * 1.6, a = Math.atan2(y, x);
+    // its shadow on the snow, thrown away from the sun (down-right at noon), cool, longer when the sun is low
+    const shx = 2.2 * SX * (1 + LOW * 1.4), shy = 1.6 * (1 - LOW * 0.4);
+    for (let py = y0; py <= y1 + P(3); py++) for (let px = x0 - P(LOW * 5); px <= x1 + P(4 + LOW * 5); px++) {
+      const x = px / K - cx - shx, y = (py / K - cy - shy) * 1.6, a = Math.atan2(y, x);
       if (Math.hypot(x, y) < rr(a) * 0.95) shift(px, py, -1, 0);
     }
     for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
       const x = px / K - cx, y = (py / K - cy) * 1.6, a = Math.atan2(y, x), q = Math.hypot(x, y) / rr(a);
       if (q > 1) continue;
       // lit on the upper left, dark down-right; the bottom rim darkest
-      const lit = -(x / r) * 0.5 - (y / r) * 0.7 + (vn(px / 3, py / 3, sd) - 0.5) * 0.9;
+      const lit = -(x / r) * 0.5 * SX - (y / r) * 0.7 + (vn(px / 3, py / 3, sd) - 0.5) * 0.9;
       let k = lit > 0.55 ? 4 : lit > 0.1 ? 3 : lit > -0.4 ? 2 : 1;
       if (q > 0.86 && y > 0) k = 0;
       // snow packed on the windward (west) side and lying in its pockets
@@ -268,6 +294,76 @@ const rimeTurf = (ctx, kit) => {
     }
   }
 
+  // ---- (upgrade 2026-11-22) wind tails: every standing piece holds a long tongue of snow in its lee,
+  // downwind (east-south-east), a lit back on its north side, a blue flank and a sharp shadow on its south
+  const TAILS = new Set(["rmspruce", "rmrock", "rmrunestone", "rmskaldstone", "rmcairn", "rmlonghouse", "rmrack", "rmwhale", "rmboat", "rmicefall"]);
+  for (const q of DECOR) {
+    if (q.forest || !TAILS.has(q.t) || q.x < 0 || q.x > W || q.y < 0 || q.y > H) continue;
+    const sz = q.s || 1, big = q.t === "rmlonghouse" || q.t === "rmicefall" || q.t === "rmwhale";
+    const R = (big ? 7 : q.t === "rmspruce" ? 3.2 : 4) * sz, Lt = R * (big ? 4.2 : 6.5) * (0.8 + hash(q.x, q.y) * 0.5);
+    const fx = q.x + (big ? 10 : 3) * sz, fy = q.y + 7;                // the tail leaves the piece's foot on its lee side
+    let Lc = 0;                                                       // cut where it would run onto the road or water
+    for (let a = 0; a <= Lt; a += 2) { if (!kit.clear(fx + a * WC, fy + a * WS, 1)) break; Lc = a; }
+    if (Lc < 6) continue;
+    const bx0 = P(fx - R - 2), bx1 = P(fx + Lc * WC + R + 2), by0 = P(fy - R - 2), by1 = P(fy + Lc * WS + R + 2);
+    for (let py = by0; py <= by1; py++) for (let px = bx0; px <= bx1; px++) {
+      const dx = px / K - fx, dy = py / K - fy, a = dx * WC + dy * WS, b = (-dx * WS + dy * WC) * 1.5;
+      if (a < -R * 0.6 || a > Lc) continue;
+      const f = Math.max(0, a) / Lt, hw = R * (a < 0 ? Math.sqrt(1 - (a / (R * 0.6)) ** 2) : Math.pow(1 - f, 1.4)) + (vn(px / 3, py / 4, q.x | 0) - 0.5) * 1.2;
+      if (hw <= 0.4 || Math.abs(b) > hw) continue;
+      const e = b / hw;                                               // -1 north rim .. +1 south rim
+      if (e < -0.7) shift(px, py, 2, 2);
+      else if (e < 0.15) shift(px, py, 1, 2);
+      else if (e < 0.75) shift(px, py, SX > 0 ? -1 : 1, SX > 0 ? 0 : 2);
+      else shift(px, py, -2, 0);
+    }
+  }
+
+  const ST = STRAW.map(hexRGB);
+  // ---- scoured ground: the wind has stripped the snow off a few low rises down to frozen earth and dead grass
+  const ER = [hexRGB("#3a3036"), hexRGB("#52463f"), hexRGB("#6c5e50"), hexRGB("#8a7a64")];
+  const nEarth = 3 + (rng() * 3 | 0);
+  for (let n = 0; n < nEarth; n++) {
+    const rx = 6 + rng() * 9, ry = rx * (0.32 + rng() * 0.12), at0 = spot(rx + 4);
+    if (!at0) continue;
+    const [cx, cy] = at0, sd = (rng() * 1e5) | 0;
+    taken.push([cx, cy, rx + 2]);
+    for (let py = P(cy - ry - 2); py <= P(cy + ry + 2); py++) for (let px = P(cx - rx - 3); px <= P(cx + rx + 3); px++) {
+      const u = windU(px / K - cx, py / K - cy), v = windV(px / K - cx, py / K - cy);
+      const q = Math.hypot(u / rx, v / ry) + (fbm(px / 5, py / 4, sd) - 0.5) * 0.9;
+      if (q > 1.05) continue;
+      if (q > 0.88) { if (hash(px, py * 3 + sd) < 0.4) set(px, py, ER[hash(px + 1, py) < 0.5 ? 1 : 2]); continue; }   // the ragged, dusted rim
+      const nn = vn(px / 2, py / 2, sd + 3), lit = -(u / rx) * 0.35 * SX - (v / ry) * 0.4 + (nn - 0.5);
+      if (nn > 0.74) { shift(px, py, 1, 2); continue; }             // snow still lying in its hollows
+      set(px, py, ER[lit > 0.35 ? 3 : lit > -0.05 ? 2 : lit > -0.4 ? 1 : 0]);
+      if (hash(px, py + sd) < 0.06) { set(px, py - 1, ST[2]); set(px, py - 2, ST[3]); }   // stubs of dead grass
+    }
+  }
+
+  // ---- animal tracks: a fox's line of prints and a hare's bounding groups, wandering across the open snow
+  const print = (px, py) => { shift(px, py, -2, 0); shift(px + (SX > 0 ? 1 : -1), py + 1, 1, 2); };
+  const nTrack = 2 + (rng() * 3 | 0);
+  for (let n = 0; n < nTrack; n++) {
+    const at0 = spot(4);
+    if (!at0) continue;
+    let [x, y] = at0, hd = rng() * 6.3;
+    const hare = n % 2 === 1, steps = 26 + (rng() * 30 | 0), stride = hare ? 7 : 2.6;
+    for (let k = 0; k < steps; k++) {
+      hd += (rng() - 0.5) * 0.5 + Math.sin(k * 0.3 + n) * 0.08;
+      x += Math.cos(hd) * stride; y += Math.sin(hd) * stride * 0.7;
+      if (x < 6 || y < 6 || x > kit.SW - 6 || y > H - 6 || !kit.clear(x, y, 1)) break;
+      const nx = -Math.sin(hd), ny = Math.cos(hd) * 0.7;
+      if (hare) {        // two small fore prints behind two long hind prints side by side
+        print(P(x - Math.cos(hd) * 1.5), P(y - Math.sin(hd) * 1));
+        print(P(x - Math.cos(hd) * 0.6 + nx * 0.4), P(y - Math.sin(hd) * 0.4 + ny * 0.4));
+        for (const sgn of [-1, 1]) { const hx = x + Math.cos(hd) * 1.2 + nx * sgn * 0.9, hy = y + Math.sin(hd) * 0.8 + ny * sgn * 0.9; print(P(hx), P(hy)); print(P(hx + Math.cos(hd) * 0.5), P(hy + Math.sin(hd) * 0.35)); }
+      } else {
+        const sgn = k & 1 ? 1 : -1;
+        print(P(x + nx * sgn * 0.5), P(y + ny * sgn * 0.5));
+      }
+    }
+  }
+
   // ---- sastrugi: sharp ridges carved by the wind, in clusters
   const nSas = 4 + (rng() * 4 | 0);
   for (let n = 0; n < nSas; n++) {
@@ -290,7 +386,6 @@ const rimeTurf = (ctx, kit) => {
   }
 
   // ---- tussocks: dead grass poking out of little drifts
-  const ST = STRAW.map(hexRGB);
   const nTus = 14 + (rng() * 8 | 0);
   for (let n = 0; n < nTus; n++) {
     const at0 = spot(6);

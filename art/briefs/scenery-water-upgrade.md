@@ -104,24 +104,16 @@ change there? One or two lines: make it and REPORT it. More: ask in your report.
 
 ## STATUS (the lead keeps this current)
 
-- COMMITTED first passes (01:45): vale (mill wheel, cottage, boat, haywain), ground (height, verge
-  grass, bushes, road grain), ironrime (spruce, longhouse, rack, boat; crags, King's tower, tents,
-  beacon), hollow (reed beds, bog pools, wisps, relic rims).
-- UNCOMMITTED but finished first passes: `coast.js` (sea) and `water.js` + new `waterlook.js` (river):
-  both work in the game; both agents are on a bolder SECOND pass (commit all three files together
-  when the river reports: coast.js imports waterlook.js).
-- RUNNING: first passes of foliage (`scenery.js`, `scenery-gwpix.js`; delete `zzfol-old-scenery.js`
-  before commit) and bridges (`bridge.js`); second passes of river, sea, ground, vale, hollow; fresh
-  agents IRON-2 (`scenery-iron.js`, `pix/iron-works.js`: war camp, paved road, wagons, salt works,
-  quay, crag outline) and RIME-2 (`scenery-rime.js`: snow ground, gate, stones, whale bones,
-  longship, ice).
-- Trouble seen tonight: the disk nearly filled (shots are 2-3 MB each: delete finished review shots;
-  `df -h .`), the shared dev server died once (restart: built-in browser `preview_start` name
-  "crownguard", port 5173), the built-in browser caps tabs at about 9 (an agent without a tab works
-  blind: the lead must check its work in the game).
-- LEFT: review each report (shots at BOARD SIZE against `.shots/up0/`), commit per area after
-  `node --check`; a full build (`npx vite build --outDir <scratch dir>`); `node scripts/sim.mjs
-  --level gw1`; frame cost at noon and golden on thornbrook against commit a7dc445 (`col-lab.html`
-  `&perf=1`); before / after pictures for the owner in `.shots/preview-upgrade/` (same boards and
-  suns as `.shots/up0/`); guides (CLAUDE.md, STYLE-GUIDE.md).
+**05:15, 2026-11-22: THE ORIGINAL LEAD SESSION IS AWAKE AND WORKING ON THIS (the usage limit reset at
+5:10). A session started by the 5:55 scheduled wake-up must NOT work on these files: read this, confirm
+`git log -3` shows fresh commits, and stop. Two leads in one tree would collide.**
+
+- The limit cut every agent off mid second pass at about 02:00. A WIP snapshot of the tree as they left
+  it is committed (it passes `node --check` and builds). The lead is resuming each agent with a small
+  budget to finish and report, then reviews, commits, and makes before / after pictures in
+  `.shots/preview-upgrade/` (before: `.shots/up0/`).
+- Trouble seen: disk nearly full once (delete finished review shots), the shared dev server dies
+  (restart: built-in browser `preview_start` name "crownguard"), the built-in browser caps tabs at ~9.
+- LEFT after the agents report: full build, `node scripts/sim.mjs --level gw1`, frame cost against
+  commit a7dc445, the pictures, guides (CLAUDE.md, STYLE-GUIDE.md).
 - Pushing to GitHub: NOT approved. The owner wants to see before / after pictures first.

@@ -122,8 +122,9 @@ const dome = (obj, cx, cy, rx, ry, m, z, o) => {
   for (let i = 0; i <= 14; i++) { const a = Math.PI + (i / 14) * Math.PI; pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); }
   obj.poly(pts, m, z, o);
 };
-export const pixMushroom = (ctx, x, y, s, seed = 1) => {
+export const pixMushroom = (ctx, x, y, s, seed = 1, v = 0) => {
   const gy = y + 9, sc = s * R;
+  if (v === 3) { fairyRing(ctx, x, gy, s, seed); return; }
   const STEM = mat("#e0d6bc", { contrast: 0.7 }), GILL = mat(mix(CAP, "#1c1020", 0.55)), SPOT = flat("#eedaf6", { line: "#b886d0" });
   const caps = [[-7, 3, 3.5, mix(CAP, "#4a2060", 0.12), -0.3], [0, 8, 9, CAP, 0.4], [7, 3.8, 4.5, lighten(CAP, 0.05), 0.2]];
   pixShade(ctx, x, gy, 4 * s * R, 0.5, 9 * s * R, 2.2 * s * R, 0.28, seed);
@@ -145,9 +146,29 @@ export const pixMushroom = (ctx, x, y, s, seed = 1) => {
   }
 };
 
+// a fairy ring: small toadstools in a ring on darker grass, the far ones smaller
+const fairyRing = (ctx, x, gy, s, seed) => {
+  const sc = s * R, n = 9;
+  ctx.fillStyle = rgba("#2a4a1c", 0.22);
+  ctx.beginPath(); ctx.ellipse(x, gy - 1, 10.5 * s, 4.6 * s, 0, 0, Math.PI * 2); ctx.ellipse(x, gy - 1, 8.5 * s, 3.4 * s, 0, 0, Math.PI * 2); ctx.fill("evenodd");
+  const STEM = mat("#e0d6bc", { contrast: 0.7 }), GILL = mat(mix(CAP, "#1c1020", 0.55));
+  const pts = [];
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + h3(i, seed, 9) * 0.4; pts.push([Math.cos(a) * 9.5 * sc, Math.sin(a) * 4 * sc - 1 * sc, 0.7 + (Math.sin(a) + 1) * 0.2 + h3(i, seed, 8) * 0.25]); }
+  pts.sort((p, q) => p[1] - q[1]);
+  sculpt(Math.ceil(26 * sc) + 14, Math.ceil(18 * sc) + 14, (obj) => {
+    pts.forEach(([px, py, k], i) => {
+      const rp = 2.4 * sc * k, hp = 3.6 * sc * k, CM = mat(i % 3 ? CAP : lighten(CAP, 0.08), { contrast: 0.8 });
+      obj.part(); obj.capsule(px, py - hp, rp * 0.3, px, py, rp * 0.38, STEM, i * 0.01, { round: 0.9 });
+      obj.part(); obj.ellipse(px, py - hp + 0.5, rp, Math.max(1, rp * 0.3), GILL, 1 + i * 0.01, { round: 0.6 });
+      obj.part(); dome(obj, px, py - hp, rp, rp * 0.75, CM, 2 + i * 0.01, { round: 0.95, ny: -0.1 });
+    });
+  }, ctx, x, gy);
+};
+
 // ---- the dead tree ----------------------------------------------------------
-export const pixDeadTree = (ctx, x, y, s, seed = 1, burnt = false) => {
+export const pixDeadTree = (ctx, x, y, s, seed = 1, burnt = false, v = 0) => {
   const H = (i) => hash(seed, i), base = y + 10, sc = s * R;
+  if (v === 3 && !burnt) { fallenLog(ctx, x, base, s, seed); return; }
   const col = burnt ? "#3e3432" : "#6e5a4a";
   const B = mat(col, { contrast: 0.8 }), BD = mat(col, { contrast: 1.3 });
   const lean = (H(1) - 0.5) * 5 * sc, tall = (30 + H(2) * 8) * sc;
@@ -179,11 +200,45 @@ export const pixDeadTree = (ctx, x, y, s, seed = 1, burnt = false) => {
       const [bx, by] = tp(0.12 + H(i + 60) * 0.7);
       obj.part(); obj.line(bx + 0.8 * sc, by, bx + 0.8 * sc + (H(i + 70) - 0.5), by - 2 - H(i + 80) * 3, BD, 2.6, { noLine: true });
     }
+    if (!burnt) {
+      // bracket fungus stepping up the shaded side, a woodpecker's hole on the lit one
+      const FUN = mat("#c8a46a", { contrast: 0.7 });
+      for (let i = 0; i < 3; i++) {
+        const [fx, fy] = tp(0.18 + i * 0.09);
+        obj.part(); obj.poly([[fx + 1.5 * sc, fy], [fx + (4.2 - i * 0.6) * sc, fy + 0.4], [fx + (3.6 - i * 0.5) * sc, fy + 1.4 * sc], [fx + 1.5 * sc, fy + 1.2 * sc]], FUN, 3 + i * 0.01, { n: [0.1, -0.7, 0.7] });
+      }
+      const [hx, hy] = tp(0.55);
+      obj.part(); obj.ellipse(hx - 0.6 * sc, hy, 0.9 * sc, 1.2 * sc, mat("#1e1620"), 2.7, { round: 0.3, noLine: true });
+    }
     const [kx, ky] = tp(1);
     obj.part(); obj.capsule(kx, ky, 1.2 * sc, kx + 0.5, ky - 1.5 * sc, 0.5 * sc, mat(burnt ? "#6a5a52" : "#c8b08a", { contrast: 0.6 }), 2.2, { round: 0.8 });
   }, ctx, x, base);
 };
 
+
+// a fallen trunk lying across the ground, moss along its top, a broken stump behind it, a toadstool
+const fallenLog = (ctx, x, base, s, seed) => {
+  const sc = s * R, H = (i) => hash(seed, i);
+  const B = mat("#6e5a4a", { contrast: 0.8 }), BD = mat("#6e5a4a", { contrast: 1.3 }), END = mat("#c8b08a", { contrast: 0.6 });
+  const MOSS = mat("#5e8a36", { contrast: 0.7 });
+  pixShade(ctx, x, base, 3 * s * R, 1, 15 * s * R, 2.6 * s * R, 0.3, seed);
+  sculpt(Math.ceil(60 * sc) + 12, Math.ceil(34 * sc) + 14, (obj) => {
+    // the stump it broke from
+    obj.part(); obj.capsule(-9 * sc, -9 * sc, 2.4 * sc, -9 * sc, -1, 2.8 * sc, B, 0, { round: 0.9 });
+    obj.part(); obj.poly([[-11.4 * sc, -9 * sc], [-10 * sc, -11.5 * sc], [-8.5 * sc, -9.8 * sc], [-7.6 * sc, -12 * sc], [-6.6 * sc, -9 * sc]], END, 0.5, { n: [0, -0.6, 0.8] });
+    // the log: lying left to right, a little toward us, its cut end lit
+    const ax = -13 * sc, ay = -1.5 * sc, bx = 13 * sc, by = 0.5 * sc;
+    obj.part(); obj.capsule(ax, ay, 2.8 * sc, bx, by, 2.4 * sc, B, 1, { round: 0.95 });
+    obj.part(); obj.ellipse(bx + 0.5 * sc, by, 1.6 * sc, 2.3 * sc, END, 1.5, { round: 0.5, n: [0.6, 0, 0.8] });
+    obj.toneLine(bx + 0.5 * sc, by - 1, bx + 0.5 * sc, by + 1, -1);
+    // bark seams along it, moss on the top
+    for (let i = 0; i < 4; i++) { const u = 0.15 + i * 0.2; obj.toneLine(ax + (bx - ax) * u, ay + (by - ay) * u + 0.5 * sc, ax + (bx - ax) * (u + 0.1), ay + (by - ay) * (u + 0.1) + 1.2 * sc, -0.9); }
+    for (let i = 0; i < 7; i++) { const u = 0.08 + i * 0.12 + H(i) * 0.05; obj.ellipse(ax + (bx - ax) * u, ay + (by - ay) * u - 2.2 * sc, 2 * sc, 0.9 * sc, MOSS, 2 + i * 0.01, { round: 0.7, ny: -0.5 }); }
+    // a small toadstool at its foot
+    obj.part(); obj.capsule(4 * sc, 0.5 * sc, 0.5 * sc, 4 * sc, 3 * sc, 0.6 * sc, mat("#e0d6bc"), 2.5, { round: 0.9 });
+    obj.part(); dome(obj, 4 * sc, 0.5 * sc, 1.8 * sc, 1.3 * sc, mat(CAP, { contrast: 0.8 }), 2.6, { round: 0.9 });
+  }, ctx, x, base);
+};
 
 // The new style's outline for a baked decor piece: ONE art pixel, tinted from
 // the piece's own edge colour (mixed toward ink), lighter on the edges the sun
@@ -248,19 +303,51 @@ export const pixTowerBody = (ctx, x, y, s, stone) => {
     // front face (lit), side face (dark)
     obj.part(); obj.poly([[-w, 0], [w - side, 0], [w - side, -hgt], [-w, -hgt]], M, 0, { n: [-0.18, 0.04, 0.9] });
     obj.part(); obj.poly([[w - side, 0], [w, -1], [w, -hgt - 1], [w - side, -hgt]], M, 0.2, { n: [0.55, 0.05, 0.7] });
-    // courses and joints: stone by stone, the joints staggered
+    // coursed stone, block by block: staggered joints, each block a tone of its own, its top edge lit
     const ch = 4 * R * 0.9;
+    const B = (i, j) => h3(i, j, 41);
     for (let r = 0, yy = -ch; yy > -hgt + 2; yy -= ch, r++) {
-      obj.toneLine(-w + 1, yy, w - side - 1, yy, -0.6);
-      for (let xx = -w + 3 + (r & 1) * 4; xx < w - side - 1; xx += 8) obj.toneLine(xx, yy, xx, yy + ch - 1, -0.6);
+      obj.toneLine(-w + 1, yy, w - 1, yy, -0.8);
+      const bw = 7 + (r % 3);
+      for (let xx = -w + 1 + ((r * 5) % bw); xx < w - 1; xx += bw) {
+        obj.toneLine(xx, yy, xx, yy + ch - 1, -0.8);
+        const tb = B(r, Math.round(xx)) < 0.3 ? -0.5 : B(r, Math.round(xx)) > 0.75 ? 0.45 : 0;
+        if (tb) for (let q = 1; q < ch - 1; q++) obj.toneLine(xx + 1, yy + q, Math.min(w - 1, xx + bw - 1), yy + q, tb);
+        obj.toneLine(xx + 1, yy + 1, Math.min(w - 1, xx + bw - 2), yy + 1, 0.5);
+      }
     }
-    // battlement: three merlons, a ledge under them
+    // the crown, broken: a ledge, the left merlon whole, the middle one cracked, the right fallen to a stump
     obj.part(); obj.rect(-w - 1, -hgt - 3, 2 * w - side + 3, 4, M, 1, { n: [-0.1, -0.4, 0.9] });
-    const mw = Math.round((2 * w - side) / 5);
-    for (let i = 0; i < 3; i++) { obj.part(); obj.rect(-w - 1 + i * mw * 2, -hgt - 3 - 5 * R * 0.7, mw + 1, 5 * R * 0.7, M, 1.2, { n: [-0.15, -0.3, 0.9] }); }
-    obj.part(); obj.poly([[w - side + 0, -hgt - 3], [w, -hgt - 4], [w, -hgt - 3 - 5 * R * 0.7], [w - side + 0, -hgt - 3 - 5 * R * 0.7]], M, 1.2, { n: [0.55, 0.05, 0.7] });
-    // the door, low on the front
+    const mw = Math.round((2 * w - side) / 5), mh = 5 * R * 0.7;
+    obj.part(); obj.rect(-w - 1, -hgt - 3 - mh, mw + 1, mh, M, 1.2, { n: [-0.15, -0.3, 0.9] });
+    obj.part(); obj.poly([[-w - 1 + mw * 2, -hgt - 3], [-w + mw * 3, -hgt - 3], [-w + mw * 3, -hgt - 3 - mh * 0.55], [-w + mw * 2.5, -hgt - 3 - mh * 0.8], [-w - 1 + mw * 2, -hgt - 3 - mh]], M, 1.2, { n: [-0.15, -0.3, 0.9] });
+    obj.part(); obj.poly([[-w - 1 + mw * 4, -hgt - 3], [w - side + 1, -hgt - 3], [w - side + 1, -hgt - 3 - mh * 0.3], [-w + mw * 4.4, -hgt - 3 - mh * 0.45]], M, 1.2, { n: [-0.15, -0.3, 0.9] });
+    obj.part(); obj.poly([[w - side + 0, -hgt - 3], [w, -hgt - 4], [w, -hgt - 3 - mh * 0.3], [w - side + 0, -hgt - 3 - mh * 0.3]], M, 1.2, { n: [0.55, 0.05, 0.7] });
+    // a bite out of the ledge's right end
+    obj.toneLine(w - side - 3, -hgt - 2, w - side + 1, -hgt - 2, -1.2);
+    // the door, low on the front, and an empty arched window above: dark inside
     obj.part(); obj.rect(-3, -9, 7, 9, mat("#4a3622"), 1, { n: [0, 0, 1] });
+    const DARK = mat("#1e1a26", { contrast: 0.4 }), wy = -hgt * 0.58;
+    obj.part(); obj.poly([[-2, wy + 6], [2, wy + 6], [2, wy], [1, wy - 1.5], [-1, wy - 1.5], [-2, wy]], DARK, 1.1, { n: [0, 0, 1] });
+    obj.toneLine(-2, wy + 7, 2, wy + 7, 0.6);
+    // ivy climbing the shaded side face and over the front's right edge, thinning upward
+    const IVY = mat("#4a7a34", { contrast: 0.8 }), IVD = mat("#2f5a2c", { contrast: 0.8 });
+    for (let i = 0; i < 26; i++) {
+      const k = h3(i, 3, 51), up = Math.pow(h3(i, 4, 51), 1.6) * hgt * 0.72;
+      const ix = w - side * (0.2 + k * 1.6), iy = -2 - up;
+      obj.ellipse(ix, iy, 1.5 + h3(i, 5, 51) * 1.2, 1.2, i % 3 ? IVY : IVD, 1.3 + i * 0.001, { round: 0.7 });
+    }
+    // fallen blocks at the foot
+    obj.part(); obj.rect(w + 1, -3, 4, 3, M, 0.3, { n: [-0.2, -0.5, 0.8] });
+    obj.part(); obj.rect(-w - 5, -2, 3, 2, M, 0.3, { n: [-0.2, -0.5, 0.8] });
+    obj.part(); obj.rect(w + 2, -6, 3, 3, M, 0.35, { n: [-0.3, -0.3, 0.8] });
+    // crows on the merlons
+    const CROW = mat("#1c1a22", { contrast: 0.5 });
+    for (const [cx0, cy0] of [[-w + mw * 0.4, -hgt - 3 - mh], [-w + mw * 2.6, -hgt - 3 - mh * 0.8]]) {
+      obj.part(); obj.ellipse(cx0, cy0 - 1.5, 1.6, 1.1, CROW, 2, { round: 0.6 });
+      obj.ellipse(cx0 - 1.3, cy0 - 2.6, 0.8, 0.8, CROW, 2.1, { round: 0.6 });
+      obj.dot(cx0 + 1.6, cy0 - 1, CROW, 2.1);
+    }
     const img = obj.resolve({ line: "tint", sun: decorSun() });
     t = { cv: toCanvas(img), ox: img.ox, oy: img.oy, w: img.w, h: img.h };
     TOWERS.set(k, t);

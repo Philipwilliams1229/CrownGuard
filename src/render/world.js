@@ -1043,6 +1043,176 @@ function paintDetail(G, look, kind, rng) {
     });
   }
 
+  // ---- meadow life (2026-11-22, second pass): the Greenwood's meadow gathers small things in
+  // drifts rather than sowing them: two or three wildflowers a board (by seed; bluebells under the
+  // wood's edge), dandelion rosettes, half-sunk stones, twigs under the trees, a worn footpath, and
+  // bare trampled earth spreading from the road at the spawn and the gate. Its own seeded draw.
+  if (feats && kind === "grass" && !burnt) {
+    const rl = mulberry32((seed ^ 0x3eadf1) >>> 0), nz = lattice(seed + 97, 40);
+    const SP = {
+      daisy: [C("#fbf6ea"), C("#d6d0c2"), C("#f0c040")],
+      butter: [C("#fae466"), C("#d8a828"), C("#fff4a8")],
+      poppy: [C("#f2644a"), C("#b42e30"), C("#3a1e24")],
+      dand: [C("#ffe070"), C("#e0a020"), C("#fff0a0")],
+      blue: [C("#a4b4f4"), C("#5c62c4"), C("#7a84dc")],
+    };
+    const pool = ["daisy", "butter", "poppy", "dand"].sort((a, b) => hash(seed, a.length * 7 + a.charCodeAt(0)) - hash(seed, b.length * 7 + b.charCodeAt(0)));
+    const kinds = pool.slice(0, 2 + (hash(seed, 99) < 0.5 ? 1 : 0));
+    const stemL = stemC[1], stemD = stemC[0];
+    const bloom = (x, y, sp, big) => {
+      const px = P(x), py = P(y), c = SP[sp];
+      if (!G.isTurf(px, py) || G.reg[py * G.PW + px] & 4) return;
+      if (typeof window !== "undefined") { window.__life = window.__life || []; window.__life.push([Math.round(x), Math.round(y), sp]); }
+      G.shift(px + 1, py + 1, -1);
+      G.set(px, py, stemD);
+      G.set(px, py - 1, stemL);
+      if (sp === "blue") {
+        // a nodding stem of two or three bells
+        G.set(px + 1, py - 2, stemL); G.set(px + 1, py - 3, stemL);
+        G.set(px, py - 3, c[0]); G.set(px, py - 2, c[1]); G.set(px + 2, py - 2, c[0]); G.set(px + 2, py - 1, c[1]);
+        if (big) { G.set(px - 1, py - 1, c[0]); G.set(px - 1, py, c[1]); G.shift(px + 2, py + 1, -1); }
+        return;
+      }
+      if (!big) { G.set(px, py - 3, c[0]); G.set(px + 1, py - 3, c[0]); G.set(px, py - 2, c[1]); G.set(px + 1, py - 2, c[1]); return; }
+      const hy = py - 3;
+      G.set(px - 1, py - 1, stemL); G.shift(px + 2, py + 1, -1);
+      G.set(px, hy - 1, c[0]); G.set(px - 1, hy, c[0]); G.set(px + 1, hy, c[1]); G.set(px, hy + 1, c[1]);
+      G.set(px - 1, hy - 1, c[0]); G.set(px + 1, hy + 1, c[1]);
+      G.set(px, hy, c[2]);
+    };
+    const gauss = () => (rl() + rl() + rl() - 1.5) * 0.82;
+    // the drifts
+    const nDr = 6 + Math.floor(rl() * 4);
+    for (let i = 0; i < nDr; i++) {
+      let cx = 0, cy = 0, ok = false;
+      for (let t = 0; t < 40 && !ok; t++) { cx = 20 + rl() * (SW - 40); cy = 20 + rl() * (H - 40); ok = open(cx, cy, 6) && noise(nz, cx, cy) > 0.45; }
+      if (!ok) continue;
+      const sp = kinds[i % kinds.length], rx = 9 + rl() * 14, n = 16 + Math.floor(rl() * 24);
+      for (let k = 0; k < n; k++) {
+        const x = cx + gauss() * rx, y = cy + gauss() * rx * 0.55;
+        if (clear(x, y, 3) && open(x, y, 1)) bloom(x, y, sp, rl() < 0.3);
+      }
+    }
+    // bluebells crowd the wood's edge, in a few pools of shade
+    if (FOREST && R.wood?.hem !== false) {
+      const span = FOREST.edge === "left" ? H : W;
+      for (let i = 0; i < 5; i++) {
+        const u = rl() * span, out = 4 + rl() * 14;
+        const cx = FOREST.edge === "left" ? forestDepthAt(0, u) + out : u, cy = FOREST.edge === "left" ? u : forestDepthAt(u, 0) + out;
+        const n = 8 + Math.floor(rl() * 12);
+        for (let k = 0; k < n; k++) {
+          const x = cx + gauss() * 9, y = cy + gauss() * 6;
+          if (clear(x, y, 3) && forestDepthAt(x, y) < -2 && forestDepthAt(x, y) > -30) bloom(x, y, "blue", rl() < 0.45);
+        }
+      }
+    }
+    // dandelion rosettes: a star of dark leaves flat on the turf, a head on a few
+    const ros = [C(mix(R.GRASS_DK, "#2e5a2a", 0.4)), C(mix(R.GRASS, R.GRASS_DK, 0.4))];
+    for (let i = 0; i < 7; i++) {
+      const cx = 20 + rl() * (SW - 40), cy = 20 + rl() * (H - 40);
+      const n = 2 + Math.floor(rl() * 4);
+      for (let k = 0; k < n; k++) {
+        const x = cx + gauss() * 8, y = cy + gauss() * 4;
+        if (!open(x, y, 3)) continue;
+        const px = P(x), py = P(y);
+        for (const [dx, dy, c] of [[-2, 0, 1], [-1, 0, 0], [1, 0, 0], [2, 0, 1], [0, -1, 0], [-1, 1, 0], [1, 1, 0], [0, 1, 1]]) G.set(px + dx, py + dy, ros[c]);
+        G.set(px, py, ros[0]);
+        if (rl() < 0.5) { G.set(px, py - 1, stemL); G.set(px, py - 2, SP.dand[0]); G.set(px + 1, py - 2, SP.dand[1]); }
+      }
+    }
+    // a few stones half sunk in the turf, alone or in twos
+    for (let i = 0; i < 5; i++) {
+      const x = 20 + rl() * (SW - 40), y = 20 + rl() * (H - 40);
+      if (!open(x, y, 5)) continue;
+      pebble(G, x, y, 1.3 + rl() * 1.1, stoneCol, null);
+      if (rl() < 0.4 && open(x + 4, y + 2, 3)) pebble(G, x + 3.5, y + 1.5, 0.8 + rl() * 0.4, stoneCol, null);
+    }
+    // twigs under the lone trees
+    const twig = [C("#6a4a30"), C("#9a7448"), C("#3e2a1e")];
+    for (const dc of DECOR) {
+      if (dc.forest || !/^(tree|willow|pine)$/.test(dc.t)) continue;
+      const s = dc.s || 1, n = 2 + Math.floor(rl() * 3);
+      for (let k = 0; k < n; k++) {
+        const a = rl() * Math.PI * 2, r = 8 + rl() * 8;
+        const x = dc.x + 3 * s + Math.cos(a) * r * s, y = dc.y + 4 + Math.sin(a) * r * 0.5 * s;
+        if (!clear(x, y, 2)) continue;
+        const px = P(x), py = P(y), len = 3 + Math.floor(rl() * 4), dy = rl() < 0.5 ? 0 : rl() < 0.5 ? 1 : -1;
+        for (let q = 0; q < len; q++) {
+          const yy = py + Math.round(q * dy * 0.5);
+          G.set(px + q, yy, q % 3 === 1 ? twig[1] : twig[0]); G.shift(px + q + 1, yy + 1, -1);
+          if (q === 1 && len > 4) G.set(px + q, yy - 1, twig[2]);
+        }
+      }
+    }
+    // the road's worn earth: bare, trampled ground spreading from it at the spawn and the gate
+    const wornC = C(mix(mix(R.GRASS_DK, R.GRASS, 0.5), R.PATH_DK || "#8a6a48", 0.45)), bareC = [C(mix(R.PATH_MAIN || "#b48a5a", "#ffffff", 0.08)), C(R.PATH_MAIN || "#b48a5a"), C(R.PATH_DK || "#8a6a48")];
+    for (const [d0, d1] of [[0, 90], [TOTAL_LEN - 110, TOTAL_LEN - 20]]) {
+      for (let dd = Math.max(0, d0); dd < d1; dd += 3) {
+        const f = d0 === 0 ? 1 - dd / d1 : (dd - d0) / (d1 - d0);
+        const [rx, ry] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
+        for (const sg of [1, -1]) {
+          const reach = 4 + 16 * f;
+          for (let q = 0; q < 3; q++) {
+            const off = PATH_HALF + 1 + rl() * reach, x = rx + Math.cos(a) * off * sg, y = ry + Math.sin(a) * off * sg;
+            if (!clear(x, y, -PATH_HALF + 1) || inRiver(x, y, 2) || inPond(x, y, 2) || nearestOnPath(x, y).d < PATH_HALF - 1) continue;
+            const px = P(x), py = P(y), w = (off - PATH_HALF) / reach;
+            if (w < 0.45 && rl() < f * 0.8) { G.set(px, py, bareC[1]); G.set(px + 1, py, bareC[rl() < 0.3 ? 0 : 1]); G.set(px, py + 1, bareC[2]); }
+            else { G.set(px, py, wornC); if (rl() < 0.5) G.set(px + 1, py, wornC); }
+          }
+        }
+      }
+    }
+    // a footpath worn across one meadow: from the road's verge out over open turf, trodden earth down
+    // its middle and flattened grass either side, fading as it goes
+    if (rl() < 0.85) {
+      for (let t = 0; t < 30; t++) {
+        const dd = TOTAL_LEN * (0.15 + rl() * 0.7), [rx, ry] = posAt(dd), sg = rl() < 0.5 ? 1 : -1;
+        let ang = angleAt(dd) + sg * Math.PI / 2;
+        let x = rx + Math.cos(ang) * (PATH_HALF + 2), y = ry + Math.sin(ang) * (PATH_HALF + 2);
+        if (!open(x + Math.cos(ang) * 30, y + Math.sin(ang) * 30, 8)) continue;
+        const L = 70 + rl() * 80, ph = rl() * 9;
+        for (let u = 0; u < L; u += 0.5) {
+          ang += (noise(nz, x * 1.3 + ph, y * 1.3) - 0.5) * 0.06;
+          x += Math.cos(ang) * 0.5; y += Math.sin(ang) * 0.5;
+          if (u > 6 && !clear(x, y, 2)) break;
+          if (DECOR.some((d) => !d.forest && Math.hypot(d.x - x, (d.y - y) * 1.4) < decorFootprint(d))) break;
+          const fade = 1 - u / L, px = P(x), py = P(y);
+          const nx = -Math.sin(ang), ny = Math.cos(ang);
+          for (let q = -2; q <= 2; q++) {
+            const qx = Math.round(px + nx * q), qy = Math.round(py + ny * q), h = hash(qx * 3 + 1, qy * 7 + seed);
+            if (Math.abs(q) <= 1 && h < 0.55 * fade) G.set(qx, qy, bareC[h < 0.12 ? 2 : 1]);
+            else if (h < 0.75 * fade + 0.1) G.set(qx, qy, wornC);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // ---- the fen (2026-11-22, second pass): moss hummocks standing out of the wet lows, and a cool
+  // sheen of standing damp in the lowest hollows (short streaks catching the sky)
+  if (kind === "marsh") {
+    const rm = mulberry32((seed ^ 0x6f3c11) >>> 0);
+    const moss = [C(mix(R.GRASS_LT, "#c8d070", 0.25)), C(mix(R.GRASS, R.GRASS_LT, 0.5)), C(mix(R.GRASS_DK, "#1e3028", 0.3))];
+    for (let i = 0, n = 0; i < 400 && n < 26; i++) {
+      const x = 10 + rm() * (SW - 20), y = 10 + rm() * (H - 20);
+      if (G.lush(x, y) > 0.42 || !open(x, y, 4)) continue;
+      n++;
+      const k = 1 + Math.floor(rm() * 3);
+      for (let q = 0; q < k; q++) {
+        const hx = x + (rm() - 0.5) * 7, hy = y + (rm() - 0.5) * 3, r = 1.3 + rm() * 1.4;
+        if (open(hx, hy, 2)) pixBall(G, hx, hy, r, r * 0.62, moss, { shadow: -2 });
+      }
+    }
+    for (let i = 0; i < 2600; i++) {
+      const px = Math.floor(rm() * G.PW), py = Math.floor(rm() * G.PH);
+      const x = px / RES, y = py / RES;
+      if (!G.isTurf(px, py) || G.reg[py * G.PW + px] & 4 || G.lush(x, y) > 0.3 || !clear(x, y, 2)) continue;
+      const len = 2 + Math.floor(rm() * 4);
+      for (let q = 0; q < len; q++) { G.tint(px + q, py, 0); if (q > 0 && q < len - 1) G.shift(px + q, py, 1); }
+    }
+  }
+
   // ---- the last glints: sparkle on the snow, embers in the ash
   if (kind === "snow") {
     const white = C("#ffffff");
@@ -1101,7 +1271,7 @@ const pixShadow = (put, cx, cy, rx, ry) => {
 // two of its three looks. Baked once per tint, look and size.
 const BUSHES = new Map();
 const BUSH_W = [22, 27, 32];
-const bushSprite = (leaf, v, size) => {
+export const bushSprite = (leaf, v, size) => {
   const key = `${leaf}|${v}|${size}`;
   if (BUSHES.has(key)) return BUSHES.get(key);
   const w = BUSH_W[size], h = Math.round(w * 0.74);

@@ -43,6 +43,7 @@ import { W, H, PATH_HALF, WALL_W, MX, MY, RES } from "../data/constants.js";
 import { Pix, mat, flat as pixFlat, toCanvas } from "./pix/pix.js";
 import { vnoise as cnoise } from "../data/gatecrag.js";
 import { gateGeom, fullMound } from "../data/barrowgate.js";
+import { waterLook } from "./waterlook.js";
 
 export const HOLLOW_ART = { decor: {}, live: [], box: {}, dress: {}, spawn: {}, turf: {}, road: {} };
 // the landscape beyond the board (apron.js): the fen's own landmarks, sown
@@ -2670,9 +2671,11 @@ const drawWaters = (ctx) => { for (const c of bakeWaters().chunks) ctx.drawImage
 // and of the halls' ground behind them (a pond already keeps halls 14 off).
 // The ripples, the bell's toll, the sluices' spill and the lights are live.
 
+// (2026-11-22) the water's own look (waterlook.js): the reflection is mixed toward
+// the water's mid-deep step, so it reads as a darker double on the lighter water
 const relicPal = () => {
-  const wa = REALM.water || {};
-  return { deep: hexC(wa.deep || "#22302c"), edge: hexC(wa.edge || "#2f423c"), shine: hexC(wa.shine || "#4a6a58") };
+  const L = waterLook();
+  return { deep: L.ramp[4], edge: L.ramp[2], shine: L.foam, lee: L.lee };
 };
 // cut a baked sprite at its waterline (art px `wl`) and lay its reflection
 // `R` art px down under it
@@ -2720,7 +2723,7 @@ const waterCut = (src, wl, R, seed, wx0 = null, wy0 = 0) => {
       const sx = x - sh;
       if (!solid(sx, sy) || !wetPx(x, wl + r)) continue;
       if (r > 2 && hash(Math.floor(x / 3) + r * 13, seed + 47) < 0.12 + f * 0.3) continue;   // ripples break it up
-      const o = at(x, wl + r), so = at(sx, sy), m = 0.58 + 0.32 * f;
+      const o = at(x, wl + r), so = at(sx, sy), m = 0.42 + 0.4 * f;
       d[o] = sd[so] + (P.deep[0] - sd[so]) * m; d[o + 1] = sd[so + 1] + (P.deep[1] - sd[so + 1]) * m; d[o + 2] = sd[so + 2] + (P.deep[2] - sd[so + 2]) * m;
       d[o + 3] = Math.round(190 * Math.pow(1 - f, 0.8));
     }
@@ -2728,7 +2731,7 @@ const waterCut = (src, wl, R, seed, wx0 = null, wy0 = 0) => {
   // the lap: a broken pale line where the water meets the stone, running a
   // little past it either side
   if (x1 >= 0) {
-    const L = [P.shine[0] + 40, P.shine[1] + 44, P.shine[2] + 40];
+    const L = [P.shine[0] + 10, P.shine[1] + 12, P.shine[2] + 10];
     for (let x = x0 - 3; x <= x1 + 3; x++) {
       if (x < 0 || x >= w || hash(x + seed, 43) < 0.22 || !wetPx(x, wl)) continue;
       const o = at(x, wl);
@@ -3005,7 +3008,7 @@ const RELIC_KIT = {
 const RELIC_SPR = new Map();
 const relicSprite = (r) => {
   const s = r.s || 1, v = r.v || 0, seed = Math.round(r.x * 3 + r.y * 7);
-  const key = `${r.t}|${s}|${v}|${seed}|${REALM.id}`;
+  const key = `${r.t}|${s}|${v}|${seed}|${REALM.id}|${relicPal().shine.join()}`;
   let sp = RELIC_SPR.get(key);
   if (sp) return sp;
   const [paint, bw0, up0, R0] = RELIC_KIT[r.t];
@@ -3338,8 +3341,10 @@ const bakeGate = () => {
   const onGround = (s, u) => [mx + tx * s + nx * u, my + ty * s + ny * u];
   // colours
   // (a shade greener and paler than the fen, the moon on its lit flank)
-  const turf = mix(REALM.GRASS, "#66784a", 0.48);
-  const TURF = [mix(lighten(turf, 0.26), "#a8bad0", 0.18), mix(lighten(turf, 0.12), "#a8bad0", 0.08), turf, darken(turf, 0.22), darken(turf, 0.42)].map(hexC);
+  // (2026-11-22 upgrade: a little paler and more lit, so the mound reads as a
+  // mound against the dark wood, its moonlit flank misted)
+  const turf = mix(REALM.GRASS, "#6e8250", 0.6);
+  const TURF = [mix(lighten(turf, 0.34), "#b4c4bc", 0.24), mix(lighten(turf, 0.17), "#b4c4bc", 0.1), turf, darken(turf, 0.2), darken(turf, 0.4)].map(hexC);
   const HEATH = [mix(turf, "#7a5c74", 0.45), mix(turf, "#5c4660", 0.45), mix(darken(turf, 0.3), "#3e3446", 0.5)].map(hexC), RUST = [mix(turf, "#7a5a40", 0.5), mix(darken(turf, 0.2), "#5e4434", 0.5)].map(hexC);
   const DRY = ["#6e6c60", "#64645a", "#5a5a52", "#4a4a44", "#34342f"].map(hexC);
   const scol = mix(STONE, "#596056", 0.52);
@@ -3504,6 +3509,10 @@ const bakeGate = () => {
       if (col === TURF[t] && cnoise(px / 14, py / 14, seed + 34) > 0.45) {
         if (tu > 0.8) col = TURF[Math.max(0, t - 1)];
         else if (py > 1 && cnoise(px / 2.2, (py - 2) / 2.2, seed + 33) > 0.8 && tu < 0.7) col = TURF[Math.min(4, t + 1)];
+      }
+      // blades of grass standing off the slope: a lit tip over its own shade
+      if (t <= 3 && py > 2 && hash(px * 3 + 1, py * 5 + seed) < 0.05 && kindPx[i - PW] === 2 && kindPx[i - 2 * PW] === 2) {
+        put(i - PW, TURF[Math.max(0, t - 1)]); put(i - 2 * PW, TURF[Math.max(0, t - 2)]); col = TURF[Math.min(4, t + 1)];
       }
       put(i, col);
     }
@@ -3745,6 +3754,21 @@ const bakeGate = () => {
       if (hash(k, seed + 112) < 0.8) sedge(c, x, y - z, 0.6 + hash(k, seed + 113) * 0.35, k + seed, 4, "#5e6a42", "#9a9460");
       else { c.fillStyle = "#e8e2d2"; px1(c, x, y - z - 2, 1, 1); px1(c, x + 1.5, y - z - 3, 0.5, 0.5); c.fillStyle = "#6c6e44"; px1(c, x + 0.25, y - z - 1, 0.5, 1); }
     }
+    // (2026-11-22) old stones breaking the turf on the mound's flank: a lit top,
+    // a dark foot, lichen; and a long fallen kerb slab on its front slope
+    for (let k = 0; k < 30; k++) {
+      const x = x0 + hash(k, seed + 140) * w, y = y0 + hash(k, seed + 141) * (h + HM * 0.6);
+      const z = hillAt(x, y);
+      if (z < 5) continue;
+      const [s, u] = toFace(x, y);
+      if (u > uF(s) - 6 && Math.abs(s) < FW + 6) continue;
+      if (!seen(x, y, z)) continue;
+      const r = 1.6 + hash(k, seed + 142) * 1.8, yy = y - z;
+      c.fillStyle = "rgba(20,22,18,0.55)"; c.fillRect(ap(x - r + 0.5), ap(yy + 0.5), ap(r * 2 + 0.5), 1);
+      c.fillStyle = mix(scol, "#3e4038", 0.3); c.fillRect(ap(x - r), ap(yy - 1), ap(r * 2), 1.5);
+      c.fillStyle = lighten(scol, 0.22); c.fillRect(ap(x - r + 0.5), ap(yy - 1.5), ap(r * 2 - 1), 0.5);
+      if (hash(k, seed + 143) < 0.5) { c.fillStyle = LICHEN; px1(c, x - r + 1, yy - 1, 0.5, 0.5); }
+    }
   }, false);
   GATE.x = x0; GATE.y = y0; GATE.w = w; GATE.h = h;
   // live: the witch-light, the eyes, the candles, the fog's way out
@@ -3891,6 +3915,16 @@ const fenDeadS = (ctx, x, y, s, o) => {
         }
       }
     });
+    // (2026-11-22) a crow or two on the highest limbs, now and then
+    if (!o.forest && tips.length && H(70) < 0.4) {
+      const CR = { K: { m: fenMat("#2a2630", 0.9) }, k: { m: fenMat("#3c3844", 0.9) }, b: { m: pixFlat("#5a5048") }, e: { m: pixFlat("#c8c0a0") } };
+      const ROWS = [["..kk..", ".kKKb.", "KKKe..", "KKKK..", ".KK...", "..k..."], ["...kk.", "..kKKb", ".kKKe.", "KKKK..", "KKK...", ".k.k.."]];
+      const byTop = tips.slice().sort((a, b) => a[1] - b[1]);
+      for (let n = 0; n < (H(71) < 0.3 ? 2 : 1) && n < byTop.length; n++) {
+        const [cx, cy] = byTop[n];
+        obj.stamp(ROWS[(H(72 + n) * 2) | 0], cx - 3, cy - 6, CR, 3, { ball: [2.5, 3, 3, 3] });
+      }
+    }
   });
 };
 
@@ -4009,6 +4043,22 @@ const fenGraveS = (ctx, x, y, s, o) => {
       round(obj, 10 * s, s * 0.64, lean + 0.14, seed + 2);
       obj.part(); obj.poly([[-3 * s, 7], [-3 * s, 2], [4 * s, 1.5], [4 * s, 7]], ST2, 0.6, { n: [-0.2, -0.7, 0.6] });
     }
+    // (2026-11-22) what the living left: a guttered candle, a wilted posy, a
+    // crack down the stone; the grave's mound of earth in front of it
+    const gf = hash(seed, 9);
+    if (kind !== 2) {
+      obj.part(); obj.ellipse(1 * s, 4 * s, 9 * s, 2.6 * s, fenMat(mix(REALM.GRASS, "#4a4434", 0.45), 0.6), 0.3, { round: 0.5, ny: -0.5, cast: 0 });
+      if (gf < 0.4) {
+        obj.part(); obj.rect(5 * s, 1, 2, 4, fenMat("#d8ceb0", 0.6), 2, { round: 0.6 });
+        obj.dot(5 * s + 0.5, 0.5, pixFlat("#2a2228"), 2.1); obj.ellipse(5 * s + 1, 5, 2.4, 0.8, fenMat("#c8bea0", 0.5), 1.9, { cast: 0 });
+      } else if (gf < 0.75) {
+        for (let k = 0; k < 4; k++) {
+          const fx = -5 * s + k * 1.6, fy = 3 + (k % 2);
+          obj.part(); obj.capsule(fx, fy, 0.5, fx + (k - 1.5) * 1.2, fy - 4 - (k % 2), 0.4, fenMat("#6a5a3a", 0.5), 2, { limb: false, noLine: true });
+          obj.dot(fx + (k - 1.5) * 1.2, fy - 5 - (k % 2), pixFlat(k % 2 ? "#7a3a48" : "#6a4a70"), 2.1, { noLine: true });
+        }
+      }
+    }
   });
 };
 
@@ -4027,6 +4077,8 @@ const fenFenceS = (ctx, x, y, s, o) => {
         obj.part(); obj.capsule(px, 0, 1.4, tx, -28 * s, 1.2, IR, 1, { round: 0.9 });
         obj.poly([[tx - 2.4, -28 * s], [tx, -33 * s], [tx + 2.4, -28 * s]], IR, 1, { n: [-0.2, -0.3, 0.9] });
         if (hash(seed, i) < 0.6) obj.ellipse(px + 0.4, -12 * s - hash(seed, i + 9) * 8, 1, 1.2, RUST, 1.3, {});
+        // (2026-11-22) rust weeping down from the rails
+        for (const ry of [-22 * s + 2, -7 * s + 2]) if (hash(seed, i + 30 + ry) < 0.55) obj.capsule(px + 1.6, ry, 0.5, px + 1.8, ry + 3 + hash(seed, i + 40) * 5, 0.4, RUST, 1.2, { limb: false, noLine: true, cast: 0 });
       }
     } else {
       const WOOD = fenMat("#7c7466", 0.8), WD = fenMat(darken("#7c7466", 0.4), 0.5);
@@ -4617,9 +4669,18 @@ const shrineBodyS = (c, ox, oy, s) => {
 };
 const fenShrineS = (ctx, x, y, s, o) => {
   const gy = y + 8, t = o.time || 0;
-  const b = bodyS(`shrine|${s}`, 44 * s + 8, 36 * s + 12, 16 * s + 4, 32 * s + 6, (c, ox, oy) => shrineBodyS(c, ox, oy, s));
+  const b = bodyS(`shrine2|${s}`, 44 * s + 8, 36 * s + 12, 16 * s + 4, 32 * s + 6, (c, ox, oy) => {
+    shrineBodyS(c, ox, oy, s);
+    // (2026-11-22) offerings on its step: two clay bowls, one with a coin, and a bone
+    const CL = fenMat("#8a6448", 0.8), IN = pixFlat("#2b2420"), K = 2 * s;
+    pxSculpt(c, ox, oy, Math.ceil(44 * s) + 20, Math.ceil(20 * s) + 20, (obj) => {
+      for (const [bx, by] of [[-9 * K, 1.5], [-5.5 * K, 3]]) { obj.part(); obj.ellipse(bx, by, 2.6, 1.6, CL, 3, { round: 0.9 }); obj.ellipse(bx, by - 0.8, 1.6, 0.6, IN, 3.1, { cast: 0 }); }
+      obj.dot(-9 * K, 0.7, pixFlat("#d8b34a"), 3.2);
+      obj.part(); obj.capsule(-13 * K, 3.5, 0.8, -10.5 * K, 4.2, 0.8, fenMat(BONE, 0.6), 3, { limb: false });
+    });
+  });
   stampBody(ctx, b, x, gy);
-  glow(ctx, x, gy - 9 * s, 7 * s, TEAL, 0.14 + 0.06 * Math.sin(t * 1.7 + x));
+  stepGlow(ctx, x, gy - 9 * s, 7 * s, 0.3 + 0.12 * Math.sin(t * 1.7 + x));
   witchFlame(ctx, x + 6.8 * s, gy - 7.8 * s, 0.8 * s, t, x * 0.2);
 };
 
@@ -4702,9 +4763,8 @@ const fenThroneS = (ctx, x, y, s, o) => {
   const { seed } = o, gy = y + 8, K = 2 * s;
   const col = mix(STONE, "#8a8a80", 0.35);
   pxShade(ctx, x, gy, 12 * s, 2, 34 * s, 5.4 * s, 0.3, false, seed);
-  ctx.fillStyle = mix(PEAT, MOSS, 0.3); blobPath(ctx, x + 2, gy + 1, 24 * s, 6 * s, seed, 0.1, 14); ctx.fill();
-  ctx.fillStyle = BOGW; blobPath(ctx, x + 2, gy + 1.5, 22 * s, 4.8 * s, seed + 1, 0.1, 14); ctx.fill();
-  ctx.fillStyle = rgba(BOGW_LT, 0.9); px1(ctx, x - 17 * s, gy, 6, 0.5); px1(ctx, x + 12 * s, gy + 3, 4, 0.5);
+  // (2026-11-22) the black water it stands in, in the fen's pixel water
+  fenWater(pxPut(ctx, x, gy), 4, 3, 46 * s, 10 * s, seed, { cut: 2, glints: 5 });
   const ST = fenMat(col, 0.75), STL = fenMat(lighten(col, 0.06), 0.75), STD = fenMat(darken(col, 0.08), 0.75), CV = fenMat(darken(col, 0.5), 0.4), MS = fenMat(MOSS, 0.9), VR = fenMat(VERDI, 0.8), BR = fenMat(BRONZE, 0.8), WD = fenMat(WEED, 0.8);
   const D = pixFlat("#141216"), EYE = pixFlat(TEAL, { emis: true });
   pxSculpt(ctx, x, gy, Math.ceil(46 * s) + 40, Math.ceil(52 * s) + 36, (obj) => {
