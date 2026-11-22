@@ -110,7 +110,7 @@ const bakeRect = (x0, y0, w, h, cell, apron = false) => {
     ww = Math.ceil(cw / 2); const wh = Math.ceil(ch / 2); WET = new Uint8Array(ww * wh);
     for (let j = 0; j < wh; j++) for (let i = 0; i < ww; i++) {
       const x = x0 + (i * 2 + 1) * cell, y = y0 + (j * 2 + 1) * cell;
-      WET[j * ww + i] = wetAt(x, y) && !underBridge(x, y, 0) ? 1 : 0;   // a bridge deck is land
+      WET[j * ww + i] = wetAt(x, y) && !underBridge(x, y, 0) && !underBridge(x, y + 9, 0) && !underBridge(x, y + 17, 0) ? 1 : 0;   // a span's far parapet and rail are drawn lifted over the water north of the deck: land, not water   // a bridge deck is land
     }
   }
   for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
