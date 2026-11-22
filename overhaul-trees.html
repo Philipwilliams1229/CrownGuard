@@ -1,0 +1,204 @@
+<!doctype html>
+<!--
+  Overhaul concept: TREES (art/briefs/overhaul-concepts.md; painter concept/overhaul-trees.js).
+  The REAL board through draw() (its trees taken out for A / B / C), then the option's trees painted on top.
+    /overhaul-trees.html?scene=1|2|3|sway&opt=today|A|B|C&sun=noon|golden&season=autumn&suffix=
+  scene 1: a Greenwood meadow (Thornbrook);  2: the wood's edge and the cave (Thornbrook);  3: Iron (Ironford)
+  Saves .shots/ovh_trees_<scene>_<opt><suffix>.png (1680 x 1120: a 420 x 280 board patch at 4 px a unit).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul trees</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, nearestOnPath, PTS } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR, FOREST, forestDepthAt, inRiver } from "/src/data/terrain.js";
+      import { PATH_HALF } from "/src/data/constants.js";
+      import { OPT, PAL, SPECIES, REACH, PIECES, rng, layShadows, litterRing, shafts, birds } from "/concept/overhaul-trees.js";
+      const q = new URLSearchParams(location.search), DT = 1 / 60;
+      const SCENE = q.get("scene") || "1", OPTN = q.get("opt") || "today", SUN = q.get("sun") || "noon", AUT = q.get("season") === "autumn";
+      const S = {
+        1: { realm: "thornbrook", faction: "greenwood", crop: [330, 0, 420, 280], at: 26, chapter: "greenwood",
+             towers: [["archer", 470, 95, 3], ["wizard", 600, 300, 2]],
+             lone: [["oak", 560, 124, 1], ["birches", 378, 128, 1], ["poplar", 712, 126, 1], ["pine", 650, 112, 0.85]],
+             bush: [[430, 128], [612, 126], [740, 250], [575, 245], [520, 60]] },
+        2: { realm: "thornbrook", faction: "greenwood", crop: [0, 230, 420, 280], at: 7, chapter: "greenwood",
+             towers: [["archer", 230, 345, 2]],
+             lone: [["oak", 262, 300, 1], ["birches", 300, 470, 0.9]], bush: [[215, 410], [150, 495]], keep: [[62, 428, 92, 46]] },
+        3: { realm: "ironford", faction: "iron", crop: [0, 120, 420, 280], at: 12, chapter: "iron",
+             towers: [["archer", 205, 250, 3]], keep: [[55, 372, 100, 72]],
+             lone: [["pine", 175, 210, 1], ["pine", 140, 250, 0.85], ["pine", 330, 200, 0.95], ["birches", 300, 330, 0.85]], bush: [[260, 370], [330, 150]] },
+      };
+      if (SCENE === "sway") {
+        setDay(SUN);
+        const out = document.createElement("canvas"); out.width = 1280; out.height = 1040;
+        const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        const cell = document.createElement("canvas"); cell.width = 320; cell.height = 260;
+        const cc = cell.getContext("2d");
+        const SW = [0, 2, 3, 1];
+        SW.forEach((sv, f) => {
+          cc.fillStyle = "#6aa83e"; cc.fillRect(0, 0, 320, 260);
+          const pal = PAL.greenwood;
+          for (const [kd, x, y] of [["oak", 120, 248], ["poplar", 275, 250]]) {
+            const sp = OPT.A[kd](pal, 1, sv, 0, kd === "oak" ? 11 : 13);
+            cc.drawImage(sp.cv, x - sp.ax, y - sp.ay);
+          }
+          cc.fillStyle = "#20242c"; cc.font = "12px monospace"; cc.fillText(`frame ${f + 1}  (crown top +${sv} px)`, 6, 14);
+          oc.drawImage(cell, (f % 2) * 640, Math.floor(f / 2) * 520, 640, 520);
+        });
+        document.body.appendChild(out);
+        await fetch(`/__shot?name=ovh_trees_sway_A`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+        document.title = "DONE"; document.getElementById("status").textContent = "saved sway";
+        throw new Error("sway done");
+      }
+      const sc = S[SCENE] || S[1];
+      setDay(SUN);
+      selectRealm(sc.realm); selectFaction(sc.faction); setWaveWindow(null); setLevelWeather(null);
+      const LEAFY = new Set(["tree", "pine", "snowpine", "willow", "irspruce", "irpine"]);
+      const removed = [];
+      if (OPTN !== "today") for (let i = DECOR.length - 1; i >= 0; i--) if (LEAFY.has(DECOR[i].t)) removed.push(DECOR.splice(i, 1)[0]);
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 5, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
+      };
+      const log = [];
+      for (const [kd, x0, y0, lv] of sc.towers) {
+        let spot = null;
+        for (let r = 0; r < 60 && !spot; r += 3) for (let a = 0; a < 6.28 && !spot; a += 0.5) { const x = x0 + Math.cos(a) * r, y = y0 + Math.sin(a) * r; if (buildableAt(g, x, y, kd)) spot = [x, y]; }
+        if (!spot) { log.push("no spot " + kd); continue; }
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < lv; l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null;
+        log.push(`${kd} at ${spot.map(Math.round)}`);
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      startWave(g);
+      for (let el = 0; el < sc.at; el += DT) { updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      const ctx = cv.getContext("2d");
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const [cx0, cy0, cw, ch] = sc.crop;
+
+      // ---------- the option's trees ----------
+      if (OPTN !== "today") {
+        const O = OPT[OPTN], pal = AUT ? PAL.autumn : PAL[sc.chapter === "iron" ? "iron" : "greenwood"], R = REACH[OPTN];
+        const sp0 = posAt(0), sp1 = posAt(40);
+        const clear = (sp, x, y, k, pad = 0) => {
+          const [hc, rc] = R[sp] || R.oak, cx = x, cy = y - hc * k, rr = rc * k;
+          if (nearestOnPath(cx, cy).d < PATH_HALF + rr * 0.92 + pad) return "road";
+          if (nearestOnPath(x, y).d < PATH_HALF + 6) return "foot";
+          if (inRiver(x, y, 4)) return "river";
+          for (const t of g.towers) {
+            if (Math.hypot(t.x - cx, (t.y - 28) - cy) < rr + 30 || Math.hypot(t.x - x, t.y - y) < 26) return "hall";
+            // drawn over the board, a tree standing BEHIND a hall must not overlap its picture
+            if (y < t.y + 4 && Math.abs(t.x - x) < rr + 34 && y > t.y - 80) return "behind hall";
+          }
+          for (const p of [sp0, sp1]) if (Math.hypot(p[0] - cx, p[1] - cy) < rr + 40) return "cave";
+          for (const [kx, ky, krx, kry] of sc.keep || []) if (Math.hypot((x - kx) / krx, (y - ky) / kry) < 1) return "crag";
+          return null;
+        };
+        const items = [];
+        const add = (sp, x, y, k, dk = 0, seed = 1, fit = true) => {
+          if (!O[sp]) sp = OPTN === "B" && sp === "pine" ? "spruce" : OPTN === "C" && sp === "poplar" ? "ash" : sp;
+          if (!O[sp]) return false;
+          if (fit) {
+            let why = clear(sp, x, y, k);
+            if (why) { // step away from the road a little
+              const n = nearestOnPath(x, y), ux = (x - n.x) / (n.d || 1), uy = (y - n.y) / (n.d || 1);
+              for (let s = 4; s <= 40 && why; s += 4) if (!clear(sp, x + ux * s, y + uy * s, k)) { x += ux * s; y += uy * s; why = null; }
+              if (why) for (const kk of [0.85, 0.72, 0.6, 0.5]) if (!clear(sp, x, y, k * kk)) { k *= kk; why = null; break; }
+              if (why) { log.push(`skip ${sp} @${Math.round(x)},${Math.round(y)}: ${why}`); return false; }
+            }
+          }
+          items.push({ sp, x, y, k, dk, seed });
+          return true;
+        };
+        // lone trees and bushes
+        sc.lone.forEach(([sp, x, y, k], i) => add(OPTN === "C" && sp === "pine" && sc.chapter !== "iron" ? "hawthorn" : sp, x, y, (OPTN === "A" ? 1 : 1) * k, 0, 11 + i));
+        sc.bush.forEach(([x, y], i) => add("bush", x, y, 1, 0, 3 + i));
+        // the wood
+        if (FOREST) {
+          const r = rng(OPTN.charCodeAt(0) * 99 + 5);
+          const rows = OPTN === "A" ? [[-14, 999, 46, 0.95, 0.25]]
+            : OPTN === "B" ? [[-10, 999, 30, 0.92, 0.12]]
+            : [[52, 999, 22, 0.62, 0.3], [16, 52, 28, 0.85, 0.3], [-4, 16, 32, 1, 0.3]];
+          for (const [dLo, dHi, step, kk, jit] of rows) {
+            for (let y = cy0 - 90; y < cy0 + ch + 140; y += step * 0.72) for (let x = Math.max(-30, cx0 - 140); x < cx0 + cw + 40; x += step) {
+              const xx = x + (r() - 0.5) * step * jit * 2 + ((Math.round(y / step) & 1) ? step / 2 : 0), yy = y + (r() - 0.5) * step * jit;
+              const dep = forestDepthAt(xx, yy);
+              if (dep < dLo || dep >= dHi) continue;
+              const sp = OPTN === "B" ? (((Math.round(yy / step) + Math.round(xx / step)) % 3 === 0) ? "oak" : "spruce") : sc.chapter === "iron" ? (r() < 0.62 ? "spruce" : "pine") : r() < (OPTN === "A" ? 0.7 : 0.6) ? "oak" : "pine";
+              const dk = dep > 90 ? 2 : dep > 38 ? 1 : 0;
+              const ok = add(sp, xx, yy, kk * (0.9 + r() * 0.25), OPTN === "C" ? (dep > 52 ? 2 : dep > 16 ? 1 : 0) : dk, 100 + ((xx * 7 + yy) | 0), true);
+              if (!ok && !clear("bush", xx, yy, 1)) items.push({ sp: "bush", x: xx, y: yy, k: 0.9 + r() * 0.4, dk: dep > 38 ? 1 : 0, seed: 7 + ((xx + yy) | 0) });
+            }
+          }
+          if (OPTN === "C") { // the undergrowth hem along the edge
+            for (let y = cy0 - 20; y < cy0 + ch + 30; y += 9) {
+              const x = forestDepthAt(0, y) * 0 + (() => { for (let x = 0; x < 400; x += 2) if (forestDepthAt(x, y) < -20) return x; return 0; })();
+              const xx = x + (r() - 0.3) * 10, yy = y + (r() - 0.5) * 6;
+              if (clear("bush", xx, yy, 0.6)) continue;
+              items.push({ sp: r() < 0.5 ? "fern" : "bush", x: xx, y: yy, k: 0.85 + r() * 0.4, dk: 0, seed: 40 + ((y * 3) | 0) });
+            }
+          }
+        }
+        // build sprites
+        for (const it of items) it.sp_ = O[it.sp](pal, it.k, 0, it.dk, it.seed);
+        // C: litter rings under the lone trees, the props
+        const props = [];
+        if (OPTN === "C") {
+          for (const it of items) if (!it.dk && it.sp !== "fern" && (it.sp !== "bush")) litterRing(ctx, it.x * 2, it.y * 2 + 2, (REACH.C[it.sp] || REACH.C.oak)[1] * 2 * it.k * 0.95, it.seed * 7, pal, AUT);
+          const P = { 1: [["log", 622, 62], ["stump", 440, 40], ["mushrooms", 520, 118], ["deer", 688, 30], ["stump", 735, 140], ["mushrooms", 585, 250]],
+                      2: [["log", 260, 520], ["stump", 230, 300], ["mushrooms", 150, 380], ["deer", 128, 260], ["mushrooms", 205, 440]],
+                      3: [["stump", 250, 205], ["log", 300, 380]] }[SCENE] || [];
+          for (const [kd, x, y] of P) { if (nearestOnPath(x, y).d < PATH_HALF + 14) { log.push("prop off: " + kd); continue; } props.push({ sp_: PIECES[kd](pal, 1), x, y, prop: kd }); }
+        }
+        // shadows (one mask), then everything back to front
+        const all = [...items, ...props];
+        let SHAFTS = null;
+        layShadows(ctx, all.map((it) => ({ sp: it.sp_, px: Math.round(it.x * 2), py: Math.round(it.y * 2) })), 1680, 1120, OPTN === "C" ? 0.2 : 0);
+        if (OPTN === "C" && FOREST) {
+          const sc2 = document.createElement("canvas"); sc2.width = 1680; sc2.height = 1120;
+          shafts(sc2.getContext("2d"), 0, cy0 * 2 - 120, 300, ch * 2, 9);
+          const im = sc2.getContext("2d").getImageData(0, 0, 1680, 1120);
+          for (let j = 0; j < 1120; j += 4) for (let i = 0; i < 600; i += 4) {
+            const bx = i / 2 + 1, by = j / 2 + 1;
+            let off = forestDepthAt(bx, by) < 24 || nearestOnPath(bx, by).d < PATH_HALF + 26;
+            for (const [kx, ky, krx, kry] of sc.keep || []) if (Math.hypot((bx - kx) / krx, (by - ky) / kry) < 1.15) off = true;
+            if (off) for (let b = 0; b < 4; b++) for (let a = 0; a < 4; a++) im.data[((j + b) * 1680 + i + a) * 4 + 3] = 0;
+          }
+          for (let j = 0; j < 1120; j++) for (let i = 600; i < 1680; i++) im.data[(j * 1680 + i) * 4 + 3] = 0;
+          sc2.getContext("2d").putImageData(im, 0, 0);
+          SHAFTS = sc2;
+        }
+        all.sort((a, b) => a.y - b.y);
+        for (const it of all) ctx.drawImage(it.sp_.cv, Math.round(it.x * 2 - it.sp_.ax), Math.round(it.y * 2 - it.sp_.ay));
+        if (SHAFTS) { ctx.save(); ctx.globalCompositeOperation = "screen"; ctx.drawImage(SHAFTS, 0, 0); ctx.restore(); }
+        if (OPTN === "C") birds(ctx, (cx0 + cw * 0.55) * 2, (cy0 + 40) * 2, 5);
+        log.push(`${items.length} trees, ${props.length} props`);
+      }
+      // ---------- crop and save ----------
+      const out = document.createElement("canvas"); out.width = cw * 4; out.height = ch * 4;
+      const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+      oc.drawImage(cv, cx0 * 2, cy0 * 2, cw * 2, ch * 2, 0, 0, cw * 4, ch * 4);
+      document.body.appendChild(out);
+      const name = `ovh_trees_${SCENE}_${OPTN}${q.get("suffix") || ""}`;
+      await fetch(`/__shot?name=${name}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+      document.getElementById("status").textContent = `saved .shots/${name}.png | ` + log.join(" | ");
+    </script>
+  </body>
+</html>

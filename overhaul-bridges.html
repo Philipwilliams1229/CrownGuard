@@ -1,0 +1,53 @@
+<!doctype html>
+<!--
+  Overhaul concept: BRIDGES (art/briefs/overhaul-concepts.md; painter concept/overhaul-bridges.js; notes concept/overhaul-bridges.md)
+    /overhaul-bridges.html?only=1A,2B,...   panels to draw (scene 1 across, 2 up, 3 Iron; or today1/today2/today3, repath)
+      &sun=golden   draw under another sun (the figures and hall bake under it too)
+      &save=1       POST each panel to .shots/ovh_bridges_<scene>_<opt>.png
+      &tag=golden   suffix on the saved name
+-->
+<html><head><meta charset="utf-8" /><title>overhaul bridges</title>
+<style>body{background:#20242c;color:#e8e0c8;font-family:monospace;padding:8px} canvas{display:block;margin:6px 0;max-width:100%;image-rendering:pixelated}</style></head>
+<body><div id="status">running…</div>
+<script type="module">
+  import { setDay } from "/src/data/sun.js";
+  const q = new URLSearchParams(location.search);
+  const sun = q.get("sun") || "noon"; setDay(sun);
+  const M = await import("/concept/overhaul-bridges.js?v=" + Date.now());
+  const NAMES = { 1: "1across", 2: "2up", 3: "3iron" };
+  const LABEL = { A: "A  The humpback", B: "B  The timber trestle", C: "C  The weir crossing", today: "TODAY" };
+  const SRC = { 1: ["1-thornbrook-noon-2after.jpg", 440, 560], 2: ["4-millrace-noon-2after.jpg", 400, 435], 3: ["5-ironford-noon-2after.jpg", 470, 400] };
+  const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+  const up2 = (cv, label) => {
+    const o = document.createElement("canvas"); o.width = 1680; o.height = 1120;
+    const c = o.getContext("2d"); c.imageSmoothingEnabled = false; c.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, 1680, 1120);
+    if (label) { c.font = "bold 26px monospace"; const w = c.measureText(label).width; c.fillStyle = "rgba(20,16,24,0.8)"; c.fillRect(12, 12, w + 20, 38); c.fillStyle = "#fff3d2"; c.fillText(label, 22, 40); }
+    return o;
+  };
+  const out = [];
+  for (const key of (q.get("only") || "1A,1B,1C,2A,2B,2C,3A").split(",")) {
+    let cv, name;
+    try {
+    if (key.startsWith("today")) {
+      const s = key.slice(5), [f, x, y] = SRC[s];
+      const img = await load("/.shots/preview-upgrade/" + f);
+      const c0 = document.createElement("canvas"); c0.width = 840; c0.height = 560; c0.getContext("2d").drawImage(img, x, y, 840, 560, 0, 0, 840, 560);
+      cv = up2(c0, "TODAY"); name = `ovh_bridges_${NAMES[s]}_today`;
+    } else if (key === "repath") {
+      const img = await load("/.shots/preview-upgrade/5-ironford-noon-2after.jpg");
+      cv = M.repath(img); name = "ovh_bridges_4repath_A";
+    } else {
+      const sc = Number(key[0]), opt = key[1];
+      const t0 = performance.now();
+      const raw = M.paint(sc, opt, sun, Number(q.get("t") || 0));
+      const ms = Math.round(performance.now() - t0);
+      cv = up2(raw, (sc === 3 ? "Iron  " : "") + LABEL[opt] + (sun !== "noon" ? "  (" + sun + ")" : ""));
+      name = `ovh_bridges_${NAMES[sc]}_${opt}${q.get("tag") ? "_" + q.get("tag") : ""}`;
+      console.log(key, ms + " ms");
+    }
+    } catch (e) { console.error(key, e); document.getElementById("status").textContent += " FAIL " + key + ": " + e.message; continue; }
+    document.body.appendChild(cv); out.push([name, cv]);
+    if (q.get("save")) await fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+  }
+  document.title = "DONE"; document.getElementById("status").textContent = "done: " + out.map((o) => o[0]).join(" ");
+</script></body></html>

@@ -1,0 +1,292 @@
+<!doctype html>
+<!--
+  Overhaul concept ROUND 2: GREENWOOD TREES (art/briefs/overhaul-round2.md; painter concept/overhaul2-trees.js).
+  The REAL board through draw() (its trees taken out for 1..5), then the treatment's trees painted on top.
+    /overhaul2-trees.html?scene=1|2|3&opt=today|1|2|3|4|5&season=summer|spring|autumn|winter&sun=noon|golden|dusk&suffix=
+    /overhaul2-trees.html?mode=leaves&opt=3      the falling-leaves strip (4 frames)
+    /overhaul2-trees.html?mode=life               every creature's frames
+    /overhaul2-trees.html?mode=full&realm=millrace   a whole board, today (to pick crops)
+  scene 1: Thornbrook's meadow;  2: Thornbrook's wood edge and cave;  3: Millrace, willows by the race
+  Saves .shots/ovh2_trees_<scene>_<opt><suffix>.png (1680 x 1120: a 420 x 280 board patch at 4 px a unit).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul2 trees</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { posAt, nearestOnPath } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR, FOREST, forestDepthAt, inRiver } from "/src/data/terrain.js";
+      import { PATH_HALF } from "/src/data/constants.js";
+      import { layShadows } from "/concept/overhaul-trees.js";
+      import { SP, TREAT, PAL, REACH, LIFE, LIFE_STRIP, rng, h2, standRing, fallingLeaves, fireflies } from "/concept/overhaul2-trees.js";
+      const q = new URLSearchParams(location.search), DT = 1 / 60;
+      const MODE = q.get("mode") || "board", SCENE = q.get("scene") || "1", OPTN = q.get("opt") || "today";
+      const SEASON = q.get("season") || "summer", SUN = q.get("sun") || "noon";
+      // smooth value noise (bilinear, smoothstepped) for the snow cover
+      const vnoise = (x, y, sd) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+        const a = h2(xi, yi, sd), b = h2(xi + 1, yi, sd), c = h2(xi, yi + 1, sd), d = h2(xi + 1, yi + 1, sd); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+      const save = async (name, cv) => { await fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) }); document.title = "DONE"; document.getElementById("status").textContent = "saved " + name + " | " + LOG.join(" | "); };
+      const LOG = [];
+      window.runAll = async (qs) => { const out = []; for (const q2 of qs) { const f = document.createElement("iframe"); f.style.width = "50px"; f.src = "/overhaul2-trees.html?" + q2 + "&t=" + Date.now(); document.body.appendChild(f); let ok = false; for (let i = 0; i < 160 && !ok; i++) { await new Promise((r) => setTimeout(r, 500)); try { ok = f.contentDocument.title === "DONE"; } catch (e) {} } out.push(q2 + " => " + (ok ? f.contentDocument.getElementById("status").textContent.slice(0, 300) : "TIMEOUT " + (f.contentDocument?.getElementById("status")?.textContent || ""))); f.remove(); } return out; };
+      window.sheet = async (names, crop, cols, outName) => { const [x, y, w, h] = crop; const ims = await Promise.all(names.map((n) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = "/.shots/" + n + ".png?" + Date.now(); }))); const rows = Math.ceil(ims.length / cols); const c = document.createElement("canvas"); c.width = w * cols; c.height = h * rows; const cx = c.getContext("2d"); ims.forEach((im, i) => { const X = (i % cols) * w, Y = Math.floor(i / cols) * h; cx.drawImage(im, x, y, w, h, X, Y, w, h); cx.fillStyle = "#000"; cx.fillRect(X, Y, 170, 26); cx.fillStyle = "#fff"; cx.font = "20px monospace"; cx.fillText(names[i].replace("ovh2_trees_", ""), X + 6, Y + 20); }); await fetch("/__shot?name=" + outName, { method: "POST", body: c.toDataURL("image/png").slice(22) }); return [c.width, c.height]; };
+      if (MODE === "idle") {
+        // a queue that survives the page being reloaded by other sessions' edits (localStorage)
+        window.queue = (qs) => { localStorage.ovh2q = JSON.stringify(qs); localStorage.ovh2res = "[]"; pump(); };
+        window.results = () => JSON.parse(localStorage.ovh2res || "[]").concat(JSON.parse(localStorage.ovh2q || "[]").map((x) => "PENDING " + x));
+        const pump = async () => {
+          if (window._pumping) return; window._pumping = true;
+          for (;;) {
+            const qs = JSON.parse(localStorage.ovh2q || "[]"); if (!qs.length) break;
+            const r = await runAll([qs[0]]);
+            const res = JSON.parse(localStorage.ovh2res || "[]"); res.push(r[0]); localStorage.ovh2res = JSON.stringify(res);
+            localStorage.ovh2q = JSON.stringify(JSON.parse(localStorage.ovh2q || "[]").slice(1));
+          }
+          window._pumping = false;
+        };
+        pump();
+        document.title = "IDLE"; throw new Error("idle");
+      }
+      const T = TREAT[OPTN] || TREAT[3], pal = PAL[SEASON];
+
+      // ---------------- strips ----------------
+      if (MODE === "life") {
+        const S = 6, cw = 50 * S, rowH = 46 * S;
+        const out = document.createElement("canvas"); out.width = 4 * cw + 140; out.height = LIFE_STRIP.length * rowH;
+        const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        LIFE_STRIP.forEach((nm, r) => {
+          const fr = LIFE[nm](1);
+          fr.forEach((sp, f) => {
+            const x = 140 + f * cw, y = r * rowH;
+            oc.fillStyle = nm === "owl" ? "#2c3a2e" : (r + f) % 2 ? "#6aa83e" : "#66a23c"; oc.fillRect(x, y, cw, rowH);
+            oc.drawImage(sp.cv, x + cw / 2 - sp.ax * S, y + rowH - 40 - sp.ay * S, sp.cv.width * S, sp.cv.height * S);
+            // and at board size, bottom left of the cell
+            oc.drawImage(sp.cv, x + 8, y + rowH - 8 - sp.ay * 2, sp.cv.width * 2, sp.cv.height * 2);
+          });
+          oc.fillStyle = "#e8e0c8"; oc.font = "20px monospace"; oc.fillText(nm, 10, r * rowH + rowH / 2);
+        });
+        document.body.appendChild(out);
+        await save("ovh2_trees_life", out);
+        throw new Error("done");
+      }
+      if (MODE === "leaves") {
+        const out = document.createElement("canvas"); out.width = 4 * 400; out.height = 520;
+        const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        const ap = PAL.autumn, cols = ["#c86a2a", "#d8a840", "#a8442a", "#e0b048"];
+        for (let f = 0; f < 4; f++) {
+          const cell = document.createElement("canvas"); cell.width = 200; cell.height = 170; const cc = cell.getContext("2d");
+          cc.fillStyle = "#8aa040"; cc.fillRect(0, 0, 200, 170);
+          for (let n = 0; n < 900; n++) { cc.fillStyle = ["#7c9638", "#96aa48", "#86a03c"][n % 3]; cc.fillRect((h2(n, 1, 3) * 200) | 0, (h2(n, 2, 3) * 170) | 0, 2, 1); }
+          standRing(cc, 100, 158, 46, 5, "autumn");
+          const sp = SP.oak(ap, 0.85, [0, 1, 2, 1][f], 0, 11, T);
+          cc.drawImage(sp.cv, 100 - sp.ax, 158 - sp.ay);
+          fallingLeaves(cc, 4, 40, 192, 100, 7, f, ["#ff8a30", "#ffd040", "#e04a2a", "#fff070"], 24);
+          oc.drawImage(cell, f * 400, 0, 400, 340);
+          oc.drawImage(cell, f * 400 + 100, 350, 200, 170);
+          oc.fillStyle = "#e8e0c8"; oc.font = "16px monospace"; oc.fillText(`frame ${f + 1}`, f * 400 + 8, 370);
+        }
+        document.body.appendChild(out);
+        await save("ovh2_trees_leaves", out);
+        throw new Error("done");
+      }
+
+      // ---------------- the board ----------------
+      const S = {
+        1: { realm: "thornbrook", crop: [330, 0, 420, 280], at: 26,
+             towers: [["archer", 470, 95, 3], ["wizard", 600, 300, 2]],
+             lone: [["oak", 560, 124, 0.9], ["birches", 378, 128, 0.9], ["pine", 716, 128, 1], ["roundoak", 660, 112, 0.75], ["hawthorn", 616, 44, 0.8], ["willow", 448, 214, 0.9], ["beech", 528, 46, 0.75], ["pine", 362, 50, 0.8]],
+             bush: [[430, 128], [612, 126], [740, 250], [575, 245]],
+             life: [["deer", 700, 30, -1], ["deer", 722, 40, -1], ["rabbit", 700, 226, 1], ["rabbit", 712, 232, -1], ["butterfly", 590, 66, 1], ["butterfly", 400, 150, 1], ["songbird", 620, 30, 1], ["squirrel", 662, 106, 2]],
+             flies: [[560, 110], [520, 128], [700, 112], [450, 200], [380, 120], [655, 95], [590, 140], [742, 50]] },
+        2: { realm: "thornbrook", crop: [0, 230, 420, 280], at: 7,
+             towers: [["archer", 230, 345, 2]],
+             lone: [["oak", 262, 300, 0.9], ["birches", 300, 470, 0.85], ["hawthorn", 205, 488, 0.8]], bush: [[215, 410]], keep: [[62, 428, 92, 46]],
+             life: [["deer", 128, 262, 1], ["deer", 150, 270, -1], ["fox", 300, 330, 1], ["owl", 128, 318, 1], ["butterfly", 292, 372, 1]],
+             flies: [[80, 300], [110, 330], [140, 290], [60, 350], [170, 320], [120, 380], [200, 300], [45, 290], [95, 270]] },
+        3: { realm: "millrace", crop: [240, 150, 420, 280], at: 22, towers: [["archer", 452, 300, 3]],
+             lone: [["hawthorn", 600, 330, 0.85], ["birches", 296, 392, 0.8], ["roundoak", 282, 226, 0.7], ["pine", 352, 208, 0.75]], bush: [[540, 400], [250, 300]], keep: [[330, 250, 36, 26], [262, 214, 16, 10]],
+             life: [["rabbit", 284, 432, 1], ["rabbit", 268, 440, -1], ["fox", 318, 420, -1], ["butterfly", 360, 280, 1], ["butterfly", 590, 350, 1], ["songbird", 604, 316, 1], ["deer", 552, 362, -1]],
+             flies: [[256, 320], [462, 420], [563, 210], [300, 250], [600, 320], [330, 380]] },
+      };
+      const sc = S[SCENE];
+      if (MODE === "full") sc.crop = [0, 0, 840, 560];
+      setDay(SUN === "golden" ? "golden" : "noon");
+      selectRealm(q.get("realm") || sc.realm); selectFaction("greenwood"); setWaveWindow(null); setLevelWeather(null);
+      const LEAFY = new Set(["tree", "pine", "snowpine", "willow"]);
+      const removed = [];
+      if (OPTN !== "today") for (let i = DECOR.length - 1; i >= 0; i--) if (LEAFY.has(DECOR[i].t)) removed.push(DECOR.splice(i, 1)[0]);
+      if (MODE === "full") LOG.push(JSON.stringify(removed.map((d) => [d.t, Math.round(d.x), Math.round(d.y), d.forest ? 1 : 0])));
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 5, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
+      };
+      for (const [kd, x0, y0, lv] of sc.towers) {
+        let spot = null;
+        for (let r = 0; r < 60 && !spot; r += 3) for (let a = 0; a < 6.28 && !spot; a += 0.5) { const x = x0 + Math.cos(a) * r, y = y0 + Math.sin(a) * r; if (buildableAt(g, x, y, kd)) spot = [x, y]; }
+        if (!spot) { LOG.push("no spot " + kd); continue; }
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < lv; l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      startWave(g);
+      for (let el = 0; el < sc.at; el += DT) { updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      const pnow = performance.now.bind(performance), T0 = pnow(), dnow = Date.now, D0 = dnow();
+      performance.now = () => T0; Date.now = () => D0;      // hold the wind still, so the ground-only draw matches
+      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      const ctx = cv.getContext("2d");
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const [cx0, cy0, cw, ch] = sc.crop;
+
+      // ---- the season on the ground: grade only the ground's pixels (a second draw with nobody on it) ----
+      if (SEASON !== "summer") {
+        // the figures and halls keep their colours: a box round each (the ground's grass sways from draw to draw,
+        // so a second, empty draw can't tell them apart)
+        const keep = { t: g.towers, e: g.enemies, p: g.projectiles, f: g.effects, b: g.bands };
+        const A = ctx.getImageData(0, 0, 1680, 1120), d = A.data, W = 1680, H = 1120, act = new Uint8Array(W * H);
+        g.towers = []; g.enemies = []; g.projectiles = []; g.effects = []; g.bands = [];
+        const cv2 = document.createElement("canvas"); cv2.width = 1680; cv2.height = 1120;
+        draw(g, cv2, { current: null });
+        Object.assign(g, { towers: keep.t, enemies: keep.e, projectiles: keep.p, effects: keep.f, bands: keep.b });
+        const B = cv2.getContext("2d").getImageData(0, 0, 1680, 1120).data;
+        const box = (x, y, hw, up, dn) => { for (let j = Math.max(0, Math.round(y * 2 - up)); j < Math.min(H, Math.round(y * 2 + dn)); j++) for (let i = Math.max(0, Math.round(x * 2 - hw)); i < Math.min(W, Math.round(x * 2 + hw)); i++) act[j * W + i] = 1; };
+        for (const e of keep.e) box(e.x, e.y, 26, 50, 10);
+        for (const t of keep.t) box(t.x, t.y, 52, 150, 16);
+        for (const b0 of keep.b || []) for (const u of b0.units || []) box(u.x, u.y, 22, 44, 8);
+        for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+          const k = (j * W + i) * 4;
+          if (act[j * W + i] && Math.abs(d[k] - B[k]) + Math.abs(d[k + 1] - B[k + 1]) + Math.abs(d[k + 2] - B[k + 2]) > 14) continue;   // inside a box, what differs from the empty draw is the figure
+          let r = d[k], gg = d[k + 1], b = d[k + 2];
+          const green = gg > r * 1.02 && gg > b * 1.1, brown = r > gg && gg > b && r - b > 30;
+          if (SEASON === "spring" && green) { r = r * 1.05 + 5; gg = gg * 1.03 + 3; b = b * 0.9; }
+          else if (SEASON === "autumn" && green) { const t = 0.42; r = r + (gg - r) * t + 10; gg = gg * 0.93; b = b * 0.72; }
+          else if (SEASON === "winter") {
+            const lum = 0.3 * r + 0.59 * gg + 0.11 * b, n = vnoise(i / 46, j / 30, 5) * 0.65 + vnoise(i / 13, j / 9, 6) * 0.35;
+            const dith = ((i + j) & 1) ? 0.025 : -0.025;
+            if (green) {
+              if (n + dith > 0.31) { const s2 = 188 + lum * 0.3; r = s2 - 10; gg = s2 - 4; b = s2 + 10; }
+              else { r = r * 0.45 + 72; gg = gg * 0.4 + 70; b = b * 0.35 + 52; }
+            } else if (brown && n + dith > 0.6) { r = r * 0.7 + 66; gg = gg * 0.7 + 70; b = b * 0.7 + 82; }
+          }
+          d[k] = r; d[k + 1] = gg; d[k + 2] = b;
+        }
+        ctx.putImageData(A, 0, 0);
+      }
+      performance.now = pnow; Date.now = dnow;
+
+      // ---------- the treatment's trees ----------
+      const items = [];
+      if (OPTN !== "today") {
+        const sp0 = posAt(0), sp1 = posAt(40);
+        const clear = (sp, x, y, k) => {
+          const [hc, rc] = REACH[sp] || REACH.oak, cx = x, cy = y - hc * k, rr = rc * k;
+          if (nearestOnPath(cx, cy).d < PATH_HALF + rr * 0.9) return "road";
+          if (nearestOnPath(x, y).d < PATH_HALF + 6) return "foot";
+          if (inRiver(x, y, 3)) return "river";
+          for (const t of g.towers) {
+            if (Math.hypot(t.x - cx, (t.y - 28) - cy) < rr + 28 || Math.hypot(t.x - x, t.y - y) < 24) return "hall";
+            if (y < t.y + 4 && Math.abs(t.x - x) < rr + 32 && y > t.y - 80) return "behind hall";
+          }
+          for (const p of [sp0, sp1]) if (Math.hypot(p[0] - cx, p[1] - cy) < rr + 40) return "cave";
+          for (const [kx, ky, krx, kry] of sc.keep || []) if (Math.hypot((x - kx) / krx, (y - ky) / kry) < 1) return "crag";
+          return null;
+        };
+        const add = (sp, x, y, k, dk = 0, seed = 1, fit = true, lone = false) => {
+          if (fit) {
+            let why = clear(sp, x, y, k);
+            if (why) {
+              const n = nearestOnPath(x, y), ux = (x - n.x) / (n.d || 1), uy = (y - n.y) / (n.d || 1);
+              for (let s = 4; s <= 36 && why; s += 4) if (!clear(sp, x + ux * s, y + uy * s, k)) { x += ux * s; y += uy * s; why = null; }
+              if (why) for (const kk of [0.85, 0.72]) if (!clear(sp, x, y, k * kk)) { k *= kk; why = null; break; }
+              if (why) { if (lone) LOG.push(`skip ${sp} @${Math.round(x)},${Math.round(y)}: ${why}`); return false; }
+            }
+          }
+          items.push({ sp, x, y, k, dk, seed, lone });
+          return true;
+        };
+        // scene 3 takes its lone trees from the board's own (willows by the race, the rest as they stood)
+        if (SCENE === "3") for (const d of removed) if (!d.forest) {
+          const sp = d.t === "willow" ? "willow" : d.t === "pine" ? "pine" : ["roundoak", "oak", "beech", "hawthorn", "birches"][Math.floor(h2(d.x | 0, d.y | 0, 2) * 5)];
+          add(sp, d.x, d.y + 10, sp === "oak" ? 0.75 : 0.9, 0, (d.x * 7 + d.y) | 0, true, true);
+        }
+        sc.lone.forEach(([sp, x, y, k], i) => add(sp, x, y, k, 0, 11 + i, true, true));
+        sc.bush.forEach(([x, y], i) => add("bush", x, y, 1, 0, 3 + i));
+        // the wood, layered: a dark roof, a mid row, a bright front row of trunks, and an undergrowth hem
+        if (FOREST) {
+          const r = rng(77);
+          const rows = [[52, 999, 24, 0.7], [16, 52, 28, 0.85], [-4, 16, 32, 0.95]];
+          for (const [dLo, dHi, step, kk] of rows) {
+            for (let y = cy0 - 90; y < cy0 + ch + 140; y += step * 0.72) for (let x = Math.max(-30, cx0 - 140); x < cx0 + cw + 40; x += step) {
+              const xx = x + (r() - 0.5) * step * 0.6 + ((Math.round(y / step) & 1) ? step / 2 : 0), yy = y + (r() - 0.5) * step * 0.3;
+              const dep = forestDepthAt(xx, yy);
+              if (dep < dLo || dep >= dHi) continue;
+              const pick = r(), sp = pick < 0.42 ? "roundoak" : pick < 0.7 ? "pine" : pick < 0.88 ? "oak" : "beech";
+              const ok = add(sp, xx, yy, kk * (0.85 + r() * 0.25) * (sp === "oak" ? 0.8 : 1), dep > 52 ? 2 : dep > 16 ? 1 : 0, 100 + ((xx * 7 + yy) | 0), true);
+              if (!ok && !clear("bush", xx, yy, 1)) items.push({ sp: "bush", x: xx, y: yy, k: 0.9 + r() * 0.3, dk: dep > 38 ? 1 : 0, seed: 7 + ((xx + yy) | 0) });
+            }
+          }
+          for (let y = cy0 - 20; y < cy0 + ch + 30; y += 10) {
+            let x = 0; for (let xx = 0; xx < 400; xx += 2) if (forestDepthAt(xx, y) < -16) { x = xx; break; }
+            if (!x) continue;
+            const xx = x + (r() - 0.3) * 10, yy = y + (r() - 0.5) * 6;
+            if (clear("bush", xx, yy, 0.6)) continue;
+            items.push({ sp: r() < 0.55 ? "fern" : "bush", x: xx, y: yy, k: 0.75 + r() * 0.35, dk: 0, seed: 40 + ((y * 3) | 0) });
+          }
+        }
+        // build the sprites: autumn mixes its trees (each seed picks gold, russet, orange or still green)
+        for (const it of items) it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, T);
+        for (const it of items) if (it.lone && it.sp !== "bush") standRing(ctx, it.x * 2, it.y * 2 + 2, (REACH[it.sp] || REACH.oak)[1] * 2 * it.k * 0.95, it.seed * 7, SEASON);
+        // wood floor in spring: bluebells drifting along the hem
+        if (pal.bluebells && FOREST) { const r = rng(9); for (let n = 0; n < 900; n++) { const x = cx0 + r() * cw, y = cy0 + r() * ch, dp = forestDepthAt(x, y); if (dp < -24 || dp > 10 || nearestOnPath(x, y).d < PATH_HALF + 8) continue; ctx.fillStyle = r() < 0.7 ? "#6c7ae8" : "#9098f0"; ctx.fillRect(Math.round(x * 2), Math.round(y * 2), r() < 0.3 ? 2 : 1, 1); } }
+        if (SEASON === "autumn") { const r = rng(4); for (let n = 0; n < 500; n++) { const x = cx0 + r() * cw, y = cy0 + r() * ch; if (nearestOnPath(x, y).d < PATH_HALF - 4) { if (r() < 0.8) continue; } ctx.fillStyle = ["#c86a2a", "#d8a840", "#a8442a"][n % 3]; ctx.fillRect(Math.round(x * 2), Math.round(y * 2), 2, 1); } }
+      }
+      // small life (never on the road)
+      const lifeItems = [];
+      for (const [nm, x, y, fl] of OPTN === "today" ? [] : sc.life || []) {
+        if (nearestOnPath(x, y).d < PATH_HALF + 10) { LOG.push("life off road: " + nm); continue; }
+        if (nm === "owl" && SUN !== "dusk") continue;
+        if ((nm === "butterfly") && (SEASON === "winter" || SUN === "dusk")) continue;
+        const fr = LIFE[nm](fl); lifeItems.push({ spr: fr[(x | 0) % fr.length], x, y: nm === "owl" ? y + 400 : y, life: true, oy: nm === "owl" ? 400 : 0 });
+      }
+      // shadows (one mask), then everything back to front
+      const all = [...items, ...lifeItems];
+      if (OPTN !== "today") layShadows(ctx, all.filter((it) => !it.life).map((it) => ({ sp: it.spr, px: Math.round(it.x * 2), py: Math.round(it.y * 2) })), 1680, 1120, 0.12);
+      all.sort((a, b) => a.y - b.y);
+      for (const it of all) ctx.drawImage(it.spr.cv, Math.round(it.x * 2 - it.spr.ax), Math.round((it.y - (it.oy || 0)) * 2 - it.spr.ay));
+      if (SEASON === "autumn" && OPTN !== "today") fallingLeaves(ctx, cx0 * 2 + 150, cy0 * 2 + 80, 700, 260, 3, 1, ["#e0742a", "#f0c040", "#c8442a", "#f4d060"], 40);
+      // ---- dusk: the board sinks into blue; warm lights (windows, torches) are kept; fireflies under the trees ----
+      if (SUN === "dusk") {
+        const A = ctx.getImageData(0, 0, 1680, 1120), d = A.data;
+        for (let k = 0; k < d.length; k += 4) {
+          const r = d[k], gg = d[k + 1], b = d[k + 2], warm = r > 232 && gg > 175 && b < 130 && r - b > 120;
+          if (warm) continue;
+          const lum = 0.3 * r + 0.59 * gg + 0.11 * b;
+          d[k] = r * 0.34 + lum * 0.06 + 14; d[k + 1] = gg * 0.36 + lum * 0.06 + 16; d[k + 2] = b * 0.5 + lum * 0.12 + 44;
+        }
+        ctx.putImageData(A, 0, 0);
+        const pts = []; const r = rng(31);
+        for (const [x, y] of sc.flies) for (let n = 0; n < 6; n++) pts.push([(x + (r() - 0.5) * 40) * 2, (y + (r() - 0.5) * 22 - 6) * 2]);
+        fireflies(ctx, pts, 5);
+      }
+      // ---------- crop and save ----------
+      const out = document.createElement("canvas"); out.width = MODE === "full" ? 1680 : cw * 4; out.height = MODE === "full" ? 1120 : ch * 4;
+      const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+      oc.drawImage(cv, cx0 * 2, cy0 * 2, cw * 2, ch * 2, 0, 0, out.width, out.height);
+      document.body.appendChild(out);
+      LOG.push(`${items.length} trees`);
+      await save(MODE === "full" ? `ovh2_trees_full_${q.get("realm")}` : `ovh2_trees_${SCENE}_${OPTN}${q.get("suffix") || ""}`, out);
+    </script>
+  </body>
+</html>

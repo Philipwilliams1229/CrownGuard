@@ -1,0 +1,161 @@
+# Overhaul round 2: THE GREENWOOD GROUND (2026-11-22)
+
+Painter `concept/overhaul2-ground.js` (`repaint(layer, noonImg, goldImg, look, o, g)`, `farmPlan(o, g)`),
+lab `overhaul2-ground.html` (open it on the dev server; it saves every panel, and resumes after a dev-server
+reload). Brief: `art/briefs/overhaul-round2.md` (round 1: `art/briefs/overhaul-concepts.md`).
+
+**How a panel is made (no stand-ins this round):** the real engine runs a real Greenwood board (halls placed
+and upgraded, a wave walking). The engine bakes its own ground layer (`world.js groundLayer()`), and the painter
+repaints that very canvas in place. It keeps the game's water, banks and sand, the wood, the castle and the
+road's own surface, and repaints the land and the lane's edges. Then `draw()` lays the game's own trees, rocks,
+halls, bridges, figures and its time-of-day grade on top. At golden hour, the bake's own cast shadows (trees, rocks,
+crags) are carried over: golden layer / noon layer, wherever it is darker. Every PNG is the whole board,
+1680 x 1120, one art pixel to a pixel. Shrink it to 840 to see it at board size.
+
+The palette is the game's own Greenwood ramp (`turfTones()`: 7 tones x cool / plain / warm). Nothing brings in a
+new green. The texture is the game's own blade-stroke tile (`DITH`).
+
+## Panels (`.shots/`)
+
+| scene | today | options |
+|---|---|---|
+| Everyday meadow, Thornbrook | `ovh2_ground_meadow_today` | `_meadow_1` calm, `_meadow_2` middle, `_meadow_3` richer, `_meadow_2autumn` |
+| Terraces, Thistlecrag | `ovh2_ground_terrace_today` | `_terrace_banks` (gentle), `_terrace_steps` (bold), `_terrace_stepsgold` (golden) |
+| Countryside, Millrace | `ovh2_ground_farm_today` | `_farm_quiet`, `_farm_patch`, `_farm_patchgold` (golden), `_farm_autumn` |
+| Contact sheet | | `_sheet_1` (Vale Road meadow, Gullwick strand, Millrace patchwork, Thistlecrag steps, each at 840), `_sheet_2` (the Kingstones' downland, the banks, and the 15-level plan) |
+| Source boards for the sheet | | `_sheet_greenwood`, `_sheet_gullwick`, `_sheet_kingstones` |
+
+Round 1, for comparison: `scratchpad/overhaul-page/img/ground_1_C.jpg`, `ground_1_A.jpg`, `ground_1_B.jpg`, `_Agold`, `_Cgold`.
+
+## 1. The everyday meadow (C, dialled back): three strengths
+
+**Idea:** big quiet masses first. Then a few features you can read at board size. Small detail goes only at
+edges.
+- **Masses:** four bands of the game's ramp in big soft areas (noise at ~330 art px) that follow a gentle height
+  field. The rises are paler, drier and warm. The hollows and the ground near water are darker, damp and cool.
+  The edges break in the game's own blade strokes, never an airbrush. The slopes take a gentle sun-side lift. There
+  are lit and dark blade strokes, a little thicker along the mass edges.
+- **Features:** stands of tall grass (strength 1: 2, strength 2: 3, strength 3: 5; 7-9 px high). They are
+  straw-tinged seed heads with a lit back rim, a dark front of blades and a shadowed foot. Strength 1 has one
+  white-and-buttercup drift; strength 3 has two. There is one clover patch at strength 2 and two at strength 3.
+- **Edges:** a trampled verge along the road (paler, drier, about 7 px) with small tufts. Damp turf and rushes at
+  the water's edge. A shade pool and long grass at the feet of trees. In autumn, fallen leaves.
+- **The lane:** the game's road surface is kept as it is. On the bends it gets big puddles: the sky in the water
+  (shade under the far bank, lighter toward the near rim, one glint), a dark ring of wet mud and splashed specks.
+  The puddles are 2, 3 or 4 by strength, never on a bridge. The cobble patches are gone, and so are the ruts.
+- **Hall on tall grass:** in `_meadow_2` / `_3` the Wizard Spire stands in a stand of tall grass. The stand is
+  cut back to a trampled clearing, ringed by flattened grass lying in strokes, and today's footing draws over it.
+- **Autumn** (`_meadow_2autumn`): the grass yellows toward olive and ochre. The stands become russet bracken
+  with a dark brown front. Fallen leaves gather under the trees, and the drift turns to late gold and rust.
+  (The trees stay green here; the trees artist draws their seasons.)
+
+## 2. Terraces (A, polished) on Thistlecrag: banks and steps
+
+**Idea:** painted height. The board stays flat, and each level change is painted as a face on its lower side.
+- **Steps (bold):** faces up to 30 art px. The height varies along the scarp (62-122%). Each face has a bright
+  lit turf lip, turf hanging over the edge (in places a slumped tongue of grass), and earth that is lighter under
+  the turf and darker toward the damp foot. It has soft wavy strata, a pale sandy bed, erosion streaks, bedded
+  stones and roots, and a 1 px ink at the foot. Under every face lies a shade band (2-5 px solid, dithered out to
+  18 px) with lusher, darker grass. The upper terrace is warmer and drier, the lower one cooler and damper. Where
+  the high side lies to the south, the crest seen from behind is a lit line over a dark one. The east foot of a
+  step that runs north-south is shaded. Where the road crosses, the face stops: the road ramps (a slightly darker
+  band across it), with **retaining stones** walling the cutting on both sides. Golden hour marches the terraces'
+  own long shadows down-sun (`_terrace_stepsgold`), and the scarps catch the light strongly.
+- **Banks (gentle):** faces up to 16 px. Each is a grassed bank combed down the slope, darker toward its foot,
+  with a lit lip. No stones; the road simply ramps.
+- **Hall beside a scarp:** the Wizard Spire stands on the upper level just above a step. Its footing sits on one
+  level.
+- **Footpath with steps:** the painter supports it (`o.paths`: stone steps cut in the face, worn earth on the
+  level), but no panel shows one yet.
+
+## 3. The worked countryside (B, polished) on Millrace: quiet and patchwork
+
+**Idea:** old fields on a slightly skewed, wandering grid (the hedge lines follow the land), each with its own
+work. The road stays the clearest thing.
+- **Fields:** plough has furrows across the field and a grass headland. Standing wheat is a duller gold, 4 px high,
+  with its front face showing above a mown stubble edge. Hay is mown in swathes, with windrows and rows of stooks
+  on some fields. Pasture has tussocks, sheep tracks and small flocks of 3-6 sheep. The orchard uses the game's own
+  tree painter at about half size, pushed into DECOR, so the bake casts their shadows. Rough meadow cells rest the
+  eye.
+- **Hedges:** low (5 px), leafy, with a lit top and their own shadow. May blossom in spring, haws in autumn. They
+  never come within 13 units of the road, the water, the wood or a hall. Some field edges have no hedge at all.
+  There are hedgerow oaks (game trees) standing in the hedges.
+- **Creatures and work:** a scarecrow with five crows in a wheat field, a ginger farm cat at the cart track's end,
+  and the sheep. The cart track is two worn wheel tracks with grass between them, running from the road edge
+  through a gap in the hedge.
+- **Quiet** = mostly pasture, hay and meadow, few hedges. **Patchwork** = plough, wheat, hay, pasture, meadow
+  and an orchard.
+- **Hall on a crop:** in `_farm_patch` the Archer hall's field is forced to wheat. The crop is cut back round its
+  footing, leaving a flattened ring.
+- **Autumn** (`_farm_autumn`): half the wheat is ploughed in and the rest is stubble. The hay is stooked thinner,
+  the hedges russet with haws, the grass olive.
+
+## 4. The contact sheet and the 15-level plan (`_sheet_1`, `_sheet_2`)
+
+1 Vale Road: meadow, middle · 2 Thornbrook: meadow, middle · 3 Gullwick: farmed strand, quiet · 4 Millrace:
+countryside, patchwork · 5 Foxmere: meadow, richer (damp hollows) · 6 Oakmere Hollow: rolling banks ·
+7 Bramblewick: countryside, quiet (hamlet hedges, orchard) · 8 Barrowfields: open downland · 9 Wolfrun:
+meadow, calm (bracken at the wood) · 10 Thistlecrag: stepped terraces · 11 Kingstones: open downland with the
+stones · 12 Ravenscar: stepped terraces and scarps · 13 Blackbriar: meadow, richer (overgrown) · 14 Cinderholt:
+countryside in autumn (plough, stubble) · 15 Goblin Warrens: rolling banks, golden hour.
+
+That makes 5 meadow, 4 countryside, 4 terraces or banks and 2 downland, with no two neighbours alike. The
+downland look (`downs`) is the meadow at its calmest, with paler, greyer short turf, chalk showing on the rises
+and a few sheep. The seasons from the trees round sit on top of whichever look a level has.
+
+## Cost (measured in the lab, unoptimised concept code, Chrome on the dev Mac)
+
+- **Repaint, the whole board:** meadow ~1.0 s, terraces ~1.1 s (golden with the shadow march ~3 s), countryside
+  ~2-3 s. Of that, the board masks (two chamfer distance fields and the water / wood tests) take 100-650 ms.
+  Written for the game (Uint8 buffers, loops limited to bounding boxes, the masks shared with the bake that
+  already finds road and water), I would expect **150-400 ms a board, once, at load**, like today's ground bake.
+- **Per frame: nothing.** Everything is baked into the ground layer. Optional extras: the tall grass swaying (a
+  4-frame tip strip, about +0.3 ms) and a glint on the puddles (1-2 frames).
+- **Memory:** no more than today's ground layer once baked. The concept's working buffers are about 40 MB (Float32
+  colour, Z, shadow). The game version should use Uint8 (~8 MB, freed after the bake), because the iPhone has
+  memory limits (see "The phone crash audit").
+
+## What the engine needs
+
+- **Meadow and downland:** nothing. Puddles stay off bridges (today's rule). Tall grass never comes within
+  ~7 units of the road's edge. A placed hall flattens its patch through today's footing; the ground needs no
+  re-bake.
+- **Countryside:** a seeded field layout per board, plus a short list of per-board overrides (`fields: [[kind, x,
+  y]]`, as the panels use), checked to keep hedges clear of the road, water, wood and halls. Orchard and
+  hedgerow trees are ordinary DECOR, so they block building as any tree does. A hall placed later on a crop needs
+  the crop cut back. Either re-bake that patch (a small dirty-rect bake) or accept today's footing blend over the
+  wheat: the panels show the bake-time cut, so test the live case. Sheep and the scarecrow's crows could later be
+  live sprites (the owner likes little creatures).
+- **Terraces:** **I recommend painted steps, not real height.** The board stays flat, and the halls, figures,
+  shots and taps are untouched. The engine needs: a per-board level map (authored as a few scarp polylines, or
+  this generated field checked by hand), and `buildableAt` refusing a hall whose footing straddles two levels or
+  touches a face band. Range stays 2D. The faces stop at the road, which ramps, so foes never meet a face. Real
+  height (lifting everything by z) would touch every renderer and the tap mapping, for a look the painted faces
+  already give.
+
+## Weak spots (honest)
+
+- **Terraces at midday** still read mostly by the tone change between levels and the dark foot band. At board
+  size a face is 6-15 px, and where a scarp runs diagonally it thins. Golden hour is where they shine. Thistlecrag's
+  many crags hide part of the faces. The ramp across the road is only a darker band, so it can read as a stray
+  shadow. Boundaries come from a generated field, not authored per board yet.
+- **Meadow stands** read as pale straw cushions at board size: correct for "tall grass in seed", but they could be
+  taken for hay. At strength 1 the drift is easy to miss. The rushes at the water's edge are a little lime.
+- **Countryside:** the fields are still a fairly regular grid. Plough at golden hour comes close to the road's
+  colour (the grass headland keeps them apart). The sheep are 7 px and vanish at board size (a find-it detail,
+  not a read). The cart track is short, and the field gate is only a gap. The stooks and hedges are bake-time
+  pixels, not pix sculpts. At golden hour the stubble and hay go quite orange under the game's grade.
+- **Downland** (the Kingstones): the chalk on the rises reads as pale blotches at board size and could be taken
+  for frost. It wants shaped scars and a sheep path, not noise. Otherwise it is close to meadow strength 1.
+- **Autumn:** the grass tint is one global shift. A real autumn board wants the trees artist's leaves to match.
+- **Contact sheet:** the Vale Road, Gullwick and the Kingstones use auto-placed features, not tuned by hand. The
+  15-level plan is a proposal made from the boards' names and the four I looked at.
+
+## My picks
+
+- **Everyday meadow: strength 2.** Strength 1 is almost today with better masses. Strength 3 starts to busy the
+  board at 840 px.
+- **Terraces: both, by level.** Banks on the softer boards (Oakmere, the Warrens). Bold steps on Thistlecrag and
+  Ravenscar, built as painted steps.
+- **Countryside: quiet as the default, patchwork for Millrace only.** Quiet keeps the road the clearest thing
+  everywhere. The patchwork is the showpiece for the mill's level.

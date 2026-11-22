@@ -1,0 +1,92 @@
+<!doctype html>
+<!--
+  Overhaul concept round: ROCKS, STONES AND DECORATIONS (concept/overhaul-decor.js, notes in concept/overhaul-decor.md).
+  The REAL engine and draw() on a board; for A / B / C the board's own decor (not its trees) is lifted
+  and the concept's pieces are painted over the ground at board scale (1 art px = 1 px of the 2x board).
+    /overhaul-decor.html?scene=gw|iron|hollow&opt=today|A|B|C&sun=noon|golden&save=1
+    &strip=1  also saves the cheap-life frame strip for the option (ovh_decor_strip_<opt>.png)
+  Saves .shots/ovh_decor_<scene>_<opt>[_golden].png: a 420 x 280 board patch drawn at 4x (1680 x 1120).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul decor</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { max-width: 100%; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR } from "/src/data/terrain.js";
+      import { SCENES, paintDecor, KEEP } from "/concept/overhaul-decor.js";
+      const q = new URLSearchParams(location.search);
+      const SC = SCENES[q.get("scene") || "gw"], OPT = q.get("opt") || "today", SUN = q.get("sun") || SC.sun || "noon";
+      const DT = 1 / 60;
+      setDay(SUN);
+      selectRealm(SC.realm);
+      selectFaction(SC.faction);
+      setWaveWindow(null);
+      setLevelWeather(null);
+      if (OPT !== "today") {
+        const keep = DECOR.filter((d) => d.forest || KEEP.test(d.t) || (SC.keepOutside && !SC.inCrop(d.x, d.y)));
+        DECOR.length = 0; DECOR.push(...keep);
+      }
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (SC.wave || 6) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, freeplay: true,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (const [kd, x, y, lv] of SC.halls) {
+        let spot = null;
+        for (let r = 0; r < 40 && !spot; r += 2) for (let a = 0; a < 6.28 && !spot; a += 0.5) {
+          const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+          if (buildableAt(g, px, py, kd)) spot = [px, py];
+        }
+        if (!spot) { console.warn("no spot", kd, x, y); continue; }
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const hold = () => { g.lives = 9999; g.shake = 0; if (g.phase === "build") g.buildUntil = null; };
+      startWave(g);
+      let el = 0;
+      while (el < (SC.at || 10)) { updateGame(g, DT); el += DT; hold(); if (g.phase !== "combat") startWave(g); }
+      g.shake = 0;
+      g.effects = g.effects.filter((e) => e.type !== "dust");
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      const base = document.createElement("canvas"); base.width = cv.width; base.height = cv.height; base.getContext("2d").drawImage(cv, 0, 0);
+      const ctx = cv.getContext("2d");
+      if (OPT !== "today") paintDecor(ctx, SC, OPT, { sun: SUN, g, frame: 0 });
+      // crop the patch and blow it up 2x, nearest neighbour
+      const [bx, by] = SC.crop, out = document.createElement("canvas"); out.width = 1680; out.height = 1120;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+      o.drawImage(cv, bx * 2, by * 2, 840, 560, 0, 0, 1680, 1120);
+      document.body.appendChild(out);
+      const name = `ovh_decor_${q.get("scene") || "gw"}_${OPT}${q.get("sun") ? "_" + q.get("sun") : ""}`;
+      if (q.get("save")) await fetch(`/__shot?name=${name}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      if (q.get("strip") && SC.strip && OPT !== "today") {
+        // the cheap life: 4 frames of the strip's corner side by side, at 4x
+        const [sx, sy, sw, sh] = SC.strip, N = 4, st = document.createElement("canvas");
+        st.width = sw * 4 * N + (N - 1) * 8; st.height = sh * 4;
+        const sc2 = st.getContext("2d"); sc2.imageSmoothingEnabled = false; sc2.fillStyle = "#20242c"; sc2.fillRect(0, 0, st.width, st.height);
+        for (let f = 0; f < N; f++) {
+          const fc = document.createElement("canvas"); fc.width = cv.width; fc.height = cv.height;
+          const fx = fc.getContext("2d"); fx.drawImage(base, 0, 0);
+          paintDecor(fx, SC, OPT, { sun: SUN, g, frame: f });
+          sc2.drawImage(fc, sx * 2, sy * 2, sw * 2, sh * 2, f * (sw * 4 + 8), 0, sw * 4, sh * 4);
+        }
+        await fetch(`/__shot?name=ovh_decor_strip_${q.get("scene") || "gw"}_${OPT}`, { method: "POST", body: st.toDataURL("image/png").slice(22) });
+      }
+      window.__g = g;
+      document.title = "DONE"; document.getElementById("status").textContent = `saved ${name}`;
+    </script>
+  </body>
+</html>

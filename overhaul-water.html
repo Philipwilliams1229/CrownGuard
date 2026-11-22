@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Crownguard overhaul concepts: water</title>
+<style>body{background:#1a1a20;color:#ddd;font:13px sans-serif;margin:10px} canvas{display:block;margin:6px 0;max-width:100%;image-rendering:pixelated} h3{margin:14px 0 2px}</style></head>
+<body><div id="status">working…</div><div id="out"></div>
+<script type="module">
+// /overhaul-water.html?only=river_A,lake_B&save=1&t=0  (save=1 posts PNGs to .shots/ovh_water_<scene>_<opt>.png)
+const { renderPanel, at2x } = await import("./concept/overhaul-water.js?v=" + Date.now());
+const Q = new URLSearchParams(location.search), save = Q.get("save") === "1", t = +(Q.get("t") || 0);
+const JOBS = [["river","A"],["river","B"],["river","C"],["lake","A"],["lake","B"],["lake","C"],["sea","A"],["river","A","golden"],["strip","A"]];
+const only = Q.get("only") ? Q.get("only").split(",") : null;
+const post = async (name, cv) => { if (save) await fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) }); };
+const out = document.getElementById("out");
+try {
+  for (const [scene, opt, sun] of JOBS) {
+    const key = scene + "_" + opt + (sun ? "_" + sun : "");
+    if (only && !only.includes(key)) continue;
+    let cv;
+    if (scene === "strip") {
+      // six frames of the weir and the rocks below it, side by side
+      const N = 6, CW = 140, CH = 150, crop = [262, 218, CW, CH];
+      cv = document.createElement("canvas"); cv.width = CW * 2 * N; cv.height = CH * 2;
+      const c = cv.getContext("2d");
+      for (let i = 0; i < N; i++) { const p = await renderPanel("river", opt, { t: i / N }); c.drawImage(at2x(p, crop), i * CW * 2, 0); }
+    } else cv = at2x(await renderPanel(scene, opt, { t, sun }));
+    const h = document.createElement("h3"); h.textContent = key; out.append(h, cv);
+    await post("ovh_water_" + key, cv);
+  }
+  document.getElementById("status").textContent = document.title = "DONE";
+} catch (e) { document.getElementById("status").textContent = document.title = "FAIL " + e.message; console.error(e); }
+</script></body></html>

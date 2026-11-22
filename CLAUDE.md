@@ -1035,6 +1035,38 @@ things more radically ... Especially the bridges, they need a good rework ... fe
 change the shore shapes, river widths (wider only ...) add some more larger puddles"), and asked for style
 directions to be proposed first: a concept round follows (the brief's STATUS has it). When the owner says
 overhaul, show bold options before building.
+- **The overhaul concept round** (same day; brief `art/briefs/overhaul-concepts.md`): five Opus artists drew
+  A / B / C for water, bridges, trees, rocks and decorations, ground, each on a real board patch beside TODAY
+  (`concept/overhaul-<feature>.js` + `.md` notes, labs `overhaul-<feature>.html`, PNGs `.shots/ovh_*`). Private
+  Artifact "Crownguard Overhaul Concepts" (slug 26a17ef8-c22c-4713-8e52-168dfabde95b; page built in
+  `scratchpad/overhaul-page/`, republish with publish_files + slug + base_version). The team's picks all point
+  at giving the land HEIGHT: water A (cut below the meadow, bank faces, weirs) with B's reeds; bridges A (the
+  humpback with real arches) per chapter by material; trees A (grand trees, ~1.7x) with C's ground rings and
+  seasons; decor B (places, not props) at A's scale; ground A (terraces and scarps) with C's puddles.
+  **The owner's picks so far (their words in `art/briefs/overhaul-round2.md`):** water A (the near edge and the
+  lake's sand and dock need work; not every edge cut in); bridges: ALL THREE kinds with variety by area (timber
+  trestle for the Greenwood and Rime, humpback for Iron and the Hollow, today's design updated too), decks
+  matching each area's road, the up-the-screen case reworked ("have fable take a look"); trees: C's direction
+  but calmer ("chia pets"), a mix of today and C, seasons loved ("C in autumn looks awesome"), options per
+  chapter before any building, more wildlife like the deer; decor: a combination (B's village details with
+  today's houses, A's big rocks and tower re-sculpted, C's cliff edges and rock walls), Iron and the graveyard
+  need polish, a light source in every lived-in place. Ground not reviewed yet. A second concept round is running.
+  Ground (later): terraces and the worked countryside each on SOME Greenwood levels, not all ("some variety would be
+  nice"), C (lush) liked but "way too detailed": a dialled-back C; A "looks cool on rimewater". **Scope: the
+  Greenwood only for now** ("just focusing on the first area of the map"); the other areas and the campaign map follow.
+  **Round 2 (Greenwood only) is published:** private Artifact "Crownguard Overhaul Concepts, Round 2: the
+  Greenwood" (slug ec5587d2-4984-4608-afb3-9fde8967f39f; page in `scratchpad/overhaul-page2/`; painters
+  `concept/overhaul2-<feature>.js` + `.md`, labs `overhaul2-<feature>.html`, PNGs `.shots/ovh2_*`), every panel on
+  the real board: water A as five edge kinds (cut bank, grassy lip, shingle, reeds, quay) and a redone lake with
+  a jetty; bridges by the advisor's up-the-screen rule (`art/briefs/bridges-upscreen-rule.md`: a battered solid,
+  strips on both sides, never the castle's slant): toll / farm / mill trestles, today's bridge updated, one
+  humpback; trees: five crown treatments between today and C, four seasons, wildlife; decor: croft / farm /
+  hamlet in today's house style, the rock rule (stacked loaves: lit top, mid south face, shaded east shoulder,
+  nothing pointing at the camera), ruins, night lights; ground: meadow strengths 1-3, terraces (painted steps
+  recommended), quiet / patchwork countryside, a 15-level plan. Awaiting the owner's picks. Labs note: with many
+  sessions editing, the dev server reloads lab pages every 20-60 s (artists used resumable queues / iframes).
+  **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
+  and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
   `shallowsLit`, glints capped at pale gold; water.js; coast.js): rivers shelve from pale shallows with the
   bed showing (point bars inside bends) to a dark channel; baked flow streaks that slide downstream, foam
@@ -1078,6 +1110,10 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
   Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
   blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
+- **The campaign map takes the time of day** (2026-11-22, "wishlist stuff ... for sure"): once the board's
+  new look is nailed down, "likeminded changes" to the campaign map, with dynamic lighting: finishing a level
+  fought in the afternoon opens the map at the same time of day; "marching" to the next level moves the sun on
+  to the next marker (more steps if the levels are further apart).
 - **Time of day changes play** (2026-11-22, owner: "look only for now, but mark it down as a future
   thing to think about"): a low sun doing something in the rules (e.g. glare for halls shooting into
   it). Put ideas to the owner before building any.
