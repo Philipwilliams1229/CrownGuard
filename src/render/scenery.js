@@ -1259,7 +1259,7 @@ export const drawTree = (ctx, d, time) => {
     if (sp.sway && time) { const k = Math.floor(time * 0.62 + hash(Math.round(d.x), Math.round(d.y)) * 4) & 3; img = k === 1 ? sp.sway[0] : k === 3 ? sp.sway[1] : sp.cv; }
     ctx.drawImage(img, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
     const lb = LIVE_BITS[d.t];
-    if (lb) lb(ctx, d.x, d.y, variantOf(d).s, time);
+    if (lb && !(d.t === "mushroom" && variantOf(d).v === 3)) lb(ctx, d.x, d.y, variantOf(d).s, time);   // (a fairy ring has no big cap to puff spores)
   } else {
     const wasM = mirrorBake(mir);
     try { paintDecor(ctx, { ...d, ...variantOf(d), s: d.s || 1 }, time); } finally { mirrorBake(wasM); }

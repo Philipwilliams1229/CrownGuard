@@ -150,12 +150,12 @@ export const pixMushroom = (ctx, x, y, s, seed = 1, v = 0) => {
 const fairyRing = (ctx, x, gy, s, seed) => {
   const sc = s * R, n = 9;
   ctx.fillStyle = rgba("#2a4a1c", 0.22);
-  ctx.beginPath(); ctx.ellipse(x, gy - 1, 10.5 * s, 4.6 * s, 0, 0, Math.PI * 2); ctx.ellipse(x, gy - 1, 8.5 * s, 3.4 * s, 0, 0, Math.PI * 2); ctx.fill("evenodd");
+  ctx.beginPath(); ctx.ellipse(x, gy - 1, 13.5 * s, 6 * s, 0, 0, Math.PI * 2); ctx.ellipse(x, gy - 1, 10.5 * s, 4 * s, 0, 0, Math.PI * 2); ctx.fill("evenodd");
   const STEM = mat("#e0d6bc", { contrast: 0.7 }), GILL = mat(mix(CAP, "#1c1020", 0.55));
   const pts = [];
-  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + h3(i, seed, 9) * 0.4; pts.push([Math.cos(a) * 9.5 * sc, Math.sin(a) * 4 * sc - 1 * sc, 0.7 + (Math.sin(a) + 1) * 0.2 + h3(i, seed, 8) * 0.25]); }
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + h3(i, seed, 9) * 0.4; pts.push([Math.cos(a) * 12 * sc, Math.sin(a) * 5 * sc - 1 * sc, 0.55 + (Math.sin(a) + 1) * 0.15 + h3(i, seed, 8) * 0.2]); }
   pts.sort((p, q) => p[1] - q[1]);
-  sculpt(Math.ceil(26 * sc) + 14, Math.ceil(18 * sc) + 14, (obj) => {
+  sculpt(Math.ceil(32 * sc) + 14, Math.ceil(20 * sc) + 14, (obj) => {
     pts.forEach(([px, py, k], i) => {
       const rp = 2.4 * sc * k, hp = 3.6 * sc * k, CM = mat(i % 3 ? CAP : lighten(CAP, 0.08), { contrast: 0.8 });
       obj.part(); obj.capsule(px, py - hp, rp * 0.3, px, py, rp * 0.38, STEM, i * 0.01, { round: 0.9 });
@@ -311,7 +311,7 @@ export const pixTowerBody = (ctx, x, y, s, stone) => {
       const bw = 7 + (r % 3);
       for (let xx = -w + 1 + ((r * 5) % bw); xx < w - 1; xx += bw) {
         obj.toneLine(xx, yy, xx, yy + ch - 1, -0.8);
-        const tb = B(r, Math.round(xx)) < 0.3 ? -0.5 : B(r, Math.round(xx)) > 0.75 ? 0.45 : 0;
+        const tb = B(r, Math.round(xx)) < 0.3 ? -0.9 : B(r, Math.round(xx)) > 0.72 ? 0.7 : 0;
         if (tb) for (let q = 1; q < ch - 1; q++) obj.toneLine(xx + 1, yy + q, Math.min(w - 1, xx + bw - 1), yy + q, tb);
         obj.toneLine(xx + 1, yy + 1, Math.min(w - 1, xx + bw - 2), yy + 1, 0.5);
       }
@@ -328,8 +328,8 @@ export const pixTowerBody = (ctx, x, y, s, stone) => {
     // the door, low on the front, and an empty arched window above: dark inside
     obj.part(); obj.rect(-3, -9, 7, 9, mat("#4a3622"), 1, { n: [0, 0, 1] });
     const DARK = mat("#1e1a26", { contrast: 0.4 }), wy = -hgt * 0.58;
-    obj.part(); obj.poly([[-2, wy + 6], [2, wy + 6], [2, wy], [1, wy - 1.5], [-1, wy - 1.5], [-2, wy]], DARK, 1.1, { n: [0, 0, 1] });
-    obj.toneLine(-2, wy + 7, 2, wy + 7, 0.6);
+    obj.part(); obj.poly([[-2.5, wy + 8], [2.5, wy + 8], [2.5, wy], [1.2, wy - 2], [-1.2, wy - 2], [-2.5, wy]], DARK, 1.1, { n: [0, 0, 1] });
+    obj.toneLine(-3, wy + 9, 3, wy + 9, 0.8);
     // ivy climbing the shaded side face and over the front's right edge, thinning upward
     const IVY = mat("#4a7a34", { contrast: 0.8 }), IVD = mat("#2f5a2c", { contrast: 0.8 });
     for (let i = 0; i < 26; i++) {
