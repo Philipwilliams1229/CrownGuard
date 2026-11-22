@@ -225,6 +225,63 @@ function bareCrown(P, root, ang, len, r, depth, bk, z, seed, pal, envelope) {
   grow(root[0], root[1], ang, len, r, 0);
 }
 
+// ---- ROUND 3 winter: the SAME tree, leafless (owner: "make sure the tree shape doesn't change too much") ----
+// The summer boughs stay where they were; each summer LEAF MASS becomes a fan of twigs on the bough nearest it: a
+// short limb from the bough to a hub low in the mass, then rays to the mass's own rim, each forking toward its end.
+// So the twigs fill exactly the outline the leaves had. Inner twigs dark (no outline), the tips paler (a soft lacy
+// edge against snow or grass), a little snow along the flatter limbs.
+function twigMasses(P, masses, roots, bk, pal, seed, k, z = 42) {
+  const R = rng(seed * 17 + 3), sn = pal.snow ? mat(pal.snow, { contrast: 0.5 }) : null;
+  const twD = mat("#5c4230"), twT = mat("#8c745e", { contrast: 0.7 });
+  const snowOn = (ax, ay, bx, by, r, zz) => {
+    if (!sn || Math.abs(by - ay) > Math.abs(bx - ax) * 0.9) return;
+    const L = Math.hypot(bx - ax, by - ay);
+    for (let t = 0.1; t < 0.9; t += 1 / Math.max(2, L)) { const xx = ax + (bx - ax) * t, yy = ay + (by - ay) * t - r - 0.4; if (h2(Math.round(xx), Math.round(yy), seed + 9) < 0.7) P.dot(xx, yy, sn, zz + 5, { n: [0, -0.8, 0.6] }); }
+  };
+  masses.forEach((M, mi) => {
+    let best = roots[0], bd = 1e9;
+    for (const r of roots) { const d = Math.hypot(r[0] - M.x, (r[1] - M.y) * 1.3); if (d < bd) { bd = d; best = r; } }
+    // the hub sits LOW in the mass, toward its bough: the twigs fan UP and out from it (a crown, not a starburst)
+    const hx = M.x + (best[0] - M.x) * 0.25, hy = M.y + M.ry * 0.55;
+    const r0 = Math.max(1.1, 2.2 * k), zz = z + mi * 0.2;
+    P.part(); P.limb([[best[0], best[1]], [(best[0] + hx) / 2 + (R() - 0.5) * 2, (best[1] + hy) / 2 - 1], [hx, hy]], [r0, r0 * 0.8, Math.max(0.9, r0 * 0.6)], bk, zz);
+    snowOn(best[0], best[1], hx, hy, r0, zz);
+    // rays to the rim over its upper ~260 degrees (the underside is under other masses, or the bough itself)
+    const N = Math.round(6 + (M.rx + M.ry) * 0.16);
+    const twig = (ax, ay, ex, ey, zt) => {     // a fine twig: dark inner two-thirds, a pale tip, a small side fork
+      const qx = ax + (ex - ax) * 0.62, qy = ay + (ey - ay) * 0.62;
+      P.line(ax, ay, qx, qy, twD, zt, { noLine: true, n: [-0.3, -0.5, 0.8] });
+      P.line(qx, qy, ex, ey, twT, zt, { noLine: true, n: [-0.4, -0.6, 0.7] });
+      const fa = Math.atan2(ey - ay, ex - ax) + (R() < 0.5 ? 0.55 : -0.55), fl = 2 + R() * 2;
+      P.line(qx, qy, qx + Math.cos(fa) * fl, qy + Math.sin(fa) * fl, twT, zt, { noLine: true, n: [-0.4, -0.6, 0.7] });
+    };
+    for (let n = 0; n < N; n++) {
+      const a = Math.PI * (0.88 + 1.24 * (n + 0.3 + R() * 0.4) / N);           // from lower-left over the top to lower-right
+      const reach = 0.94 + R() * 0.06;
+      const ex = M.x + Math.cos(a) * M.rx * reach, ey = M.y + Math.sin(a) * M.ry * reach;
+      const mx = hx + (ex - hx) * 0.5 + (R() - 0.5) * 2, my = hy + (ey - hy) * 0.5;
+      if (n % 2 === 0 && M.rx > 10 * k) { P.part(); P.limb([[hx, hy], [mx, my]], [Math.max(0.8, 1.1 * k), 0.7], bk, zz + 1); snowOn(hx, hy, mx, my, 1, zz + 1); }
+      else P.line(hx, hy, mx, my, twD, zz + 1, { noLine: true, n: [-0.3, -0.5, 0.8] });
+      // two or three twigs off the ray's middle to neighbouring rim points, one more into the mass's inside
+      const kids = 2 + (R() < 0.5 ? 1 : 0);
+      for (let c = 0; c < kids; c++) {
+        const da = (c - (kids - 1) / 2) * (1.6 / N) * 1.4 + (R() - 0.5) * 0.08, rr = 0.9 + R() * 0.1;
+        twig(mx, my, M.x + Math.cos(a + da) * M.rx * rr, M.y + Math.sin(a + da) * M.ry * rr, zz + 2);
+      }
+      if (n < 3) {   // and a few hang down and out from the hub, so the mass's underside is twigs too, not a flat cut
+        const la = Math.PI * (0.15 + 0.7 * ((n + R() * 0.6) / 3)), lr = 0.8 + R() * 0.15;
+        twig(hx, hy, M.x + Math.cos(la) * M.rx * lr, M.y + Math.sin(la) * M.ry * lr, zz + 1.5);
+      }
+      const ia = a + (R() - 0.5) * 0.6, ir = 0.45 + R() * 0.3;
+      twig(hx + (mx - hx) * 0.5, hy + (my - hy) * 0.5, M.x + Math.cos(ia) * M.rx * ir, M.y + Math.sin(ia) * M.ry * ir, zz + 1.5);
+    }
+  });
+}
+
+// ---- ROUND 3: the mix (owner: "this broken canopy mixed in with the ones from C"): treatment 3 or 4 per tree, by
+// its seed (never by species), about half each
+export const mixT = (seed) => (h2(seed | 0, 17, 5) < 0.5 ? TREAT[3] : TREAT[4]);
+
 // ---- species --------------------------------------------------------------------------------------------
 // each returns { cv, ax, ay }; args (pal, k, sway, dk (wood depth tint), seed, T)
 const oakCol = (pal, seed) => pal.oak[Math.abs(seed | 0) % pal.oak.length];
@@ -239,13 +296,14 @@ export const SP = {
       const bk = mat(pal.bark), lf = leafMat(deep(oakCol(pal, seed), dk)), un = mat(oakCol(pal, seed), { contrast: 1.3 });
       for (const [x, y] of [[-11, 4], [10, 4], [2, 5]]) bark(P, [[0, -5], [x * 0.6 * k, y * 0.3 * k], [x * k, y * k]], [3.2 * k, 2 * k, 1], bk, 41, { strokes: false });
       bark(P, [[0, 2], [0, -30 * k]], [6.5 * k, 5 * k], bk, 40);
-      if (pal.bare) { bareCrown(P, [0, -28 * k], -Math.PI / 2, 26 * k, 4.2 * k, 5, bk, 42, seed, pal, (x, y) => Math.hypot(x / (50 * k), (y + 72 * k) / (42 * k)) < 1); marcescent(P, pal, k, seed, [[0, -72, 44, 36]]); return; }
-      for (const [x, y] of [[-20, -52], [18, -50], [0, -62]]) bark(P, [[0, -28 * k], [x * k, y * k]], [3 * k, 1.8], bk, 30, { strokes: false });
+      const BO = [[-20, -52], [18, -50], [0, -62]];
+      for (const [x, y] of BO) bark(P, [[0, -28 * k], [x * k, y * k]], [3 * k, 1.8], bk, pal.bare ? 41 : 30, { strokes: false });
       const M = [
         { x: sw(s, 1), y: -94 * k, rx: 24 * k, ry: 18 * k, z: 54 },
         { x: -18 * k + sw(s, 0.8), y: -76 * k, rx: 24 * k, ry: 18 * k, z: 58 }, { x: 18 * k + sw(s, 0.8), y: -76 * k, rx: 24 * k, ry: 18 * k, z: 59 },
         { x: -32 * k, y: -54 * k, rx: 20 * k, ry: 15 * k, z: 64 }, { x: 0, y: -52 * k, rx: 24 * k, ry: 16 * k, z: 66 }, { x: 32 * k, y: -54 * k, rx: 20 * k, ry: 15 * k, z: 65 },
       ].map((m) => ({ ...m, m: lf, bias: -Math.min(1, dk), split: Math.min(T.split, 2) }));
+      if (pal.bare) { twigMasses(P, M, [[0, -28 * k], ...BO.map(([x, y]) => [x * k, y * k])], bk, pal, seed, k); marcescent(P, pal, 1, seed, M.map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.3); return; }
       leafMasses(P, M, T, seed, un);
     });
   },
@@ -256,13 +314,14 @@ export const SP = {
       for (const [x, y] of [[-15, 4], [13, 5], [3, 6]]) bark(P, [[0, -6], [x * 0.7 * k, y * 0.4 * k], [x * k, y * k]], [3.6 * k, 2.4 * k, 1.2], bk, 41, { strokes: false });
       bark(P, [[0, 2], [-1 * k, -26 * k], [0, -42 * k]], [7.5 * k, 6 * k, 5.4 * k], bk, 40);
       P.ellipse(-3 * k, -12 * k, 2.5 * k, 4 * k, ms, 41, { wrap: true });
-      if (pal.bare) { bareCrown(P, [0, -40 * k], -Math.PI / 2 - 0.05, 22 * k, 5 * k, 6, bk, 42, seed, pal, (x, y) => Math.hypot(x / (70 * k), (y + 92 * k) / (52 * k)) < 1); marcescent(P, pal, k, seed, [[-30, -86, 30, 24], [30, -84, 30, 24]]); return; }
-      for (const [x, y] of [[-34, -76], [32, -74], [2, -96]]) bark(P, [[0, -40 * k], [x * 0.5 * k, (y + 18) * 0.7 * k], [x * k * 0.85, y * k * 0.9]], [4 * k, 2.8 * k, 1.8], bk, 30, { strokes: false });
+      const BO = [[-34, -76], [32, -74], [2, -96]];
+      for (const [x, y] of BO) bark(P, [[0, -40 * k], [x * 0.5 * k, (y + 18) * 0.7 * k], [x * k * 0.85, y * k * 0.9]], [4 * k, 2.8 * k, 1.8], bk, pal.bare ? 41 : 30, { strokes: false });
       const M = [
         { x: -38 * k, y: -80 * k, rx: 32 * k, ry: 26 * k, m: lf, z: 60 }, { x: 36 * k, y: -78 * k, rx: 32 * k, ry: 26 * k, m: lf2, z: 62 },
         { x: -4 * k + sw(s, 0.9), y: -110 * k, rx: 38 * k, ry: 27 * k, m: lf, z: 56 }, { x: 4 * k, y: -70 * k, rx: 24 * k, ry: 16 * k, m: lf2, z: 72 },
         { x: -60 * k, y: -66 * k, rx: 16 * k, ry: 12 * k, m: lf, z: 66 }, { x: 58 * k, y: -64 * k, rx: 16 * k, ry: 12 * k, m: lf2, z: 66 },
       ].map((m) => ({ ...m, bias: -Math.min(1, dk) }));
+      if (pal.bare) { twigMasses(P, M, [[0, -40 * k], ...BO.map(([x, y]) => [x * k * 0.85, y * k * 0.9]), ...BO.map(([x, y]) => [x * 0.5 * k, (y + 18) * 0.7 * k])], bk, pal, seed, k); marcescent(P, pal, 1, seed, M.map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.25); return; }
       leafMasses(P, M, T, seed, un);
     });
   },
@@ -272,13 +331,14 @@ export const SP = {
       const bk = mat("#857868"), lf = leafMat(deep(pal.beech, dk)), un = mat(pal.beech, { contrast: 1.3 });
       for (const [x, y] of [[-9, 4], [9, 4]]) bark(P, [[0, -5], [x * k, y * k]], [3 * k, 1.2], bk, 41, { strokes: false });
       bark(P, [[0, 2], [1 * k, -40 * k]], [5.5 * k, 4.4 * k], bk, 40);
-      if (pal.bare) { bareCrown(P, [1 * k, -38 * k], -Math.PI / 2, 26 * k, 3.6 * k, 6, bk, 42, seed, pal, (x, y) => Math.hypot(x / (36 * k), (y + 96 * k) / (62 * k)) < 1); marcescent(P, pal, k, seed, [[0, -90, 30, 50]], 0.5); return; }
-      bark(P, [[1 * k, -38 * k], [-12 * k, -70 * k]], [2.8 * k, 1.6], bk, 30, { strokes: false });
-      bark(P, [[1 * k, -38 * k], [14 * k, -76 * k]], [2.8 * k, 1.6], bk, 30, { strokes: false });
+      bark(P, [[1 * k, -38 * k], [-12 * k, -70 * k]], [2.8 * k, 1.6], bk, pal.bare ? 41 : 30, { strokes: false });
+      bark(P, [[1 * k, -38 * k], [14 * k, -76 * k]], [2.8 * k, 1.6], bk, pal.bare ? 41 : 30, { strokes: false });
+      if (pal.bare) bark(P, [[1 * k, -38 * k], [0, -100 * k]], [2.6 * k, 1.4], bk, 41, { strokes: false });   // the leader, hidden by the leaves in summer
       const M = [
         { x: sw(s, 1), y: -120 * k, rx: 28 * k, ry: 26 * k, z: 56 }, { x: -16 * k, y: -90 * k, rx: 26 * k, ry: 25 * k, z: 60 },
         { x: 16 * k, y: -86 * k, rx: 26 * k, ry: 25 * k, z: 62 }, { x: 0, y: -58 * k, rx: 28 * k, ry: 18 * k, z: 70 },
       ].map((m) => ({ ...m, m: lf, bias: -Math.min(1, dk) }));
+      if (pal.bare) { twigMasses(P, M, [[1 * k, -38 * k], [-12 * k, -70 * k], [14 * k, -76 * k], [0, -100 * k], [0, -60 * k]], bk, pal, seed, k); marcescent(P, pal, 1, seed, M.map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.35); return; }
       leafMasses(P, M, T, seed, un);
     });
   },
@@ -346,7 +406,7 @@ export const SP = {
             const far = RS() < 0.35, lenR = RS(), outR = RS(), ph = RS();
             let len = (hem - y0) * (bare ? 0.3 + lenR * 0.35 : spring ? 0.45 + lenR * 0.45 : 0.55 + lenR * 0.5);
             const wet = o.wet && side === o.wet && Math.abs(x0 - fx) > F.hw * 0.9 * k && !bare && lenR > 0.45;
-            if (wet) len = -y0 + 5 * k;
+            if (wet) len = -y0 + (1 + outR * 9) * k;   // round 3: the trailing strands end at different depths (no straight hem at the water)
             const out = side * (0.3 + outR * 1.1), z = far ? 22 + i : 50 + i + m * 0.01;
             const lit = (x0 < fx + 4 * k) && !far;        // the sunward bunches are lit, the far ones darker
             let lastX = null, tipX = 0, tipY = 0;
@@ -415,9 +475,9 @@ export const SP = {
   },
   // C's birch grove, airier: three white stems, small crowns that let the sky through
   birches(pal, k = 1, s = 0, dk = 0, seed = 5, T = TREAT[3]) {
-    return sprite(Math.ceil(120 * k), Math.ceil(146 * k), 10, T, (P) => {
+    return sprite(Math.ceil(120 * k), Math.ceil(164 * k), 10, T, (P) => {
       const bk = mat(pal.birchBark), mk = mat(pal.mark), lf = leafMat(pal.birch), un = mat(pal.birch, { contrast: 1.3 });
-      const stems = [[-20, 3, -30, 118, -3], [4, 0, 9, 134, 3], [24, 5, 34, 108, 6]];
+      const stems = [[-20, 3, -30, 118, -3], [4, 0, 9, 134, 3], [24, 5, 34, 108, 6]], roots = [];
       stems.forEach(([x0, y0, x1, h, bend], n) => {
         const pts = [[x0 * k, y0 * k], [(x0 + bend) * k, (y0 - h * 0.5) * k], [x1 * k + sw(s, 0.9), (y0 - h) * k]];
         P.part(); P.limb(pts, [3 * k, 2.4 * k, 1.2], bk, 40 + y0);
@@ -425,11 +485,12 @@ export const SP = {
           const y = pts[0][1] + (pts[2][1] - pts[0][1]) * t, x = pts[0][0] + (pts[2][0] - pts[0][0]) * t + bend * k * Math.sin(t * Math.PI) * 0.5;
           P.line(x - 2, y, x + (h2(n, t * 99, 3) > 0.5 ? 1 : 0), y, mk, 41 + y0, { wrap: true });
         }
-        if (pal.bare) { const mx = pts[0][0] + (pts[2][0] - pts[0][0]) * 0.55, my = pts[0][1] + (pts[2][1] - pts[0][1]) * 0.55; bareCrown(P, [mx, my], -Math.PI / 2 + bend * 0.03, 14 * k, 1.6, 5, mat("#6a5448"), 44 + y0, seed + n, pal, null); }
+        if (pal.bare) for (const t of [0.5, 0.65, 0.8, 0.95]) roots.push([pts[0][0] + (pts[2][0] - pts[0][0]) * t + bend * k * Math.sin(t * Math.PI) * 0.5, pts[0][1] + (pts[2][1] - pts[0][1]) * t]);
       });
-      if (pal.bare) return;
       const M = [[-32, -112, 18, 14], [-26, -88, 18, 13], [10, -130, 20, 14], [12, -104, 21, 14], [36, -100, 17, 13], [34, -78, 15, 11]];
-      leafMasses(P, M.map(([mx, my, rx, ry], i) => ({ x: mx * k + sw(s * 1.3, -my / 140), y: my * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 4, bias: -Math.min(1, dk), split: 1, noUnder: true })), { ...T, sky: T.sky + 0.06 }, seed, un);
+      const MM = M.map(([mx, my, rx, ry], i) => ({ x: mx * k + sw(s * 1.3, -my / 140), y: my * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 4, bias: -Math.min(1, dk), split: 1, noUnder: true }));
+      if (pal.bare) { twigMasses(P, MM, roots, mat("#6a5448"), pal, seed, k * 0.8, 46); return; }
+      leafMasses(P, MM, { ...T, sky: T.sky + 0.06 }, seed, un);
     });
   },
   // C's hawthorn: low, wide, crooked; blossom in spring (white sprays on the lit leaves), haws in autumn
@@ -438,8 +499,11 @@ export const SP = {
       const bk = mat(pal.bark), lf = leafMat(pal.haw), un = mat(pal.haw, { contrast: 1.3 }), bl = mat(pal.blossom, { contrast: 0.6 });
       bark(P, [[0, 2], [-5 * k, -16 * k], [3 * k, -30 * k]], [4.2 * k, 3.2 * k, 2.4 * k], bk, 40);
       bark(P, [[-4 * k, -14 * k], [-20 * k, -30 * k]], [2.2 * k, 1.2], bk, 41, { strokes: false });
-      if (pal.bare) { bareCrown(P, [3 * k, -28 * k], -Math.PI / 2 - 0.2, 10 * k, 2.2 * k, 5, bk, 42, seed, pal, (x, y) => Math.hypot(x / (40 * k), (y + 48 * k) / (24 * k)) < 1); }
-      else leafMasses(P, [[-18, -44, 22, 16], [18, -46, 22, 16], [0, -58, 24, 15], [0, -36, 18, 10]].map(([x, y, rx, ry], i) => ({ x: x * k + sw(s, -y / 70), y: y * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 5, bias: -Math.min(1, dk) })), T, seed, un);
+      const HM = [[-18, -44, 22, 16], [18, -46, 22, 16], [0, -58, 24, 15], [0, -36, 18, 10]].map(([x, y, rx, ry], i) => ({ x: x * k + sw(s, -y / 70), y: y * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 5, bias: -Math.min(1, dk) }));
+      if (pal.bare) {
+        bark(P, [[3 * k, -30 * k], [16 * k, -40 * k]], [2 * k, 1.1], bk, 41, { strokes: false });   // the summer's hidden crook, shown
+        twigMasses(P, HM, [[3 * k, -30 * k], [-20 * k, -30 * k], [16 * k, -40 * k], [-10 * k, -22 * k]], bk, pal, seed, k * 0.85);
+      } else leafMasses(P, HM, T, seed, un);
       // blossom / haws: clustered sprays of 2-4 px on the sunny side, never a random spray of dots
       const r = rng(seed * 101), N = Math.round(26 * (pal.hawBloom || 0) * (pal.hawBloom >= 1 ? 2.6 : 1));
       for (let n = 0; n < N; n++) {
@@ -481,8 +545,11 @@ function marcescent(P, pal, k, seed, boxes, amt = 1) {
 export const REACH = { roundoak: [36, 30], oak: [46, 40], beech: [48, 24], pine: [32, 18], willow: [26, 28], birches: [52, 28], hawthorn: [24, 22], bush: [6, 13], fern: [3, 8] };
 
 // ---- the place a tree stands in: trodden earth, roots, litter, flowers; by season (canvas px = art px) ----
-export function standRing(ctx, px, py, rx, seed, season) {
+// ever: an evergreen's ring (owner: "no leaves around the evergreens"): a needle-brown floor, fallen needles and cones,
+// in every season (in winter the boughs keep the snow off it)
+export function standRing(ctx, px, py, rx, seed, season, ever = false) {
   const r = rng(seed), ry = rx * 0.48;
+  if (ever) return needleRing(ctx, px, py, rx, ry, r, seed, season);
   const pool = { summer: "rgba(70,74,30,0.26)", spring: "rgba(60,80,30,0.2)", autumn: "rgba(120,70,30,0.3)", winter: "rgba(90,100,120,0.22)" }[season];
   for (let j = -ry; j <= ry; j++) for (let i = -rx; i <= rx; i++) {
     const d = Math.hypot(i / rx, j / ry); if (d > 0.85) continue;
@@ -509,6 +576,50 @@ export function standRing(ctx, px, py, rx, seed, season) {
     const c = fl[(r() * fl.length) | 0];
     for (const [dx, dy] of [[0, 0], [2, 1], [-1, 1]].slice(0, 1 + (n % 3))) { ctx.fillStyle = "#3e6a2a"; ctx.fillRect(x + dx, y + dy + 1, 1, 1); ctx.fillStyle = c; ctx.fillRect(x + dx, y + dy, 1, 1); }
   }
+}
+
+function needleRing(ctx, px, py, rx, ry, r, seed, season) {
+  for (let j = -ry; j <= ry; j++) for (let i = -rx; i <= rx; i++) {
+    const d = Math.hypot(i / rx, j / ry); if (d > 0.9) continue;
+    const th = d < 0.45 ? 0.75 : d < 0.7 ? 0.42 : 0.14;
+    if (h2(Math.floor((i + 999) / 2), j + 999, seed) > th) continue;
+    ctx.fillStyle = season === "winter" ? "rgba(104,74,46,0.5)" : "rgba(112,74,40,0.34)"; ctx.fillRect(Math.round(px + i), Math.round(py + j), 1, 1);
+  }
+  const nd = ["#8e5e34", "#a8743e", "#6e4a2c", "#b88a50"];
+  for (let n = 0; n < rx * rx * 0.3; n++) {   // fallen needles: short dashes lying every which way
+    const a = r() * 6.283, d = Math.pow(r(), 0.7), x = Math.round(px + Math.cos(a) * d * rx * 0.95), y = Math.round(py + Math.sin(a) * d * ry * 0.95);
+    ctx.fillStyle = nd[(r() * nd.length) | 0];
+    if (r() < 0.5) ctx.fillRect(x, y, 2, 1); else { ctx.fillRect(x, y, 1, 1); ctx.fillRect(x + (r() < 0.5 ? 1 : -1), y + 1, 1, 1); }
+  }
+  for (let n = 0; n < 3 + rx * 0.12; n++) {   // cones: 2 x 2, a lit scale on the upper left, a dark base
+    const a = r() * 6.283, d = 0.25 + r() * 0.7, x = Math.round(px + Math.cos(a) * d * rx * 0.9), y = Math.round(py + Math.sin(a) * d * ry * 0.9);
+    ctx.fillStyle = "#4a3020"; ctx.fillRect(x, y + 1, 3, 1); ctx.fillStyle = "#7a5030"; ctx.fillRect(x, y, 2, 1); ctx.fillStyle = "#b07c48"; ctx.fillRect(x, y, 1, 1);
+  }
+  if (season === "winter") for (let n = 0; n < rx * 1.2; n++) { const a = r() * 6.283, d = 0.75 + r() * 0.35; ctx.fillStyle = "#eef2f6"; ctx.fillRect(Math.round(px + Math.cos(a) * d * rx), Math.round(py + Math.sin(a) * d * ry), 2, 1); }
+  for (let n = 0; n < 4; n++) { // a few surface roots
+    const a = Math.PI * (0.1 + 0.8 * n / 3) + (r() - 0.5) * 0.4, L = 4 + r() * 5;
+    for (let t = 3; t < L; t++) { ctx.fillStyle = "#5a3e2a"; ctx.fillRect(Math.round(px + Math.cos(a) * t * 1.3), Math.round(py - 1 + Math.sin(a) * t * 0.45), 1, 1); }
+  }
+}
+
+// ---- ROUND 3 dusk: the sun just set in the west (the left). A real dusk, not a night: the board multiplied by a
+// cool blue-violet that is lighter and rosier toward the west, in Bayer-dithered steps (the decorations lab's
+// nightShade, a step lighter, with the afterglow), warm lights kept; the lab then adds the halls' lamp pools and
+// blooms (src/render/nightlight.js) and the fireflies.
+export function duskShade(ctx, x0 = 0, w = ctx.canvas.width) {
+  const W = ctx.canvas.width, H = ctx.canvas.height, A = ctx.getImageData(0, 0, W, H), d = A.data;
+  const BY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const WEST = [0.74, 0.6, 0.7], EAST = [0.42, 0.46, 0.7], GLOW = [255, 150, 110];
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const k = (j * W + i) * 4, r = d[k], g = d[k + 1], b = d[k + 2];
+    if (r > 232 && g > 175 && b < 130 && r - b > 120) continue;            // flames and lit windows keep their light
+    const bx = (BY[((j >> 1) & 3) * 4 + ((i >> 1) & 3)] + 0.5) / 16 - 0.5;
+    const u = Math.round(Math.max(0, Math.min(1, (i - x0) / w * 0.85 + j / H * 0.35 + bx * 0.18)) * 5) / 5;
+    const f = WEST.map((v, c) => v + (EAST[c] - v) * u), glow = Math.max(0, 0.5 - u) * 0.14;
+    const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+    d[k] = r * f[0] + lum * 0.04 + GLOW[0] * glow; d[k + 1] = g * f[1] + lum * 0.04 + GLOW[1] * glow; d[k + 2] = b * f[2] + lum * 0.08 + 14 + GLOW[2] * glow * 0.6;
+  }
+  ctx.putImageData(A, 0, 0);
 }
 
 // ---- small life -------------------------------------------------------------------------------------------

@@ -27,7 +27,8 @@
       import { DECOR, FOREST, forestDepthAt, inRiver } from "/src/data/terrain.js";
       import { PATH_HALF } from "/src/data/constants.js";
       import { layShadows } from "/concept/overhaul-trees.js";
-      import { SP, TREAT, PAL, REACH, LIFE, LIFE_STRIP, rng, h2, standRing, fallingLeaves, fireflies } from "/concept/overhaul2-trees.js";
+      import { SP, TREAT, PAL, REACH, LIFE, LIFE_STRIP, rng, h2, standRing, fallingLeaves, fireflies, mixT, duskShade } from "/concept/overhaul2-trees.js";
+      import { nightTick, clearLamps, swapLamps, drawLampPools, drawLampBloom } from "/src/render/nightlight.js";
       const q = new URLSearchParams(location.search), DT = 1 / 60;
       const MODE = q.get("mode") || "board", SCENE = q.get("scene") || "1", OPTN = q.get("opt") || "today";
       const SEASON = q.get("season") || "summer", SUN = q.get("sun") || "noon";
@@ -148,6 +149,55 @@
         throw new Error("done");
       }
 
+      // ---------------- round 3 sheets ----------------
+      // mixsheet: the same six trees in treatment 3 and 4 side by side (3x, a board-size copy in each cell's corner)
+      // wsheet:   six trees, summer above and winter below, same seed / size / anchor (2x)
+      // seasons:  the four ovh2_trees_1_mix seasons at board size, 2 x 2
+      if (MODE === "mixsheet" || MODE === "wsheet") {
+        const six = MODE === "mixsheet" ? [["roundoak", 0.9, 21], ["oak", 0.85, 22], ["beech", 0.85, 23], ["pine", 1, 24], ["birches", 0.85, 25], ["hawthorn", 0.9, 26]]
+                                         : [["roundoak", 0.9, 21], ["oak", 0.85, 22], ["beech", 0.85, 23], ["birches", 0.85, 25], ["hawthorn", 0.9, 26], ["willow", 1, 27]];
+        const Z = MODE === "mixsheet" ? 3 : 2, CW = 170, CH = 165;
+        const cellsOf = (sp, k, sd, pl, TT, sea) => {
+          const cell = document.createElement("canvas"); cell.width = CW; cell.height = CH; const cc = cell.getContext("2d");
+          cc.fillStyle = sea === "winter" ? "#d8dee6" : "#6aa83e"; cc.fillRect(0, 0, CW, CH);
+          for (let n = 0; n < 500; n++) { cc.fillStyle = sea === "winter" ? ["#cdd4de", "#e4e8ee"][n % 2] : ["#62a03a", "#72b044", "#5e9a38"][n % 3]; cc.fillRect((h2(n, 1, 3) * CW) | 0, (h2(n, 2, 3) * CH) | 0, 2, 1); }
+          standRing(cc, CW / 2, CH - 12, (REACH[sp] || REACH.oak)[1] * 2 * k * (sp === "pine" ? 1.15 : 0.95) * 0.5, sd * 7, sea, sp === "pine");
+          const spr = SP[sp](pl, k, 0, 0, sd, TT, sp === "willow" ? { form: 1 } : {});
+          cc.drawImage(spr.cv, CW / 2 - spr.ax, CH - 10 - spr.ay);
+          return cell;
+        };
+        const pairs = [];
+        for (const [sp, k, sd] of six) {
+          if (MODE === "mixsheet") pairs.push([[cellsOf(sp, k, sd, PAL.summer, TREAT[3], "summer"), `${sp} / 3 leafy edge`], [cellsOf(sp, k, sd, PAL.summer, TREAT[4], "summer"), `${sp} / 4 broken canopy`]]);
+          else pairs.push([[cellsOf(sp, k, sd, PAL.summer, TREAT[3], "summer"), `${sp} / summer`], [cellsOf(sp, k, sd, PAL.winter, TREAT[3], "winter"), `${sp} / winter`]]);
+        }
+        const out = document.createElement("canvas"), oc = out.getContext("2d");
+        const strip = Math.max(4 * CW * (MODE === "mixsheet" ? Z : 0), 12 * CW) > 0 ? CH + 8 : 0;
+        if (MODE === "mixsheet") { out.width = 4 * CW * Z; out.height = 3 * CH * Z + 2 * strip; }
+        else { out.width = 6 * CW * Z; out.height = 2 * CH * Z + strip; }
+        oc.imageSmoothingEnabled = false;
+        pairs.forEach((pr, n) => pr.forEach(([cell, lab], m) => {
+          const X = MODE === "mixsheet" ? ((n % 2) * 2 + m) * CW * Z : n * CW * Z, Y = MODE === "mixsheet" ? Math.floor(n / 2) * CH * Z : m * CH * Z;
+          oc.drawImage(cell, X, Y, CW * Z, CH * Z);
+          { const all = pairs.flat(), idx = n * 2 + m, per = MODE === "mixsheet" ? 6 : 12, bx = (idx % per) * CW, by = (MODE === "mixsheet" ? 3 : 2) * CH * Z + Math.floor(idx / per) * strip; oc.drawImage(cell, bx, by); void all; }   // board size, in the strip(s) below
+          oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 4, Y + 4, 250, 22); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace"; oc.fillText(lab, X + 8, Y + 20);
+          oc.fillStyle = "#20242c"; oc.fillRect(X + CW * Z - 2, Y, 2, CH * Z); oc.fillRect(X, Y + CH * Z - 2, CW * Z, 2);
+        }));
+        document.body.appendChild(out);
+        await save(MODE === "mixsheet" ? "ovh2_trees_mix_sheet" : "ovh2_trees_winter_sheet", out);
+        throw new Error("done");
+      }
+      if (MODE === "seasons") {
+        const names = ["ovh2_trees_1_mix_spring", "ovh2_trees_1_mix", "ovh2_trees_1_mix_autumn", "ovh2_trees_1_mix_winter"], labs = ["spring", "summer", "autumn", "winter"];
+        const ims = await Promise.all(names.map((n) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = "/.shots/" + n + ".png?" + Date.now(); })));
+        const out = document.createElement("canvas"); out.width = 1688; out.height = 1128; const oc = out.getContext("2d");
+        oc.fillStyle = "#20242c"; oc.fillRect(0, 0, out.width, out.height); oc.imageSmoothingEnabled = true;
+        ims.forEach((im, i) => { const X = (i % 2) * 848, Y = Math.floor(i / 2) * 568; oc.drawImage(im, X, Y, 840, 560); oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 6, Y + 6, 90, 24); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace"; oc.fillText(labs[i], X + 12, Y + 23); });
+        document.body.appendChild(out);
+        await save("ovh2_trees_seasons_sheet", out);
+        throw new Error("done");
+      }
+
       // ---------------- the board ----------------
       const S = {
         1: { realm: "thornbrook", crop: [330, 0, 420, 280], at: 26,
@@ -195,7 +245,7 @@
       const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
       const pnow = performance.now.bind(performance), T0 = pnow(), dnow = Date.now, D0 = dnow();
       performance.now = () => T0; Date.now = () => D0;      // hold the wind still, so the ground-only draw matches
-      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      draw(g, cv, { current: null }); clearLamps(); if (SUN === "dusk") nightTick(g.time); draw(g, cv, { current: null });
       const ctx = cv.getContext("2d");
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       const [cx0, cy0, cw, ch] = sc.crop;
@@ -217,7 +267,18 @@
         for (const b0 of keep.b || []) for (const u of b0.units || []) box(u.x, u.y, 22, 44, 8);
         for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
           const k = (j * W + i) * 4;
-          if (act[j * W + i] && Math.abs(d[k] - B[k]) + Math.abs(d[k + 1] - B[k + 1]) + Math.abs(d[k + 2] - B[k + 2]) > 14) continue;   // inside a box, what differs from the empty draw is the figure
+          if (act[j * W + i] && Math.abs(d[k] - B[k]) + Math.abs(d[k + 1] - B[k + 1]) + Math.abs(d[k + 2] - B[k + 2]) > 14) {
+            // round 3: grass that only moved (sway, a tuft the hall's ground hid) has its colour in the empty draw a
+            // pixel or two away; a figure's pixel does not. Shadows are the empty draw's colour, darker by one ratio.
+            let ground = false;
+            const rr = d[k] / Math.max(1, B[k]), rg = d[k + 1] / Math.max(1, B[k + 1]), rb = d[k + 2] / Math.max(1, B[k + 2]);
+            if (Math.max(rr, rg, rb) - Math.min(rr, rg, rb) < 0.1 && rg < 0.97 && rg > 0.35) ground = true;
+            for (let dj = -2; dj <= 2 && !ground; dj++) for (let di = -2; di <= 2 && !ground; di++) {
+              const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= W || jj >= H) continue;
+              const q = (jj * W + ii) * 4; if (Math.abs(d[k] - B[q]) + Math.abs(d[k + 1] - B[q + 1]) + Math.abs(d[k + 2] - B[q + 2]) < 10) ground = true;
+            }
+            if (!ground) continue;
+          }   // inside a box, what differs from the empty draw is the figure
           let r = d[k], gg = d[k + 1], b = d[k + 2];
           const green = gg > r * 1.02 && gg > b * 1.1, brown = r > gg && gg > b && r - b > 30;
           if (SEASON === "spring" && green) { r = r * 1.05 + 5; gg = gg * 1.03 + 3; b = b * 0.9; }
@@ -299,12 +360,14 @@
         for (const it of items) {
           let o = {};
           if (it.sp === "willow") { const wet = inRiver(it.x - 26, it.y, 2) ? -1 : inRiver(it.x + 26, it.y, 2) ? 1 : 0; o = { wet, form: wet ? 0 : it.seed % 2 ? 1 : 2 }; }
-          it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, T, o);
+          it.T = OPTN === "mix" ? mixT(it.seed) : T;
+          it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, it.T, o);
         }
-        for (const it of items) if (it.lone && it.sp !== "bush") standRing(ctx, it.x * 2, it.y * 2 + 2, (REACH[it.sp] || REACH.oak)[1] * 2 * it.k * 0.95, it.seed * 7, SEASON);
+        for (const it of items) if (it.lone && it.sp !== "bush") standRing(ctx, it.x * 2, it.y * 2 + 2, (REACH[it.sp] || REACH.oak)[1] * 2 * it.k * (it.sp === "pine" ? 1.15 : 0.95), it.seed * 7, SEASON, it.sp === "pine");
         // wood floor in spring: bluebells drifting along the hem
         if (pal.bluebells && FOREST) { const r = rng(9); for (let n = 0; n < 900; n++) { const x = cx0 + r() * cw, y = cy0 + r() * ch, dp = forestDepthAt(x, y); if (dp < -24 || dp > 10 || nearestOnPath(x, y).d < PATH_HALF + 8) continue; ctx.fillStyle = r() < 0.7 ? "#6c7ae8" : "#9098f0"; ctx.fillRect(Math.round(x * 2), Math.round(y * 2), r() < 0.3 ? 2 : 1, 1); } }
-        if (SEASON === "autumn") { const r = rng(4); for (let n = 0; n < 500; n++) { const x = cx0 + r() * cw, y = cy0 + r() * ch; if (nearestOnPath(x, y).d < PATH_HALF - 4) { if (r() < 0.8) continue; } ctx.fillStyle = ["#c86a2a", "#d8a840", "#a8442a"][n % 3]; ctx.fillRect(Math.round(x * 2), Math.round(y * 2), 2, 1); } }
+        const underPine = (x, y) => items.some((it) => it.sp === "pine" && Math.hypot((x - it.x) / (30 * it.k), (y - it.y) / (14 * it.k)) < 1);
+        if (SEASON === "autumn") { const r = rng(4); for (let n = 0; n < 500; n++) { const x = cx0 + r() * cw, y = cy0 + r() * ch; if (nearestOnPath(x, y).d < PATH_HALF - 4) { if (r() < 0.8) continue; } if (underPine(x, y)) continue; ctx.fillStyle = ["#c86a2a", "#d8a840", "#a8442a"][n % 3]; ctx.fillRect(Math.round(x * 2), Math.round(y * 2), 2, 1); } }
       }
       // small life (never on the road)
       const lifeItems = [];
@@ -322,14 +385,12 @@
       if (SEASON === "autumn" && OPTN !== "today") fallingLeaves(ctx, cx0 * 2 + 150, cy0 * 2 + 80, 700, 260, 3, 1, ["#e0742a", "#f0c040", "#c8442a", "#f4d060"], 40);
       // ---- dusk: the board sinks into blue; warm lights (windows, torches) are kept; fireflies under the trees ----
       if (SUN === "dusk") {
-        const A = ctx.getImageData(0, 0, 1680, 1120), d = A.data;
-        for (let k = 0; k < d.length; k += 4) {
-          const r = d[k], gg = d[k + 1], b = d[k + 2], warm = r > 232 && gg > 175 && b < 130 && r - b > 120;
-          if (warm) continue;
-          const lum = 0.3 * r + 0.59 * gg + 0.11 * b;
-          d[k] = r * 0.34 + lum * 0.06 + 14; d[k + 1] = gg * 0.36 + lum * 0.06 + 16; d[k + 2] = b * 0.5 + lum * 0.12 + 44;
-        }
-        ctx.putImageData(A, 0, 0);
+        // a real dusk (round 3): a lighter blue-violet than night, rosier in the west; the halls' torches throw
+        // their pools and blooms (the game's own nightlight.js), fireflies along the wood's edge
+        duskShade(ctx, cx0 * 2, cw * 2);
+        ctx.setTransform(2, 0, 0, 2, 0, 0);
+        drawLampBloom(ctx, g.time); swapLamps(); drawLampPools(ctx, g.time);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         const pts = []; const r = rng(31);
         for (const [x, y] of sc.flies) for (let n = 0; n < 6; n++) pts.push([(x + (r() - 0.5) * 40) * 2, (y + (r() - 0.5) * 22 - 6) * 2]);
         fireflies(ctx, pts, 5);

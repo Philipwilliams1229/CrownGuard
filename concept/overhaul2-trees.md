@@ -121,3 +121,32 @@ board-size copy in each corner), `ovh2_trees_willow_sway2.png`, `ovh2_trees_1_3w
 Weak: the broad waterside one's curtain ends in a near-straight line at the water (a boxy silhouette); the bough ends
 show as small dark knobs above the strands; the tall form's strands are long, even columns (a bit "barcode" up close);
 the boughs' ends shift a pixel in the sway.
+
+## ROUND 3 (2026-11-22, the owner's comments on the round-2 page)
+- **The mix** (`opt=mix`): each tree deals treatment 3 (leafy edge) or 4 (broken canopy) by a hash of its seed (`mixT`,
+  about half each, never by species). Treatment 2 is dropped. Shots `ovh2_trees_1_mix.png` (Thornbrook, willow by the
+  river), `ovh2_trees_3_mix.png` (Millrace), `ovh2_trees_mix_sheet.png` (`mode=mixsheet`: six trees, 3 | 4 side by side
+  at 3x; board-size copies in the strips below).
+- **The wood's edge in treatment 4**: by day `ovh2_trees_2_4b.png`, at dusk `ovh2_trees_2_4_dusk.png`. The dusk is now a
+  real dusk (`duskShade`): the board multiplied by a cool blue-violet in Bayer-dithered steps, lighter and rosier toward
+  the west (the sun has just set on the left), a step lighter than the decorations lab's night; warm lights kept; the
+  halls' torches throw their pools and blooms through the game's own `nightlight.js` (the lab calls `nightTick` before
+  the draw so the halls note their lamps, then `drawLampBloom` / `drawLampPools`); fireflies along the edge; the owl.
+- **Evergreens** never get leaf litter: `standRing(..., ever)` lays a needle-brown floor, fallen needles and 2x2 cones
+  (a little snow only at the rim in winter); the autumn meadow scatter skips the ground under pines.
+- **Winter is the same tree** (`twigMasses`): the summer boughs are drawn in every season; each summer leaf mass becomes
+  a fan of twigs from a hub low in the mass, rising to the mass's own rim (plus a few hanging down from the hub), so the
+  bare crown fills the summer silhouette. Inner twigs dark without outline, pale tips, a little snow on the flatter
+  limbs, a few kept dead leaves. `ovh2_trees_winter_sheet.png` (`mode=wsheet`: six trees, summer above, winter below,
+  same seed / size / anchor, 2x, board size below). The beech gets its hidden leader, the hawthorn its hidden crook.
+- **Seasons** of the mix on Thornbrook: `ovh2_trees_1_mix_spring|_autumn|_winter.png`; `ovh2_trees_seasons_sheet.png`
+  (`mode=seasons`, 2 x 2 at board size).
+- The lab's season grade no longer leaves green boxes round halls and figures: a pixel that differs from the empty draw
+  still counts as ground when its colour is in the empty draw within 2 px, or it is the empty draw darkened by one ratio
+  (a shadow).
+- Fixes: the birch grove's canvas was too short (its top crown was cut flat); the waterside willow's trailing strands
+  now end at different depths (no straight hem at the water).
+Weak: each winter mass still reads a little as its own fan (a "pom-pom" crown) on the big oak; the twigs are one warm
+tan, with no sun-side / shade-side value; the winter willow is much barer than its summer self (the strand willow's
+agreed winter, but it is the one tree whose silhouette changes); the willow's bough ends still poke above the strands
+as dark knobs; a few green flecks remain at the edge of the boxes; the dusk's western glow is subtle at board size.
