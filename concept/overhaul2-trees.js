@@ -327,19 +327,57 @@ export const SP = {
         ends.push([ax * k, ay * k, ex * k + sw(s, 0.6), ey * k]);
       });
       const hem = F.hem * k;
-      if (pal.bare) {
-        // winter: hanging withies, golden-brown, in loose bunches off each arch; no leaves
+      if (!o.old) {
+        // THE STRAND WILLOW (owner: the winter row's shape, leafed): loose bunches of long thin withies off each
+        // arch. Leafed, each withy is a line of small narrow leaves set alternately either side; a bunch reads as a
+        // soft curtain you can see through. Winter: about half the withies, shorter, no leaf, a little snow.
+        // Sway moves each whole strand by whole pixels (the leaves keep their places on it: no shimmer).
+        const bare = !!pal.bare, spring = pal.willow === PAL.spring.willow, autumn = pal.willow === PAL.autumn.willow;
         const wd = [mat("#c49a48"), mat("#a87c3a"), mat("#8a6634")];
+        const lcol = deep(col, dk), leafM = [leafMat(lcol), leafMat(lcol, { contrast: 1.1 })], core = mat(autumn ? "#9a7a3a" : "#6a7a3a");
+        const kit = flat("#efe2a0"), drop = mat("#e0b848");
+        const RS = rng(seed * 7 + form);               // structure only (the sway never draws from it)
         ends.forEach(([ax, ay, ex, ey], i) => {
-          const n = Math.round(F.hw * 1.5 * k);
-          for (let m = 0; m < n; m++) {
-            if (m % 3 === 2) continue;
-            const t = (m + 0.5) / n, x0 = ax + (ex - ax) * t + (R() - 0.5) * F.hw * 2.4 * k, y0 = ay + (ey - ay) * t - 2 * k + Math.abs(x0 - ax) * 0.1;
-            const len = (hem - y0) * (0.55 + R() * 0.5), out = Math.sign(x0 - fx) * (0.4 + R() * 1.2);
-            const md = wd[m % 3];
-            for (let q = 0; q < len; q++) { const f = q / len; P.dot(x0 + out * f * 3 + sw(s, f) * 0.7, y0 + q, md, 50 + i + (m & 1) * 5, { n: [m & 1 ? 0.5 : -0.5, 0.1, 0.85] }); }
+          const n0 = Math.round(F.hw * (bare ? 0.85 : spring ? 2.2 : 3.1) * k);
+          const ex0 = ex - sw(s, 0.6);                   // the arch's own end, without the bough's sway
+          for (let m = 0; m < n0; m++) {
+            const t = (m + 0.5) / n0, side = Math.sign(ex0 - fx) || 1;
+            const x0 = ax + (ex0 - ax) * t + (RS() - 0.5) * F.hw * 2.2 * k, y0 = ay + (ey - ay) * t - 1 * k + Math.abs(x0 - ax) * 0.08;
+            const far = RS() < 0.35, lenR = RS(), outR = RS(), ph = RS();
+            let len = (hem - y0) * (bare ? 0.3 + lenR * 0.35 : spring ? 0.45 + lenR * 0.45 : 0.55 + lenR * 0.5);
+            const wet = o.wet && side === o.wet && Math.abs(x0 - fx) > F.hw * 0.9 * k && !bare && lenR > 0.45;
+            if (wet) len = -y0 + 5 * k;
+            const out = side * (0.3 + outR * 1.1), z = far ? 22 + i : 50 + i + m * 0.01;
+            const lit = (x0 < fx + 4 * k) && !far;        // the sunward bunches are lit, the far ones darker
+            let lastX = null, tipX = 0, tipY = 0;
+            for (let q = 0; q < len; q++) {
+              const f = q / len, X = Math.round(x0 + out * f * 3 + Math.round(sw(s, f) * 0.8)), Y = Math.round(y0 + q);
+              tipX = X; tipY = Y;
+              if (bare) { P.dot(X, Y, wd[m % 3], z, { n: [m & 1 ? 0.5 : -0.5, 0.1, 0.85], noLine: f > 0.15 }); if (f < 0.5 && (q & 1)) P.dot(X + (m & 1 ? 1 : -1), Y, wd[2], z - 0.5, { n: [0, 0.3, 0.9], noLine: true }); continue; }
+              P.dot(X, Y, far ? leafM[1] : core, z, { n: [-0.3, 0.2, 0.9], bias: far ? -2 : 0, noLine: true });
+              // a leaf every other pixel, alternate sides, slanting down: 2 px, sometimes 3
+              if ((((q + Math.floor(ph * 4)) & 1) === 0 || !far) && f > 0.03) {
+                if (autumn && h2(X, Y, seed) < 0.25) continue;      // autumn: some already fallen
+                if (spring && h2(X, Y, seed + 1) < 0.3) continue;   // spring: sparser, still opening
+                const sd = (((q + Math.floor(ph * 4)) >> (far ? 1 : 0)) & 1) ? 1 : -1, lm = leafM[(m + q) % 2];
+                const b0 = (far ? -2 : 0) + (lit && f < 0.55 ? 1 : 0) + (f > 0.85 ? -1 : 0) - Math.min(1, dk);
+                P.dot(X + sd, Y, lm, z + 0.5, { n: [sd * 0.5, 0.2, 0.85], bias: b0, noLine: true });
+                P.dot(X + sd, Y + 1, lm, z + 0.5, { n: [sd * 0.5, 0.4, 0.8], bias: b0 - (sd > 0 ? 1 : 0), noLine: true });
+                if (h2(X, Y, seed + 2) < 0.3) P.dot(X + 2 * sd, Y + 2, lm, z + 0.4, { n: [sd * 0.6, 0.5, 0.6], bias: b0 - 1, noLine: true });
+                if (spring && h2(X, Y, seed + 3) < 0.12) P.dot(X - sd, Y + 1, kit, z + 1, { unlit: true });   // catkins
+              }
+              lastX = X;
+            }
+            if (wet) for (const [dx, dy] of [[-3, 1], [-2, 1], [2, 1], [3, 1], [-1, 2], [1, 2], [0, 2]]) P.dot(tipX + dx, tipY + dy, flat("#e4f2f4"), 10, { unlit: true });
+            void lastX;
+          }
+          // a few short leafy sprigs standing on the arch itself (so the crown's top is not a bare line)
+          if (!bare) for (let m = 0; m < F.hw * 2.4 * k; m++) {
+            const t = RS(), X = Math.round(ax + (ex0 - ax) * t + sw(s, 0.6) * t), Y = Math.round(ay + (ey - ay) * t - 1 - RS() * 2);
+            P.dot(X, Y, leafM[0], 60 + i, { n: [-0.5, -0.6, 0.6], bias: 1, noLine: true }); P.dot(X + 1, Y + 1, leafM[1], 60 + i, { n: [0.2, -0.2, 0.9], noLine: true });
           }
         });
+        if (autumn) { const r = rng(seed * 3); for (let n = 0; n < 8; n++) P.dot((r() - 0.5) * F.w * k, -10 - r() * 40 * k, drop, 90, { n: [0, 0, 1], noLine: true }); }
         if (pal.snow) for (const [ax, ay] of ends) for (let x = -3; x <= 3; x++) P.dot(ax + x, ay - 2 - (Math.abs(x) > 2 ? -1 : 0), mat(pal.snow, { contrast: 0.5 }), 70, { n: [0, -0.8, 0.6] });
         return;
       }

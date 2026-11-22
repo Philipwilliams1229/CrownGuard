@@ -77,6 +77,30 @@
         await save("ovh2_trees_life", out);
         throw new Error("done");
       }
+      if (MODE === "willow2") {
+        // the strand willow: rows = forms, columns = the old (cascade) summer, then spring / summer / autumn / winter;
+        // each cell at 2.4x with the same cell at 1x (board size) in its top-left corner
+        const cols = ["old", "spring", "summer", "autumn", "winter"], Z = 2.4, cw = Math.round(140 * Z), rh = Math.round(136 * Z);
+        const out = document.createElement("canvas"); out.width = cols.length * cw; out.height = 3 * rh;
+        const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        for (let f = 0; f < 3; f++) cols.forEach((cn, c) => {
+          const sea = cn === "old" ? "summer" : cn;
+          const cell = document.createElement("canvas"); cell.width = 140; cell.height = 136; const cc = cell.getContext("2d");
+          cc.fillStyle = sea === "winter" ? "#d8dee6" : sea === "autumn" ? "#8aa040" : sea === "spring" ? "#74b444" : "#6aa83e"; cc.fillRect(0, 0, 140, 136);
+          const wet = f === 0 ? -1 : 0;
+          if (wet) { cc.fillStyle = "#3a6a9a"; cc.fillRect(0, 112, 50, 24); cc.fillStyle = "#4a7aa8"; cc.fillRect(0, 116, 46, 3); }
+          standRing(cc, 70, 120, 34, 9 + f, sea);
+          const sp = SP.willow(PAL[sea], 1, 0, 0, 4 + f, T, { form: f, wet, old: cn === "old" });
+          cc.drawImage(sp.cv, 70 - sp.ax, 122 - sp.ay);
+          oc.drawImage(cell, c * cw, f * rh, cw, rh);
+          oc.fillStyle = "#20242c"; oc.fillRect(c * cw, f * rh, 144, 140); oc.drawImage(cell, c * cw + 2, f * rh + 2);
+          oc.fillStyle = "#20242c"; oc.fillRect(c * cw + 150, f * rh + 4, 180, 22); oc.fillStyle = "#e8e0c8"; oc.font = "15px monospace";
+          oc.fillText(`${["broad", "tall", "young"][f]} / ${cn === "old" ? "previous summer" : cn}`, c * cw + 154, f * rh + 20);
+        });
+        document.body.appendChild(out);
+        await save("ovh2_trees_willow_sheet2", out);
+        throw new Error("done");
+      }
       if (MODE === "willow" || MODE === "wsway") {
         // the willow sheet: three forms (broad old waterside, tall narrow, young), summer / autumn / winter rows, at 6x and board size;
         // or the sway strip: the broad one over 4 frames (strands and curtains swing, the trunk holds)
@@ -100,7 +124,7 @@
           }
         });
         document.body.appendChild(out);
-        await save(sway ? "ovh2_trees_willow_sway" : "ovh2_trees_willow_sheet", out);
+        await save(sway ? "ovh2_trees_willow_sway" + (q.get("v") || "") : "ovh2_trees_willow_sheet", out);
         throw new Error("done");
       }
       if (MODE === "leaves") {

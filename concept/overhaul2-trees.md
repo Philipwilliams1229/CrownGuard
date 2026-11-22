@@ -105,3 +105,19 @@ Shots: `ovh2_trees_willow_sheet.png` (3 forms x summer / autumn / winter, 3x and
 Weak: the hems end in short blunt "fingers" here and there; the tall form is still dense (few gaps); in the sway the
 leaf texture shimmers a little because the cells are fixed to the pixel grid while the cascades move (bake per frame,
 as all sway does).
+
+## The willow, third pass: the STRAND willow (owner: "make it green for the normal time and then more bare for winter")
+The default `SP.willow` is now built on the winter shape: trunk and arching boughs as visible as in winter, loose
+bunches of long thin strands off each arch (3.1 x the cascade width per bough in summer / autumn, 2.2 in spring,
+0.85 in winter). Leafed, each strand is an outline-less column of small narrow leaves either side of a stem, near
+strands lit (yellow-green), the far third two tones darker behind them (that layer gives the bunch body against the
+meadow); short leafy sprigs along the top of each arch. Spring: sparser, with catkins; autumn: gold, a quarter of the
+leaves gone, a few in the air; winter: about half the withies of the second pass, shorter, golden-brown, no leaf, the
+tips without outline, a little snow on the boughs. Sway moves whole strands by whole pixels (no shimmer); the layout
+comes from its own random stream. The second pass's cascade willow stays behind `{ old: true }`.
+Shots: `ovh2_trees_willow_sheet2.png` (3 forms x previous summer / spring / summer / autumn / winter, 2.4x with a 1x
+board-size copy in each corner), `ovh2_trees_willow_sway2.png`, `ovh2_trees_1_3w2.png`, `ovh2_trees_3_3w2.png`,
+`ovh2_trees_3_3w2_winter.png`.
+Weak: the broad waterside one's curtain ends in a near-straight line at the water (a boxy silhouette); the bough ends
+show as small dark knobs above the strands; the tall form's strands are long, even columns (a bit "barcode" up close);
+the boughs' ends shift a pixel in the sway.
