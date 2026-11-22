@@ -141,3 +141,7 @@ GROUND
 - **Farmland** (a comment on a zoomed farm picture): "there are lots of little tiny rows of stuff next to the
   roads, they look kinda silly. There should be a minimum space required to add in a cultivated field." (No
   slivers: a cultivated field needs a minimum area and minimum width; ground too small is plain grass.)
+- **Terraces / bold steps: PARKED** (a comment on a zoomed picture; the lead reads it as the round 2 vs round 3
+  steps comparison): "round 3 is much worse. Lets do it with round 2, but actually take this out for now, put it
+  on the to do." (No terraces in the first build. When they come back, start from ROUND 2's long steps, not
+  round 3's short ones with ramp wedges; the road crossings are the unsolved part.)

@@ -1119,6 +1119,10 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
   Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
   blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
+- **Terraced ground ("bold steps")** (2026-11-22, parked by the owner: "take this out for now, put it on the to do"):
+  earth scarps stepping the land on hilly Greenwood levels. Start again from ROUND 2's look (long steps;
+  `concept/overhaul2-ground.js`, `?r2=1` in its lab), which the owner preferred ("round 3 is much worse"); how a step
+  meets the road is the unsolved part. Not in the first overhaul build.
 - **The campaign map takes the time of day** (2026-11-22, "wishlist stuff ... for sure"): once the board's
   new look is nailed down, "likeminded changes" to the campaign map, with dynamic lighting: finishing a level
   fought in the afternoon opens the map at the same time of day; "marching" to the next level moves the sun on
