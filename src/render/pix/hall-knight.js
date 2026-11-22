@@ -358,7 +358,11 @@ export const build = (o = {}) => (back) => {
     if (level >= 2) { torch(back, 10, -12, 1.5); live.push({ kind: "flame", x: 10, y: -12, w: 4, h: 7 }); lights.push({ key: "torch", x: 10, y: -15, r: 13, col: "#ffa040", a: 0.45 }); }
   }
   if (ber && !r4) [-24.5, -17.5, -10.5].forEach((sx, i) => kite(back, sx, wt + 8, 7, 13, 1.5, i + seed));   // three kites left of the door
-  if (r4 === "ba") kite(back, 16.5, wt + 8, 8, 13, 1.5, seed + 1);
+  if (r4 === "ba") {
+    kite(back, 16.5, wt + 8, 8, 13, 1.5, seed + 1);
+    torch(back, -11, -10, 1.6); live.push({ kind: "flame", x: -11, y: -10, w: 4, h: 7 });     // a door torch for the Lancers' hall
+    lights.push({ key: "torch", x: -11, y: -13, r: 15, col: "#ffa040", a: 0.55 });
+  }
   if (r4 === "bb") {
     wallBanner(back, -16.5, wt + 8, 9, 14, GREEN, BRASS, 1.5, { device: BOLT, deviceY: 3, tail: "point" });
     crossbowRack(back, 10, wt + 8, 17, 14, 1.5);

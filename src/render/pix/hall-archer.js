@@ -128,6 +128,7 @@ const tower = (back, front, G, st, F) => {
     drum(back, { top: loftBot, bot: 1, r, r2: r + 1.5, sq: SQ, m: S, z: 0, st: { ...st, moss: 1 }, seed: seed + 11 });
     drum(back, { top: deck, bot: loftBot, r: r + 2, sq: SQ, m: TIMBER, z: 0.1, st: STYLES.A, boards: 0.2, course: 99, seed, strings: [[loftBot - 3, 3, OAK]], under, underLen: 4 });
     door(back, 0, 9, 10, 16, SL, OAK, IRON, 2, { vous: rich });
+    torch(back, -13, -8);                                                                                                          // the door torch (lit by night, see `lights`)
     back.part(); back.ellipse(11, bandLow + 7, 5.6, 5.6, RED, 3, { round: 0.6 });                                                // a round shield on the boards
     for (let i = -3; i <= 3; i++) { back.dot(11 + i + 0.5, bandLow + 7.5, WHITE, 3.1, { cast: 0 }); back.dot(11.5, bandLow + 7 + i + 0.5, WHITE, 3.1, { cast: 0 }); }
     back.part(); back.rect(-12, bandLow + 2, 4, 9, DARK, 2.2, { cast: 0 }); back.rect(-13, bandLow + 11, 6, 1, OAK, 2.3, { n: [0, -0.7, 0.7] });   // a shutter slit
@@ -244,7 +245,7 @@ export const build = (o = {}) => (back, front) => {
   else if (r4 === "ba") live.push({ kind: "pennant", x: R - 6, y: DY - 52, col: flag, pole: 9, len: 13 });
   else if (r4 !== "ab") live.push({ kind: "pennant", x: R - 6, y: DY - 50, col: flag, pole: 9, len: 13 });
   const lights = [];
-  if (!post && !(level === 2 && !br)) { const tx = master ? -10 : -13; live.push({ kind: "flame", x: tx, y: -22 }); lights.push({ key: "torch", x: tx, y: -25, r: 19, col: "#ffa040", a: 0.75 }); }
+  if (!post) { const tx = master ? -10 : -13, ty = level === 2 && !br ? -8 : -22; live.push({ kind: "flame", x: tx, y: ty }); lights.push({ key: "torch", x: tx, y: ty - 3, r: level === 2 && !br ? 15 : 19, col: "#ffa040", a: level === 2 && !br ? 0.6 : 0.75 }); }
   return {
     live, lights,
     // the crew, for the pages that stand figures on a hall themselves (the game's hall file draws its own)

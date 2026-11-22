@@ -29,7 +29,7 @@
 // (`shot`), the counterweight (`weight`), the log (`log`) are small pictures the hall file
 // stamps live; ropes, sling, chock, lever, dust and fire stay the hall file's own.
 import { Pix, mat, flat } from "./pix.js";
-import { beam, wheel, boulder } from "./hall-kit.js";
+import { beam, wheel, boulder, WARM } from "./hall-kit.js";
 
 export const BOX = { w: 104, h: 116, ox: 52, oy: 84 };
 export const LABEL = "Catapult";
@@ -50,6 +50,16 @@ const FLAG_OF = { base: "#a04a3f", a: "#6a86b0", aa: "#8a8a94", ab: "#d0602a", b
 const D2R = Math.PI / 180;
 
 // halls/catapult.js `spec`, in art pixels (x2). Keep the two in step: the engine reads that one.
+// a lantern on a short post beside the front of the machine: a timber post, an arm, an iron cage with a lit pane
+// (the night lights it through the spec's `lights`; by day the pane is its own warm yellow)
+const LAMP = { dx: 7, dy: 10 };
+const lantern = (px, x, base) => {
+  const top = base - 19;
+  px.part(); beam(px, x, base, x, top, 2.2, TIMBER_D, 6, { grain: false }); beam(px, x, top, x - 4, top, 1.6, TIMBER_D, 6.1, { grain: false });
+  px.part(); px.rect(x - 7, top + 1, 6, 1, IRON, 6.2, { cast: 0 }); px.rect(x - 7, top + 2, 1, 5, IRON, 6.2, { cast: 0 }); px.rect(x - 2, top + 2, 1, 5, IRON, 6.2, { cast: 0 }); px.rect(x - 7, top + 7, 6, 1, IRON, 6.2, { cast: 0 });
+  px.rect(x - 6, top + 2, 4, 5, WARM, 6.3, { cast: 0 });
+};
+
 export const geo = (level, branch) => {
   const HW = 2 * (10.5 + level * 0.5 + (branch ? 0.5 : 0)), lvl = branch ? 3 : level;
   if (branch === "a") return { HW, lvl, treb: true, px: 6, fh: 68, L: 52, butt: 16, cocked: -102 };
@@ -357,6 +367,7 @@ export const build = (o = {}) => (back, front) => {
   const fly = o.west ? -1 : 1;
   if (G.roller) live.push({ kind: "pennant", x: HW - 2, y: -16, col: FLAG_OF[F.key], pole: 29, len: 12, h: 7, dir: fly, layer: "front" });
   else if (F.level >= 2 || F.br) live.push({ kind: "pennant", x: HW + 2, y: -10, col: FLAG_OF[F.key], pole: G.treb ? 55 : 35, len: 12, h: 7, dir: fly, layer: "front" });
+  if (F.level >= 2 && F.r4 !== "ab") { const lx = HW + LAMP.dx; lantern(back, lx, LAMP.dy); lights.push({ key: "lamp", x: lx - 4, y: LAMP.dy - 16, r: 17, col: "#ffcf70", a: 0.7 }); }
   if (F.r4 === "ab") { live.push({ kind: "flame", x: -(HW - 4), y: -12, w: 5, h: 7 }); lights.push({ key: "torch", x: -(HW - 4), y: -18, r: 22, col: "#ffa040", a: 0.8 }); }
   return {
     live, lights,

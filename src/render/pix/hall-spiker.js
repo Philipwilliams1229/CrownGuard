@@ -24,7 +24,7 @@
 // furnace's flame; its `lights` the grate ("torch", it flickers) and the fire ring ("ring",
 // the hall drives it with the wheel's swell).
 import { Pix, mat, flat } from "./pix.js";
-import { STYLES, drum, disc, bandEdge, beam, ivy, boulder, hash } from "./hall-kit.js";
+import { STYLES, drum, disc, bandEdge, beam, ivy, boulder, hash, WARM } from "./hall-kit.js";
 
 export const BOX = { w: 124, h: 152, ox: 60, oy: 124 };
 export const LABEL = "Bladewheel";
@@ -220,6 +220,14 @@ export const build = (o = {}) => (back) => {
     back.part(); back.ellipse(-8, -10, 4.4, 4.4, IRON_L, 5.3, { round: 0.95 }); back.dot(-8.5, -10.5, IRON, 5.4, { cast: 0 });
   }
 
+  // a lantern hung from an iron bracket on the drum's face, right of the gearbox (levels 2 up; the furnace has its grate)
+  if (!post1 && !fire) {
+    const ly = T + 3;
+    back.part(); back.rect(10, ly - 2, 1, 4, IRON, 5, { cast: 0 }); back.rect(8, ly + 1, 5, 1, IRON, 5.1, { cast: 0 });
+    back.rect(8, ly + 2, 1, 5, IRON, 5.1, { cast: 0 }); back.rect(12, ly + 2, 1, 5, IRON, 5.1, { cast: 0 }); back.rect(8, ly + 7, 5, 1, IRON, 5.1, { cast: 0 });
+    back.rect(9, ly + 2, 3, 5, WARM, 5.2, { cast: 0 });
+  }
+
   // dressings on the ground before the drum, each inside the narrow footprint
   if (tall && !fire) {
     // a whetstone on its frame, for the blades
@@ -250,6 +258,7 @@ export const build = (o = {}) => (back) => {
   const live = [], lights = [], R = 2 * s.rr;
   if (gale) live.push({ kind: "machine", x: 22, y: -84, get img() { return sailsPix(r4, 0); } });
   else if (!post1) { const flagTop = WY - R * SQ - (fire ? 17 : 14); live.push({ kind: "pennant", x: 19, y: T - 3, col: FLAG_OF[key], pole: Math.round(T - 3 - flagTop - 7), len: 12 }); }
+  if (!post1 && !fire) lights.push({ key: "lamp", x: 10.5, y: T + 5, r: 16, col: "#ffcf70", a: 0.7 });
   if (fire) {
     live.push({ kind: "flame", x: 8, y: 1, w: 5, h: 7 });
     lights.push({ key: "torch", x: 8, y: -4, r: 22, col: "#ffa040", a: 0.85 });
