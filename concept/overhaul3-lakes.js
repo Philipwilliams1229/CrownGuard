@@ -56,7 +56,7 @@ const LOOKS = {
         { pts: [[454, 136], [456, 150], [450, 164], [446, 180]], w: 20, spec: { def: "cut", flow: 0.7, zones: [{ bank: "W", from: 0, to: 999, kind: "lip" }] } },
         { pts: [[326, 232], [318, 254], [312, 276], [318, 300], [330, 322], [332, 346], [322, 370], [316, 392]], w: 24, spec: { def: "lip", flow: 0.6, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } },
       ],
-      culvert: [454, 142],
+      culverts: [{ arch: [454, 142], w: 20 }],
       rocks: [[466, 252, 1.15], [476, 246, 0.7], [457, 258, 0.75], [404, 232, 0.6]], boulders: [[465, 221, 3.2], [472, 217, 2.2], [457, 224, 1.8], [352, 202, 2]],
       birds: [["heron", 486, 232]], rings: [[430, 198, 0.15, 9, 1], [508, 212, 0.6, 7, 0], [352, 222, 0.85, 6, 0]] },
     oak: { shape: (x, y) => { const d = union(x, y, [[90, 392, 46, 30], [154, 410, 40, 28], [120, 400, 26, 16]], 9); return Math.max(d, -ell(x, y, 124, 438, 12, 22)); }, wob: 3,
@@ -108,16 +108,32 @@ const BOARD = {
 // the reed fen on the low, wet board. A fourth board (Thistlecrag) gets a small round mere in the best hollow clear of the road.
 const rnd = (seed) => { let a = seed >>> 0 || 1; return () => ((a = (Math.imul(a, 1664525) + 1013904223) >>> 0) / 4294967296); };
 // walk from (x, y) in direction dy until the road (a culvert) or the board's edge; meander from the seed
-function rill(x, y, dy, R) {
-  const pts = [[x, y]]; let cx = x, cy = y, hitRoad = null;
-  for (let i = 0; i < 60; i++) {
-    cy += dy * 6; cx += (R() - 0.5) * 7;
-    if (cy < -10 || cy > 570) break;
-    if (W.nearestOnPath(cx, cy).d < W.PATH_HALF + 2) { hitRoad = [cx, cy - dy * 4]; break; }
-    if (i % 3 === 2) pts.push([cx, cy]);
+function rill1(x, y, ux, dy, R) {
+  const l = Math.hypot(ux, dy), sx = ux / l, sy = dy / l;
+  const a = [[x, y]], b = []; let cx = x, cy = y, cross = null, cur = a, after = 0, span = 0;
+  const onRoad = (px, py) => W.nearestOnPath(px, py).d < W.PATH_HALF + 3;
+  for (let i = 0; i < 90; i++) {
+    const px = cx, py = cy, m = (R() - 0.5) * (cross ? 3 : 5); cx += sx * 6 - sy * m; cy += sy * 6 + sx * m;
+    if (cy < -24 || cy > 584 || cx < -24 || cx > 864) { cur.push([cx, cy]); break; }
+    if (!cross && onRoad(cx, cy)) {
+      a.push([px, py]); cross = { near: [px, py] };
+      while (onRoad(cx, cy) && span < 200) { cx += sx * 2; cy += sy * 2; span += 2; }
+      cx += sx * 2; cy += sy * 2; cross.far = [cx, cy]; cur = b; b.push([cx, cy]); continue;
+    }
+    if (cross && onRoad(cx, cy)) break;
+    if (cross) { cur.push([cx, cy]); if (++after > 10) break; continue; }
+    if (i % 3 === 2) cur.push([cx, cy]);
   }
-  pts.push(hitRoad ? hitRoad : [cx, cy]);
-  return { pts, culvert: hitRoad };
+  if (!cross) a.push([cx, cy]);
+  return { a, b, span: cross ? span : 999, arch: cross ? (dy < 0 ? cross.near : cross.far) : null, cope: cross ? (dy < 0 ? cross.far : cross.near) : null };
+}
+// walk from the lake up (dy -1) or down (+1); when it meets a road it CROSSES it (a culvert) and carries on beyond, so every
+// stream that goes under a road is seen coming out the other side. Of five headings it keeps the one with the shortest
+// crossing (never one that runs along the road). An arch mouth only ever on the road's SOUTH verge; the north verge: coping.
+function rill(x, y, dy, R) {
+  let best = null;
+  for (const ux of [0, -0.35, 0.35, -0.7, 0.7]) { const r = rill1(x, y, ux, dy, rnd(Math.round(x * 13 + ux * 100))); if (!best || r.span < best.span - 6 || (r.span < 999 && r.b.length > best.b.length + 3 && r.span <= best.span + 6)) best = r; }
+  return best;
 }
 export function genLook(kind, cx, cy, rx, ry, seed) {
   const R = rnd(seed), sg = R() < 0.5 ? -1 : 1, j = (a) => (R() - 0.5) * a;
@@ -133,9 +149,10 @@ export function genLook(kind, cx, cy, rx, ry, seed) {
     const inn = rill(L2[0] + j(10), L2[1] - L2[3] * 0.7, -1, R), out = rill(L1[0], L1[1] + L1[3] * 0.7, 1, R);
     return { shape: (x, y) => Math.max(union(x, y, [L1, L2, L3, [(L1[0] + L2[0]) / 2, (L1[1] + L2[1]) / 2, rx * 0.3, ry * 0.4], [(L2[0] + L3[0]) / 2, (L2[1] + L3[1]) / 2, rx * 0.26, ry * 0.4]], 9), -ell(x, y, ...hd)), wob: 3,
       kind: (x, y, nx, ny) => near(x, y, hd[0], hd[1] - hd[3] * 0.4, rx * 0.3) ? "rock" : ny < -0.05 ? "cut" : "lip",
-      streams: [{ pts: inn.pts, w: 18, spec: { def: "cut", flow: 0.7, zones: [{ bank: "W", from: 0, to: 999, kind: "lip" }] } },
-                { pts: out.pts, w: 22, spec: { def: "lip", flow: 0.6, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } }],
-      culverts: [inn.culvert, out.culvert].filter(Boolean), rocks: [[hd[0], hd[1] + 2, 1.1], [hd[0] + 8, hd[1] - 4, 0.7]], boulders: [[hd[0], hd[1] - hd[3] * 0.9, 3]], birds: [], rings: [[L2[0], L2[1], 0.15, 8, 1]] };
+      // the river painter runs each stretch upstream -> downstream: the inflow's stretches reversed
+      streams: [[inn.b.slice().reverse(), 18], [inn.a.slice().reverse(), 18], [out.a, 22], [out.b, 22]].filter(([p]) => p.length > 1)
+        .map(([pts, w]) => ({ pts, w, spec: { def: "lip", flow: 0.65, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } })),
+      culverts: [inn.arch && { arch: inn.arch, w: 18 }, inn.cope && { cope: inn.cope, w: 18 }, out.cope && { cope: out.cope, w: 22 }, out.arch && { arch: out.arch, w: 22 }].filter(Boolean), rocks: [[hd[0], hd[1] + 2, 1.1], [hd[0] + 8, hd[1] - 4, 0.7]], boulders: [[hd[0], hd[1] - hd[3] * 0.9, 3]], birds: [], rings: [[L2[0], L2[1], 0.15, 8, 1]] };
   }
   // the reed fen
   const E = [[cx - rx * 0.45, cy, rx * 0.55, ry * 0.85], [cx + rx * 0.2, cy - ry * 0.25, rx * 0.5, ry * 0.75], [cx + rx * 0.6, cy + ry * 0.2, rx * 0.4, ry * 0.7], [cx, cy + ry * 0.5, rx * 0.45, ry * 0.4]];
@@ -218,7 +235,8 @@ function buildLake(sc, X0, Y0, w, h) {
   }
   const D = new Float32Array(N), OWN = new Int8Array(N);              // OWN 0 = the lake, 1 = a stream
   for (let k = 0; k < N; k++) {
-    const dl = Dl[k], dr = Fr ? Fr.D[k] : 99;
+    const dl = Dl[k]; let dr = Fr ? Fr.D[k] : 99;
+    if (dr < 4) { const X = X0 + (k % w), Y = Y0 + Math.floor(k / w); if (W.nearestOnPath(X / 2, Y / 2).d < W.PATH_HALF + 5) dr = 4; }   // a stream goes UNDER the road
     D[k] = Fr ? smin(dl, dr, 7) : dl; OWN[k] = dr < dl ? 1 : 0;
   }
   // normals from a softened copy of the field (toward land)
@@ -341,7 +359,7 @@ const mats = () => {
   if (M.wood) return M;
   Object.assign(M, { wood: mat("#8a6238", { contrast: 1.15 }), woodD: mat("#6a4624", { contrast: 1.1 }), inside: mat("#50361f", { contrast: 1.1 }), rail: mat("#b8925e", { contrast: 1.1 }),
     strake: mat("#e8e0c8"), plank: mat("#b89060", { contrast: 1.15 }), pile: mat("#5a4030", { contrast: 1.2 }), stone: mat("#a49c8a", { contrast: 1.2 }), stoneD: mat("#7a7466", { contrast: 1.2 }),
-    iron: mat("#3a3a44", { contrast: 1.2 }), rope: mat("#c8aa70"), coat: mat("#6a5a3a", { contrast: 1.1 }), hat: mat("#4a3a2a"), skin: mat("#e8b990"), pole: mat("#c4a276"), net: flat("#8a7a5a") });
+    iron: mat("#3a3a44", { contrast: 1.2 }), field: mat("#9a8e76", { contrast: 1.2 }), field2: mat("#8a8a7a", { contrast: 1.2 }), mossy: mat("#7a8a56", { contrast: 1.15 }), cope: mat("#b4a888", { contrast: 1.15 }), moss: mat("#6a9a3a"), fern: mat("#4f8a3a"), rope: mat("#c8aa70"), coat: mat("#6a5a3a", { contrast: 1.1 }), hat: mat("#4a3a2a"), skin: mat("#e8b990"), pole: mat("#c4a276"), net: flat("#8a7a5a") });
   return M;
 };
 // a clinker skiff seen from above and in front: hull, cream strake, pale rail, two thwarts, the far side's planking in shade
@@ -387,16 +405,62 @@ function sluiceImg() {
   P.part(); P.rect(-1, -26, 2, 8, m.iron, 5); P.ellipse(0, -26, 3, 1.4, m.iron, 6);                               // the rack's wheel
   return P.resolve({ line: "tint" });
 }
-// a culvert mouth under the road: a stone arch the stream comes out of
-function culvertImg() {
-  const m = mats(), P = new Pix(40, 24, 20, 14);
-  P.poly([[-18, -12], [18, -12], [18, 6], [-18, 6]], m.stone, 1, { n: [0, 0.5, 0.86] });
-  P.part(); P.ellipse(0, 4, 10, 10, flat("#1a242a"), 2, { n: [0, 0, 1] });
-  P.part(); for (let a = 0; a <= 8; a++) { const th = Math.PI + (a / 8) * Math.PI, x = Math.cos(th) * 11.5, y = 4 + Math.sin(th) * 11.5; P.rect(x - 1.5, y - 1.5, 3, 3, m.stoneD, 3); }
+// A CULVERT's south-facing headwall (the only face that shows an arch): rough Greenwood fieldstone in courses, a ring of
+// voussoirs with a keystone, a kerb of the road's own edge over it, moss and ferns. Its origin is the waterline under the
+// arch's middle; the opening is left empty (the mouth is painted into the water layer under it: see drawArchMouth).
+const ARCH_SPRING = 3;
+function archImg(ow, H) {
+  const m = mats(), r = ow / 2, Wd = ow + 28, P = new Pix(Wd + 4, H + 10, Math.floor(Wd / 2) + 2, H + 6), R = rnd(ow * 31 + H);
+  const inOpen = (x, y) => (y > -ARCH_SPRING && Math.abs(x) < r) || Math.hypot(x, y + ARCH_SPRING) < r;
+  const tones = [m.stone, m.stoneD, m.field, m.field2, m.mossy];
+  for (let y = -H + 1, row = 0; y < 2; y += 4, row++) for (let x = -Wd / 2 + (row & 1 ? 3 : 0); x < Wd / 2; ) {
+    const sw = 5 + Math.floor(R() * 4), cx = x + sw / 2, cy = y + 1.6;
+    if (!inOpen(cx, cy) && Math.hypot(cx, cy + ARCH_SPRING) > r + 3.5) { P.part(); P.rect(x, y, sw - 0.4, 3.6, tones[Math.floor(R() * (y > -5 ? 5 : 4))], 1, { n: [0, 0.35, 0.94], round: 0.4 }); }
+    x += sw;
+  }
+  for (let a = 0; a < 9; a++) {   // the ring
+    const t0 = Math.PI + (a / 9) * Math.PI, t1 = Math.PI + ((a + 1) / 9) * Math.PI, key = a === 4, ro = r + (key ? 5 : 3.8);
+    const pts = [[Math.cos(t0) * r, Math.sin(t0) * r - ARCH_SPRING], [Math.cos(t0) * ro, Math.sin(t0) * ro - ARCH_SPRING], [Math.cos(t1) * ro, Math.sin(t1) * ro - ARCH_SPRING], [Math.cos(t1) * r, Math.sin(t1) * r - ARCH_SPRING]];
+    P.part(); P.poly(pts, key ? m.cope : m.stone, 2, { n: [Math.cos((t0 + t1) / 2) * 0.3, 0.3, 0.9] });
+  }
+  for (let x = -Wd / 2 - 1; x < Wd / 2 + 1; ) { const sw = 6 + Math.floor(R() * 5); P.part(); P.rect(x, -H - 3, sw - 0.5, 4, m.cope, 3, { n: [0, -0.7, 0.7], round: 0.3 }); x += sw; }   // the kerb
+  for (let q = 0; q < 6; q++) { P.part(); P.ellipse(-Wd / 2 + R() * Wd, -H - 2.5 + R() * 2, 1.5 + R() * 2, 1, m.moss, 4); }
+  for (const sx of [-1, 1]) for (let q = 0; q < 5; q++) { const fx = sx * (r + 6 + R() * 6), a = -Math.PI / 2 + sx * (0.3 + q * 0.25); P.part(); P.line(fx, 1, fx + Math.cos(a) * 6, 1 + Math.sin(a) * 5, m.fern, 5); }
   return P.resolve({ line: "tint" });
 }
+// the mouth: dark stone soffit, black-blue depth, the stream sliding OUT of the dark toward us over a lit lip, and the
+// arch broken in the water in front. (X, Y) = the waterline under the arch, art px.
+function drawArchMouth(Pp, X, Y, ow, t) {
+  const r = ow / 2;
+  for (let j = -(r + ARCH_SPRING) - 1; j <= 0; j++) for (let i = -Math.ceil(r); i <= Math.ceil(r); i++) {
+    const inside = (j > -ARCH_SPRING && Math.abs(i) < r) || Math.hypot(i, j + ARCH_SPRING) < r; if (!inside) continue;
+    const rim = r - Math.hypot(i, Math.min(0, j + ARCH_SPRING));
+    let c = rim < 2 ? hex("#2a3238") : rim < 4 ? hex("#161e24") : hex("#0a1014");
+    if (j > -3) {   // the water inside the tunnel, darkening into it, its dashes sliding out
+      c = lerp(hex("#0c161c"), mul(WA[1], 0.75), (j + 3) / 3);
+      if (Math.sin(TAU * (2 * t) - (j * 1.7) + hs(i, 3, 5) * 6) > 0.75 && Math.abs(i) < r - 2) c = lerp(c, WA[3], 0.5);
+    }
+    Pp.set(X + i, Y + j, c);
+  }
+  for (let i = -Math.floor(r) + 1; i < r; i++) if (Math.sin(TAU * t * 2 + i * 0.9) > -0.2) Pp.set(X + i, Y + 1, FOAM2, 0.55);     // the lit lip
+  for (let k = 2; k < 9; k++) {   // the arch's reflection, wobbling
+    const wob = Math.round(Math.sin(TAU * t + k * 0.8)), w2 = r + 3 - k * 0.3;
+    for (let i = -Math.floor(w2); i <= w2; i++) Pp.set(X + i + wob, Y + k, Math.abs(i) < r - k * 0.5 ? hex("#0a1216") : hex("#8a8472"), (Math.abs(i) < r - k * 0.5 ? 0.4 : 0.22) * (1 - k / 9));
+  }
+}
+// the NORTH verge: the headwall faces away; we see only its coping, and the water darkening as it slides under
+function drawCoping(Pp, X, Y, ow, t) {
+  const R = rnd(ow * 7 + X), half = ow / 2 + 7;
+  for (let j = -9; j <= 0; j++) for (let i = -ow / 2; i <= ow / 2; i++) Pp.set(X + i, Y + j, hex("#0a1216"), 0.55 * ((j + 9) / 9) ** 1.6);
+  for (let i = -ow / 2 + 1; i < ow / 2; i++) if (Math.sin(TAU * t * 2 + i * 0.8) > 0.6) Pp.set(X + i, Y - 4 + ((i + Math.floor(t * 30)) % 3 === 0 ? 1 : 0), WA[3], 0.4);
+  for (let x = -half; x < half; ) {
+    const sw = 5 + Math.floor(R() * 4), tone = R();
+    for (let i = 0; i < sw - 1; i++) for (let j = 0; j < 4; j++) Pp.set(X + x + i, Y + 1 + j, j === 0 ? hex("#c4b898") : j === 3 ? hex("#5e5648") : tone > 0.7 ? hex("#8a9060") : hex("#a09478"));
+    Pp.set(X + x + sw - 1, Y + 2, hex("#4a443a")); x += sw;
+  }
+}
 let IMG = null;
-const imgs = () => (IMG ||= { skiff: skiffImg(), punt: puntImg(), sluice: sluiceImg(), culvert: culvertImg(), jetty: {} });
+const imgs = () => (IMG ||= { skiff: skiffImg(), punt: puntImg(), sluice: sluiceImg(), arch: {}, jetty: {} });
 
 // ---------------- the scene ----------------
 export async function runScene(name, q) {
@@ -499,7 +563,13 @@ export async function runScene(name, q) {
       blit(Pp, im, x * 2 - 12, y * 2 - len * 2 - 6);
     } });
     if (L.sluice) items.push({ y: L.sluice[1] * 2 + 4, fn: () => blit(Pp, I.sluice, L.sluice[0] * 2 - 18, L.sluice[1] * 2 - 20 + 2) });
-    for (const cu of L.culverts || (L.culvert ? [L.culvert] : [])) items.push({ y: cu[1] * 2, fn: () => blit(Pp, I.culvert, cu[0] * 2 - 20, cu[1] * 2 - 14) });
+    for (const cu of L.culverts || []) {
+      const ow = Math.round(cu.w * 1.5), H = 14;
+      if (cu.arch) {   // the kerb sits on the road's edge; the face below it; the waterline at its foot
+        const X = Math.round(cu.arch[0] * 2), Yw = Math.round(cu.arch[1] * 2) + H - 10, im = I.arch[ow] ||= archImg(ow, H);
+        items.push({ y: Yw - 1, fn: () => { drawArchMouth(Pp, X, Yw, ow, ft); blit(Pp, im, X - (im.w >> 1), Yw - (H + 6)); } });
+      } else items.push({ y: cu.cope[1] * 2, fn: () => drawCoping(Pp, Math.round(cu.cope[0] * 2), Math.round(cu.cope[1] * 2) - 9, ow, ft) });
+    }
     for (const wl of willows) items.push({ y: wl.y * 2, fn: () => {
       for (let j = -6; j <= 6; j++) for (let i = -34; i <= 34; i++) { const r = Math.hypot(i / 34, j / 6); if (r < 1 && (i + j) % 2 === 0 || r < 0.7) Pp.set(wl.x * 2 + i + 10, wl.y * 2 + j + 2, hex("#203a1c"), 0.35 * (1 - r)); }
       const c = wl.sp.cv; blit(Pp, { w: c.width, h: c.height, data: c.getContext("2d").getImageData(0, 0, c.width, c.height).data }, wl.x * 2 - wl.sp.ax, wl.y * 2 - wl.sp.ay);

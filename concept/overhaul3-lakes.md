@@ -86,3 +86,19 @@ Loop checks (step mean / wrap step / shimmer px): 1: 605 / 620 / 0; 2: 296 / 399
 - Weak spots: Bramblewick's tarn is small for three lobes and its south outflow is a short stub to the road (the culvert
   sprite faces the viewer, so at the downstream end it reads back to front); the v_ panels skip any board scatter left
   inside the water by masking it (a stray ground layer drew grass in the Foxmere variety panel; cause not found).
+
+## Pass 3: culverts (owner: "these like pipe entrances need work. we should be able to see in the one on the bottom")
+
+- Rule: an arch mouth is drawn ONLY on a road's SOUTH verge (a south-facing headwall, the face our camera sees); on a
+  north verge only the coping shows (`drawCoping`: a kerb of rough flat stones, the water darkening as it slides under).
+  Every stream that goes under a road is seen coming out the other side: `rill` crosses the road and carries on beyond
+  it, trying five headings and keeping the shortest crossing. The streams are cut back from the road (PATH_HALF + 5).
+- The headwall (`archImg`): coursed rough fieldstone (grey, buff, mossy), nine voussoirs and a keystone, a kerb of
+  road-edge stones on top, moss, ferns at the wing walls; sized to the stream (opening = 1.5 x its width).
+  `drawArchMouth` paints the mouth into the water: a lit soffit, black-blue depth, the stream sliding out of the dark
+  (moving light dashes), a lit lip at the entrance and the arch's reflection wobbling in front. Animated in the loops.
+- Bramblewick: the inflow comes from the north board edge, under the north road (coping on its north verge, the arch
+  on its south verge), into the tarn; the outflow leaves the tarn, slides under the coping on the inner bend's verge
+  and comes out of an arch on the far side, running on south-east. `ovh3_lakes_culverts.png` = before / after at 3x.
+- Weak spots: Bramblewick's outflow crosses the road on a BEND, so its outfall arch sits on a verge that faces
+  south-east, with a grass gap beside its west wing; the north verge's coping is small at board size.

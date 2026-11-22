@@ -31,6 +31,15 @@
           c.drawImage(a, 0, 60, 836, 1060, 0, 40, 836, 1060); c.drawImage(b, 0, 60, 836, 1060, 844, 40, 836, 1060);
           c.font = "bold 22px monospace"; c.fillStyle = "#f4ead0"; c.fillText("BEFORE: the bank stops in a wedge, the west end in facets", 10, 28); c.fillText("AFTER: one turf line, the face tapers away over ~36 units", 854, 28);
           await shot("ovh3_lakes_1_fix", cv); document.title = "DONE";
+        } else if (q.get("culverts")) {
+          // the two Bramblewick culverts, before / after, at 3x board size (the panels are 2x: crops drawn at 1.5x)
+          const a = await load("/.shots/ovh3_lakes_v_bramblewick_before.png"), b = await load("/.shots/ovh3_lakes_v_bramblewick.png");
+          const R = { bn: [700, 330, 280, 186], bs: [560, 560, 280, 186], an: [700, 330, 280, 186], as: [700, 800, 280, 186] };
+          const cv = document.createElement("canvas"); cv.width = 840 + 8; cv.height = 2 * 280 + 8 + 40; const c = cv.getContext("2d");
+          c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height); c.imageSmoothingEnabled = false;
+          [[a, R.bn, 0, 0], [b, R.an, 1, 0], [a, R.bs, 0, 1], [b, R.as, 1, 1]].forEach(([im, [x, y, w, h], i, j]) => c.drawImage(im, x, y, w, h, i * 428, 40 + j * 288, 420, 280));
+          c.font = "bold 16px monospace"; c.fillStyle = "#f4ead0"; c.fillText("BEFORE (left) / AFTER (right): top the inflow's culvert, bottom the outflow's (3x)", 8, 26);
+          await shot("ovh3_lakes_culverts", cv); document.title = "DONE";
         } else if (q.get("variety")) {
           const ids = q.get("variety").split(","), cv = document.createElement("canvas"); cv.width = 840 * 2 + 8; cv.height = 560 * 2 + 8; const c = cv.getContext("2d");
           c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height); c.imageSmoothingEnabled = true;
