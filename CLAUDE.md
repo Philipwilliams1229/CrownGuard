@@ -259,6 +259,16 @@ redrawn at the old rigs' size (72 / 94 art px) and the owner turned it down: "th
 big, and griffin too ... keep those riders down to the same size as the normal troops"; they stay
 at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Figures draw at one fixed 0.5 board px an art px.
 
+## The Stormcaller line hits harder (2026-11-21, owner request)
+
+"Increase the lightning mage's power, he does a lot less dps than the fire mage." Provisional. An `arc`
+is the number of foes a bolt strikes in all (the first included), each `arcFall` of the last. Stormcaller
+dmg 42 -> 58, arc 3 -> 4, arcFall 0.7 -> 0.75; Tempest Court dmg 46 -> 64, arcFall 0.8 -> 0.85; Thunder
+Sovereign dmg 125 -> 145. `bench-hall.mjs --kind wizard` (x3 hp, seeds 2), crowd / armor, old -> new:
+Stormcaller 66 / 71 -> 113 / 121 (Pyromancer 130 / 80), Tempest Court 129 / 134 -> 200 / 210 (Inferno
+Throne 245 / 140, Dragonbreath 190 / 115), Thunder Sovereign 181 / 198 -> 211 / 229. Lightning now trails
+fire a little on a packed crowd and leads it on a sparse armoured line. Not simmed.
+
 ## Slower blasts, a softer keg, a smaller Rimecaller (2026-11-18, owner request)
 
 "Make it so explosions propagate a bit slower. I like seeing the wave of damage emanate from the

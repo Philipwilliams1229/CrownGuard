@@ -75,10 +75,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Stormcaller", cost: 455, stats: { dmg: 42, rate: 1300, range: 112, arc: 3, arcRange: 95, arcFall: 0.7 }, desc: "Lightning lashes the frontrunner and arcs down the line — no armor, no escape.",
+        name: "Stormcaller", cost: 455, stats: { dmg: 58, rate: 1300, range: 112, arc: 4, arcRange: 95, arcFall: 0.75 }, desc: "Lightning lashes the frontrunner and arcs down the line — no armor, no escape.",
         rank4: {
-          a: { name: "Tempest Court", cost: 975, stats: { dmg: 46, rate: 1200, range: 120, arc: 6, arcRange: 110, arcFall: 0.8 }, desc: "The storm dances: bolts leap SIX times, scouring entire columns of the horde." },
-          b: { name: "Thunder Sovereign", cost: 975, stats: { dmg: 125, rate: 1400, range: 124, arc: 3, arcRange: 95, arcFall: 0.75, zapStun: 0.3, zapStunDur: 700 }, desc: "Heaven's own hammer: fewer, crueler bolts that can lock victims rigid with shock." },
+          a: { name: "Tempest Court", cost: 975, stats: { dmg: 64, rate: 1200, range: 120, arc: 6, arcRange: 110, arcFall: 0.85 }, desc: "The storm dances: bolts leap SIX times, scouring entire columns of the horde." },
+          b: { name: "Thunder Sovereign", cost: 975, stats: { dmg: 145, rate: 1400, range: 124, arc: 3, arcRange: 95, arcFall: 0.75, zapStun: 0.3, zapStunDur: 700 }, desc: "Heaven's own hammer: fewer, crueler bolts that can lock victims rigid with shock." },
         },
       },
     },
