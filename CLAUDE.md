@@ -915,6 +915,10 @@ owner wants it reversible and played in a preview before it reaches main.
   Preview: Blood Moon" (slug 3644f913-b27d-449b-a2b9-86db42d05039), the built game published with
   publish_files from `npx vite build --outDir <scratchpad>/preview` (all files but the webmanifests,
   vp.html, privacy.html). Its saves are its own. Republish with slug + base_version after each change.
+  Build it with `VITE_PREVIEW_SEED=1` (owner: "put some progress on the campaign map"): main.jsx then
+  loads `src/native/previewSeed.js`, which on a device with no save writes one with the Greenwood, the
+  Iron Marches and the Grave Road cleared (Saltgrave next), every hall's paths and finals open and
+  20,000 in the treasury. The real build never loads it (no chunk is emitted without the flag).
 
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 

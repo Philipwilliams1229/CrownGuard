@@ -10,5 +10,7 @@ import { freshen } from "./native/fresh.js";
 // (if the game's own code can't be fetched, a page kept from before the
 // last push asked for files that push replaced: index.html's rescue reloads)
 freshen().then((reloading) => {
-  if (!reloading) keepSaves().finally(() => import("./boot.jsx").catch((err) => { console.error(err); window.__cgBootFailed?.(); }));
+  // a preview build (VITE_PREVIEW_SEED=1) starts with a save part-way through the campaign (native/previewSeed.js)
+  const seed = import.meta.env.VITE_PREVIEW_SEED ? import("./native/previewSeed.js").then((m) => m.seedPreview()) : Promise.resolve();
+  if (!reloading) keepSaves().finally(() => seed.finally(() => import("./boot.jsx").catch((err) => { console.error(err); window.__cgBootFailed?.(); })));
 });
