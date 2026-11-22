@@ -159,3 +159,114 @@ and a few sheep. The seasons from the trees round sit on top of whichever look a
   Ravenscar, built as painted steps.
 - **Countryside: quiet as the default, patchwork for Millrace only.** Quiet keeps the road the clearest thing
   everywhere. The patchwork is the showpiece for the mill's level.
+
+---
+
+# ROUND 3 (2026-11-22, evening): the owner's picks built on
+
+The owner: meadow "1. Calm" is the everyday ground (done, unchanged, under everything); bold steps "cool but ...
+how they interact with the paths. Doesn't look great rn"; full patchwork "this one, but ... No two maps should have
+the same pattern of fields." The lab now runs round 3 by default (`overhaul2-ground.html`; `?r2=1` for round 2's
+panels; `?only=` and a fresh `?r=N` as before).
+
+## Panels (`.shots/`)
+
+| file | what |
+|---|---|
+| `ovh2_ground_step_meets_road` | close-ups (x1.5) of the four crossings, noon over golden: (a) ramp and (b) cutting, road up the screen and road across |
+| `ovh2_ground_terrace_steps2`, `_steps2gold` | Thistlecrag re-laid by the rule, whole board, noon and golden |
+| `ovh2_ground_terrace_before_after` | round 2's steps (left) beside round 3's (right), at board size |
+| `ovh2_ground_farm_millrace`, `_gullwick`, `_bramblewick`, `_cinderholt` | the generated patchwork on four boards, noon |
+| `ovh2_ground_farm_variety`, `_variety_gold` | the four at board size, noon and golden |
+
+## Steps that meet the road
+
+Steps are no longer cut from a noise field. Each is an authored SCARP (`o.scarps`: a polyline in board units, a
+height in art px, `dir: "ns"` + `high: "e"|"w"` for one running north-south, `cross: "ramp"|"cut"`), painted by
+`scarpField` / `paintSteps` / `crossing` in the painter. The vocabulary:
+- **(a) The ramp.** The road climbs. The step's own earth face turns down along both sides of the road as two
+  wedges, widest at the scarp and tapering to nothing 28 units down the road, a course of retaining stones lining
+  each against the road, a turf lip on top (the west wedge lit, the east in shade). The road's own pebbles are
+  drawn closer together across the rise (sampled from further down), dotted contour lines close up toward the top,
+  and a lit lip marks where it tops out. Road running across: the far side gets capstones and a narrow bank, the
+  near side a dressed-stone embankment face toward us that grows with the climb and casts its shadow.
+- **(b) The cutting.** The road keeps its level and cuts through. Timber-revetted banks either side rise from
+  nothing at the face's foot to the step's height at the scarp, then fall back to nothing 36 units into the high
+  ground, grassed on top. Road up the screen: the banks are seen edge-on (east one lit, west one dark) and the
+  west bank's shadow lies down the road's edge. Road across: the far bank's plank face is seen whole, its shadow
+  along the road's far edge; the near bank shows only its grassed top and post heads.
+- **(c) The rule** (`STEP_RULE`, checked and logged on every bake): a scarp keeps 24 units clear of every road
+  edge except where it crosses; it crosses square-on (within 20 degrees) on a straight (heading within 15 degrees
+  40 units either side); one crossing per road stretch (between two bends); halls never straddle a face.
+  Thistlecrag passes: six steps, six crossings, one each on the four climbs, the bottom of the first loop and
+  the gate approach; no glancing crossing, no step along a road, both halls clear.
+- **(d) How a step ends.** Over its last 32 units its height eases to nothing and its line bends downhill, so it
+  sinks into the slope; the level's tone fades with it (no stub, no blunt end).
+
+**What it does to Thistlecrag:** instead of three long noise-made terraces that ran beside the lanes and crossed
+some lanes twice, the hill is six short steps, each laid across one climb (or across the gate road) and dying
+out in the crag ridges between lanes. The land still falls from the wood toward the viewer, step by step; the
+lanes keep their own level along their length.
+
+## The generated patchwork
+
+`recipeOf(o)` reads the board's shape first, then the seed (`seedOf(realm)` in the lab: a hash of its id):
+- **character:** a pond -> *orchard country* (Bramblewick: small closes, three orchards round the millpond, a hop
+  yard, vegetable plots, plough and wheat); two rivers or more -> *arable* (Millrace: long open strips of plough,
+  wheat, stubble and hay, few hedges, one orchard by the water); a coast -> *pastoral* (Gullwick: hedged closes of
+  pasture in three greens, hay, ONE wheat field, many flocks, ten hedgerow oaks); otherwise -> *downs farm*
+  (Cinderholt: big fields of ridge and furrow and pasture, a common with a pond and gorse, twelve hedgerow trees).
+  `o.char` forces one.
+- **numbers from the seed:** grid angle (squared to the road's main heading, then turned by up to 6-18 degrees),
+  field length and width ranges, how far the hedges wander and bend with the land, a slant per column of fields,
+  hedge density, fields merged across an unhedged edge, hedgerow-tree count, orchard spacing.
+- The layout is decided from the road, water and wood only (`layoutOf`, cached), so the orchard trees pushed into
+  DECOR before the bake and the painting agree.
+- Kept from round 2: duller wheat, low hedges never within 13 units of the road, the road the clearest thing.
+  Fixed: sheep are 10 x 8 art px now (a pale dot with a dark face at board size), in bunched flocks of 8-14 with
+  strays; plough is darker with deep furrows, so it stays apart from the road at golden hour.
+- New field kinds: stubble, ridge and furrow, hop yard (9 px bines), vegetable plots, common (rough grass, gorse,
+  a pond).
+
+## Cost and engine notes (changed this round)
+
+- Bake: Thistlecrag steps ~0.7 s noon / ~1.0 s golden in the lab; farms 1.2-3 s (the orchard-heavy and river
+  boards are slowest: the board masks). Game estimate unchanged: 150-400 ms at load, nothing per frame.
+- **Steps need, from the engine:** a per-board list of scarps (authored, a few lines of data each) instead of a
+  generated field; `buildableAt` refusing a hall whose footing touches a face or a crossing's banks; the STEP_RULE
+  check run by a script over every board that has steps (like check-map-water.mjs). Crossings are paint only:
+  foes, soldiers and the road are untouched (the road is still flat for the engine).
+- **Farms need:** nothing authored; the recipe runs from the board's shape and id. A common's pond is painted,
+  so it must be added to PONDS (or the common skipped) so no hall stands in it. Puddles keep off crossings (done
+  in the painter).
+
+## Weak spots (honest)
+
+- The ramp's lit lip is a straight line across the road: at full size it can still read as a plank edge; at
+  board size it reads as a step. A road-across ramp is the weakest of the four: the north-south face is a thin
+  sliver, and the climb shows mainly through the stone embankment and the lip.
+- Steps are authored per board: only Thistlecrag is laid (and Ravenscar would need its own six lines).
+- The pastoral board (Gullwick) has little room inside its loops, so its patchwork is mostly the outer fields.
+- Bramblewick's vegetable plots landed small (3% of the farmland); the hop yard is one field.
+- Cinderholt's own burnt palette makes its farmland olive; the common's pond is small at board size.
+- Sheep are bake-time pixels, not live sprites.
+
+## The fifteen-level plan (round 3, the owner's picks)
+
+1 The Vale Road (gw1) - calm meadow
+2 Thornbrook Ford (gw2) - calm meadow, by the brook
+3 Gullwick Sands - full patchwork, pastoral (its own pattern)
+4 Millrace - full patchwork, arable strips round the mill
+5 Foxmere - calm meadow, damp hollows by the mere
+6 Oakmere Hollow (gw3) - gentle banks round the hollow (calm meadow if banks are dropped)
+7 Bramblewick - full patchwork, orchards, hop yard and plots round the millpond
+8 The Barrowfields (gw4) - calm meadow, short downland turf on the barrows
+9 Wolfrun Ford - calm meadow, bracken at the wood's edge
+10 Thistlecrag - bold steps, six crossings (ramps and cuttings), as shown
+11 The Kingstones - calm meadow, downland turf round the ring
+12 Ravenscar - bold steps, laid by the same rule
+13 Blackbriar - calm meadow, overgrown edges
+14 Cinderholt - full patchwork, downs farm (ridge and furrow, the common), in autumn
+15 The Goblin Warrens (gw5) - gentle banks, trampled
+
+Meadow 7, patchwork 4 (four different patterns), bold steps 2, gentle banks 2.

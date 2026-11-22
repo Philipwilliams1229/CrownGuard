@@ -40,6 +40,8 @@
         millrace: { towers: [["archer", 0.28, 3], ["wizard", 0.6, 2]] },
         thistlecrag: { towers: [["archer", 0.3, 3], ["wizard", [372, 322], 2]] },
         kingstones: { towers: [["archer", 0.3, 3], ["wizard", 0.6, 2]] },
+        bramblewick: { towers: [["archer", 0.3, 3], ["wizard", 0.62, 2]] },
+        cinderholt: { towers: [["archer", 0.3, 3], ["wizard", 0.6, 2]] },
       };
       const board = (realm, sun, plan) => {
         // flush the cached ground (another realm), so this board bakes fresh
@@ -62,6 +64,7 @@
         return g;
       };
       const panel = async (name, realm, look, o = {}, sun = "noon") => {
+        if (look === "farm" && o.seed == null) o = { ...o, seed: seedOf(realm) };
         const g = board(realm, sun, look === "farm" ? (g) => { if (o.cropAtHall != null && g.towers[o.cropAtHall]) { const t = g.towers[o.cropAtHall]; o = { ...o, fields: [["crop", t.x, t.y - 24], ...(o.fields || [])] }; } return farmPlan(o, g); } : null);
         const L0 = groundLayer();
         const noon = L0.getContext("2d").getImageData(0, 0, L0.width, L0.height);
@@ -77,6 +80,29 @@
         show(name + "  " + info, cv);
         return cv;
       };
+      const seedOf = (r) => { let h = 17; for (const ch of r) h = (h * 31 + ch.charCodeAt(0)) % 100003; return h; };
+      // ROUND 3: Thistlecrag's steps laid by the rule (concept/overhaul2-ground.js STEP_RULE): one crossing a road
+      // stretch, square-on, on a straight; ramps (a) and cuttings (b); both ends tapering into the slope
+      const CRAG = [
+        { name: "S1", pts: [[24, 302], [100, 298], [160, 295], [200, 295], [246, 300]], cross: "ramp", h: 36 },
+        { name: "S2", pts: [[244, 356], [304, 352], [350, 349], [398, 345]], cross: "cut", h: 34 },
+        { name: "S3", pts: [[402, 296], [448, 300], [496, 304], [528, 307]], cross: "ramp", h: 32 },
+        { name: "S4", pts: [[532, 382], [592, 386], [650, 390], [712, 394]], cross: "ramp", h: 36 },
+        { name: "S5", dir: "ns", high: "e", pts: [[670, 124], [672, 227], [676, 318]], cross: "cut", h: 32 },
+        { name: "S6", dir: "ns", high: "e", pts: [[231, 398], [232, 467], [234, 548]], cross: "ramp", h: 32 },
+      ];
+      const R3 = [
+        ["terrace_steps2", "thistlecrag", "steps2", { scarps: CRAG }],
+        ["terrace_steps2gold", "thistlecrag", "steps2", { scarps: CRAG }, "golden"],
+        ["farm_millrace", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296] }],
+        ["farm_gullwick", "gullwick", "farm", {}],
+        ["farm_bramblewick", "bramblewick", "farm", {}],
+        ["farm_cinderholt", "cinderholt", "farm", {}],
+        ["tmp_farm_millrace_g", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296] }, "golden"],
+        ["tmp_farm_gullwick_g", "gullwick", "farm", {}, "golden"],
+        ["tmp_farm_bramblewick_g", "bramblewick", "farm", {}, "golden"],
+        ["tmp_farm_cinderholt_g", "cinderholt", "farm", {}, "golden"],
+      ];
       const FARM_P = { v: "patch", cropAtHall: 0, trackAt: [92, 296], fields: [["orchard", 140, 215], ["crop", 520, 60], ["pasture", 640, 300]] };
       const FARM_Q = { v: "quiet", trackAt: [92, 296], fields: [["orchard", 140, 215], ["hay", 520, 60], ["pasture", 640, 300]] };
       const P = [
@@ -139,12 +165,45 @@
         ["Meadow 5, countryside 4, terraces / banks 4, downland 2 (Barrowfields, Kingstones)", "Never two neighbours alike; the seasons (the trees artist's spring /", "summer / autumn / winter) ride on top (autumn panels: meadow_2autumn, farm_autumn)."].forEach((l, i) => x2.fillText(l, 870, 580 + i * 24));
         await save("sheet_2", c2); show("sheet_2", c2);
       };
+      // round 3's sheets: the crossings close up, before / after, the four farms
+      const label = (c, x, y, w, t, big) => { c.fillStyle = "rgba(20,24,32,0.85)"; c.fillRect(x, y, w, big ? 30 : 24); c.fillStyle = "#f0e6c8"; c.font = `bold ${big ? 16 : 14}px monospace`; c.fillText(t, x + 8, y + (big ? 21 : 17)); };
+      const sheets3 = async () => {
+        if (want("step_meets_road")) {
+          const n = await img("terrace_steps2"), gd = await img("terrace_steps2gold");
+          const CL = [[[160, 300], "(a) ramp, road up the screen"], [[304, 343], "(b) cutting, road up the screen"], [[222, 467], "(a) ramp, road across"], [[684, 227], "(b) cutting, road across"]];
+          const c = document.createElement("canvas"); c.width = 1680; c.height = 660; const x = c.getContext("2d");
+          x.fillStyle = "#20242c"; x.fillRect(0, 0, 1680, 660); x.imageSmoothingEnabled = false;
+          CL.forEach(([[cx, cy], t], k) => {
+            [n, gd].forEach((im, r) => { x.drawImage(im, (cx - 70) * 2, (cy - 50) * 2, 280, 200, k * 420, 30 + r * 315, 420, 300); label(x, k * 420, 30 + r * 315 + 276, 420, (r ? "golden hour" : "noon"), false); });
+            label(x, k * 420, 0, 420, t, true);
+          });
+          await save("step_meets_road", c); show("step_meets_road", c);
+        }
+        if (want("terrace_before_after")) {
+          const b0 = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = "/scratchpad/overhaul-page2/img/ground_terrace_steps.jpg"; });
+          const a1 = await img("terrace_steps2");
+          const c = document.createElement("canvas"); c.width = 1680; c.height = 560; const x = c.getContext("2d");
+          x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
+          x.drawImage(b0, 0, 0, 840, 560); x.drawImage(a1, 840, 0, 840, 560);
+          label(x, 0, 0, 840, "BEFORE (round 2): steps by noise, stubs at the road", true); label(x, 840, 0, 840, "AFTER (round 3): six laid steps, ramps and cuttings", true);
+          await save("terrace_before_after", c); show("terrace_before_after", c);
+        }
+        for (const [nm, suf, cap] of [["farm_variety", "", "noon"], ["farm_variety_gold", "_g", "golden hour"]]) {
+          if (!want(nm)) continue;
+          const c = document.createElement("canvas"); c.width = 1680; c.height = 1120; const x = c.getContext("2d");
+          const B4 = [["millrace", "Millrace: arable strips round the mill"], ["gullwick", "Gullwick Sands: pasture and hay, one wheat field"], ["bramblewick", "Bramblewick: orchards, hop yard, vegetable plots"], ["cinderholt", "Cinderholt: ridge and furrow, a common with a pond"]];
+          for (let k = 0; k < 4; k++) tile(x, await img(suf ? `tmp_farm_${B4[k][0]}_g` : `farm_${B4[k][0]}`), (k % 2) * 840, Math.floor(k / 2) * 560, `${B4[k][1]} (${cap})`);
+          await save(nm, c); show(nm, c);
+        }
+      };
+      if (!q.get("r2")) { P.length = 0; P.push(...R3); }
       try {
         // a page reload (another session's edit makes the dev server reload every page) resumes where it stopped
         const KEY = "ovh2g:" + location.search, done = JSON.parse(sessionStorage.getItem(KEY) || "[]");
         if (q.get("fresh")) done.length = 0;
         for (const [n, realm, look, o, sun] of P) if (want(n) && !done.includes(n)) { st.textContent = n; await panel(n, realm, look, o, sun); done.push(n); sessionStorage.setItem(KEY, JSON.stringify(done)); }
-        if (want("sheet")) await sheet();
+        if (q.get("r2") && want("sheet")) await sheet();
+        if (!q.get("r2")) await sheets3();
         st.textContent = "DONE\n" + sessionStorage.getItem("ovh2log"); document.title = "DONE";
       } catch (e) { st.textContent = "ERROR " + e.stack + "\n" + LOG.join("\n"); document.title = "ERR"; }
     </script>
