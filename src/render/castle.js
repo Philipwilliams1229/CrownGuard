@@ -2191,6 +2191,7 @@ const castleSun = (ctx, time, gy) => {
 //   shade (DAY.shade), the east rims of the tops catch a lit line in DAY.col, the inner wall shades the
 //   outer walk and the keep the gate deck, and the castle throws its shadow WEST onto the ground in
 //   front of it (dayGroundShadow, laid in drawCastleGround: under everything that walks).
+const PEACH = [255, 200, 150];          // the golden hour's glow high on a west face
 const DAY_SHEAR = 0.75;                 // shadow length per unit of height, x DAY.len (sunset.js SHEAR)
 // does P + t*V (t in 0..1) touch the rect [ax..bx] x [ay..by]?
 const segHits = (px, py, vx, vy, ax, ay, bx, by) => {
@@ -2211,7 +2212,7 @@ const dayStoneBake = (src, x0, y0, gy, ya, yb) => {
   const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data;
   const geos = towersFor(gy, ya, yb).map(([f, gt]) => towerGeo(f, gt));
   const K = keepGeo(gy);
-  const east = DAY.side > 0, col = RGB(DAY.col), hot = mixC(col, [255, 255, 255], 0.3);
+  const east = DAY.side > 0, col = RGB(DAY.col), hot = mixC(col, [255, 255, 255], east ? 0.3 : 0.3 + 0.2 * DAY.warm);
   const sh = [DAY.shade[0], DAY.shade[1], DAY.shade[2]];
   const rk = 0.25 + 0.75 * DAY.rim, wk = 0.45 + 0.55 * DAY.warm, sk = 0.3 + 0.7 * DAY.rim;
   const lum = (i, j) => { if (i < 0 || j < 0 || i >= w || j >= h) return -1; const k = (j * w + i) * 4; return s[k + 3] < 200 ? -1 : (s[k] + s[k + 1] + s[k + 2]) / 3; };
@@ -2269,8 +2270,13 @@ const dayStoneBake = (src, x0, y0, gy, ya, yb) => {
       if (rim) put(k, hot, 200 * rk);
       else if (z >= 0) {
         const f = z / H0;
-        if (z < 2 && !inner) put(k, hot, 230 * rk);   // the silhouette's west edge (the inner face's foot is not one)
-        else put(k, col, (f < 0.35 ? 100 : f < 0.7 ? 68 : 44) * wk);
+        if (z < 2 && !inner) put(k, hot, (230 + 25 * DAY.warm) * rk);   // the silhouette's west edge (the inner face's foot is not one)
+        else {
+          // three steps, strongest low on the face; at golden hour the stone glows peach-amber
+          const u = DAY.warm, band = f < 0.35 ? 0 : f < 0.7 ? 1 : 2;
+          const al = [50, 34, 22][band] + ([155, 118, 86][band] - [50, 34, 22][band]) * u;
+          put(k, band === 0 ? col : mixC(col, PEACH, band === 1 ? 0.35 : 0.6), al);
+        }
       }
     } else {
       if (z >= 0) {
@@ -2321,6 +2327,24 @@ const dayGroundShadow = (gy, ya, yb) => {
     [K.X, K.yN, K.X + 30, K.yS, HK],
     ...towers.map(([f, gt]) => { const t = towerGeo(f, gt); return [t.x0, t.yN, FAR, t.yS, t.h]; }),
   ];
+  // the skyline (lead's review: the far edge must read as the wall's top thrown on the grass, not a
+  // box of tint): the curtain's and the gate block's merlons, each tower's and the keep's merlons
+  // down their west rims, and the stair turrets with their roofs, a stepped peak of three boxes
+  const turret = (x, yn, base, rise) => {
+    boxes.push([x, yn, x + 10, yn + 6, base]);
+    for (let q = 1; q <= 3; q++) boxes.push([x + q, yn + q, x + 10 - q, yn + 6 - q, base + (rise * q) / 3]);
+  };
+  for (let y = gy + 4 - 15 * Math.ceil((gy + 4 - y0 + 20) / 15); y < y1 + 20; y += 15) {
+    const gate = Math.abs(y + 3.5 - gy) <= GH;
+    boxes.push(gate ? [GATE.face0, y, GATE.face0 + 4, y + 7, HG + 4] : [WALL.face0, y, WALL.face0 + 4, y + 7, HC + 4.5]);
+  }
+  for (const [f, gt] of towers) {
+    const t = towerGeo(f, gt);
+    for (let y = t.yN + 7; y < t.yS - 5; y += 7.5) boxes.push([t.x0, y, t.x0 + 3.5, y + 3.5, t.h + 3.5]);
+    turret(t.x0 + 34, t.yN + 3, t.h + 6.5, 8);
+  }
+  for (let y = K.yN + 7; y < K.yS - 5; y += 7.5) boxes.push([K.X, y, K.X + 3.5, y + 3.5, HK + 3.5]);
+  turret(K.X + 11, K.yN + 3, HK + 7, 9);
   const [fx, fy] = DAY.fall, sh = DAY.shade, a = Math.round(255 * Math.min(0.55, sh[3] * 1.15));
   for (const B of boxes) { const Lb = DAY_SHEAR * DAY.len * B[4]; B.push(-fx * Lb, -fy * Lb); }
   for (let j = 0; j < h; j++) {
