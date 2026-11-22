@@ -1022,6 +1022,50 @@ game") and had it pushed live 2026-11-22; pending their playtest on a device.
   cast; none of it seen on a phone or iPad (the soft-light blend's cost there is unmeasured).
 - **Future** (owner: "mark it down"): the time of day changing play (wishlist).
 
+## The scenery and water upgrade (2026-11-22, owner request)
+
+After the time of day ("New standard set!"): "a graphics upgrade on the foliage, ground, objects, decorative
+things, old towers, mills, bridges, water ... Especially the water, I wouldnt mind a total overhaul ... make it
+fancy, but watch the cost on the engine ... shaders, depths, better wave animations, river physics." Built
+overnight by Opus agents by file (brief, ownership, what is left: `art/briefs/scenery-water-upgrade.md`;
+before / after pairs in `.shots/preview-upgrade/`). Canvas 2D only: per-pixel work at bake, a frame only
+blits. The engine is untouched (ir3 `--endure` identical). NOT pushed: the owner sees the pictures first.
+- **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
+  `shallowsLit`, glints capped at pale gold; water.js; coast.js): rivers shelve from pale shallows with the
+  bed showing (point bars inside bends) to a dark channel; baked flow streaks that slide downstream, foam
+  collars and V-wakes at rocks and timber piles, standing waves in narrows, eddies inside bends, a wet edge
+  and the far bank's reflection, banks that swap lit / shaded sides under an eastern sun; ponds shelve too.
+  The sea: sand, pale, teal, navy bands; swell in sets; near-white surf that runs up the sand and drains to
+  a wet sheen; glints on the sun's side. Live cost about +0.1 ms (rivers) and +0.12 ms (sea) a frame.
+  daygrade.js's static water glints were dimmed (`GRADE.glint` 0.16) and kept off bridge parapets.
+- **Bridges** (bridge.js): grained planks with nails and butt joints, flagged stone decks, weathered
+  parapets, lit arch undersides, wet piles, snow on Rime spans, lit from the sun's side (keyed on `DAY.id`);
+  `bridgePiers()`; the near rail / parapet is a front layer sorted with the actors
+  (`pushBridgeFronts(drawables, ctx)` in draw.js), so walkers on a deck pass behind it.
+- **Ground** (world.js, road.js, apron.js): a long rise-and-fall field lights the turf toward the level's
+  sun (`reliefOf`, `hillTone`), verge and bank grass, wildflower drifts, bluebells under the wood, a
+  footpath, trampled earth at the spawn and gate, redrawn hem bushes (the apron uses the same sprite), a
+  road with a cross-section, clods, a crumbled edge and damp lows (no lane ruts), fen hummocks.
+- **Foliage** (scenery.js, scenery-gwpix.js): `leafClump` with serrated, dithered leaf masses; four oak
+  kinds by seed (round, tall, spreading, birch; `oakTree`'s optional `form`), boughs, bark, ragged sky
+  holes; five-tier pines; streamer willows; the edge wood with a cool deep interior, taller crowns and
+  brambles; rocks with cracks, moss, lichen; fairy ring, fallen log, bracket fungus; the Gullwick tower as a
+  coursed ruin; a slow crown sway on lone oaks and willows (`SWAY_ON`; never watched in motion).
+- **Greenwood pieces** (scenery-vale.js, pix/vale-pix.js): the mill wheel sculpted (12 baked frames),
+  pixel smoke, the upturned boat, haywain, standing stones with planes, lichen rosettes and carvings, net
+  rack, lobster pots, skeps, a cottage garden variant.
+- **Iron** (scenery-iron.js): the war camp (lashed stakes, lit logs, gate torches), cushioned paving flags,
+  crags as ledged blocks, the King's tower, ridge tents, beacon. **Rime** (scenery-rime.js): snow as
+  wind-carved dunes lit by the level's sun (read by their shade: a first try with line cornices read as
+  scribbles), wind tails, tracks; spruce, longhouse, rack, boat, gate pelts and shields, rune staves,
+  whale-rib arches, icicle curtains. **Hollow** (scenery-hollow.js): sculpted reed beds, bog pools and
+  wisps on fen pixel water (`fenWater`), stepped halos (`stepGlow`), the barrow gate mound, crows, grave
+  offerings, rusted fences, the throne in water, relic reflections from `waterLook`.
+- Lessons: the built-in browser caps tabs at about 9 (agents without a tab work blind: the lead checks
+  their work in the game); eleven agents fill the disk with 2-3 MB shots (have them delete scratch PNGs)
+  and can kill the shared dev server (restart with `preview_start` "crownguard"); timings taken while
+  many agents run swing 2-10x (compare old and new side by side in one page).
+
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
 The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated.

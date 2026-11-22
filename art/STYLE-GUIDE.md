@@ -1201,6 +1201,17 @@ enemies.js flashes a foe while a front is over it. A new area attack: give its e
 `RING` there. A new ring effect follows the same rule. **Attacks that come out of a hall** (owner, 2026-11-17: "it looks like its coming out of the tower"): the frost and fire novas stay ground layer, plus their FRONT line redrawn in the air layer only inside a clip of the source hall's foot (rings.js `hallOf` / `clipFront`), and their spikes / flames standing behind the hall drop to the ground layer (`behindHall`); Bladewheel spikes flying up or sideways draw in the ground pass while inside their hall's box (fx.js `spikeBehind`, draw.js), and the Brazier's flame ring draws its back half before the wheel, its front after (halls/spiker.js `firePass`). The box is a fixed 22 x 44 px round the foot: check it on the tallest finals. The concept pages' C option now means LIT (light thrown on the
 ground), not chunky icons (owner: the bold C's were "pretty far off").
 
+## Water after the 2026-11-22 overhaul (`waterlook.js`, `water.js`, `coast.js`)
+
+- One ramp for all water of a chapter: take colours from `waterLook()` / `waterPal()` (waterlook.js),
+  never a local blue, so a river, a pond and the sea match where they meet.
+- Depth is told in solid bands with broken, organic edges (slow noise and stray pixels), not a Bayer
+  screen over a whole band (it read as grain). Pale warm shallows with the bed showing; a dark, cool,
+  saturated channel.
+- Motion is baked marks on their own clocks (streaks, foam collars, wakes, surf), never a simulation or
+  a per-frame pixel pass. Foam is near-white and 2-3 art pixels: it is what the eye catches.
+- Glints sit on the sun's side and stop at pale gold (orange glints read as embers).
+
 ## The time of day: one sun, but not always the same one (2026-11-22)
 
 "One sun" still holds on every board, but a level now picks WHERE it stands (`src/data/sun.js`:

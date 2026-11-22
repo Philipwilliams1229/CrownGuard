@@ -104,16 +104,16 @@ change there? One or two lines: make it and REPORT it. More: ask in your report.
 
 ## STATUS (the lead keeps this current)
 
-**05:15, 2026-11-22: THE ORIGINAL LEAD SESSION IS AWAKE AND WORKING ON THIS (the usage limit reset at
-5:10). A session started by the 5:55 scheduled wake-up must NOT work on these files: read this, confirm
-`git log -3` shows fresh commits, and stop. Two leads in one tree would collide.**
-
-- The limit cut every agent off mid second pass at about 02:00. A WIP snapshot of the tree as they left
-  it is committed (it passes `node --check` and builds). The lead is resuming each agent with a small
-  budget to finish and report, then reviews, commits, and makes before / after pictures in
-  `.shots/preview-upgrade/` (before: `.shots/up0/`).
-- Trouble seen: disk nearly full once (delete finished review shots), the shared dev server dies
-  (restart: built-in browser `preview_start` name "crownguard"), the built-in browser caps tabs at ~9.
-- LEFT after the agents report: full build, `node scripts/sim.mjs --level gw1`, frame cost against
-  commit a7dc445, the pictures, guides (CLAUDE.md, STYLE-GUIDE.md).
+ALL DONE (2026-11-22, ~05:50), committed locally, build passing, gw1 sim won and ir3 `--endure`
+identical to before the upgrade (the engine is untouched). A session started by the scheduled wake-up
+has nothing to do here: stop.
+- Before / after pictures for the owner: `.shots/preview-upgrade/` (pairs per board; before shots in
+  `.shots/up0/`).
+- NOT DONE / weak (put to the owner): Iron wagons, pikes, standards, salt works, eyrie, quay, walls,
+  milestones; Rime longship, longhouse slope, bergs / floes / skerries, seals; Hollow statues,
+  barrows, bell-stones, weir, Lichgate pieces; the lone trees' crown sway was never watched in motion
+  (`SWAY_ON` in scenery.js); small ground life is a light speckle at board size; the whole upgrade's
+  frame cost was measured per area by the agents (water ~+0.2 ms, the rest baked), not as one number;
+  first-sight bakes grew (decor ~720 -> ~860 ms, Rime ground +80 ms on the dev Mac); nothing seen on a
+  phone or iPad; rocks and logs in rivers still shade for a noon light under an eastern sun.
 - Pushing to GitHub: NOT approved. The owner wants to see before / after pictures first.
