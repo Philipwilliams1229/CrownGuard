@@ -932,6 +932,13 @@ owner wants it reversible and played in a preview before it reaches main.
   hall's `"torch"` lights in pix/halls.js). Measured +6 ms a frame in headless software Chromium (the
   storm costs the same there); not measured on a device. `bm-lab.html` (full-res snaps, `&perf=1`),
   `bm-eyes.html`. Weak: eyes draw over a hall standing in front; health bars dim a little.
+  **Night lights on the halls** (owner, 2026-11-22: "all towers have some kind of light source after hitting
+  level 2, except for the assassins"): pix/halls.js lights EVERY entry of a hall spec's `lights` at night
+  (`isWarm(col)`: fire colours as warm pools, the rest as magic light in its own colour with a cool edge,
+  nightlight.js `noteLamp(..., cool)`), reach capped (warm 24, magic 18 art px). Artists drew a light on every
+  dark form from level 2 (brief `art/briefs/night-lights.md`): archer 2's door torch, knight 3ba's torch,
+  catapult lanterns, Bladewheel bracket lanterns, Powder Works level-2 door lamp, King's Band lanterns and torch
+  posts. The Covert keeps NONE (no lamp post, no night light). `night-halls.html?kinds=` shows every form.
   Then (owner, 2026-11-22: "a little bit too hard to see ... increase contrast on the towers", "the
   fading in and out was kind of choppy"): the shade is split, `SHADE_GROUND` 0.85 laid in the ground
   pass (`bloodmoonGround`, before halls, figures and standing scenery) and only `SHADE_ACTORS` over
