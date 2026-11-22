@@ -136,3 +136,5 @@ GROUND
   that looks good." (Three passes on one design failed. Fresh designs: 3-4 clearly different lake looks whose
   WATER is the approved river water: the same colours, depth bands, streaks / glints and edges; not the
   dithered teal-to-navy lake water. Lesson: after two failed passes on one design, offer new options.)
+- **Farmland** (a comment on the four-boards sheet): "bramblewick and millrace are too busy, lets make the
+  plots bigger or something." (Fewer, bigger fields on those two; calmer.)
