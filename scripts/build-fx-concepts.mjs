@@ -4,16 +4,25 @@ import fs from "node:fs";
 import { ROWS as ROWS1 } from "../concept/fx-concepts.js";
 import { ROWS4 } from "../concept/fx-r4.js";
 import { ROWS5 } from "../concept/fx-r5.js";
-const ROWS = [...ROWS5, ...ROWS4, ...ROWS1];
+import { ROWS6 } from "../concept/fx-r6.js";
+import { ROWS7 } from "../concept/fx-r7.js";
+import { ROWS8 } from "../concept/fx-r8.js";
+const ROWS = [...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+const ROUND8 = process.argv.includes("round8");   // -> only the Round 8 rows, in .shots/fx-concepts-round8/
+const ROUND7 = process.argv.includes("round7");   // -> only the Round 7 rows, in .shots/fx-concepts-round7/
+const ROUND6 = process.argv.includes("round6");   // -> only the Round 6 rows, in .shots/fx-concepts-round6/
 const ROUND5 = process.argv.includes("round5");   // -> only the Round 5 rows, in .shots/fx-concepts-round5/
 const ROUND4 = process.argv.includes("round4");   // -> only the Round 4 rows, in .shots/fx-concepts-round4/
 const ROUND2 = process.argv.includes("round2");   // node scripts/build-fx-concepts.mjs round2 -> only the Round 2 rows, in .shots/fx-concepts-round2/
 const ROUND3 = process.argv.includes("round3");   // -> only the Round 3 rows, in .shots/fx-concepts-round3/
-const OUT = ROUND5 ? ".shots/fx-concepts-round5" : ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
+const OUT = ROUND8 ? ".shots/fx-concepts-round8" : ROUND7 ? ".shots/fx-concepts-round7" : ROUND6 ? ".shots/fx-concepts-round6" : ROUND5 ? ".shots/fx-concepts-round5" : ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
 fs.mkdirSync(OUT, { recursive: true });
 const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", D: "D  wild card", Bdark: "B on dark ground", Adark: "A on dark ground", Cdark: "C on dark ground" };
 const rows = [];
 for (const r of ROWS) {
+  if (ROUND8 && r.group !== "Round 8") continue;
+  if (ROUND7 && r.group !== "Round 7") continue;
+  if (ROUND6 && r.group !== "Round 6") continue;
   if (ROUND5 && r.group !== "Round 5") continue;
   if (ROUND4 && r.group !== "Round 4") continue;
   if (ROUND3 && r.group !== "Round 3") continue;
@@ -24,7 +33,7 @@ for (const r of ROWS) {
     const src = `.shots/fxc_${r.id}_${k}.png`;
     if (!fs.existsSync(src)) continue;
     fs.copyFileSync(src, `${OUT}/${r.id}_${k}.png`);
-    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : (k === "C" && r.cLabel) || LABEL[k], file: `${r.id}_${k}.png` });
+    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : (k === "C" && r.cLabel) || (k === "Bdark" && r.bdLabel) || LABEL[k], file: `${r.id}_${k}.png` });
   }
   rows.push({ id: r.id, label: r.label, group: r.group, note: r.note, cw: r.cw, ch: r.ch, n: r.N, strips });
 }
@@ -48,7 +57,7 @@ h2{margin:22px 16px 6px;font-size:13px;letter-spacing:.08em;text-transform:upper
 <h1>Crownguard combat effects: concept options<span>One row per effect. TODAY is the game's own code; A clean, B worked, C bold. The box at the end of each strip plays it. Zoom 3, grass ground (and B on a Hollow dark ground).</span></h1>
 <div id="bar"><span id="cnt">0 picked</span><button id="cp">Copy my picks</button><textarea id="fb" readonly></textarea></div><div id="root"></div>
 <script>
-const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND4 || ROUND5};
+const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND4 || ROUND5 || ROUND6 || ROUND7 || ROUND8};
 let picks={};try{picks=JSON.parse(localStorage.getItem("cg-fx-picks")||"{}")}catch(e){}
 const cnt=document.getElementById("cnt"),save=()=>{try{localStorage.setItem("cg-fx-picks",JSON.stringify(picks))}catch(e){}cnt.textContent=Object.keys(picks).length+" picked";};
 document.getElementById("cp").onclick=()=>{const t=Object.entries(picks).map(([k,v])=>k+": "+v).join("\\n");const fb=document.getElementById("fb");const fail=()=>{fb.style.display="block";fb.value=t;fb.select();};try{navigator.clipboard.writeText(t).then(()=>{document.getElementById("cp").textContent="Copied";setTimeout(()=>document.getElementById("cp").textContent="Copy my picks",1200)},fail)}catch(e){fail()}};

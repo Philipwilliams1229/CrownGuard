@@ -222,13 +222,15 @@ const crackSprite = (hw, T, f) => memo(`crk|${hw}|${T}|${f}`, () => {
 });
 
 // ---- SHIELD PIPS (concept A): a small shield-blue pip per blow still owed, in a row --------
+// (owner, 2026-11-21: "just a bit more vibrant": the pips' own blues, a step bluer than SH)
 const PIP = ["..1..", ".111.", "12221", "12221", ".121.", "..3.."];
+const PIPC = ["#eef6ff", "#8ebcec", "#4f80c6"];
 const pipSprite = (n, flash) => memo(`pip|${n}|${flash ? 1 : 0}`, () => {
   const gap = 8, cw = n * gap + 6, ch = 12, ax = cw >> 1, ay = 6;
   const cv = mk(cw, ch), g = cv.getContext("2d", { willReadFrequently: true });
   for (let i = 0; i < n; i++) {
     const x0 = Math.round(ax + (i - (n - 1) / 2) * gap) - 2;
-    stamp(g, PIP, flash ? { 1: "#fff", 2: SH[0], 3: SH[1] } : { 1: SH[0], 2: SH[1], 3: SH[2] }, x0, 2);
+    stamp(g, PIP, flash ? { 1: "#fff", 2: PIPC[0], 3: PIPC[1] } : { 1: PIPC[0], 2: PIPC[1], 3: PIPC[2] }, x0, 2);
   }
   inkTint(cv, "#1c2a4c", 1);
   return { cv, ax, ay };
@@ -342,16 +344,100 @@ export const statusBurn = (ctx, e, time, feet, hr) => {
   stampAt(ctx, burnSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 10), e.face < 0 ? 1 : -1), e.x, feet);
 };
 export const statusPoison = (ctx, e, time, feet, hr) => stampAt(ctx, poisonSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 8)), e.x, feet);
-export const statusSlow = (ctx, e, time, feet, hr) => stampAt(ctx, slowSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
+// ---- SLOW, Round 6 pick C (owner): COLD MIST ------------------------------------------------------
+// Baked like the burn above (same silhouette masks, own bake counter, 2 a frame), 6 steps, per frame canvas,
+// per strength (1-3) and per view. A dithered blue-white vapour 1-4 px out from the body, heavier on the back
+// and low down, wisps trailing behind the walk and sinking, a faint pool at the feet no wider than them,
+// edge glints, a very faint rim. Nothing over the crown. Lifted one step from the concept's middle level
+// (owner: "faint at board size"). Baked facing right; a left-facing foe stamps mirrored.
+const MN = 6;
+const MICE = ["#f4fbff", "#cfeeff", "#9ad4f0", "#5fa8d8", "#3a6fb0"];
+const MGROW = [{ amp: 1.2, n: 9, g: 3 }, { amp: 1.7, n: 14, g: 4 }, { amp: 2.3, n: 20, g: 6 }];
+const MISTS = new Map();
+let mistBytes = 0, mistAt = -1, mistN = 0;
+export const mistStats = () => ({ keys: MISTS.size, bytes: mistBytes });
+const MIST_BUDGET = 20 * 1024 * 1024;
+const mistBake = (m, f, view, lv) => {
+  const { T, cx, xl, xr, has } = m, t = f / MN, ph = t * TAU, g = MGROW[lv - 1], A = g.amp;
+  const x0 = xl - 20, x1 = xr + 8, up = T + 4, dn = 8, cw = x1 - x0 + 1, ch = up + dn, ax = -x0, ay = up;
+  const cv = mk(cw, ch), c = cv.getContext("2d");
+  c.translate(ax, ay);
+  const free = (x, y, col, a = 1) => { if (!has(x, y)) px(c, x, y, col, a); };
+  const isFace = view ? (x, y) => Math.abs(x - cx) < T * 0.2 && y < -T * 0.62 : (x, y) => x > cx + 1 && y < -T * 0.55;
+  // a faint pool at the feet, no wider than the feet
+  const rx = Math.max(3, Math.round((xr - xl) / 2) - 1);
+  for (let y = -1; y <= 4; y++) for (let x = -rx; x <= rx; x++) { const r = Math.hypot(x / rx, (y - 1.5) / 3.2); if (r > 1) continue; if (bay(x + f, y) < FIFTH((1 - r) * 0.9 * A) * 0.8) free(x + cx, y, r < 0.5 ? MICE[1] : MICE[2], 0.55); }
+  // the vapour round the body
+  const out = new Map();
+  for (const [x, y] of m.open) for (let dx = -4; dx <= 2; dx++) for (let dy = -2; dy <= 4; dy++) {
+    const X = x + dx, Y = y + dy; if (has(X, Y)) continue;
+    const d = Math.max(Math.abs(dx), Math.abs(dy)) + (dx && dy ? 0.5 : 0); if (d > 4) continue;
+    const k = X * 4096 + Y, o = out.get(k); if (!o || o[2] > d) out.set(k, [X, Y, d]);
+  }
+  for (const [X, Y, d] of out.values()) {
+    if (isFace(X, Y) || Y < -T + 2) continue;
+    const back = X < cx ? 1 : 0.8, lowK = 0.5 + 0.5 * cl1(1 - -Y / T), dens = 0.55 + 0.45 * Math.sin(Y * 0.5 - ph * 2 + X * 0.3);
+    if (bay(X + f, Y) < dens * back * lowK * A * (1.25 - d * 0.22)) px(c, X, Y, d < 1.6 ? MICE[0] : d < 2.6 ? MICE[1] : d < 3.4 ? MICE[2] : MICE[3], 0.95 - d * 0.08);
+  }
+  // wisps trail behind the walk and sink
+  const edges = m.open.filter(([x, y]) => x <= cx + 3 && !isFace(x, y));
+  if (edges.length) for (let k = 0; k < g.n + 4; k++) {
+    const q = fr1(t + H(k, 2)), p0 = edges[Math.floor(H(k, 5) * edges.length) % edges.length];
+    const x = p0[0] - 2 - q * 11 + Math.sin(q * 5 + k) * 1.5, y = Math.min(2, p0[1] + q * 13), r = 1 + q * 1.8;
+    for (let yy = -2; yy <= 2; yy++) for (let xx = -3; xx <= 3; xx++) if ((xx * xx) / 2 + yy * yy <= r * r && bay(xx + k, yy + f) < 0.9 * (1 - q)) free(Math.round(x + xx), Math.round(y + yy), q < 0.45 ? MICE[0] : q < 0.75 ? MICE[1] : MICE[2], 1 - q * 0.4);
+  }
+  // glints on the edge: a plus that blinks for two steps
+  const gl = m.open.filter(([x, y]) => !isFace(x, y));
+  if (gl.length) for (let k = 0; k < g.g; k++) {
+    const start = Math.floor(H(k, 6) * MN), age = (f - start + MN) % MN; if (age > 2) continue;
+    const [x, y] = gl[Math.floor(H(k, 1) * gl.length) % gl.length];
+    px(c, x, y, MICE[0]); if (age === 1) { free(x - 1, y, MICE[1]); free(x + 1, y, MICE[1]); free(x, y - 1, MICE[1]); free(x, y + 1, MICE[1]); }
+  }
+  // a very faint rim: pale on the sunlit (top-left) edges, a tinted blue line low on the shaded ones
+  for (const [x, y] of m.open) {
+    const sun = (!has(x - 1, y) || !has(x, y - 1)) ? 1 : 0.45, face = isFace(x, y) ? 0.6 : 1;
+    const s = FIFTH(A * 0.22 * 1.25 * sun * face * (0.88 + 0.22 * Math.sin(ph + x * 0.8 + y * 0.5)));
+    if (s > 0.6) px(c, x, y, MICE[1], 0.9); else if (s > 0.4) px(c, x, y, MICE[2], 0.8); else if (s > 0.2) px(c, x, y, MICE[3], 0.7);
+  }
+  return { cv, ax, ay };
+};
+export const statusSlow = (ctx, e, time, feet, hr, lv = 2) => {
+  const rf = e._rf, sf = rf && rigFrame(rf.skin, rf.ps, rf.pf, "");
+  if (time !== mistAt) { mistAt = time; mistN = 0; }
+  if (!(sf && sf.cv)) return void stampAt(ctx, slowSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
+  const m = MASKS.has(sf.cv) ? MASKS.get(sf.cv) : mistN < 2 ? (mistN++, maskOf(sf)) : null;
+  if (!m) return;
+  if (m.none) return void stampAt(ctx, slowSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
+  lv = Math.max(1, Math.min(3, lv));
+  const f = frameOf(time, e.id || 0, MN) % MN, view = isViewSheet(rf.ps), key = sf.cv, slot = ((lv - 1) * 2 + (view ? 1 : 0)) * MN + f;
+  let per = MISTS.get(key); if (!per) { per = []; MISTS.set(key, per); }
+  let s = per[slot];
+  if (!s && mistN < 2) {
+    mistN++; s = per[slot] = mistBake(m, f, view, lv); mistBytes += s.cv.width * s.cv.height * 4;
+    while (mistBytes > MIST_BUDGET && MISTS.size > 1) {      // over the memory cap: drop the oldest figure frame's mists
+      const [k0, v0] = MISTS.entries().next().value; if (k0 === key) break;
+      for (const q of v0) if (q) mistBytes -= q.cv.width * q.cv.height * 4;
+      MISTS.delete(k0);
+    }
+  }
+  if (!s) return;
+  const X = Math.round(e.x * PX) / PX, Y = Math.round(feet * PX) / PX, flip = e.face < 0 && !view;
+  ctx.save(); ctx.translate(X, Y); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(s.cv, -s.ax / PX, -s.ay / PX, s.cv.width / PX, s.cv.height / PX);
+  ctx.restore();
+};
 export const statusMist = (ctx, e, time, feet, hr, hwWorld) => stampAt(ctx, mistSprite(bucketHW(hwWorld || e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
 export const statusStun = (ctx, e, time, feet, hr) => {
   const f = frameOf(time, e.id || 0, 16);
   stampAt(ctx, stunSprite(bucketHW(e.size), bucketT(hr), f), e.x + ((f >> 1) & 1 ? 0.5 : -0.5), feet);
 };
 export const statusCrack = (ctx, e, time, feet, hr) => stampAt(ctx, crackSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
-// the shield: pips at the crown (just under the health bar)
-export const statusShield = (ctx, e, time, tms, feet, hr) => {
-  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, Math.ceil(e.guard))), e.guardFlash > tms), e.x, feet - hr + 3);
+// the shield: pips ON the health bar's line, `mid` = the bar's middle in world units (owner,
+// 2026-11-21: under the bar they hid in the head). Drawn over the bar, whose health cannot move
+// while a pip stands (steel is swallowed whole, magic and burns glance off). The row's middle
+// sits 1 art px above the sprite's anchor, hence the half unit.
+export const statusShield = (ctx, e, time, tms, mid) => {
+  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, Math.ceil(e.guard))), e.guardFlash > tms), e.x, mid + 0.5);
 };
 
 // ---- PHYSICAL HIT (concept B): a hard white pop, steel and ember sparks flung out, a slash, dust ----

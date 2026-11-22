@@ -46,8 +46,8 @@
 //                  body never splits one that has a chance)
 //   summonAtStart  its summoned foes stream out of the wood at the start of the
 //                  road, not around it (the Warchief's horn)
-//   deathBurst     {r, dmg, dps, dur} — dies violently: hurts knights in r,
-//                  and leaves plague ground that keeps hurting them
+//   deathBurst     {r, dmg, dps?, dur?} — dies violently: hurts knights in r
+//                  (as the burst reaches them); dps > 0 also leaves plague ground
 
 // The Risen get back up ONLY under the blood moon (owner, 2026-11-21: "skeletons no longer
 // resurrect, except during the blood moon"). false = the old rule: every Risen felled by a
@@ -276,8 +276,9 @@ export const ENEMIES = {
     // mres 0.35 (owner, 2026-11-10)
     faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, mres: 0.35, size: 18,
     name: "Plague Ghast", atk: 16, atkRate: 900, castleDmg: 2,
-    deathBurst: { r: 55, dmg: 26, dps: 12, dur: 3500 },
-    note: "Swollen with grave-rot, and sent ahead of the court at a shambling run to fall on your knights. Kill it at arm's length and it bursts — scalding every knight nearby and leaving a pool of filth that keeps eating at them. Kill it FAR from your line, or let the towers do it.",
+    // the burst: 75 at once, no pool (owner, 2026-11-21; was 26 + a 3.5 s pool of 12 a second)
+    deathBurst: { r: 55, dmg: 75 },
+    note: "Swollen with grave-rot, and sent ahead of the court at a shambling run to fall on your knights. Kill it at arm's length and it bursts, hurling its rot over every knight nearby. Kill it FAR from your line, or let the towers do it.",
   },
   crypt: {
     faction: "hollow", hp: 560, speed: 40, bounty: 30, armor: 0.45, mres: 0.25, guard: 2, size: 21,

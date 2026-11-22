@@ -1470,20 +1470,16 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
   if (e.brittleUntil > tms) statusCrack(ctx, e, time, feet, hr);
   if (e.burnUntil > tms) statusBurn(ctx, e, time, feet, hr);
   if (e.poisonUntil > tms) statusPoison(ctx, e, time, feet, hr);
-  if (!frozen && lv) statusSlow(ctx, e, time, feet, hr);
+  if (!frozen && lv) statusSlow(ctx, e, time, feet, hr, lv);
   if (e.healedFlash > tms) {
     for (let i = 0; i < 2; i++) {
       const q = (time * 1.2 + i * 0.5 + id * 0.13) % 1;
       put(ctx, plusSprite(), e.x + (i ? 6 : -6), top - 2 - q * 8);
     }
   }
-  // over the crown: the stun's ring, or else the slow's wheel of stars (the
-  // harder the slow, the more stars and the lazier they turn)
+  // over the crown: only the stun's ring (the slow is cold mist round the body, never over the head)
   if (stunned) {
     statusStun(ctx, e, time, feet, hr);
-  } else if (lv && !frozen) {
-    const turn = time / (1.3 + slow * 1.7) + ((id * 0.618) % 1);
-    put(ctx, starWheel(lv + 1, sb, Math.floor(turn * STAR_N) % STAR_N), e.x, top - 0.5);
   }
 };
 

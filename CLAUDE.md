@@ -259,6 +259,16 @@ redrawn at the old rigs' size (72 / 94 art px) and the owner turned it down: "th
 big, and griffin too ... keep those riders down to the same size as the normal troops"; they stay
 at 58 / 62 (their riders at a soldier's size). Don't grow them again unasked. Figures draw at one fixed 0.5 board px an art px.
 
+## The Stormcaller line hits harder (2026-11-21, owner request)
+
+"Increase the lightning mage's power, he does a lot less dps than the fire mage." Provisional. An `arc`
+is the number of foes a bolt strikes in all (the first included), each `arcFall` of the last. Stormcaller
+dmg 42 -> 58, arc 3 -> 4, arcFall 0.7 -> 0.75; Tempest Court dmg 46 -> 64, arcFall 0.8 -> 0.85; Thunder
+Sovereign dmg 125 -> 145. `bench-hall.mjs --kind wizard` (x3 hp, seeds 2), crowd / armor, old -> new:
+Stormcaller 66 / 71 -> 113 / 121 (Pyromancer 130 / 80), Tempest Court 129 / 134 -> 200 / 210 (Inferno
+Throne 245 / 140, Dragonbreath 190 / 115), Thunder Sovereign 181 / 198 -> 211 / 229. Lightning now trails
+fire a little on a packed crowd and leads it on a sparse armoured line. Not simmed.
+
 ## Slower blasts, a softer keg, a smaller Rimecaller (2026-11-18, owner request)
 
 "Make it so explosions propagate a bit slower. I like seeing the wave of damage emanate from the
@@ -970,6 +980,45 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **Fire and frost don't mix** (owner's idea, 2026-11-21, "for future, hidden mechanics"): NOT built.
+  Today a burn and a slow stack freely on one foe (neither clears the other). Possible rules to put to
+  them: a burn thaws a slow (or a freeze) and a chill puts a burn out early, or the second one cancels
+  the first. Ask before building; it changes balance (Bladewheel's Brazier, Frost Altar, Dragonbreath).
+- **The slow's look, Round 6** (2026-11-21): today's frost ring at the feet read as part of the stun
+  when a foe was both. The owner wants a new look "like the fire" (the body's outline, Round 5 B);
+  brief `art/briefs/fx-round6.md`, row `slow6` in `concept/fx-r6-slow.js`,
+  `node scripts/build-fx-concepts.mjs round6`. Private Artifact "Crownguard Effects Concepts, Round 6"
+  (slug fd2dba94-116f-4103-8043-3937261a295e): Today / A hoarfrost edge / B creeping ice / C cold mist /
+  D chilled colours, plus B on a burning foe (fire + frost). The owner picked **C, cold mist** (it
+  overlaps least with fire, stun and poison); IN THE GAME the same day, a step stronger than the
+  concept (brief `art/briefs/slow-mist-build.md`): statusfx.js `statusSlow` (the old ring is only
+  the fallback for a figure with no `e._rf`), no star wheel over the head. 200 slowed foes 0.37 ->
+  0.41 ms through statusSlow (the old path also blitted the star wheel); ~4-5 MB of mist bakes for 8
+  types. A newly slowed type fills in over a few frames (2 bakes a frame). Pending the owner's look.
+- **The Plague Ghast's burst, Round 7** (2026-11-21, owner: "needs a rework"): brief
+  `art/briefs/fx-round7.md`, row `plague7` in `concept/fx-r7-plague.js` (true scale, two knights at
+  the 55 reach, today's pool after), `node scripts/build-fx-concepts.mjs round7`. Private Artifact
+  "Crownguard Effects Concepts, Round 7" (slug 6324774e-371d-49b1-b9ec-f5433984e833): A gut-burst,
+  B gas cloud, C bold blast ring, D swarm of flies. Weak: B's puffs read as balls, C's stain is flat
+  noise, D's flies are 1-2 px at board size, the pool's hand-over jumps. Building any option needs
+  the engine's pool (laid at the death, update.js `deathBurst`) held back or drawn under its stain.
+  The owner picked **A's first half, no pool** (same day): IN THE GAME (brief
+  `art/briefs/ghast-burst-build.md`; rings.js `case "plagueburst"`, baked `gb*` frames shared by all
+  bursts): a lumpy swell on the body (220 ms), a white flash, gobbets thrown out in arcs that land
+  out to the rim, splats fading by 900 ms, nothing left on the road. The DAMAGE (owner): 75 once, no
+  pool or damage over time (was 26 + a 3.5 s pool of 12 a second); each soldier in 55 is struck as
+  the rot reaches him (`GHAST_SWELL` 220 + `GHAST_FLY` 300 x distance / reach, `g.ghastHits`,
+  update.js `runGhastHits`; cleared by a retried wave). `deathBurst` with `dps` would still lay a
+  pool. Measured `--chapter hollow --endure`, better doctrine, seeds 1/2: 9551 / 9199 -> 9824 /
+  10507 (the Dead Weir 994 -> 1676 on seed 2); all 15 held, none stuck. Pending the owner's playtest.
+  Then (owner: "looks a bit whack. Maybe because the biggest bubbles fall towards the outside?")
+  **Round 8** variations on the burst (brief `art/briefs/fx-round8.md`, row `burst8` in
+  `concept/fx-r8-burst.js`, `build-fx-concepts.mjs round8`): private Artifact "Crownguard Effects
+  Concepts, Round 8" (slug 67072951-4f90-4be3-9fe8-abd0357b8df3): A heavy falls close, B streaked
+  splatter, C spray burst (droplets vanish fast), D bouncing gobbets + a ring of droplets on the rim.
+  All keep the engine's timing. The owner picked **A** (2026-11-22): IN THE GAME (rings.js `gbGobs`:
+  4 big gobbets low and short near the middle, 8 middling mid-way, 56 flecks with satellites to the
+  rim; swell, flash and timing unchanged; 10 bursts at once ~0.19 ms a frame). Pending their look.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

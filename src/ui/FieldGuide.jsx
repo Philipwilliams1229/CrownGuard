@@ -276,7 +276,7 @@ function EnemyDetail({ type }) {
         {e.reassemble ? <Row label="On death">{RISE_ONLY_IN_MOON ? "under a blood moon, " : ""}gets back up once at {Math.round(e.reassemble * 100)}% health, unless magic or holy</Row> : null}
         {e.drain ? <Row label="Life drain">heals {Math.round(e.drain * 100)}% of the harm its blows do</Row> : null}
         {e.raisesOnKill ? <Row label="Its kills">rise as {e.raisesAs ? `a ${ENEMIES[e.raisesAs]?.name || e.raisesAs}` : "another of its kind"}</Row> : null}
-        {e.deathBurst ? <Row label="On death">bursts — {e.deathBurst.dmg} dmg to knights + plague ground</Row> : null}
+        {e.deathBurst ? <Row label="On death">bursts — {e.deathBurst.dmg} dmg to soldiers within {e.deathBurst.r}{e.deathBurst.dps ? " + plague ground" : ""}</Row> : null}
         <Row label="Castle damage">{e.castleDmg}</Row>
       </div>
 

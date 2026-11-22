@@ -892,6 +892,106 @@ const glazeS = (R) => memo(`glz|${R}|${PX}`, () => {
   return { cv: G.done(), ax: cx, ay: cy };
 });
 
+
+// ---- the Plague Ghast's burst (Round 7 A, first half; owner: no pool, nothing left on the road) -----
+// Baked per frame in art px (1 unit = PX art px): a ground sheet (glow, landing dots, splats) and an air
+// sheet (the swollen blob, gobbets in arcs). One shared bake per (frame, timing); drawn flipped by seed.
+const GB_CELL = { cw: 260, ch: 200, ax: 130, ay: 112, N: 30 };
+const GB_ROT = ["#d8e8a0", "#a8c46e", "#76944a", "#4e6634", "#34442a"];
+const GB_SICK = "#e8f070", GB_SICK2 = "#c8e040";
+const GB_R = 110, GB_SQ = 0.55;                      // reach in art px (55 units), ground squash
+const gbH = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+const gbCl = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+const gbEase = (t) => 1 - (1 - gbCl(t)) * (1 - gbCl(t));
+const gbP = (c, x, y, col, a = 1) => { c.globalAlpha = a; c.fillStyle = col; c.fillRect(Math.floor(x), Math.floor(y), 1, 1); c.globalAlpha = 1; };
+const gbGobs = [];                                   // Round 8 A: heavy falls close, only small flecks carry to the rim
+for (let k = 0; k < 4; k++) gbGobs.push({ a: (k / 4) * TAU + 0.4 + gbH(k, 1) * 0.3, rho: GB_R * (k & 1 ? 0.38 + 0.06 * gbH(k, 2) : 0.18 + 0.06 * gbH(k, 2)), s: 6 - (k & 1), h: 12 + gbH(k, 3) * 6, big: 1 });
+for (let k = 0; k < 8; k++) gbGobs.push({ a: (k / 8) * TAU + 0.2 + gbH(k, 4) * 0.3, rho: GB_R * (0.48 + 0.26 * gbH(k, 5)), s: 3 + (k & 1), h: 22 + gbH(k, 6) * 8 });
+for (let k = 0; k < 56; k++) gbGobs.push({ a: (k / 56) * TAU + gbH(k, 7) * 0.1, rho: GB_R * (0.78 + 0.22 * gbH(k, 8)), s: k % 4 === 0 ? 2 : 1, h: 30 + gbH(k, 9) * 16, fleck: 1 });
+const gbSplat = (c, x, y, r) => {
+  const ry = Math.max(1, Math.round(r * GB_SQ));
+  for (let dy = -ry; dy <= ry; dy++) for (let dx = -r; dx <= r; dx++) {
+    const d = Math.hypot(dx / r, dy / ry); if (d > 1) continue;
+    gbP(c, x + dx, y + dy, d > 0.72 ? GB_ROT[3] : (dx + dy * 2 < -r * 0.3 ? GB_ROT[1] : GB_ROT[2]));
+  }
+  gbP(c, x - Math.round(r * 0.3), y - Math.round(ry * 0.3), GB_ROT[0]);
+  if (r >= 3) gbP(c, x + r + 1, y + 1, GB_ROT[3]);
+};
+const gbGob = (c, x, y, s) => {
+  if (s <= 1) { gbP(c, x, y, GB_ROT[1]); if (s === 1) gbP(c, x + 1, y, GB_ROT[3]); return; }
+  for (let dy = -s; dy <= s; dy++) for (let dx = -s; dx <= s; dx++) {
+    const d = Math.hypot(dx, dy); if (d > s + 0.3) continue;
+    const l = -(dx * 0.6 + dy * 0.8) / Math.max(1, s);
+    gbP(c, x + dx, y + dy, d > s - 0.6 ? (l > 0 ? GB_ROT[2] : GB_ROT[4]) : l > 0.4 ? GB_ROT[0] : l > -0.1 ? GB_ROT[1] : GB_ROT[2]);
+  }
+};
+const gbGlow = (c, rad, k) => {
+  if (k < 0.04) return;
+  const m = Math.ceil(rad + 2), my = Math.ceil((rad + 2) * GB_SQ);
+  for (let y = -my; y <= my; y++) for (let x = -m; x <= m; x++) {
+    const d = Math.hypot(x + 0.5, (y + 0.5) / GB_SQ); if (d > rad) continue;
+    const st = Math.ceil(gbCl(k * (1 - d / rad) * 1.5) * 5) / 5;
+    if (st > 0 && bay(x & 1023, y & 1023) < st * 0.85) gbP(c, x, y, st > 0.6 ? GB_SICK : GB_SICK2, 0.5);
+  }
+};
+const gbBake = (ms, life, swell, fly, seedFlip) => {
+  const { cw, ch, ax, ay } = GB_CELL, mk = () => { const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch; const k = cv.getContext("2d"); k.translate(ax, ay); return { cv, k }; };
+  const g = mk(), a = mk(), BODY = -2;
+  const fadeT = gbCl((ms - (life - 220)) / 220);                       // the splats thin out over the last 220 ms
+  // light: swells with the blob, flares at the split, then dies away
+  const gl = ms < swell ? 0.2 + 0.5 * (ms / swell) : Math.max(0, 0.95 - (ms - swell) / (life - swell) * 1.0) * (1 - fadeT * 0.5);
+  gbGlow(g.k, GB_R * (ms < swell ? 0.45 : 0.95), gl * 0.9 * (1 - fadeT));
+  if (ms < swell) {                                                    // (a) a swollen blob, shuddering, going white
+    const q = ms / swell, w = ms / 55, grow = 1 + 0.4 * q * q, sx = 11 * grow, sy = 13 * grow, white = q > 0.8;
+    const jx = q > 0.25 ? (Math.floor(ms / 28) & 1 ? 1 : -1) * Math.round(q * 1.5) : 0;
+    const rad = (an) => 1 + (0.06 + 0.12 * q) * (Math.sin(3 * an + w * 1.3) + 0.8 * Math.sin(5 * an - w * 1.9 + 1) + 0.6 * Math.sin(2 * an + w * 0.8 + 2));
+    const m = Math.ceil(Math.max(sx, sy) * 1.5);
+    for (let y = -m; y <= m; y++) for (let x = -m; x <= m; x++) {
+      const an = Math.atan2(y / sy, x / sx), nx = x / sx, ny = y / sy, d = Math.hypot(nx, ny) / rad(an); if (d > 1) continue;
+      const l = -(nx * 0.6 + ny * 0.8) / Math.max(0.5, Math.hypot(nx, ny)), nz = gbH(Math.floor(x / 3) + 5, Math.floor(y / 3) + Math.floor(ms / 90));
+      let col;
+      if (white) col = d > 0.82 ? GB_SICK2 : (nz < 0.7 ? "#ffffff" : "#fbffc8");
+      else if (d > 0.84) col = l > 0.15 ? GB_ROT[0] : l > -0.3 ? GB_ROT[2] : GB_ROT[4];           // lit top-left lip, dark lower rim
+      else if (nz < 0.3) col = GB_ROT[3];                                                           // dark rot blotches
+      else if (nz > 0.86 && q > 0.3) col = GB_SICK2;
+      else col = l > 0.35 ? GB_ROT[1] : l > -0.2 ? GB_ROT[2] : GB_ROT[3];
+      gbP(a.k, x + jx, y + BODY, col);
+    }
+  } else {
+    const t = ms - swell, items = [];
+    for (const o of gbGobs) {
+      const dur = Math.max(36, fly * (o.rho / GB_R) * (o.big ? 1.6 : 1)), u = t / dur;   // small ones land as the damage front reaches that far
+      const tx = Math.round(Math.cos(o.a) * o.rho), ty = Math.round(Math.sin(o.a) * o.rho * GB_SQ);
+      if (u < 0) continue;
+      if (u < 1) {
+        const e = gbEase(u), x = Math.round(tx * e), y = BODY * (1 - e) + ty * e, z = 4 * o.h * u * (1 - u);
+        if (!o.fleck && bay(tx & 1023, ty & 1023) < 0.5) gbP(g.k, tx, ty, GB_ROT[4], 0.7);   // where it will land
+        items.push({ y: ty + 1, d: () => gbGob(a.k, x, Math.round(y - z), o.s) });
+      } else if (fadeT === 0 || bay(tx & 1023, ty & 1023) > fadeT) {
+        if (o.fleck) {                                                   // a fine spatter: a dot, a lit neighbour, satellites
+          gbP(g.k, tx, ty, GB_ROT[2]); gbP(g.k, tx + 1, ty, GB_ROT[3]); gbP(g.k, tx, ty + 1, GB_ROT[3]);
+          if (o.s > 1) { gbP(g.k, tx - 1, ty, GB_ROT[2]); gbP(g.k, tx + 2, ty + 1, GB_ROT[3]); }
+          if (gbH(o.a, 4) < 0.6) gbP(g.k, tx + Math.round(Math.cos(o.a) * 3), ty + Math.round(Math.sin(o.a) * 2), GB_ROT[3]);
+        } else gbSplat(g.k, tx, ty, Math.max(2, Math.round(o.s * (1.2 + 0.9 * gbEase((t - dur) / 80)) + 1)));
+      }
+    }
+    items.sort((p, q) => p.y - q.y); for (const it of items) it.d();
+    if (t < 70) {                                                       // the split's flash
+      const q = 1 - t / 70, rr = Math.round(12 + 10 * (1 - q));
+      for (let y = -rr; y <= rr; y++) for (let x = -rr; x <= rr; x++) { const d = Math.hypot(x, y * 1.1); if (d <= rr && gbH(x, y) < q * 1.1) gbP(a.k, x, y + BODY, d < rr * 0.6 ? "#ffffff" : GB_SICK); }
+    }
+  }
+  return { g, a, flip: seedFlip };
+};
+const GB_CACHE = new Map();
+const gbFrame = (fx, life) => {
+  const swell = fx.swell || 220, fly = fx.fly || 300, N = GB_CELL.N, ms = life - fx.ttl, k = Math.max(0, Math.min(N - 1, Math.floor(ms / life * N)));
+  const key = `${life}|${swell}|${fly}|${k}`;
+  let f = GB_CACHE.get(key);
+  if (!f) { if (GB_CACHE.size > 90) GB_CACHE.clear(); f = gbBake((k + 0.5) / N * life, life, swell, fly); GB_CACHE.set(key, f); }
+  return f;
+};
+
 export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
   const GR = layer !== "a", AIR = layer !== "g";
   switch (fx.type) {
@@ -1326,61 +1426,16 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       return true;
     }
     case "plagueburst": {
-      // A ghast bursting (look B): a sickly glow in a rot stain, and a cloud of
-      // bubbles of every size that swell, hold, and slowly pop, one by one.
-      const life = fx.life || 500, p = lifeP(fx, life), R = fx.r || 40, sd = seedOf(fx);
-      const r = R * easeOut(p * 1.2), A = stepA(a), SQ = 0.55;
+      // The Plague Ghast's burst (Round 7 A, first half): a swollen blob flashes white and splits, gobbets arc
+      // out (landing as the engine's damage front reaches that far), splats thin away. Baked per frame.
+      const life = fx.life || 900, f = gbFrame(fx, life), { cw, ch, ax, ay } = GB_CELL, X = sn(fx.x), Y = sn(fx.y);
+      const flip = (seedOf(fx) & 1) === 1;
       ctx.save();
-      ctx.globalAlpha *= A;
-      if (GR && p > 0.04) {
-        const g0 = easeOut(Math.min(1, p * 1.5));
-        disc(ctx, fx.x, fx.y, (r + 4), 0, dither(ctx, "#c8e040", 0.16), SQ);
-        disc(ctx, fx.x, fx.y, R * 0.9 * g0, 0, dither(ctx, ROT[3], 0.55), SQ);
-        disc(ctx, fx.x, fx.y, R * 0.9 * g0 * 0.65, 0, dither(ctx, ROT[2], 0.5), SQ);
-        disc(ctx, fx.x, fx.y, r * 0.5, 0, dither(ctx, "#f0f4a0", 0.16), SQ);
-        const sp = [];
-        for (let k = 0; k < 6; k++) { const an = k * 1.9, d = R * 0.9 * g0 * (0.2 + 0.5 * hash(sd, k + 7)); sp.push(fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ - 0.5, 1); }
-        dots(ctx, sp, ROT[0]);
-      }
-      if (AIR) {
-        ctx.globalAlpha = stepA(Math.min(1, fx.ttl / 120));
-        const list = [];
-        for (let k = 0; k < 15; k++) {
-          const born = hash(sd, k + 100) * 0.3;
-          const size = 1.2 + 4.4 * hash(sd, k + 110) * hash(sd, k + 111) + 0.8 * hash(sd, k + 112);  // world units, mostly small, a few big
-          const hold = 0.3 + 0.45 * hash(sd, k + 120);
-          const pop = Math.min(0.78, born + hold + size * 0.01), grow = 0.18 + size * 0.02;
-          if (p < born) continue;
-          const an = k * 2.4 + 0.5, rr = r * (0.15 + 0.85 * Math.sqrt(hash(sd, k + 130)));
-          const bx = fx.x + Math.cos(an) * rr, by = fx.y + Math.sin(an) * rr * SQ - 2 - hash(sd, k + 140) * 5 - Math.min(1, p) * 4;
-          list.push({ bx, by: by - (p - born) * 5, size, born, grow, pop, k });
-        }
-        list.sort((u, v) => u.by - v.by);
-        const gl = [], dr = [];
-        for (const b of list) {
-          if (p >= b.pop) {
-            const f = Math.floor((p - b.pop) / 0.07);
-            if (f < 3) put(ctx, popS(Math.max(2, Math.round(b.size * 2)), f), b.bx, b.by);
-            continue;
-          }
-          const grown = easeOut((p - b.born) / b.grow);
-          let rA = Math.max(1, Math.round(b.size * 2 * grown));
-          // about to pop: it trembles and swells a pixel
-          if (b.pop - p < 0.05) rA += 1;
-          put(ctx, bubbleS(Math.min(14, rA), (b.k + Math.floor(p * 14)) % 2), b.bx, b.by);
-        }
-        // spores and gobbets flung wide
-        const s1 = [], s2 = [], gb = [];
-        for (let i = 0; i < 12; i++) {
-          const [gx, gy, z] = fling(sd, i, p, R, 1.4, 1.8);
-          (i % 2 ? s1 : s2).push(fx.x + gx, fx.y + gy * SQ - z - 2, i % 3 ? 0.5 : 1);
-        }
-        for (let i = 0; i < 4; i++) {
-          const [gx, gy, z] = fling(sd, i + 30, p, R * 0.8, 2, 2.4);
-          gb.push(fx.x + gx, fx.y + gy * SQ - z - 2, 1.5);
-        }
-        dots(ctx, s1, TOXC[0]); dots(ctx, s2, TOXC[1]); dots(ctx, gb, ROT[3]);
-      }
+      ctx.globalAlpha *= a;
+      ctx.translate(X, Y);
+      if (flip) ctx.scale(-1, 1);
+      if (GR) ctx.drawImage(f.g.cv, -ax / PX, -ay / PX, cw / PX, ch / PX);
+      if (AIR) ctx.drawImage(f.a.cv, -ax / PX, -ay / PX, cw / PX, ch / PX);
       ctx.restore();
       return true;
     }
