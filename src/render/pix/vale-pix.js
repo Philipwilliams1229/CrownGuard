@@ -36,7 +36,7 @@ const M = () => {
     ochre: mat("#8a4a34"), door: mat("#3e6a66"), doorB: mat("#6a5a3e"),
     moss: mat(mix("#5d8f3a", REALM.GRASS_DK, 0.35), { contrast: 0.8 }), mossL: mat(lighten(mix("#5d8f3a", REALM.GRASS_DK, 0.35), 0.18), { contrast: 0.6 }),
     lichen: ["#b8c494", "#d4bc52", "#c47e46", "#dcdcc0"].map((c) => mat(c, { contrast: 0.5 })),
-    buoy: flat("#e0d8c8"), lamp: flat("#e2b462"), lampD: flat("#b07a44"), thatchM: mat(mix("#9aa456", REALM.GRASS_DK, 0.3), { contrast: 0.7 }), peat: mat("#5a3e2c", { contrast: 1.1 }), quern: mat("#a29c90", { contrast: 1 }),
+    buoy: flat("#e0d8c8"), soil: mat("#6e5236", { contrast: 0.9 }), kale: mat("#4e7a46", { contrast: 1 }), onion: flat("#c8d494"), fish: mat("#b8c0c4", { contrast: 1.1 }), fishD: mat("#5a6a74"), lamp: flat("#e2b462"), lampD: flat("#b07a44"), thatchM: mat(mix("#9aa456", REALM.GRASS_DK, 0.3), { contrast: 0.7 }), peat: mat("#5a3e2c", { contrast: 1.1 }), quern: mat("#a29c90", { contrast: 1 }),
   };
   return M_;
 };
@@ -163,12 +163,38 @@ const standingPx = (b, w, h, lean, bow, seed, mt, o = {}) => {
     const xa = cx(t0) + (f - 0.5) * W * 1.5 * K[0], xb = cx(t1) + (f - 0.5) * W * 1.5 * K[Math.min(6, Math.floor(t1 * 6))] * 0.9;
     b.toneLine(xa, -Hh * t0, xb, -Hh * t1, f < 0.34 ? 1 : -1);
   }
-  // lichen on the sunny upper half
-  for (let i = 0; i < 7; i++) {
-    const t = 0.35 + hash(seed, 80 + i) * 0.55, x = cx(t) + (hash(seed, 90 + i) - 0.7) * W * 1.1 * K[Math.min(6, Math.floor(t * 6))];
-    const lm = m.lichen[Math.floor(hash(seed, 100 + i) * 4)];
-    b.dot(x, -Hh * t, lm, 0.3, { wrap: true });
-    if (hash(seed, 110 + i) < 0.6) b.dot(x + 1, -Hh * t, lm, 0.3, { wrap: true });
+  // the planes of a dressed-by-weather stone: a lit west facet, a crease, the east facet a tone down; a few
+  // frost fractures across the face (a dark crack with its lit lip under it)
+  const wAt = (t) => { let i = 0; while (i < T.length - 2 && T[i + 1] < t) i++; const f = Math.min(1, Math.max(0, (t - T[i]) / (T[i + 1] - T[i]))); return W * (K[i] + (K[i + 1] - K[i]) * f); };
+  const cr = 0.3 + hash(seed, 120) * 0.15, lf = -0.5 - hash(seed, 121) * 0.12;
+  for (let y = 2; y < Hh * 0.93; y++) {
+    const t = y / Hh, c0 = cx(t), wk = wAt(t);
+    const xc = Math.round(c0 + wk * (cr + Math.sin(t * 7 + seed) * 0.05));
+    for (let x = xc; x < c0 + wk - 1; x++) b.tone(x, -y, -1);
+    b.tone(xc - 1, -y, -1);
+    const xl = Math.round(c0 + wk * lf);
+    if (hash(seed, y + 400) < 0.75) { b.tone(xl, -y, 1); if (hash(seed, y + 500) < 0.4) b.tone(xl + 1, -y, 1); }
+  }
+  for (let i = 0; i < 3; i++) {
+    const t = 0.2 + hash(seed, 130 + i) * 0.6, c0 = cx(t), wk = wAt(t), y = Math.round(-Hh * t);
+    const a = Math.round(c0 - wk * (0.6 - hash(seed, 140 + i) * 0.4)), e = Math.round(a + wk * (0.5 + hash(seed, 150 + i) * 0.5));
+    for (let x = a; x <= e; x++) { const yy = y + Math.round(Math.sin(x * 0.9 + i) * 0.6); b.tone(x, yy, -1); if (hash(x, i) < 0.6) b.tone(x, yy + 1, 1); }
+  }
+  // lichen in rosettes on the sunny upper half: a crusted middle, a paler ring of lobes
+  for (let i = 0; i < 4 + (o.flat ? 0 : 1); i++) {
+    const t = 0.3 + hash(seed, 80 + i) * 0.55, x = Math.round(cx(t) + (hash(seed, 90 + i) - 0.65) * wAt(t) * 1.3), y = Math.round(-Hh * t);
+    const k = Math.floor(hash(seed, 100 + i) * 4), lm = m.lichen[k], lo = m.lichen[(k + 3) % 4];
+    const big = hash(seed, 110 + i) < 0.5;
+    b.dot(x, y, lo, 0.3, { wrap: true });
+    for (const [dx, dy] of big ? [[-1, 0], [1, 0], [0, -1], [0, 1], [-2, -1], [2, 1], [1, -2], [-1, 2]] : [[-1, 0], [1, 0], [0, -1], [0, 1]]) b.dot(x + dx, y + dy, lm, 0.3, { wrap: true });
+  }
+  // carvings pecked into the face: a spiral, or a cup with two rings (incised: dark upper wall, lit lower lip)
+  if (o.carve) {
+    const t = o.carveAt ?? 0.42, c0 = Math.round(cx(t) - wAt(t) * 0.12), y0 = Math.round(-Hh * t), cut = new Set();
+    const mark = (x, y) => { x = Math.round(x); y = Math.round(y); cut.add(x + "," + y); };
+    if (o.carve === "spiral") for (let a = 0; a < Math.PI * 5; a += 0.12) { const r = 0.6 + a * 0.32; mark(c0 + Math.cos(a) * r, y0 + Math.sin(a) * r * 0.95); }
+    else { mark(c0, y0); mark(c0 + 1, y0); for (const r of [2.6, 4.4]) for (let a = 0; a < Math.PI * 2; a += 0.15) if (r < 4 || a < 5.3) mark(c0 + 0.5 + Math.cos(a) * r, y0 + Math.sin(a) * r * 0.9); }
+    for (const k of cut) { const [x, y] = k.split(",").map(Number); b.tone(x, y, -1); b.tone(x, y, -1); if (!cut.has(`${x + 1},${y + 1}`)) b.tone(x + 1, y + 1, 1); }
   }
   // the foot: shaded where it meets the turf, moss clinging round it
   b.toneLine(L[0][0] + 1, -1, R[0][0] - 1, -1, -1);
@@ -176,6 +202,16 @@ const standingPx = (b, w, h, lean, bow, seed, mt, o = {}) => {
   for (let x = Math.floor(L[0][0]) + 1; x < R[0][0] - 1; x++) {
     const hh = 1 + Math.floor(hash(seed, x + 200) * 2.2 * mm);
     for (let y = 0; y < hh; y++) b.dot(x, -1 - y, y === hh - 1 && hash(seed, x + y) < 0.4 ? m.mossL : m.moss, 0.4, { wrap: true });
+  }
+};
+// turf worn to bare earth round a stone's foot by feet and sheep: whole art pixels, a ragged rim, pebbles
+const bareFoot = (ctx, cx, cy, rx, ry, seed) => {
+  const q = 1 / RES;
+  for (let j = Math.floor((cy - ry) / q); j <= Math.ceil((cy + ry) / q); j++) for (let i = Math.floor((cx - rx) / q); i <= Math.ceil((cx + rx) / q); i++) {
+    const u = (i * q + q / 2 - cx) / rx, v = (j * q + q / 2 - cy) / ry, d = u * u + v * v, h = hash(i + seed, j);
+    if (d > 1 || (d > 0.55 && h > 0.55)) continue;
+    ctx.fillStyle = h < 0.08 ? "#b4a890" : d < 0.35 && h < 0.5 ? "#6a4e36" : h < 0.7 ? "#7e6044" : "#8e7a52";
+    ctx.fillRect(i * q, j * q, q, q);
   }
 };
 const MENHIR = [
@@ -194,7 +230,9 @@ export const menhirPix = (ctx, x, y, s, o) => {
     ctx.fillStyle = "#8a6a48"; ctx.fillRect(ap(x - Math.sign(MN.lean) * w * 1.1 - w * 0.3), ap(gy + 1), w * 0.6, 0.5);
   }
   const mt = stoneMat(col);
-  sculpt(ctx, x, gy, Math.ceil((w * 2.6 + h * 0.5) * U) + 24, Math.ceil(h * U) + 28, 10, (b) => standingPx(b, w, h, MN.lean, MN.bow, o.seed, mt, { mossy: o.v === 2 ? 1.4 : 1 }));
+  bareFoot(ctx, x + MN.lean * 2, gy, w * 1.25 + 1.5, 2.2 * s, o.seed);
+  const carve = o.v === 0 ? "spiral" : o.v === 2 ? "cup" : null;
+  sculpt(ctx, x, gy, Math.ceil((w * 2.6 + h * 0.5) * U) + 24, Math.ceil(h * U) + 28, 10, (b) => standingPx(b, w, h, MN.lean, MN.bow, o.seed, mt, { mossy: o.v === 2 ? 1.4 : 1, carve, carveAt: o.v === 2 ? 0.45 : 0.5 }));
 };
 
 // ---- lying stones ------------------------------------------------------------------------------------
@@ -223,6 +261,16 @@ const slabPx = (b, cx, cy, Lh, th, D, rot, mt, seed, o = {}) => {
     b.toneLine(a[0], a[1], c2[0], c2[1], -1);
   }
   b.toneLine(FL[0], FL[1], FR[0], FR[1], 1);
+  // rosettes of lichen and, on a fallen stone, a row of pecked cups on its top
+  for (let i = 0; i < 3; i++) {
+    const u = (hash(seed, 160 + i) - 0.5) * 1.5, t = 0.3 + hash(seed, 170 + i) * 0.4, p = P(u * Lh + Dx * t, fy(u) - th - D * t), k = Math.floor(hash(seed, 180 + i) * 4);
+    b.dot(p[0], p[1], m.lichen[(k + 3) % 4], 0.5, { wrap: true });
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) b.dot(p[0] + dx, p[1] + dy, m.lichen[k], 0.5, { wrap: true });
+  }
+  if (o.cups) for (let i = 0; i < 4; i++) {
+    const u = -0.55 + i * 0.36, p = P(u * Lh + Dx * 0.5, fy(u) - th - D * 0.5);
+    b.tone(p[0], p[1], -1); b.tone(p[0], p[1], -1); b.tone(p[0] + 1, p[1], -1); b.tone(p[0] + 1, p[1] + 1, 1); b.tone(p[0], p[1] + 1, 1);
+  }
   // the grass grown up its front (not on a lintel in the air)
   if (o.grass !== false) for (let x = -Lh; x < Lh; x++) {
     const hh = Math.max(1, Math.round((0.5 + hash(seed + 7, x + 90) * th * 0.8) * 0.9));
@@ -232,7 +280,8 @@ const slabPx = (b, cx, cy, Lh, th, D, rot, mt, seed, o = {}) => {
 export const stonefallPix = (ctx, x, y, s, o) => {
   const gy = y + 8, L = (12 + hash(o.seed, 4) * 3) * s, th = 4.5 * s, D = 7 * s, mt = stoneMat(mix("#aaa496", "#9a968c", hash(o.seed, 3) * 0.6));
   dapple(ctx, x + 3 * s + L * 0.1, gy + 0.6, L * 1.15, 2.4 * s, 0.28, o.seed);
-  sculpt(ctx, x, gy, Math.ceil(L * 2 * U) + 40, Math.ceil((th + D) * U) + 30, 12, (b) => slabPx(b, 0, 0, L * U, th * U, D * U, 0, mt, o.seed, { tilt: o.v % 2 ? 0.05 : -0.04 }));
+  bareFoot(ctx, x, gy + 0.6, L * 1.1, 2 * s, o.seed);
+  sculpt(ctx, x, gy, Math.ceil(L * 2 * U) + 40, Math.ceil((th + D) * U) + 30, 12, (b) => slabPx(b, 0, 0, L * U, th * U, D * U, 0, mt, o.seed, { tilt: o.v % 2 ? 0.05 : -0.04, cups: true }));
 };
 // Two uprights and a lintel across them. v1: the lintel has slipped, one end on the turf, the other propped on the right upright.
 export const trilithonPix = (ctx, x, y, s, o) => {
@@ -241,7 +290,8 @@ export const trilithonPix = (ctx, x, y, s, o) => {
   dapple(ctx, x + 10 * s, gy + 1, 22 * s, 3.4 * s, 0.26, sd);
   dapple(ctx, x + 1 * s, gy + 0.6, 17 * s, 1.8 * s, 0.3, sd + 3);
   // the two uprights are separate sculpts at their own x (a sculpt is anchored at its own foot)
-  sculpt(ctx, x - gap, gy, Math.ceil(w * 3 * U) + 30, Math.ceil(h * U) + 28, 10, (b) => standingPx(b, w, h, 0.01, 0.3, sd + 1, mt, { flat: true }));
+  bareFoot(ctx, x, gy, gap + w * 1.6, 2.6 * s, sd);
+  sculpt(ctx, x - gap, gy, Math.ceil(w * 3 * U) + 30, Math.ceil(h * U) + 28, 10, (b) => standingPx(b, w, h, 0.01, 0.3, sd + 1, mt, { flat: true, carve: "spiral", carveAt: 0.35 }));
   sculpt(ctx, x + gap, gy, Math.ceil(w * 3 * U) + 30, Math.ceil(h * (slipped ? 0.97 : 1) * U) + 28, 10, (b) => standingPx(b, w, h * (slipped ? 0.97 : 1), slipped ? 0.04 : -0.01, -0.3, sd + 2, mt, { flat: true }));
   if (!slipped) {
     sculpt(ctx, x + 0.3 * s, gy - h + 1.4 * s, Math.ceil((gap + w * 1.5) * 2 * U) + 40, Math.ceil(12 * s * U) + 30, 14,
@@ -372,15 +422,17 @@ export const millBodyPix = (c, x, y, s, v) => {
 const COT = { hw: 12.5, wall: 9, apex: 8.5, D: 13 };
 export const cottageBodyPix = (c, x, y, s, v) => {
   const m = M(), gy = y + 8, hw = COT.hw * s * U, flip = v % 2 ? 1 : -1, k = U * s;
-  const eave = -COT.wall * k, apex = eave - COT.apex * k, D = COT.D * k, sd = 31 + v;
+  const eave = -COT.wall * k, apex = eave - COT.apex * k, D = COT.D * k, sd = 31 + v, garden = v >= 2;
   dapple(c, x + 8 * s, gy + 0.5, hw / U * 1.7, 3.8 * s, 0.3, 5);
-  sculpt(c, x, gy, Math.ceil((COT.hw + 12) * 2 * s * U), Math.ceil(46 * s * U) + 20, 12, (b) => {
+  sculpt(c, x, gy, Math.ceil((COT.hw + 12) * 2 * s * U), Math.ceil(46 * s * U) + 32, 24, (b) => {
     // the chimney at the back, behind the ridge
-    const cx0 = Math.round(flip * -3.5 * k - 2 * k), cw = Math.round(4 * k);
-    b.part(); b.rect(cx0, apex - D - 5 * k, cw, 7 * k, m.chim, 0.1, { n: [0, 0, 1] });
-    courses(b, cx0, Math.round(apex - D - 5 * k), cw, Math.round(7 * k), 4, 5);
-    b.part(); b.rect(cx0 - 1, apex - D - 5 * k - 1, cw + 2, 2, m.mason, 0.3, { n: [0, -0.4, 0.9] });
-    b.part(); b.rect(cx0 + 1, apex - D - 5 * k, cw - 2, 1, m.wellD, 0.35, { n: [0, 0, 1], noLine: true, cast: 0 });
+    // (the garden cottage's chimney stands taller at the other end, with a clay pot on it)
+    const cx0 = Math.round(flip * (garden ? 3.5 : -3.5) * k - 2 * k), cw = Math.round(4 * k), ct = apex - D - (garden ? 8 : 5) * k;
+    b.part(); b.rect(cx0, ct, cw, (garden ? 10 : 7) * k, garden ? m.rubble : m.chim, 0.1, { n: [0, 0, 1] });
+    courses(b, cx0, Math.round(ct), cw, Math.round((garden ? 10 : 7) * k), 4, garden ? 9 : 5);
+    b.part(); b.rect(cx0 - 1, ct - 1, cw + 2, 2, m.mason, 0.3, { n: [0, -0.4, 0.9] });
+    if (garden) { b.part(); b.rect(cx0 + 1, ct - 1 - 2 * k, cw - 2, 2 * k, m.ochre, 0.4, { n: [0, 0, 1], round: 0.6 }); b.part(); b.rect(cx0 + 2, ct - 1 - 2 * k, cw - 4, 1, m.wellD, 0.45, { n: [0, 0, 1], noLine: true, cast: 0 }); }
+    else { b.part(); b.rect(cx0 + 1, ct, cw - 2, 1, m.wellD, 0.35, { n: [0, 0, 1], noLine: true, cast: 0 }); }
     // a lean-to shed of grey slate on the odd one
     if (v % 2) {
       const sw = Math.round(7 * k), x0 = flip > 0 ? Math.round(-flip * hw) - sw : Math.round(-flip * hw);
@@ -406,7 +458,24 @@ export const cottageBodyPix = (c, x, y, s, v) => {
     for (let yy = wy0 + 4; yy < wy0 + 6; yy++) for (let xx = wx0; xx < wx0 + 7; xx++) if (xx !== wx0 + 3) b.dot(xx, yy, yy === wy0 + 4 ? m.lampD : m.lamp, 0.65, { noLine: true, cast: 0 });
     windowPix(b, -3, Math.round(apex + 3.5 * k), 5, 5, 0.5);
     // a stack of cut peats against the wall's corner, drying, in staggered courses
-    {
+    if (garden) {
+      // a kitchen plot before the window: dug rows of kale and onions, a wattle fence on its front and end
+      const pa = -flip * (hw - 0.5 * k), pb = -flip * 1.5 * k, x0 = Math.round(Math.min(pa, pb)), pw = Math.round(Math.abs(pa - pb)), pd = Math.round(4.6 * k);
+      b.part(); b.rect(x0, 1, pw, pd, m.soil, 0.05, { n: [0, -0.7, 0.7], noLine: true, cast: 0 });
+      for (let r = 0; r < 3; r++) {
+        const yy = 2 + Math.round(r * pd / 3);
+        b.toneLine(x0 + 1, yy + 2, x0 + pw - 2, yy + 2, -1);
+        for (let xx = x0 + 2 + (r % 2); xx < x0 + pw - 2; xx += 3) {
+          if (r === 1) { b.dot(xx, yy, m.onion, 0.1, { noLine: true, cast: 0 }); b.dot(xx, yy - 1, m.onion, 0.1, { noLine: true, cast: 0 }); }
+          else { b.part(); b.ellipse(xx, yy, 1.4, 1.1, m.kale, 0.1 + r * 0.01, { round: 0.95 }); }
+        }
+      }
+      const fy = pd + 1;
+      b.part(); for (let xx = x0; xx <= x0 + pw; xx += 3) b.rect(xx, fy - 3, 1, 4, m.wood, 0.3, { n: [0, 0, 1] });
+      b.part(); b.rect(x0, fy - 2, pw + 1, 2, m.wicker, 0.32, { n: [0, -0.3, 0.95] });
+      b.toneLine(x0, fy - 2, x0 + pw, fy - 2, 1);
+      for (let xx = x0 + 1; xx < x0 + pw; xx += 2) b.tone(xx, fy - 1, -1);
+    } else {
       const pa = -flip * (hw - 1 * k), pb = -flip * (hw - 5.5 * k), x0 = Math.round(Math.min(pa, pb)), pw = Math.round(Math.abs(pa - pb)), ph = Math.round(3.4 * k);
       b.part(); b.poly([[x0, 1], [x0 + pw, 1], [x0 + pw - 1, -ph], [x0 + 1, -ph - 1]], m.peat, 0.65, { n: [0, 0.1, 1], round: 0.5 });
       for (let r = 0, yy = 0; yy > -ph; r++, yy -= 3) { b.toneLine(x0, yy, x0 + pw - 1, yy, -1); for (let xx = x0 + (r % 2 ? 2 : 4); xx < x0 + pw - 1; xx += 4) b.toneLine(xx, yy - 2, xx, yy - 1, -1); b.toneLine(x0 + 1, yy - 2, x0 + pw - 2, yy - 2, 1); }
@@ -443,12 +512,17 @@ export const cottageBodyPix = (c, x, y, s, v) => {
       for (let yy = ry; yy > ry - D; yy -= 1) if (Math.round(yy) % 3 !== 0) b.dot(ex, yy, m.rope, 1.5, { noLine: true, cast: 0 });
       b.part(); b.ellipse(ex, eave + 4, 1.7, 1.8, m.mason, 1.6, { round: 0.95, cast: 0 });
     }
-    // moss and a few dark wet patches in the old thatch, low on both slopes where it stays damp
-    for (let i = 0; i < 4; i++) {
-      const [a, e] = i % 2 ? [rf.apex, rf.rE] : [rf.lE, rf.apex], t = i % 2 ? 0.55 + hash(sd, i) * 0.35 : 0.1 + hash(sd, i) * 0.35, d = 2 + Math.floor(hash(sd, i + 9) * (D - 6));
-      const X = a[0] + (e[0] - a[0]) * t, Y = a[1] + (e[1] - a[1]) * t - d;
-      b.part(); b.ellipse(X, Y, 2.6, 1.6, m.thatchM, 1.35, { round: 0.9, noLine: true, cast: 0 });
-      b.dot(X - 1, Y - 1, m.mossL, 1.36, { noLine: true, cast: 0 });
+    // moss in the old thatch: short runs along its combed rows, gathered at the eaves (each slope's outer end)
+    // and thicker toward the back, where the north side stays damp
+    for (const [a, e, outer] of [[rf.lE, rf.apex, 0], [rf.apex, rf.rE, 1]]) for (let d = 3; d < D - 1; d += 3) {
+      const n = Math.abs(e[0] - a[0]), back = d / D;
+      for (let i = 0; i < n; i++) {
+        const t = i / n, edge = outer ? t : 1 - t;                 // 1 at the eave, 0 at the ridge
+        const pmoss = Math.pow(edge, 3) * (0.12 + 0.3 * back) * (outer ? 1.2 : 0.7);
+        if (hash(sd + d, i + 900) > pmoss) continue;
+        const X = a[0] + (e[0] - a[0]) * t, Y = a[1] + (e[1] - a[1]) * t - d;
+        b.dot(X, Y, m.mossL, 1.35, { noLine: true, cast: 0 }); b.dot(X + 1, Y, hash(sd + d, i + 950) < 0.5 ? m.mossL : m.thatchM, 1.35, { noLine: true, cast: 0 });
+      }
     }
     // a string of cork floats along the eave
     for (let i = 0; i < 5; i++) {
@@ -472,7 +546,7 @@ export const boatPix = (ctx, x, y, s, o) => {
     // gunwale where she sits on the stones, and her oars laid on the sand beside her
     const L = 13.5 * k, H = 2.6 * k, Dp = 5.2 * k, gl = -1.6 * k;
     dapple(ctx, x + 4 * s, gy + 0.6, L / U * 1.3, 2.6 * s, 0.32, sd);
-    const BT = mat("#4a4246", { contrast: 1.25 }), PNT = mat(hash(sd, 7) < 0.5 ? "#3a6488" : "#4a7a6c", { contrast: 1.05 }), CRM = mat("#e6dcc4", { contrast: 0.8 });
+    const BT = mat("#6c625c", { contrast: 1.2 }), TAR = mat("#3a3436", { contrast: 1 }), PNT = mat(hash(sd, 7) < 0.5 ? "#3a6488" : "#4a7a6c", { contrast: 1.05 }), CRM = mat("#e6dcc4", { contrast: 0.8 });
     const NEW = mat("#b08a5a", { contrast: 0.9 });
     sculpt(ctx, x, gy, Math.ceil(L * 2) + 50, Math.ceil((H + Dp) * 2) + 44, 16, (b) => {
       const g = (u) => gl + 2.2 * k * (1 - u * u);                               // her near gunwale on the ground, bulging to us midships
@@ -494,13 +568,18 @@ export const boatPix = (ctx, x, y, s, o) => {
       for (let i = 0; i <= 8; i++) { const u = pu0 + (pu1 - pu0) * i / 8; b.dot(u * L, sh(u) + (kl(u) - sh(u)) * 0.42, NEW, 0.6, { noLine: true, cast: 0 }); b.dot(u * L, sh(u) + (kl(u) - sh(u)) * 0.42 - 1, NEW, 0.6, { noLine: true, cast: 0 }); }
       // the near side: the tarred strake, then the painted top strake and the cream rubbing strake at her gunwale
       const side = (f0, f1, mt, z) => { const pts = []; for (let i = 0; i <= N; i++) { const u = U_(i); pts.push([u * L, sh(u) + (g(u) - sh(u)) * f0]); } for (let i = N; i >= 0; i--) { const u = U_(i); pts.push([u * L, sh(u) + (g(u) - sh(u)) * f1]); } b.part(); b.poly(pts, mt, z, { n: [0, 0.25, 0.97] }); };
-      side(0, 0.45, BT, 0.7); side(0.45, 0.82, PNT, 0.72); side(0.82, 1.0, CRM, 0.74);
+      side(0, 0.45, TAR, 0.7); side(0.45, 0.82, PNT, 0.72); side(0.82, 1.0, CRM, 0.74);
       for (let i = 1; i < N - 1; i++) { const u = U_(i), u2 = U_(i + 1), y0 = sh(u) + 1, y1 = sh(u2) + 1; b.toneLine(u * L, y0, u2 * L, y1, 1); }
       // the stems: a dark post at bow and stern
       for (const e of [-1, 1]) { b.part(); b.capsule(e * L, g(e) - 0.5, 1, e * (L - 1.5 * k), kl(e * 0.88) + 1, 1, m.woodD, 0.9, { limb: false, round: 0.7 }); }
-      // an oar laid on the sand at her side
-      spar(b, -L * 0.95, 2.2 * k, L * 0.45, 1.2 * k, 0.8, 1.2, m.woodL);
-      b.part(); b.poly([[L * 0.42, 0.5 * k], [L * 0.78, 0.4 * k], [L * 0.8, 1.9 * k], [L * 0.42, 2.0 * k]], m.woodL, 1.25, { round: 0.6 });
+      // barnacle scars and old tar on her bottom near the stems, where she lay in the water
+      for (let i = 0; i < 22; i++) {
+        const u = (i % 2 ? 1 : -1) * (0.55 + hash(sd, 200 + i) * 0.38), f = 0.1 + hash(sd, 230 + i) * 0.9, yy = sh(u) + (far(u) - sh(u)) * f;
+        if (hash(sd, 260 + i) < 0.55) b.dot(u * L, yy, m.chalk, 0.62, { noLine: true, cast: 0 }); else b.dot(u * L, yy, TAR, 0.62, { noLine: true, cast: 0 });
+      }
+      // an oar laid on the sand at her side, inside her length
+      spar(b, -L * 0.7, 2.2 * k, L * 0.4, 1.3 * k, 0.8, 1.2, m.woodL);
+      b.part(); b.poly([[L * 0.38, 0.6 * k], [L * 0.7, 0.5 * k], [L * 0.72, 2 * k], [L * 0.38, 2.1 * k]], m.woodL, 1.25, { round: 0.6 });
       // weed and wet sand along her lee
       for (let i = 0; i < 9; i++) b.dot((hash(sd, 60 + i) - 0.3) * L * 1.4, gl + 1.6 * k + hash(sd, 70 + i) * 2, i % 3 ? m.moss : m.ochre, 0.05, { noLine: true, cast: 0 });
     });
@@ -570,12 +649,24 @@ export const netrackPix = (ctx, x, y, s, o) => {
     // the nets first (behind the rail), mesh as a lattice on the swag
     for (let i = 0; i < n - 1; i++) {
       const a = x0 + i * span + 2, e = x0 + (i + 1) * span - 2, top = -hh + 5;
-      const drop = (hh - 5 * k) * (0.75 + hash(sd, i) * 0.25);
-      const curve = (t) => top + drop * (0.55 + 0.45 * Math.sin(Math.PI * t)) + Math.sin(t * 9 + i) * 0.8;
+      if (n === 3 && i === 1) {
+        // a line of split fish hung by their tails to dry, in pairs, silver bellies and dark backs
+        b.part(); b.line(a - 1, top - 1, e + 1, top - 1, m.ropeD, 0.5, { noLine: true, cast: 0 });
+        for (let fx = a + 1, j = 0; fx < e - 1; fx += 3, j++) {
+          const len = 6 + Math.floor(hash(sd, j + 40) * 3), sway = (j % 2 ? 1 : 0);
+          b.part(); b.capsule(fx, top + 1, 0.6, fx + sway, top + len, 1.2, j % 3 === 1 ? m.fishD : m.fish, 0.45 + j * 0.002, { limb: false, round: 0.8 });
+          b.dot(fx - 1, top, m.fishD, 0.46, { noLine: true, cast: 0 }); b.dot(fx + 1, top, m.fishD, 0.46, { noLine: true, cast: 0 });
+          b.tone(fx + sway + 1, top + len - 1, -1);
+        }
+        continue;
+      }
+      const drop = (hh - 5 * k) * (0.78 + hash(sd, i) * 0.22);
+      const curve = (t) => top + drop * (0.4 + 0.6 * Math.sin(Math.PI * t)) + Math.sin(t * 9 + i) * 0.8;
       for (let px = Math.ceil(a); px <= e; px++) {
         const t = (px - a) / (e - a), bot = curve(t);
         for (let py = Math.ceil(top); py <= bot; py++) {
-          if (((px - py) % 3 === 0) || ((px + py) % 3 === 0) || py === Math.floor(bot)) { b.part(); b.dot(px, py, m.net, 0.4 + ((px + py) & 1) * 0.02, { noLine: py !== Math.floor(bot), cast: 0 }); }
+          const d1 = (((px - py) % 4) + 4) % 4 === 0, d2 = (((px + py) % 4) + 4) % 4 === 0;
+          if (d1 || d2 || py === Math.floor(bot)) { b.part(); b.dot(px, py, d1 && d2 ? m.woodD : m.net, 0.4 + ((px + py) & 1) * 0.02, { noLine: py !== Math.floor(bot), cast: 0 }); }
         }
         if ((px + i) % 5 === 0) b.tone(px, bot, -1);
       }
@@ -602,8 +693,11 @@ const creelPx = (b, x, gy, k, mt, mtD, z) => {
   b.part(); b.rect(x - w, gy - 1.2 * k, w * 2, 1.2 * k, mtD, z, { n: [0, 0.2, 0.95] });
   b.part(); b.ellipse(x, gy - 1 * k - h * 0.5, w, h * 0.5 + 0.4 * k, mt, z + 0.1, { round: 0.95 });
   b.part(); b.poly([[x - w, gy - 1 * k], [x + w, gy - 1 * k], [x + w, gy - 1 * k - h * 0.5], [x - w, gy - 1 * k - h * 0.5]], mt, z + 0.1, { round: 0.95, noLine: true, cast: 0 });
-  for (const u of [-0.55, 0, 0.55]) b.toneLine(x + u * w, gy - 1 * k, x + u * w * 0.8, gy - 1 * k - h, -1);
-  for (const f of [0.25, 0.6]) b.toneLine(x - w * 0.9, gy - 1 * k - h * f, x + w * 0.9, gy - 1 * k - h * f, -1);
+  // withy hoops: bent rods arching over the pot, each a dark line with its lit side, and the woven
+  // bands curving round the dome between them
+  const top = (xx) => gy - 1 * k - (h * 0.5 + 0.4 * k) * Math.sqrt(Math.max(0, 1 - (xx * xx) / (w * w))) - h * 0.5;
+  for (const u of [-0.6, -0.2, 0.2, 0.6]) { const xx = x + u * w; for (let yy = Math.ceil(top(u * w)) + 1; yy < gy - 1 * k; yy++) { b.tone(xx, yy, -1); b.tone(xx - 1, yy, 1); } }
+  for (const f of [0.3, 0.62]) for (let xx = -w + 1; xx < w - 1; xx++) { const yy = Math.round(gy - 1 * k - (gy - 1 * k - top(xx)) * f); if ((xx + Math.round(f * 10)) % 2) b.tone(x + xx, yy, -1); }
   b.part(); b.ellipse(x, gy - h * 0.55 - 1, 0.9 * k, 0.8 * k, m.hole, z + 0.3, { round: 0.2, noLine: true, cast: 0 });
 };
 export const creelsPix = (ctx, x, y, s0, o) => {
@@ -642,6 +736,11 @@ export const skepsPix = (ctx, x, y, s, o) => {
       b.part(); b.poly(pts, m.hay, 1 + i * 0.05, { round: 0.95 });
       for (let q = 1; q < 6; q++) { const yy = by - h * q / 6, ww = w * Math.pow(1 - Math.pow(q / 6, 2.4), 0.5); b.toneLine(bx - ww, yy, bx + ww - 1, yy, -1); b.toneLine(bx - ww + 1, yy - 1, bx + ww * 0.3, yy - 1, 1); }
       b.part(); b.rect(bx - 1.2 * k, by - 1.6 * k, 2.4 * k, 1.6 * k, m.hole, 1.3 + i * 0.05, { n: [0, 0, 1], noLine: true, cast: 0 });
+      if (i === Math.floor((n - 1) / 2)) {                              // a hackle: a straw hood over the top against the rain
+        b.part(); b.poly([[bx - w * 0.75, by - h * 0.62], [bx, by - h - 2.4 * k], [bx + w * 0.75, by - h * 0.62], [bx, by - h * 0.7]], m.hayD, 1.4 + i * 0.05, { n: [-0.3, -0.6, 0.75] });
+        for (let q = -2; q <= 2; q++) b.toneLine(bx + q * 1.5, by - h * 0.66, bx + q * 0.4, by - h - 1.8 * k, q < 0 ? 1 : -1);
+      } else { b.part(); b.ellipse(bx + 0.5, by - h + 0.5, 1.6, 1.1, m.mason, 1.4 + i * 0.05, { round: 0.95 }); }
+      for (let q = 0; q < 3; q++) b.dot(bx - 3 + hash(i, q) * 7, by - 2.5 * k - hash(q, i) * 3 * k, q % 2 ? m.hole : m.gold, 1.5, { noLine: true, cast: 0 });
     }
   });
 };
@@ -656,7 +755,7 @@ export const haywainPix = (ctx, x, y, s, o) => {
     const ry = r * 0.94, felloe = far ? m.woodD : m.woodL, tyre = m.iron, N = 30;
     const P = (a, f) => [wx + Math.cos(a) * r * f, wy + Math.sin(a) * ry * f];
     b.part();
-    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + 0.2, [ex, ey] = P(a, 0.86); b.capsule(wx, wy, 0.8, ex, ey, 0.55, far ? m.woodD : m.woodL, z, { limb: false, round: 0.7, cast: 0 }); }
+    if (!far) for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.25, [ex, ey] = P(a, 0.86); b.capsule(wx, wy, 0.7, ex, ey, 0.5, m.woodL, z, { limb: false, round: 0.7, cast: 0 }); }
     b.part();
     for (let i = 0; i < N; i++) { const [ax, ay] = P(i * 2 * Math.PI / N, 0.9), [bx, by] = P((i + 1) * 2 * Math.PI / N, 0.9); b.capsule(ax, ay, 1.1, bx, by, 1.1, felloe, z + 0.1, { limb: false, round: 0.8 }); }
     b.part();
@@ -667,7 +766,6 @@ export const haywainPix = (ctx, x, y, s, o) => {
   };
   sculpt(ctx, x, gy, Math.ceil(L * 2 + 70 * k * 0.5) + 100, Math.ceil(30 * k) + 40, 12, (b) => {
     const wxL = -L + 4 * k, wxR = L - 4 * k;
-    b.part(); b.rect(-L + 2, -6 * k, L * 2 - 4, 3 * k, m.hole, 0.02, { n: [0, 0, 1], cast: 0 });       // the shade under her bed
     wheel(b, wxL + 0.6 * k, -6.2 * k, 4.6 * k, 0.1, true); wheel(b, wxR + 0.6 * k, -6.2 * k, 4.6 * k, 0.1, true);
     beam(b, -L + 3, -5 * k - 1, L * 2 - 6, 3, 0.4, m.woodD);                                         // the axle-tree
     spar(b, flip * (L - 2), -6 * k, flip * (L + 11 * k), -1, 1.3 * k * 0.8, 0.5, m.wood);        // the shaft
@@ -681,9 +779,23 @@ export const haywainPix = (ctx, x, y, s, o) => {
     const P0 = [-L - 2, -9 * k], P1 = [-L - 4, -22 * k], P2 = [L + 4, -23 * k], P3 = [L + 2, -9 * k], pts = [];
     for (let t = 0; t <= 1.0001; t += 1 / 24) { const w = 1 - t; pts.push([w * w * w * P0[0] + 3 * w * w * t * P1[0] + 3 * w * t * t * P2[0] + t * t * t * P3[0], w * w * w * P0[1] + 3 * w * w * t * P1[1] + 3 * w * t * t * P2[1] + t * t * t * P3[1]]); }
     b.part(); b.poly(pts, m.hay, 1, { round: 0.85, ny: -0.3 });
-    for (let i = 0; i < 44; i++) {
-      const hx = -L + hash(sd, i) * L * 2, hy = -10 * k - hash(sd, i + 50) * 10 * k, r = hash(sd, i + 99);
-      if (r < 0.45) { b.part(); b.line(hx, hy, hx + 3 + r * 4, hy - 1 - r * 3, m.hayL, 1.05, { noLine: true, cast: 0 }); } else b.toneLine(hx, hy, hx + 3 + r * 3, hy - 1 - r * 2, -1);
+    // stalks combed over the mound: each a short stroke along the slope where it lies, lit on the sun's
+    // side of the heap and in shadow on the far; loose wisps standing out of the outline
+    const bz = (t, i) => { const w = 1 - t; return w * w * w * P0[i] + 3 * w * w * t * P1[i] + 3 * w * t * t * P2[i] + t * t * t * P3[i]; };
+    for (let i = 0; i < 110; i++) {
+      const t = 0.04 + hash(sd, i) * 0.92, dn = hash(sd, i + 50), ox = bz(t, 0), oy = bz(t, 1);
+      const hx = ox * (1 - dn * 0.75), hy = oy + (-9 * k - oy) * dn * 0.9;
+      const tx = bz(Math.min(1, t + 0.04), 0) - ox, ty = bz(Math.min(1, t + 0.04), 1) - oy, ln = Math.hypot(tx, ty) || 1, len = 2 + hash(sd, i + 99) * 3;
+      const lit = t < 0.55 && dn < 0.6;
+      if (lit && hash(sd, i + 7) < 0.55) { b.part(); b.line(hx, hy, hx + (tx / ln) * len, hy + (ty / ln) * len, m.hayL, 1.05, { noLine: true, cast: 0 }); }
+      else b.toneLine(hx, hy, hx + (tx / ln) * len, hy + (ty / ln) * len, lit ? 1 : -1);
+    }
+    for (let i = 0; i < 9; i++) { const t = 0.08 + i * 0.1, ox = bz(t, 0), oy = bz(t, 1); b.part(); b.line(ox, oy, ox + (t - 0.5) * 6, oy - 2 - hash(sd, i + 300) * 2, m.hayL, 1.06, { noLine: true, cast: 0 }); }
+    // a rope thrown over the load, tied down to the bed's rail at both ends
+    for (const u of [-0.35, 0.3]) {
+      const t = 0.5 + u, ox = bz(t, 0), oy = bz(t, 1);
+      b.part(); b.line(ox, oy, ox - u * 4, -10 * k, m.rope, 1.08, { cast: 0 });
+      b.part(); b.line(ox + 1, oy, ox + 1 - u * 4, -10 * k, m.ropeD, 1.07, { noLine: true, cast: 0 });
     }
     for (let i = 0; i < 7; i++) { b.part(); b.rect(-L + 2 + i * L / 3.4, -10 * k, 1, 2 + hash(sd, i) * 3, m.hayD, 1.1, { n: [0, 0, 1], noLine: true, cast: 0 }); }
     // the fork stuck in the hay

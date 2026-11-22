@@ -218,11 +218,13 @@ const smoke = (ctx, x, y, time, k = 1) => {
   ctx.globalAlpha = was;
 };
 const cottage = (ctx, x, y, s, o) => {
-  const v = o.v % 2;
-  const sp = pixBody(`cot|${s}|${v}`, Math.ceil((COT.hw + 12) * s), Math.ceil(40 * s + 4), Math.ceil(14 * s), (c, bx, by) => cottageBodyPix(c, bx, by, s, v));
+  // v % 2: the door side; v % 4 of 0 or 3: the garden cottage (a kitchen plot, a tall chimney with a pot at
+  // the other end), so a hashed v gives both looks and Gullwick's v0 has its garden
+  const v = o.v % 2, garden = o.v % 4 === 0 || o.v % 4 === 3, vv = v + (garden ? 2 : 0);
+  const sp = pixBody(`cot|${s}|${vv}`, Math.ceil((COT.hw + 12) * s), Math.ceil(44 * s + 4), Math.ceil(14 * s), (c, bx, by) => cottageBodyPix(c, bx, by, s, vv));
   stampPixBody(ctx, sp, x, y);
   const gy = y + 8, flip = v % 2 ? 1 : -1;
-  smoke(ctx, x + flip * -3.5 * s, gy - (COT.wall + COT.apex + COT.D + 5.5) * s, o.time);
+  smoke(ctx, x + flip * (garden ? 3.5 : -3.5) * s, gy - (COT.wall + COT.apex + COT.D + (garden ? 10.5 : 5.5)) * s, o.time);
 };
 
 // ---- the registry ---------------------------------------------------------------
