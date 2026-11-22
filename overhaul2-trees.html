@@ -77,6 +77,32 @@
         await save("ovh2_trees_life", out);
         throw new Error("done");
       }
+      if (MODE === "willow" || MODE === "wsway") {
+        // the willow sheet: three forms (broad old waterside, tall narrow, young), summer / autumn / winter rows, at 6x and board size;
+        // or the sway strip: the broad one over 4 frames (strands and curtains swing, the trunk holds)
+        const sway = MODE === "wsway", rows = sway ? [["summer", [0, 2, 3, 1]]] : [["summer"], ["autumn"], ["winter"]];
+        const cols = sway ? 4 : 3, S6 = sway ? 3 : 3, cw = 140 * S6, rh = 136 * S6;
+        const out = document.createElement("canvas"); out.width = cols * cw; out.height = rows.length * (rh + 150);
+        const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        rows.forEach(([sea, sv], r) => {
+          for (let c = 0; c < cols; c++) {
+            const cell = document.createElement("canvas"); cell.width = 140; cell.height = 136; const cc = cell.getContext("2d");
+            cc.fillStyle = sea === "winter" ? "#d8dee6" : sea === "autumn" ? "#8aa040" : "#6aa83e"; cc.fillRect(0, 0, 140, 136);
+            const wet = c === 0 || sway ? -1 : 0;
+            if (wet) { cc.fillStyle = "#3a6a9a"; cc.fillRect(0, 112, 50, 24); cc.fillStyle = "#4a7aa8"; cc.fillRect(0, 116, 46, 3); }
+            standRing(cc, 70, 120, 34, sway ? 9 : 9 + c, sea);
+            const sp = SP.willow(PAL[sea], 1, sway ? sv[c] : 0, 0, sway ? 4 : 4 + c, T, { form: sway ? 0 : c, wet });
+            cc.drawImage(sp.cv, 70 - sp.ax, 122 - sp.ay);
+            const X = c * cw, Y = r * (rh + 150);
+            oc.drawImage(cell, X, Y, cw, rh);
+            oc.drawImage(cell, X + 10, Y + rh + 6, 280, 272 / 2);   // board size (2 px an art px, as the panels show it)
+            oc.fillStyle = "#e8e0c8"; oc.font = "18px monospace"; oc.fillText(sway ? `frame ${c + 1}` : `${["broad old, waterside", "tall narrow", "young"][c]} / ${sea}`, X + 300, Y + rh + 30);
+          }
+        });
+        document.body.appendChild(out);
+        await save(sway ? "ovh2_trees_willow_sway" : "ovh2_trees_willow_sheet", out);
+        throw new Error("done");
+      }
       if (MODE === "leaves") {
         const out = document.createElement("canvas"); out.width = 4 * 400; out.height = 520;
         const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
@@ -246,7 +272,11 @@
           }
         }
         // build the sprites: autumn mixes its trees (each seed picks gold, russet, orange or still green)
-        for (const it of items) it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, T);
+        for (const it of items) {
+          let o = {};
+          if (it.sp === "willow") { const wet = inRiver(it.x - 26, it.y, 2) ? -1 : inRiver(it.x + 26, it.y, 2) ? 1 : 0; o = { wet, form: wet ? 0 : it.seed % 2 ? 1 : 2 }; }
+          it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, T, o);
+        }
         for (const it of items) if (it.lone && it.sp !== "bush") standRing(ctx, it.x * 2, it.y * 2 + 2, (REACH[it.sp] || REACH.oak)[1] * 2 * it.k * 0.95, it.seed * 7, SEASON);
         // wood floor in spring: bluebells drifting along the hem
         if (pal.bluebells && FOREST) { const r = rng(9); for (let n = 0; n < 900; n++) { const x = cx0 + r() * cw, y = cy0 + r() * ch, dp = forestDepthAt(x, y); if (dp < -24 || dp > 10 || nearestOnPath(x, y).d < PATH_HALF + 8) continue; ctx.fillStyle = r() < 0.7 ? "#6c7ae8" : "#9098f0"; ctx.fillRect(Math.round(x * 2), Math.round(y * 2), r() < 0.3 ? 2 : 1, 1); } }

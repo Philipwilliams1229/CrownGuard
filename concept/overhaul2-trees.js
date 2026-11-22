@@ -36,11 +36,11 @@ export const TREAT = {
 };
 
 // ---- palettes per season ----------------------------------------------------------------------------
-const BASE = { bark: "#6e4a30", barkUp: "#a8623a", birchBark: "#e2ddcc", mark: "#3a3034", moss: "#6f8f3a", pine: "#3d7650", pine2: "#356a48", willow: "#5f8a44" };
+const BASE = { bark: "#6e4a30", barkUp: "#a8623a", birchBark: "#e2ddcc", mark: "#3a3034", moss: "#6f8f3a", pine: "#3d7650", pine2: "#356a48", willow: "#88ae4a" };
 export const PAL = {
   summer: { ...BASE, oak: ["#5c9a3c", "#4f8f3e", "#64a040"], beech: "#5a9440", birch: "#8ab846", bush: "#4f8f3a", haw: "#5f9a40", blossom: "#f4eee4", flower: ["#f2eee0", "#f0c8d8", "#f4d860"], hawBloom: 0.35 },
-  spring: { ...BASE, oak: ["#86c04c", "#7ab448", "#94c858"], beech: "#9ccc5a", birch: "#b0d868", bush: "#76b04a", haw: "#78b04a", blossom: "#fbf6f0", flower: ["#6c7ae8", "#f4e070", "#f6f2ea"], willow: "#8cbc58", hawBloom: 1, bluebells: true },
-  autumn: { ...BASE, oak: ["#c8902c", "#b8582a", "#d0a832", "#6a9a3c", "#c47a2c"], beech: "#c86a2a", birch: "#e6be38", bush: "#a8442a", haw: "#b85a2c", blossom: "#c8342a", flower: ["#e8b040", "#d86a3a", "#f2eee0"], willow: "#b8a03a", moss: "#8a8a3a", hawBloom: 0.5, berries: true },
+  spring: { ...BASE, oak: ["#86c04c", "#7ab448", "#94c858"], beech: "#9ccc5a", birch: "#b0d868", bush: "#76b04a", haw: "#78b04a", blossom: "#fbf6f0", flower: ["#6c7ae8", "#f4e070", "#f6f2ea"], willow: "#a6cc5c", hawBloom: 1, bluebells: true },
+  autumn: { ...BASE, oak: ["#c8902c", "#b8582a", "#d0a832", "#6a9a3c", "#c47a2c"], beech: "#c86a2a", birch: "#e6be38", bush: "#a8442a", haw: "#b85a2c", blossom: "#c8342a", flower: ["#e8b040", "#d86a3a", "#f2eee0"], willow: "#d4b83c", moss: "#8a8a3a", hawBloom: 0.5, berries: true },
   winter: { ...BASE, oak: ["#8a6a44"], beech: "#a07a48", birch: "#8a8a6a", bush: "#5a6a44", haw: "#5a4a3a", blossom: "#c8342a", flower: ["#f4f6f8"], willow: "#7a7a4a", bare: true, snow: "#f2f6fa", pine: "#2f6a4e", pine2: "#2a5e46", hawBloom: 0, berries: true },
 };
 
@@ -52,6 +52,19 @@ const tone = (v) => (v > TH[0]) + (v > TH[1]) + (v > TH[2]);
 
 // a mass's shape: { x, y, rx, ry } an egg;  { tier: 1, x, top, hem, hw } a pine tier (a skirt)
 function geom(M, px, py) {
+  if (M.casc) {
+    const dh = M.hw * 0.85, sy = M.top + dh;
+    if (py < sy) {
+      const u = (px - M.x) / M.hw, v = (py - sy) / dh, d = Math.hypot(u, v), dm = Math.min(d, 0.97), nz = Math.sqrt(1 - dm * dm);
+      return { d, nx: (u / Math.max(d, 1e-3)) * dm, ny: (v / Math.max(d, 1e-3)) * dm, nz, v: 0 };
+    }
+    const t = clamp((py - sy) / Math.max(1, M.hem - sy), 0, 1), cx = M.x + (M.drift || 0) * t * t, w = M.hw * (1 - 0.55 * Math.pow(t, 1.3)) + 0.5;
+    const u = (px - cx) / w;
+    let d = Math.abs(u);
+    if (py > M.hem - 2) d = Math.max(d, 1 + (py - M.hem + 2) / 4);
+    const nx = clamp(u, -1, 1) * 0.8, ny = 0.12 + 0.72 * t, nz = Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny));
+    return { d, nx, ny, nz, v: 0.15 + 0.85 * t };
+  }
   if (M.tier) {
     const t = clamp((py - M.top) / (M.hem - M.top), 0, 1), w = M.hw * (0.12 + 0.88 * Math.pow(t, 0.8)) + 1;
     const u = (px - M.x) / w;
@@ -64,7 +77,7 @@ function geom(M, px, py) {
   const u = (px - M.x) / M.rx, v = (py - M.y) / M.ry, d = Math.hypot(u, v), dm = Math.min(d, 0.97), nz = Math.sqrt(1 - dm * dm);
   return { d, nx: (u / Math.max(d, 1e-3)) * dm, ny: (v / Math.max(d, 1e-3)) * dm, nz, v };
 }
-const bbox = (M) => M.tier ? [M.x - M.hw - 6, M.top - 4, M.x + M.hw + 6, M.hem + 6] : [M.x - M.rx - 6, M.y - M.ry - 6, M.x + M.rx + 6, M.y + M.ry + 6];
+const bbox = (M) => M.casc ? [M.x - M.hw - 6 + Math.min(0, M.drift || 0), M.top - 4, M.x + M.hw + 6 + Math.max(0, M.drift || 0), M.hem + 6] : M.tier ? [M.x - M.hw - 6, M.top - 4, M.x + M.hw + 6, M.hem + 6] : [M.x - M.rx - 6, M.y - M.ry - 6, M.x + M.rx + 6, M.y + M.ry + 6];
 
 // break a big mass into lobes (treatments 1, 2, 4): a centre lobe and a ring round it
 function splitMass(M, n, seed) {
@@ -86,7 +99,9 @@ function splitMass(M, n, seed) {
 
 // ---- THE CROWN: one leaf mass, through the treatment ----------------------------------------------------
 function crown(P, M, T, seed, L) {
-  const cl = T.leaf, mn = M.tier ? Math.max(4, M.hw * 0.6) : Math.min(M.rx, M.ry), ebD = T.edge / mn;
+  const cl = T.leaf, mn = M.tier || M.casc ? Math.max(4, M.hw * 0.6) : Math.min(M.rx, M.ry), ebD = T.edge / mn;
+  // leaf cells may be stretched and slanted (a willow's long narrow leaves hanging down): ly tall, shear slant
+  const ly = M.ly || 1, sh = M.shear || 0;
   const ctr = (ix, iy) => [(ix + 0.1 + 0.8 * h2(ix, iy, seed)) * cl, (iy + 0.1 + 0.8 * h2(iy, ix, seed + 7)) * cl];
   const [x0, y0, x1, y1] = bbox(M);
   const dot = (g) => g.nx * L[0] + g.ny * L[1] + g.nz * L[2];
@@ -94,11 +109,11 @@ function crown(P, M, T, seed, L) {
     const px = i + 0.5 - P.ox, py = j + 0.5 - P.oy, g = geom(M, px, py);
     if (g.d > 1 + ebD) continue;
     // the leaf cell this pixel sits in
-    const gx = Math.floor(px / cl), gy = Math.floor(py / cl);
+    const TX = px - sh * py, TY = py / ly, gx = Math.floor(TX / cl), gy = Math.floor(TY / cl);
     let f1 = 1e9, f2 = 1e9, bx = 0, by = 0, cx = 0, cy = 0;
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
-      const [qx, qy] = ctr(gx + a, gy + b), dd = Math.hypot(px - qx, py - qy);
-      if (dd < f1) { f2 = f1; f1 = dd; bx = qx; by = qy; cx = gx + a; cy = gy + b; } else if (dd < f2) f2 = dd;
+      const [qx, qy] = ctr(gx + a, gy + b), dd = Math.hypot(TX - qx, TY - qy);
+      if (dd < f1) { f2 = f1; f1 = dd; by = qy * ly; bx = qx + sh * by; cx = gx + a; cy = gy + b; } else if (dd < f2) f2 = dd;
     }
     const gc = geom(M, bx, by), cellH = h2(cx, cy, seed + 3);
     // silhouette: whole leaf cells, so the edge is a fringe of leaves, never a fuzz of single pixels
@@ -107,8 +122,8 @@ function crown(P, M, T, seed, L) {
     // bough gaps (dark: the under-crown shows) and sky holes (see-through) — big cells, lower crown / rim
     const G = 6.5, hx = Math.floor(px / G), hy = Math.floor(py / G), hc = h2(hx, hy, seed + 21);
     const hcx = (hx + 0.5) * G, hcy = (hy + 0.5) * G, hd = Math.hypot((px - hcx) / G, (py - hcy) / (G * 0.8));
-    if (!M.tier && T.gaps && g.v > 0.05 && g.d < 0.8 && hc < T.gaps && hd < 0.42) continue;
-    if (!M.tier && T.sky && g.d > 0.62 && g.d < 0.92 && hc > 1 - T.sky && hd < 0.36) { P._sky = P._sky || []; P._sky.push([i, j]); continue; }
+    if (!M.tier && !M.noGaps && T.gaps && g.v > 0.05 && g.d < 0.8 && hc < T.gaps && hd < 0.42) continue;
+    if (!M.tier && !M.noGaps && T.sky && g.d > 0.62 && g.d < 0.92 && hc > 1 - T.sky && hd < 0.36) { P._sky = P._sky || []; P._sky.push([i, j]); continue; }
     let n = g, bias = M.bias || 0;
     const v = dot(g), vc = dot(gc), t = tone(v), tc = tone(vc);
     const sepPx = (f2 - f1) < 1.05 && (px - bx) + (py - by) > 0;     // the lower-right rim of a leaf
@@ -132,8 +147,9 @@ function crown(P, M, T, seed, L) {
     } else if (T.shade && t <= 1 && cellH < T.shade) {
       n = gc; if (lipPx) bias += 1;               // a leaf catching the bounce light in the shade
     } else if (edge) n = gc;
+    if (M.casc && g.v > 0.88) bias -= 1;   // a cascade's hem a tone down (the fall's shade comes from its normal)
     if (M.tier && py > M.hem - 3.5 && g.d < 1.2) bias -= (py > M.hem - 1.5 ? 2 : 1);   // each skirt's shaded hem: the tiers stay apart
-    if (T.core && g.v > 0.25 && !M.tier) bias -= T.core * clamp((g.v - 0.25) * 2.4, 0, 1) * (g.d < 0.85 ? 1 : 0.5);
+    if (T.core && g.v > 0.25 && !M.tier && !M.casc) bias -= T.core * clamp((g.v - 0.25) * 2.4, 0, 1) * (g.d < 0.85 ? 1 : 0.5);
     P._put(i, j, M.m, M.z + g.nz * 8, n.nx, n.ny, n.nz, { bias, edge: T.lobeEdge !== false }, (1 - g.d) * mn);
   }
 }
@@ -285,31 +301,78 @@ export const SP = {
       }
     });
   },
-  // a weeping willow (today's, kept): a crown and curtains of hanging locks
-  willow(pal, k = 1, s = 0, dk = 0, seed = 4, T = TREAT[3]) {
-    return sprite(Math.ceil(110 * k), Math.ceil(104 * k), 8, T, (P) => {
-      const bk = mat("#5a4230"), lf = leafMat(pal.willow), un = mat(pal.willow, { contrast: 1.3 });
-      bark(P, [[0, 2], [1 * k, -16 * k], [3 * k, -32 * k]], [5 * k, 4 * k, 3.4 * k], bk, 40);
-      for (const x of [-9, 10]) bark(P, [[0, -3], [x * k, 2 * k]], [2.6 * k, 1], bk, 41, { strokes: false });
-      if (pal.bare) { bareCrown(P, [3 * k, -30 * k], -Math.PI / 2, 16 * k, 3 * k, 4, bk, 42, seed, pal, (x, y) => Math.hypot(x / (40 * k), (y + 52 * k) / (26 * k)) < 1); }
-      else leafMasses(P, [{ x: -16 * k, y: -56 * k, rx: 24 * k, ry: 18 * k, z: 60, m: lf }, { x: 18 * k, y: -56 * k, rx: 24 * k, ry: 18 * k, z: 61, m: lf }, { x: 2 * k, y: -70 * k, rx: 28 * k, ry: 18 * k, z: 58, m: lf }].map((m) => ({ ...m, bias: -Math.min(1, dk), split: Math.min(2, T.split) })), T, seed, un);
-      // the curtains: locks of strands, 3-5 px wide, gaps between; lit down the sun side
-      const L = sunL(), R = rng(seed * 3), span = 44 * k, lock = pal.bare ? mat("#7a6a44") : leafMat(pal.willow);
-      for (let X = -span; X <= span;) {
-        const w = 3 + Math.floor(R() * 3), u = X / span, top = -62 * k + (1 - u * u) * 4 * k + Math.abs(u) * 6 * k, len = (14 + (1 - Math.abs(u)) * 34 + R() * 10) * k * (pal.bare ? 0.8 : 1);
-        P.part();
-        for (let c = 0; c < w; c++) {
-          const xx = X + c, sl = (c - (w - 1) / 2) / w, ll = len * (0.82 + h2(c, X, seed) * 0.25);
-          for (let t = 0; t < ll; t++) {
-            const q = t / ll; if (pal.bare && (c % 2 || h2(xx, t >> 1, seed) < 0.35)) continue;
-            if (q > 0.85 && (c === 0 || c === w - 1)) continue;
-            const nx = sl * 0.8 + u * 0.3, nz = Math.sqrt(Math.max(0.1, 1 - nx * nx - 0.04));
-            P._put(Math.floor(xx + sw(s, 1 - q) * 0.5 + q * u * 3 + P.ox), Math.floor(top + t + P.oy), lock, 84 + (Math.abs(u) < 0.3 ? 6 : 0) + c * 0.01, nx, 0.2, nz, { bias: -Math.min(1, dk) - (q > 0.8 ? 1 : 0) + (c === 0 && h2(t, X, 3) < 0.3 ? 1 : 0) });
+  // a weeping willow in treatment 3's language: a leaning trunk forking into arching boughs; the crown as
+  // separate CASCADES that spring up off each bough and fall, each lit on its shoulder and shaded beneath, gaps
+  // between them showing the boughs; a few tapering strands of different lengths below each hem (waterside ones
+  // trail into the water with a ripple); long narrow leaves only along the light's edge and the ragged hem.
+  //   o.form 0 a broad old waterside willow, 1 tall and narrow, 2 young;  o.wet -1 / 1: the water lies that side
+  willow(pal, k = 1, s = 0, dk = 0, seed = 4, T = TREAT[3], o = {}) {
+    const form = o.form ?? 0, F = [
+      { w: 116, h: 100, lean: 5, tr: 5.2, fork: -26, boughs: [[-34, -60, -44, -52], [-12, -74, -18, -68], [12, -76, 20, -70], [34, -62, 46, -52]], hw: 9, hem: -12 },
+      { w: 86, h: 116, lean: 3, tr: 4.2, fork: -40, boughs: [[-20, -84, -28, -76], [2, -98, 2, -92], [22, -86, 30, -78]], hw: 9, hem: -14 },
+      { w: 70, h: 72, lean: 2, tr: 2.6, fork: -22, boughs: [[-16, -50, -22, -44], [4, -58, 6, -52], [20, -48, 26, -42]], hw: 7, hem: -8 },
+    ][form];
+    return sprite(Math.ceil((F.w + 24) * k), Math.ceil((F.h + 20) * k), 10, T, (P) => {
+      const bk = mat("#6a4e36"), col = pal.bare ? "#b08a40" : pal.willow, lf = leafMat(deep(col, dk)), lfB = leafMat(deep(col, 2), { contrast: 0.9 });
+      const R = rng(seed * 5 + form), L = sunL();
+      // trunk: a lean, a flared foot, a fork
+      const fx = F.lean * k, fy = F.fork * k;
+      bark(P, [[0, 2], [fx * 0.4, fy * 0.5], [fx, fy]], [F.tr * k, F.tr * 0.8 * k, F.tr * 0.7 * k], bk, 40);
+      for (const x of [-1, 1]) bark(P, [[0, -3], [x * F.tr * 1.8 * k, 2 * k]], [F.tr * 0.5 * k, 1], bk, 41, { strokes: false });
+      // the boughs arch up and out, then droop at their ends (where the cascades hang)
+      const ends = [];
+      F.boughs.forEach(([ax, ay, ex, ey], i) => {
+        const r0 = Math.max(1.3, F.tr * 0.55 * k);
+        bark(P, [[fx, fy], [(fx + ax * k) / 2 + ax * 0.15 * k, (fy + ay * k) / 2 - 6 * k], [ax * k, ay * k], [ex * k + sw(s, 0.6), ey * k]], [r0, r0 * 0.8, r0 * 0.6, Math.max(1, r0 * 0.4)], bk, 30 + i, { strokes: false });
+        ends.push([ax * k, ay * k, ex * k + sw(s, 0.6), ey * k]);
+      });
+      const hem = F.hem * k;
+      if (pal.bare) {
+        // winter: hanging withies, golden-brown, in loose bunches off each arch; no leaves
+        const wd = [mat("#c49a48"), mat("#a87c3a"), mat("#8a6634")];
+        ends.forEach(([ax, ay, ex, ey], i) => {
+          const n = Math.round(F.hw * 1.5 * k);
+          for (let m = 0; m < n; m++) {
+            if (m % 3 === 2) continue;
+            const t = (m + 0.5) / n, x0 = ax + (ex - ax) * t + (R() - 0.5) * F.hw * 2.4 * k, y0 = ay + (ey - ay) * t - 2 * k + Math.abs(x0 - ax) * 0.1;
+            const len = (hem - y0) * (0.55 + R() * 0.5), out = Math.sign(x0 - fx) * (0.4 + R() * 1.2);
+            const md = wd[m % 3];
+            for (let q = 0; q < len; q++) { const f = q / len; P.dot(x0 + out * f * 3 + sw(s, f) * 0.7, y0 + q, md, 50 + i + (m & 1) * 5, { n: [m & 1 ? 0.5 : -0.5, 0.1, 0.85] }); }
           }
-        }
-        X += w + (R() < 0.35 ? 2 : 1);
+        });
+        if (pal.snow) for (const [ax, ay] of ends) for (let x = -3; x <= 3; x++) P.dot(ax + x, ay - 2 - (Math.abs(x) > 2 ? -1 : 0), mat(pal.snow, { contrast: 0.5 }), 70, { n: [0, -0.8, 0.6] });
+        return;
       }
-      void L;
+      // the back cascades (dim, between and behind the front ones: depth through the gaps)
+      const back = ends.slice(0, -1).map(([ax, ay, ex, ey], i) => { const [bx2, by2] = ends[i + 1]; return { casc: 1, x: (ex + bx2) / 2, top: Math.min(ey, by2) - 6 * k, hem: hem - 10 * k, hw: F.hw * 0.55 * k, m: lfB, z: 20, noGaps: true, ly: 2.4, shear: 0 }; });
+      // the front cascades, one off each bough end; outer ones drift outward as they fall
+      const front = [];
+      ends.forEach(([ax, ay, ex, ey], i) => {
+        const side = Math.sign(ex - fx) || (i % 2 ? 1 : -1), outer = i === 0 || i === ends.length - 1;
+        front.push({ casc: 1, x: ex, top: ey - F.hw * 0.7 * k, hem: hem - (outer ? 0 : 4 * k) - R() * 5 * k, hw: F.hw * k * (outer ? 1.05 : 1), drift: side * (outer ? 6 : 3) * k + sw(s, 0.4),
+          m: lf, z: 64 + (outer ? 0 : 4) + i, noGaps: true, ly: 2.6, shear: -side * 0.22, bias: -Math.min(1, dk) });
+        if (!outer && form !== 0) return;
+        const mx = ax + (ex - ax) * 0.1 - side * F.hw * 0.7 * k, my = ay - 2 * k;
+        front.push({ casc: 1, x: mx, top: my - F.hw * 0.6 * k, hem: hem - 8 * k - R() * 8 * k, hw: F.hw * 0.75 * k, drift: side * 2 * k + sw(s, 0.3),
+          m: lf, z: 52 + i, noGaps: true, ly: 2.6, shear: -side * 0.18, bias: -Math.min(1, dk) - 1 });
+      });
+      for (const M of [...back, ...front]) { P.part(); crown(P, M, { ...T, sep: 1, band: 0.12, edge: 3 }, seed * 11 + M.z, L); }
+      // strands below each front hem: a few, tapering, of different lengths; the waterside ones trail in the water
+      const rip = flat("#e4f2f4"), lit = leafMat(col);
+      front.forEach((M, i) => {
+        if (M.z < 60) return; const n = 2 + Math.floor(R() * 3), side = Math.sign(M.x - fx);
+        for (let m = 0; m < n; m++) {
+          const x0 = M.x + M.drift + (R() - 0.5) * M.hw * 1.4, wet = o.wet && side === o.wet && Math.abs(M.x - fx) > F.hw * 0.8 * k;
+          const len = (wet ? -hem + 6 * k : R() < 0.3 ? -hem - 1 : (3 + R() * 8) * k) * (0.9 + R() * 0.2), wid = R() < 0.25 ? 2 : 1;
+          P.part();
+          for (let q = 0; q < len; q++) {
+            const f = q / len, xx = x0 + sw(s, 0.5 + f * 0.5) * 0.8 + side * f * 1.5, yy = M.hem - 2 + q;
+            const w2 = f < 0.45 ? wid : 1;
+            for (let c = 0; c < w2; c++) P._put(Math.floor(xx + c + P.ox), Math.floor(yy + P.oy), lit, 70 + i + m * 0.1, c ? 0.4 : -0.4, 0.3, 0.86, { bias: -Math.min(1, dk) + (f < 0.3 ? 0 : -1), noLine: f > 0.5 });
+          }
+          if (wet) { const tx = x0 + side * 1.5 + sw(s, 1) * 0.8, ty = M.hem - 2 + len; for (const [dx, dy] of [[-3, 1], [-2, 1], [2, 1], [3, 1], [-1, 2], [1, 2], [0, 2]]) P.dot(tx + dx, ty + dy, rip, 10, { unlit: true }); }
+        }
+      });
     });
   },
   // C's birch grove, airier: three white stems, small crowns that let the sky through

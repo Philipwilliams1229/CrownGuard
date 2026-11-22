@@ -88,3 +88,20 @@ hop, fox trots) to a second home spot away from the road, and comes back 20-40 s
 **Treatment 3, Leafy terminator.** It keeps today's readable big masses and calm light / shade planes, puts leaves
 only where an artist would (the light's edge and the silhouette), and the broken outline lets the lit side breathe:
 it is the "mix between today and C" the owner asked for. 4 if the owner wants a little more of C's richness.
+
+## The willow, second pass (owner picked treatment 3; "take another pass at the willow")
+`SP.willow(pal, k, sway, dk, seed, T, { form, wet })`: a leaning trunk forking into 3-4 arching boughs; the crown is
+separate CASCADES (a new mass kind `casc` in geom(): a domed shoulder on top, a curtain that narrows and drifts
+outward as it falls), lit on the shoulder, shaded down the fall, dim narrow back cascades in the gaps between them;
+leaf cells stretched 2.6x tall and slanted down-and-out (long narrow willow leaves) and shown only at the light's
+edge and the ragged hem; 2-4 thin strands of different lengths under each front hem, the waterside ones trailing
+into the water with a little ripple (`wet` -1/1, the lab finds the river with inRiver). Paler, yellower green
+(#88ae4a; spring #a6cc5c; autumn #d4b83c). Forms: 0 broad old waterside, 1 tall narrow, 2 young. Winter: hanging
+golden-brown withies in loose bunches off each arch, a little snow on the boughs. Sway: the cascades and strands
+swing with `sway`, the trunk holds.
+Shots: `ovh2_trees_willow_sheet.png` (3 forms x summer / autumn / winter, 3x and board size),
+`ovh2_trees_willow_sway.png` (4 frames), `ovh2_trees_1_3w.png`, `ovh2_trees_3_3w.png`, `ovh2_trees_1_3w_autumn.png`,
+`ovh2_trees_3_3w_winter.png`.
+Weak: the hems end in short blunt "fingers" here and there; the tall form is still dense (few gaps); in the sway the
+leaf texture shimmers a little because the cells are fixed to the pixel grid while the cascades move (bake per frame,
+as all sway does).
