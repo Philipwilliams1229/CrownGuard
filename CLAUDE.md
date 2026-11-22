@@ -904,9 +904,11 @@ owner wants it reversible and played in a preview before it reaches main.
   whole side of the tower gets the outline", shadows "start from the outline of the base" and "take the
   full width"; checked by Fable): pix/halls.js notes each hall (`noteHall`, one frame late) and stamps
   `hallRim` (a 2-px amber line + a stepped wash on the sunward quarter of each run, baked per form and
-  facing in `bakeHallSun`); `drawHallShadows` lays the hall's own silhouette sheared along DIR from the
-  middle of its footing (hallfoot.js down - up), its widest row landing on the footing ellipse's two
-  tangent points for the light (`qw`; owner: "it juts out at the bottom"), stepped alpha by height.
+  facing in `bakeHallSun`); `drawHallShadows` lays the hall's own silhouette sheared along DIR, rooted on
+  the base AS DRAWN (not hallfoot.js, which is the footprint with props): the owner picked option A of
+  `sun-try.html` (`SHADOW_TUNE`): the foot starts at the middle of the base's drawn front edge and slants
+  up-right behind the body, widening to full width over 16 units, stepped alpha by height. Every kind x
+  form: `sun-halls.html?kind=<k>` (sunset row and moon row).
   The CASTLE (owner: "shadows and lighting effects on the castle itself"): castle.js `castleSun` (after
   the stone, reads `SUN`): an amber overlay baked per castle bake on every WEST face (curtain, towers,
   gate block: a line at the foot, stepped wash by height) and the decks' / parapet's west rims, masked

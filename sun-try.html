@@ -37,7 +37,7 @@
       const sctx = scratch.getContext("2d");
       const ground = groundLayer();
       OPTS.forEach((o, n) => {
-        Object.assign(SHADOW_TUNE, { mode: "side", ax: 0, ch: null, widen: 1.8, flare: 16 }, o, { v: n + 1 });
+        Object.assign(SHADOW_TUNE, { mode: "lip", ax: 0, ch: [0.49, -0.63], widen: 1.8, flare: 16 }, o, { v: n + 1 });
         const time = 3.2 + n * 0.001, c = sunCurves(U);
         const t = { id: 3, kind: KIND, x: 40, y: 72, level: form.level, branch: form.branch || null, rank4: form.rank4 || null,
           cd: 0, aim: "first", lastAim: Math.PI, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null };

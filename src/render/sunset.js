@@ -199,7 +199,9 @@ export const SHEAR = 0.75;      // shadow length per unit of height, x len (2.5 
 export const SUN_SHEAR = SHEAR;
 const CH0 = (() => { const l = Math.hypot(0.3, 0.95); return [-0.3 / l, -0.95 / l]; })();   // the shadow's foot: up-left from the base's right side
 // the shadow foot's shape (sun-try.html tries options on one hall; bump v to rebake)
-export const SHADOW_TUNE = { v: 0, mode: "side", ax: 0, ch: null, widen: 1.8, flare: 16 };
+// owner's pick (2026-11-22, option A of sun-try.html): from the middle of the base's drawn front edge, the foot
+// slanting up-right behind the body, widening over 16 units
+export const SHADOW_TUNE = { v: 0, mode: "lip", ax: 0, ch: [0.49, -0.63], widen: 1.8, flare: 16 };
 export const drawHallShadows = (ctx, len, a) => {
   const list = SUN.list;
   SUN.list = [];
