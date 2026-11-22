@@ -173,3 +173,7 @@ GROUND
 4. Chapel and wall: "they look great." APPROVED.
 5. The mere's bank: "perfect". APPROVED. (They did not answer whether lakes should be added to boards that have
    none: do not assume; ask again when it matters.)
+   Later, the same hour, on farmland: "cinderholts design looks pretty good, bigger plots, but still full of farm.
+   Split plots but they stay the same crop, like on the bottom left. that looks good too." (Cinderholt in round 3b
+   is the reference: big plots, the board still full of farm; and a plot divided into parts that keep ONE crop,
+   as in Cinderholt's bottom-left fields, is liked.)
