@@ -87,3 +87,8 @@ campaign map gets "likeminded changes" too.
   it gets further into the water. Give it another go." (So: NO visible band edges or waterline stroke between
   sand and water: a continuous light-to-dark blend. In pixel terms: many close steps joined by wide dither,
   not a few bands with broken edges. The lead's earlier "never a smooth gradient" was wrong for this.)
+- **River edges: APPROVED, except the shingle beach.** "I actually like all the rivers except for the
+  shingle one. I think they look great. I would limit mixing them so much, it can get too busy. But some
+  is fine. Looks really good!" (So: cut bank, grassy lip, reeds and lilies, stone quay are in; no shingle;
+  a river keeps ONE main edge kind for long stretches with an occasional change, e.g. a quay at a bridge or
+  reeds in one slack bay, not a new edge every bend.)

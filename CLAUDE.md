@@ -1065,6 +1065,10 @@ overhaul, show bold options before building.
   nothing pointing at the camera), ruins, night lights; ground: meadow strengths 1-3, terraces (painted steps
   recommended), quiet / patchwork countryside, a 15-level plan. Awaiting the owner's picks. Labs note: with many
   sessions editing, the dev server reloads lab pages every 20-60 s (artists used resumable queues / iframes).
+  **Owner's picks from round 2 so far:** the river edges are APPROVED except the shingle beach ("I actually like all
+  the rivers except for the shingle one ... I would limit mixing them so much, it can get too busy. But some is
+  fine"): cut bank, grassy lip, reeds, quay; one main edge kind per stretch. The lake's sand must BLEND into the
+  water (no traceable line; lighter at the shore, darker out): third pass running. The rest: "later".
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
