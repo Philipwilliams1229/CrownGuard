@@ -1069,6 +1069,11 @@ overhaul, show bold options before building.
   the rivers except for the shingle one ... I would limit mixing them so much, it can get too busy. But some is
   fine"): cut bank, grassy lip, reeds, quay; one main edge kind per stretch. The lake's sand must BLEND into the
   water (no traceable line; lighter at the shore, darker out): third pass running. The rest: "later".
+  **Concept pages must show MOTION as playing loops** (owner, 2026-11-22: "include an animated view so i can see how
+  things move"): spec `art/briefs/overhaul-animation.md` (a sprite-sheet PNG per loop, `ovh3_anim_<name>_c<cols>r<rows>_fps<n>.png`;
+  the page plays them on a canvas). More owner picks from the page comments: trees = treatments 3 and 4 mixed, treatment 4
+  wood edge with fireflies, no leaf litter under evergreens, winter trees keep their structure; the farm; the calm meadow;
+  the full patchwork with a different field pattern on every map; bold steps need better road crossings.
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
