@@ -258,7 +258,7 @@ export const build = (o = {}) => (back) => {
   const live = [], lights = [], R = 2 * s.rr;
   if (gale) live.push({ kind: "machine", x: 22, y: -84, get img() { return sailsPix(r4, 0); } });
   else if (!post1) { const flagTop = WY - R * SQ - (fire ? 17 : 14); live.push({ kind: "pennant", x: 19, y: T - 3, col: FLAG_OF[key], pole: Math.round(T - 3 - flagTop - 7), len: 12 }); }
-  if (!post1 && !fire) lights.push({ key: "lamp", x: 10.5, y: T + 5, r: 16, col: "#ffcf70", a: 0.7 });
+  if (!post1 && !fire) lights.push({ key: "lamp", x: 10.5, y: T + 5, r: 13, col: "#ffcf70", a: 0.55 });
   if (fire) {
     live.push({ kind: "flame", x: 8, y: 1, w: 5, h: 7 });
     lights.push({ key: "torch", x: 8, y: -4, r: 22, col: "#ffa040", a: 0.85 });
