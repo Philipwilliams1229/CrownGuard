@@ -16,6 +16,7 @@
 //                 the hero, auto-horn
 // A run with any "cheat" on (see isHonest) banks no stars or profile XP.
 
+import { SUN_ORDER } from "./sun.js";
 import { FACTIONS, setCustomFaction, selectFaction } from "./factions.js";
 import { ENEMIES } from "./enemies.js";
 import { TOWERS } from "./towers.js";
@@ -67,6 +68,8 @@ export const DEFAULTS = {
   // THE WEATHER (engine/weather.js; never makes a run easier, so not in isHonest)
   weather: "realm",       // "realm" (the board's own) | "none" | a WEATHER_KINDS kind
   weatherPower: 0.7,      // its strength, 0.2-1 (a kind's `grade`)
+  // THE TIME OF DAY (data/sun.js; look only): "noon" or any SUN_ORDER id
+  sun: "noon",
 };
 // the weather choices the setup screen offers (keys of engine/weather.js WEATHER_KINDS)
 export const WEATHER_CHOICES = ["realm", "none", "fog", "storm", "bloodmoon", "gravemist", "blizzard", "eruption"];
@@ -156,6 +159,7 @@ export const sanitize = (raw) => {
   for (const k of ["script", "bosses", "crowd", "infiniteGold", "invincible", "hero", "militia", "autoWaves"]) s[k] = !!s[k];
   if (typeof s.heroKey !== "string" || !s.heroKey) s.heroKey = null;
   if (!WEATHER_CHOICES.includes(s.weather)) s.weather = DEFAULTS.weather;
+  if (!SUN_ORDER.includes(s.sun)) s.sun = DEFAULTS.sun;
   return s;
 };
 

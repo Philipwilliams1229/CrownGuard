@@ -38,6 +38,7 @@ import { W, H } from "../data/constants.js";
 import { coastOutline } from "../data/terrain.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import WeatherBrief from "./WeatherBrief.jsx";
+import { sunFor, SUN_POS } from "../data/sun.js";
 import { weatherFor } from "../data/weather-plan.js";
 import { HEROES } from "../data/bands.js";
 import { hasRig } from "../render/rigs.js";
@@ -385,6 +386,8 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
   const selBoss = sel ? sel.index === sel.chapter.levels.length - 1 : false;
   // the weather the level will bring (the same call the battle makes; a chapter the plan does not name falls back on the realm's own)
   const selWeather = sel ? (weatherFor(sel) ?? selRealm?.weather ?? null) : null;
+  // the level's fixed sun (data/sun.js), named on the card unless it is plain midday or the blood moon's own sunset
+  const selSun = sel && selWeather?.kind !== "bloodmoon" ? sunFor(sel) : "noon", selHour = selSun !== "noon" ? SUN_POS[selSun].name : null;
 
   // ---- the continent ----
   const map = (
@@ -599,7 +602,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
       <div style={{ fontSize: 12, lineHeight: 1.55, color: "#4a3826" }}>
         {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
       </div>
-      {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} />}
+      {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} hour={selHour} />}
       {selUnlocked && heroPick}
       </div>
       <div style={{ flexShrink: 0, padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -637,7 +640,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
         <div style={{ fontSize: 11, lineHeight: 1.45, color: "#4a3826" }}>
           {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
         </div>
-        {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} compact />}
+        {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} hour={selHour} compact />}
       </div>
       {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>

@@ -18,6 +18,7 @@
 // lists (realms, foes), each in a well under a header that stays put. The
 // busy columns sit in a <Fit> so they shrink rather than scroll.
 
+import { SUN_ORDER, SUN_POS } from "../data/sun.js";
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
   DEFAULTS, LIMITS, PRESETS, presetById, fromPreset, sanitize, saveSandbox, isHonest, typesOf, isBoss, allTowers, WEATHER_CHOICES,
@@ -59,7 +60,7 @@ const TABS = [
   { id: "purse", name: "Economy", short: "Economy", Icon: CoinIcon, keys: ["gold", "infiniteGold", "bountyMul", "waveBonusMul", "sellRefund"] },
   { id: "castle", name: "Castle", short: "Castle", Icon: CastleIcon, keys: ["lives", "invincible"] },
   { id: "halls", name: "Halls", short: "Halls", Icon: HammerIcon, keys: ["towers", "maxTier"] },
-  { id: "hero", name: "Hero and Pace", short: "Hero", Icon: SwordIcon, keys: ["hero", "heroLevel", "militia", "autoWaves", "buildTime", "weather", "weatherPower"] },
+  { id: "hero", name: "Hero and Pace", short: "Hero", Icon: SwordIcon, keys: ["hero", "heroLevel", "militia", "autoWaves", "buildTime", "weather", "weatherPower", "sun"] },
 ];
 
 // realms, grouped the way the war is: the free realms, then each chapter's
@@ -538,6 +539,15 @@ export default function SandboxSetup({ initial, onStart, onBack, initialTab = "f
             {WEATHER_CHOICES.map((c) => (
               <button type="button" key={c} className={cls("cg-btn cg-btn--slate sbs-chip", s.weather === c && "is-on")} onClick={() => set("weather", c)}>
                 {c === "realm" ? "The board's" : c === "none" ? "Clear" : WEATHER_NAMES[c] || c}
+              </button>
+            ))}
+          </div>
+          {/* the time of day (data/sun.js): where the sun stands for the whole run; look only */}
+          <Head label="Time of day" Icon={FlagIcon} />
+          <div className="sbs-chips">
+            {SUN_ORDER.map((c) => (
+              <button type="button" key={c} className={cls("cg-btn cg-btn--slate sbs-chip", s.sun === c && "is-on")} onClick={() => set("sun", c)}>
+                {SUN_POS[c].name}
               </button>
             ))}
           </div>

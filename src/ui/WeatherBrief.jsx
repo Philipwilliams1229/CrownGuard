@@ -12,7 +12,8 @@ import { WeatherIcon } from "./WeatherForecast.jsx";
 import { briefOf } from "../data/weather-info.js";
 import { PARCH, woodBtn } from "./frames.js";
 
-export default function WeatherBrief({ spec, compact = false }) {
+// `hour`: the level's time of day (data/sun.js: "Golden hour"), named at the label's right; none at midday
+export default function WeatherBrief({ spec, compact = false, hour = null }) {
   const [open, setOpen] = useState(false);
   const tap = useTap();   // one tap opens it on a phone too (no echoing click)
   const more = useRef(null);
@@ -24,7 +25,11 @@ export default function WeatherBrief({ spec, compact = false }) {
       <WeatherIcon kind={kind} size={compact ? 20 : 24} />
     </span>
   );
-  const label = <div style={{ fontSize: compact ? 8 : 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>WEATHER</div>;
+  const label = (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: compact ? 8 : 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>
+      <span>WEATHER</span>{hour && <span style={{ color: "#4a3826" }}>{hour.toUpperCase()}</span>}
+    </div>
+  );
   const box = { background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: compact ? "4px 7px" : "6px 8px" };
   if (!b) {
     return (
