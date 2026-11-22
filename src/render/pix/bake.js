@@ -1,6 +1,7 @@
 // ============ BAKE: a figure's clip -> frames (concept) ============
 import { Pix, toCanvas } from "./pix.js";
 import { frameAt } from "./rig.js";
+import { lightRight, onDay } from "../../data/sun.js";
 
 // fig: a figure module ({ BOX, BONES, draw, fx?, CLIPS }).
 // o.flip     bake for a sprite drawn mirrored (the sun stays upper-left on screen)
@@ -48,7 +49,9 @@ export const bakeFrame = (fig, name, f, o = {}) => {
   if (arr[f]) return arr[f];
   const F = frameAt(clip, f, fig.BONES);
   const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
-  const info = fig.draw(px, F, o) || {};
+  // the figure's draw reads `flip` as "the light is on my right" (hand-set face tones): the level's sun decides (data/sun.js)
+  const od = { ...o, flip: lightRight(!!o.flip) };
+  const info = fig.draw(px, F, od) || {};
   const cv = toCanvas(px.resolve({ flip: o.flip, line: o.line }));
   // its own light: one (info.light) or several (info.lights), each laid into the one glow overlay
   const own = (info.lights || (info.light ? [info.light] : [])).filter((l) => l && l.k > 0.02);
@@ -61,7 +64,7 @@ export const bakeFrame = (fig, name, f, o = {}) => {
     if (fxp.m.some((m) => m >= 0)) fx = toCanvas(fxp.resolve({ line: "tint" }));
   }
   // `remake` sculpts it again for rimOf (the buffer itself is let go)
-  const remake = () => { const p = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy); fig.draw(p, F, o); p.resolve({ flip: o.flip, line: o.line }); return p; };
+  const remake = () => { const p = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy); fig.draw(p, F, od); p.resolve({ flip: o.flip, line: o.line }); return p; };
   const rec = (arr[f] = { cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || own[0] || null, marks: info.marks || null, remake, rims: new Map() });
   bytes += recBytes(rec);
   trim();
@@ -78,3 +81,4 @@ export const rimOf = (fr, dir, col, line = false) => {
   return cv;
 };
 export const clearBakes = () => { CACHE.clear(); bytes = 0; };
+onDay(clearBakes);   // a new sun: every figure is sculpted again from its side

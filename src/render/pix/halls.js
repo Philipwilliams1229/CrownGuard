@@ -19,6 +19,7 @@ import { prefs } from "../../data/prefs.js";
 import { nightOn, noteLamp } from "../nightlight.js";
 import { noteHall, hallRim } from "../sunset.js";
 import { toCanvas } from "./pix.js";
+import { onDay } from "../../data/sun.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
 
 const BAKES = new Map(), FRAMES = new Map();
@@ -30,6 +31,7 @@ const isWarm = (col) => {
   return w;
 };
 export const resetHallBakes = () => { BAKES.clear(); FRAMES.clear(); };
+onDay(resetHallBakes);   // a new sun: every hall is sculpted again from its side
 const sprite = (img) => ({ cv: toCanvas(img), ox: img.ox, oy: img.oy });
 const framesOf = (key, make) => { let f = FRAMES.get(key); if (!f) FRAMES.set(key, (f = make().map(sprite))); return f; };
 // the shadow a hall lays on the turf: rows of whole pixels, in a small picture of its own

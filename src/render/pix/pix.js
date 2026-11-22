@@ -15,6 +15,7 @@
 // Coordinates are art pixels from the sprite's anchor (the feet), y down.
 // No dependencies: the lab page and the published concept sheet share it.
 
+import { spriteSun } from "../../data/sun.js";
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
 
@@ -333,8 +334,10 @@ export class Pix {
   // o.stats  { cast: 0, edge: 0 } counts the shadows and edges that fell between two parts of one
   //          creature (like materials); o.keepLv keeps the tones in px._lv. For scripts/pix-audit.mjs.
   resolve(o = {}) {
-    const { w, h } = this, n = w * h, f = o.flip ? -1 : 1, mode = o.line || "tint", st = o.stats || null;
-    const L = [-0.6 * f, -0.62, 0.5], ll = Math.hypot(...L); L[0] /= ll; L[1] /= ll; L[2] /= ll;
+    // o.sun [x, y, z]: where the light stands, in the sprite's own space (x right, y down, z toward the eye);
+    // without it the level's sun (data/sun.js spriteSun; at noon the upper left, upper right with flip).
+    const { w, h } = this, n = w * h, S = o.sun || spriteSun(!!o.flip), f = S ? (S[0] > 0 ? -1 : 1) : o.flip ? -1 : 1, mode = o.line || "tint", st = o.stats || null;
+    const L = S ? [S[0], S[1], S[2]] : [-0.6 * f, -0.62, 0.5], ll = Math.hypot(...L); L[0] /= ll; L[1] /= ll; L[2] /= ll;
     const out = new Uint8ClampedArray(n * 4), lv = new Int8Array(n);
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       const k = j * w + i, m = this.m[k];

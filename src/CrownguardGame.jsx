@@ -19,6 +19,7 @@ import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
 import { setLevelWeather } from "./engine/weather.js";
 import { weatherFor } from "./data/weather-plan.js";
+import { setDay, sunFor } from "./data/sun.js";
 import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
@@ -378,6 +379,7 @@ export default function Crownguard() {
   // starts on its realm with its purse, walls, wave, hero and pace.
   const startSandboxRun = (settings) => {
     const sb = startSandbox(settings);
+    setDay(sb.sun || "noon");   // Free Play: midday unless the run names a sun (data/sun.js)
     const id = sb.realm in REALMS ? sb.realm : "greenwood";
     selectRealm(id);
     setWaveWindow(null);
@@ -404,6 +406,7 @@ export default function Crownguard() {
     selectRealm(lv.realm);
     endSandbox(lv.chapter.faction);
     setWaveWindow(lv.window);
+    setDay(weatherFor(lv)?.kind === "bloodmoon" ? "noon" : sunFor(lv));   // the level's fixed sun (data/sun.js); the blood moon brings its own sunset
     setLevelWeather(weatherFor(lv));   // the chapter's weather, by the level's place in it (data/weather-plan.js)
     setRealmId(lv.realm);
     setFactionId(lv.chapter.faction);

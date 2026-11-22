@@ -426,7 +426,7 @@ export const wallLight = (px, img, lt) => {
 export const bakeHall = (box, build, o = {}) => {
   const back = newPix(box), front = newPix(box);
   const spec = build(back, front) || {};
-  const res = { line: o.line || "tint", flip: !!o.flip };
+  const res = { line: o.line || "tint", flip: !!o.flip, sun: o.sun };
   const out = { box, spec, back: back.resolve(res), front: front.m.some((v) => v >= 0) ? front.resolve(res) : null, glows: [] };
   for (const lt of spec.lights || []) {
     const b = wallLight(back, out.back, lt);

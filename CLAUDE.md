@@ -973,6 +973,17 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
   Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
   blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
+- **Time of day changes play** (2026-11-22, owner: "look only for now, but mark it down as a future
+  thing to think about"): a low sun doing something in the rules (e.g. glare for halls shooting into
+  it). Put ideas to the owner before building any.
+- **Time of day, a fixed sun per level** (2026-11-22, IN PROGRESS, the owner's answers): seven sun
+  positions from sunrise (low in the east, the right) to golden hour (low in the west), fixed per
+  level, the lead proposes each chapter's list; the Hollowfen keeps its moving sunset. Look only.
+  The trial: `node scripts/sun-sides.mjs sun=morning|sunrise|golden` (today | shadows + edge light +
+  colour | the same plus the painted light re-sculpted, pix.js resolve `sun`, hall-kit bakeHall
+  `sun`). Re-sculpting is cheap for pix figures and halls (one light vector; a level has one sun, so
+  no extra bakes); the hand-painted ground, scenery and castle are what it does not reach. The owner
+  is choosing between the two from the trial sheets.
 - **Sunsets elsewhere** (2026-11-22, owner: "sunset lighting type things in the other levels as well ...
   this is a good first step"): the Blood Moon's dusk wash and night lighting (render/bloodmoon.js,
   render/nightlight.js) are the starting point.

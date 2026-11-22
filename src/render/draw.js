@@ -57,6 +57,7 @@ import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawShip, drawFrostShells, drawFrostGround, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
 import { moonLights } from "./bloodmoon.js";
+import { dayGround, dayOver, dayLights } from "./daylight.js";
 import { drawHit, drawDeathPoof } from "./statusfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, spikeBehind, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
@@ -186,6 +187,8 @@ export function draw(g, canvas, bufRef) {
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);
   // the battle weather's ground half: puddles, splashes, scorches, rock shadows (weatherfx.js)
+  // the level's fixed sun (data/sun.js): the hour's colour on the land and the cast shadows (daylight.js)
+  dayGround(ctx, g);
   drawWeatherGround(ctx, g);
 
   // Scorch marks and the ground half of every blast (its shockwave and
@@ -350,6 +353,7 @@ export function draw(g, canvas, bufRef) {
   warmPix();      // (once: bakes the new figures' walks in the background so none hitches on its first step)
   beginLights();
   // the blood moon's red key light, far off at the upper left: every figure catches a red rim on its upper-left edge
+  dayLights(g, addLight);   // the level's fixed sun: its edge light on every figure (daylight.js)
   if (prefs.spellLight !== false) moonLights(g, addLight);   // the setting sun's amber rim, then the moon's red (bloodmoon.js)
   if (prefs.spellLight !== false) for (const t of g.towers) if (t.breath && t.breath.on > 0) {
     const b = t.breath, fl = [1, 0.86, 0.94, 0.8, 1, 0.9, 0.78, 0.96][Math.floor(g.time * 14 + (t.id | 0)) % 8];
@@ -768,6 +772,7 @@ export function draw(g, canvas, bufRef) {
   // ---- ambient weather (per realm, purely cosmetic) ----
   // Snow, embers, fireflies, leaves, blown grit — all of it derived from
   // g.time in render/atmosphere.js, so there is no state to keep.
+  dayOver(ctx, g);   // the hour's colour over everything standing (daylight.js)
   drawAmbient(ctx, g.time);
   // a realm's battle weather over it (engine/weather.js; weatherfx.js painters)
   drawWeather(ctx, g);
