@@ -1470,8 +1470,7 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
   if (e.brittleUntil > tms) statusCrack(ctx, e, time, feet, hr);
   if (e.burnUntil > tms) statusBurn(ctx, e, time, feet, hr);
   if (e.poisonUntil > tms) statusPoison(ctx, e, time, feet, hr);
-  // (a stun hides the slow's frost ring at the feet too: owner, 2026-11-21, the stars alone)
-  if (!frozen && !stunned && lv) statusSlow(ctx, e, time, feet, hr);
+  if (!frozen && lv) statusSlow(ctx, e, time, feet, hr);
   if (e.healedFlash > tms) {
     for (let i = 0; i < 2; i++) {
       const q = (time * 1.2 + i * 0.5 + id * 0.13) % 1;
