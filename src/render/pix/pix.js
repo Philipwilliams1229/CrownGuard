@@ -425,7 +425,7 @@ export class Pix {
     const A = [0, 61, 128, 199];
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       const k = j * w + i, m = this.m[k], lined = ring && ring[k];
-      if (!lined && (m < 0 || MATS[m].emis)) continue;
+      if (!lined && (lt.line || m < 0 || MATS[m].emis)) continue;   // line: the outer line only (the sunset's burning edge)
       let dx = ux, dy = uy, fall = 1;
       if (!far) { dx = lt.x + this.ox - (i + 0.5); dy = lt.y + this.oy - (j + 0.5); const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d; fall = clamp(1 - d / lt.r, 0, 1); }
       let s = 0;
@@ -440,7 +440,7 @@ export class Pix {
       }
       if (!s) continue;
       const c = s === 3 && !lined ? hot : col;
-      out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = A[s];
+      out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = lt.line ? 255 : A[s];
     }
     return { data: out, w, h, ox: this.ox, oy: this.oy };
   }

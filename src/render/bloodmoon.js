@@ -18,6 +18,7 @@ import { W, H } from "../data/constants.js";
 import { ENEMIES } from "../data/enemies.js";
 import { pixRec, hasPix, isViewSheet } from "./pix/pixrigs.js";
 import { nightTick, nightOn, drawLampPools, drawLampBloom, swapLamps } from "./nightlight.js";
+import { sunCurves, drawLongShadows, SUN_KEY, SUN_RIM } from "./sunset.js";
 
 const PX = 2;
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
@@ -31,7 +32,7 @@ let LAYERS = null;
 const bakeLayers = () => {
   const w = W, h = H;                              // one cell per board unit (2 screen pixels at RES 2)
   const mk = () => { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const c = cv.getContext("2d"); return { cv, c, img: c.createImageData(w, h) }; };
-  const shade = mk(), rake = mk();
+  const shade = mk(), rake = mk(), warm = mk();
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const x = i + 0.5, y = j + 0.5, r = reach(x, y), o = (j * w + i) * 4, b = BAYER[(j & 3) * 4 + (i & 3)] - 0.5;
     // the shade, MULTIPLIED over the board (lead, 2026-11-21: laid on plain it greyed the board to
@@ -45,9 +46,11 @@ const bakeLayers = () => {
     const v = Math.pow(clamp01(1 - d), 1.3);
     const lr = Math.round(clamp01(v + b * 0.18) * 5);
     if (lr > 0) { const a = [0, 0.05, 0.1, 0.16, 0.22, 0.3][lr]; rake.img.data[o] = 255; rake.img.data[o + 1] = 24 + lr * 3; rake.img.data[o + 2] = 30; rake.img.data[o + 3] = Math.round(a * 255); }
+    // the low sun's warm rake (the sunset, before the moon): the same reach, amber
+    if (lr > 0) { const a = [0, 0.05, 0.1, 0.16, 0.22, 0.3][lr]; warm.img.data[o] = 255; warm.img.data[o + 1] = 120 + lr * 10; warm.img.data[o + 2] = 36; warm.img.data[o + 3] = Math.round(a * 255); }
   }
-  shade.c.putImageData(shade.img, 0, 0); rake.c.putImageData(rake.img, 0, 0);
-  return { shade: shade.cv, rake: rake.cv };
+  shade.c.putImageData(shade.img, 0, 0); rake.c.putImageData(rake.img, 0, 0); warm.c.putImageData(warm.img, 0, 0);
+  return { shade: shade.cv, rake: rake.cv, warm: warm.cv };
 };
 
 // ---- the eyes: found in the baked frame, glowed where the figure has them ----
@@ -121,10 +124,15 @@ const drawEyes = (ctx, time, a) => {
   EYELIST = [];
 };
 
-// ---- draw.js: the key light for the figures' rims ----
-export const moonKeyLight = (g) => {
-  const w = g.weather;
-  return w && w.paint === "bloodmoon" && w.k > 0.02 ? Math.min(1, w.k) : 0;
+// ---- draw.js: the key lights for the figures' rims ----
+// The moon's clock w.k is also the SUN's (render/sunset.js sunCurves): amber first, red after.
+const curvesOf = (g) => { const w = g.weather; return w && w.paint === "bloodmoon" && w.k > 0.02 ? sunCurves(clamp01(w.k)) : null; };
+export const moonKeyLight = (g) => curvesOf(g)?.red || 0;
+export const moonLights = (g, add) => {
+  const c = curvesOf(g);
+  if (!c) return;
+  if (c.amber > 0.02) add(SUN_KEY.x, SUN_KEY.y, SUN_KEY.r, SUN_KEY.col, SUN_RIM * c.amber);
+  if (c.red > 0.02) add(MOON_KEY.x, MOON_KEY.y, MOON_KEY.r, MOON_KEY.col, 0.3 * c.red);
 };
 export const MOON_KEY = { x: -150, y: -130, r: 1500, col: "#ff4a38" };
 
@@ -134,7 +142,7 @@ export const MOON_KEY = { x: -150, y: -130, r: 1500, col: "#ff4a38" };
 // figures are drawn), and only SHADE_ACTORS of it over them, so towers, soldiers and foes stand out
 // lighter against the dark land. The fade follows k continuously (it was stepped in eighths, owner:
 // "the fading in and out was kind of choppy").
-const SHADE_GROUND = 0.85, SHADE_ACTORS = 0.5;   // actors 0.4 -> 0.5 (owner, 2026-11-22: "a liiiitttle bit more dark to the towers")
+const SHADE_GROUND = 0.85, SHADE_ACTORS = 0.5, WARM = 0.8;   // actors 0.4 -> 0.5 (owner, 2026-11-22: "a liiiitttle bit more dark to the towers")
 const shade = (ctx, a) => {
   if (!LAYERS) LAYERS = bakeLayers();
   const prevOp = ctx.globalCompositeOperation, pa = ctx.globalAlpha;
@@ -144,48 +152,40 @@ const shade = (ctx, a) => {
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = pa;
 };
-// k eases in with the rising moon; a small slow swell keeps the light alive between waves too (g.time)
+// The sun sets first (render/sunset.js, owner's pick 2026-11-22: long shadows, an amber rim, no
+// colour wash), then the night's shade, the lamps and the moon's red come in behind it. A small slow
+// swell keeps the light alive between waves too (g.time).
 export const bloodmoonPaint = (ctx, g, w) => {
-  const k = clamp01(w.k), t = g.time;
+  const c = sunCurves(clamp01(w.k)), t = g.time;
   nightTick(t);
   if (!LAYERS) LAYERS = bakeLayers();
   const prevOp = ctx.globalCompositeOperation, pa = ctx.globalAlpha;
   const swell = 0.96 + 0.04 * Math.sin(t * 0.7);
-  // a lighter shade over the actors, then the red rake from the upper left
-  shade(ctx, k * SHADE_ACTORS);
+  // a lighter shade over the actors, then the low sun's amber and the moon's red from the upper left
+  shade(ctx, c.shade * SHADE_ACTORS);
   ctx.globalCompositeOperation = "lighter";
-  ctx.globalAlpha = k * swell;
-  ctx.drawImage(LAYERS.rake, -8, -8, W + 16, H + 16);
-  // the sun going down (owner, 2026-11-22: "the sun sets, and a blood moon rises"): while the moon
-  // creeps in, a warm dusk wash swells and passes, at its strongest halfway, before the red takes over
-  const dusk = w.phase === "rising" ? Math.sin(Math.PI * k) : 0;
-  if (dusk > 0.01) {
-    ctx.globalCompositeOperation = "soft-light";
-    ctx.globalAlpha = 0.55 * dusk;
-    ctx.fillStyle = "#ff9a3c";
-    ctx.fillRect(-8, -8, W + 16, H + 16);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.12 * dusk;
-    ctx.fillStyle = "#a8501c";
-    ctx.fillRect(-8, -8, W + 16, H + 16);
-  }
+  if (c.amber > 0.01) { ctx.globalAlpha = WARM * c.amber; ctx.drawImage(LAYERS.warm, -8, -8, W + 16, H + 16); }
+  if (c.red > 0.01) { ctx.globalAlpha = c.red * swell; ctx.drawImage(LAYERS.rake, -8, -8, W + 16, H + 16); }
   ctx.globalCompositeOperation = prevOp;
   // each hall's torches as light
-  ctx.globalAlpha = k;
+  ctx.globalAlpha = c.lamps;
   drawLampBloom(ctx, t);
   swapLamps();
   // the undead's eyes, over the shade: they are the brightest thing on the board
-  drawEyes(ctx, t, Math.min(1, k * 1.4));
+  drawEyes(ctx, t, Math.min(1, c.red * 1.4));
   ctx.globalAlpha = pa;
 };
 export const bloodmoonGround = (ctx, g, w) => {
   const k = clamp01(w.k);
   if (k < 0.01) return;
+  const c = sunCurves(k);
   nightTick(g.time);
   // the land's full night, under everything standing on it
-  shade(ctx, k * SHADE_GROUND);
+  shade(ctx, c.shade * SHADE_GROUND);
+  // the long shadows of the setting sun (and, shorter, of the moon), laid on the land
+  drawLongShadows(ctx, g, c.len, c.shadow);
   const pa = ctx.globalAlpha;
-  ctx.globalAlpha = k;
+  ctx.globalAlpha = c.lamps;
   drawLampPools(ctx, g.time);
   ctx.globalAlpha = pa;
 };

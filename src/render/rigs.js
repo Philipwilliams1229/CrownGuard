@@ -144,7 +144,7 @@ const drawPix = (ctx, type, x, y, dir, sheet, frame, variant, alpha, aim) => {
   if (!variant) {
     if (prefs.spellLight !== false) {
       const L = lightAt(x, y);
-      if (L) { const a = ctx.globalAlpha; ctx.globalAlpha = a * L.k; ctx.drawImage(pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col), -ax, -ay, w, h); ctx.globalAlpha = a; }
+      if (L) { const a = ctx.globalAlpha, rim = pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col); ctx.globalAlpha = a * Math.min(1, L.k); ctx.drawImage(rim, -ax, -ay, w, h); if (L.k > 1) { ctx.globalAlpha = a * Math.min(1, L.k - 1); ctx.drawImage(pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col, true), -ax, -ay, w, h); } ctx.globalAlpha = a; }   // k > 1: the outer line alone burns brighter (the sunset's amber, sunset.js)
       if (rec.glow) ctx.drawImage(rec.glow, -ax, -ay, w, h);
     }
     if (rec.fx && PIX[type].fx) ctx.drawImage(rec.fx, -ax, -ay, w, h);

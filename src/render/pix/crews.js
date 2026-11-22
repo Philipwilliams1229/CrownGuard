@@ -71,7 +71,7 @@ export const drawCrewPix = (ctx, fig, x, y, dir, clip, f, o = {}) => {
   ctx.drawImage(rec.cv, -ax, -ay, w, h);
   if (prefs.spellLight !== false) {
     const L = lightAt(x, y);
-    if (L) { const a = ctx.globalAlpha; ctx.globalAlpha = a * L.k; ctx.drawImage(pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col), -ax, -ay, w, h); ctx.globalAlpha = a; }
+    if (L) { const a = ctx.globalAlpha, rim = pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col); ctx.globalAlpha = a * Math.min(1, L.k); ctx.drawImage(rim, -ax, -ay, w, h); if (L.k > 1) { ctx.globalAlpha = a * Math.min(1, L.k - 1); ctx.drawImage(pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col, true), -ax, -ay, w, h); } ctx.globalAlpha = a; }   // k > 1: the outer line alone burns brighter (the sunset's amber, sunset.js)
     const g = o.glow ?? 1;
     if (rec.glow && g > 0.02) { const a = ctx.globalAlpha; ctx.globalAlpha = a * Math.min(1, g); ctx.drawImage(rec.glow, -ax, -ay, w, h); ctx.globalAlpha = a; }
   }

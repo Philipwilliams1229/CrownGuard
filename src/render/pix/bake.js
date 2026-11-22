@@ -71,10 +71,10 @@ export const bakeClip = (fig, name, o = {}) => { const out = []; for (let f = 0;
 
 // the overlay for light falling on a frame from one side: dir points toward
 // the light in the SPRITE's own space (+x is the way the figure faces)
-export const rimOf = (fr, dir, col) => {
-  const key = `${dir[0]},${dir[1]},${col}`;
+export const rimOf = (fr, dir, col, line = false) => {
+  const key = `${dir[0]},${dir[1]},${col}${line ? ",L" : ""}`;
   let cv = fr.rims.get(key);
-  if (!cv) { cv = toCanvas(fr.remake().lightLayer({ dir, col, k: 1 })); fr.rims.set(key, cv); if (!fr.gone) bytes += cvBytes(cv); }
+  if (!cv) { cv = toCanvas(fr.remake().lightLayer({ dir, col, k: 1, line })); fr.rims.set(key, cv); if (!fr.gone) bytes += cvBytes(cv); }
   return cv;
 };
 export const clearBakes = () => { CACHE.clear(); bytes = 0; };

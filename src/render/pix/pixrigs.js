@@ -349,7 +349,7 @@ export const lightAt = (x, y) => {
 };
 // the rim overlay for a frame lit from one side: `toward` +1 the light is ahead of the
 // figure (the way it faces), -1 behind it
-export const pixRim = (rec, toward, col) => rimOf(rec, [toward, -0.35], col);
+export const pixRim = (rec, toward, col, line) => rimOf(rec, [toward, -0.35], col, line);
 
 // ---- icons ------------------------------------------------------------------------
 // A figure standing, cropped to its own pixels (menus frame icons by the rig's

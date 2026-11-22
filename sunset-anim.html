@@ -3,6 +3,7 @@
   Option C of the sunset concepts IN MOTION: the real engine on Bellmarsh, foes marching, the sun
   going down (concept/sunset.js) and the blood moon rising. Frames go to .shots/sunanim_<tag>_NNNN.png
   (JPEG bytes); ffmpeg makes the clip.
+    /sunset-anim.html?opt=real (the game) | C (the concept)
     /sunset-anim.html?opt=C&fps=20&rise=13&pre=1.5&post=2.5&speed=3&tag=c
       rise  seconds of VIDEO from day to full moon (the game's 40-45 s, sped up by speed)
 -->
@@ -66,12 +67,14 @@
       const o = oc.getContext("2d");
       const N = Math.round((PRE + RISE + POST) * FPS), steps = Math.round(SPEED * 60 / FPS);
       const status = document.getElementById("status");
-      S.g = g; setSunset(g, OPT, 0); draw(g, cv, { current: null });
+      const REAL = OPT === "real";   // the game's own painter (render/sunset.js), the clock set by hand
+      const setK = (k) => { if (REAL) { S.on = false; g.weather.k = k; g.weather.phase = k < 1 ? "rising" : "squall"; } else setSunset(g, OPT, k); };
+      S.g = g; setK(0); draw(g, cv, { current: null });
       const sm = (t) => t * t * (3 - 2 * t);
       for (let f = 0; f < N; f++) {
         for (let i = 0; i < steps; i++) { updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); }
         const s = f / FPS, k = Math.min(1, Math.max(0, (s - PRE) / RISE));
-        setSunset(g, OPT, sm(k));
+        setK(sm(k));
         draw(g, cv, { current: null });
         o.drawImage(cv, 0, 0, oc.width, oc.height);
         const b = oc.toDataURL("image/jpeg", 0.92).replace(/^data:image\/jpeg;base64,/, "");

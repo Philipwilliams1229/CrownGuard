@@ -54,6 +54,7 @@ import * as B from "./weatherbake.js";
 import { apronShade } from "./apron.js";
 import { drawnSpans } from "./bridge.js";
 import { bloodmoonPaint, bloodmoonGround } from "./bloodmoon.js";
+import { sunCurves } from "./sunset.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const frac = (v) => v - Math.floor(v);
@@ -1375,7 +1376,8 @@ const VEIL = { storm: ["14,20,40", 0.42 * SKY_LOOK], blizzard: ["224,236,248", 0
 export const weatherVeil = (g) => {
   const w = g?.weather, v = w && VEIL[w.paint];
   if (!v || !(w.k > 0.01)) return null;
-  return `rgba(${v[0]},${(v[1] * Math.min(1, w.k)).toFixed(3)})`;
+  const k = w.paint === "bloodmoon" ? sunCurves(Math.min(1, w.k)).shade : Math.min(1, w.k);   // the moon's night follows the sunset
+  return `rgba(${v[0]},${(v[1] * k).toFixed(3)})`;
 };
 
 // how far a flier comes down in this weather (px; draw.js nudges fliers by it)
