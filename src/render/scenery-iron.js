@@ -1982,10 +1982,12 @@ const ironRoad = (ctx, kit) => {
   // 6 a sliver at a mitre too small to be a stone (moss and grit)
   const FN = NC * 64 + 64;
   const sU = new Float32Array(FN), sV = new Float32Array(FN), sA = new Float32Array(FN), sN = new Uint32Array(FN);
+  const sX = new Float32Array(FN), sY = new Float32Array(FN);
   for (let i = 0; i < N; i++) {
     const s = id[i];
     if (s < 0 || s >= KID) continue;
     sU[s] += along[i]; sV[s] += across[i]; sA[s] += Math.abs(across[i]); sN[s]++;
+    sX[s] += i % BW; sY[s] += (i / BW) | 0;
   }
   // The wheels' tracks: on for a stretch of courses, off for the next, and
   // never within 8 of a bend (the wheels spread out to take it).
@@ -2003,7 +2005,7 @@ const ironRoad = (ctx, kit) => {
   const fKind = new Uint8Array(FN), fTone = new Uint8Array(FN);
   for (let s = 0; s < FN; s++) {
     if (!sN[s]) continue;
-    sU[s] /= sN[s]; sV[s] /= sN[s]; sA[s] /= sN[s];
+    sU[s] /= sN[s]; sV[s] /= sN[s]; sA[s] /= sN[s]; sX[s] /= sN[s]; sY[s] /= sN[s];
     const h = hash(s + seed, 13);
     fKind[s] = s === SILL ? 0 : sN[s] < 12 ? 6 : h < 0.007 ? 1 : h < 0.03 ? 2 : h < 0.06 ? 3 : h < 0.074 ? 4 : 0;
     // the crown's flags are worn paler, the verges' darker
@@ -2048,6 +2050,8 @@ const ironRoad = (ctx, kit) => {
   const set3 = (c, m) => { c[0] = m[0]; c[1] = m[1]; c[2] = m[2]; };
   const px = [0, 0, 0];
   // a table of noise for the per-pixel flecks (no hash asked per pixel)
+  const EAST = DAY.side > 0, LX = EAST ? 0.6 : -0.6, LY = -0.8;
+  const LICHEN = [hexRGB(mix(main, "#c8c890", 0.42)), hexRGB(mix(main, "#9aa070", 0.4))];
   const RT = new Float32Array(65536);
   for (let q = 0; q < 65536; q++) RT[q] = hash(q, 3);
   for (let i = 0; i < N; i++) {
@@ -2060,7 +2064,8 @@ const ironRoad = (ctx, kit) => {
     const hp = RT[(pxx * 7 + py * 13) & 65535];
     const dn = at(i + BW), rt = lx < BW - 1 ? at(i + 1) : -1, up = at(i - BW), lf = lx > 0 ? at(i - 1) : -1;
     const eDn = dn !== s && dn >= 0, eRt = rt !== s && rt >= 0, eUp = up !== s && up >= 0, eLf = lf !== s && lf >= 0;
-    const joint = eDn || eRt, lip = eUp || eLf;
+    // (ir2) the joint's dark and the lip's light follow the level's sun (east: mirrored)
+    const joint = eDn || (EAST ? eLf : eRt), lip = eUp || (EAST ? eRt : eLf);
     const corner = (eUp || eDn) && (eLf || eRt);
     // how near the verge: 0 in the road's middle, 1 at the kerb
     const edge = kerb ? 1 : Math.max(0, Math.min(1, (av - (KERB - 12)) / 12));
@@ -2103,6 +2108,17 @@ const ironRoad = (ctx, kit) => {
       const polished = rutC && Math.abs(av - RUT) < RW;
       // pocks and flecks in the stone, fewer where the wheels have polished it
       if (hp < (polished ? 0.012 : 0.045)) drop(0.06, px); else if (hp > 0.985) lift(0.04, px);
+      // (ir2) each flag a low cushion: its sunward shoulder a step lighter, its far shoulder a step
+      // darker (two flat steps, no gradient), so the stones read one by one at board size
+      if (!kerb && kd !== 1 && s !== SILL) {
+        const r = Math.sqrt(sN[s]) * 0.5 + 0.5, du = (lx - sX[s]) / r, dv = (((i / BW) | 0) - sY[s]) / r;
+        const f = du * LX + dv * LY;
+        if (f > 0.5) lift(f > 0.8 ? 0.07 : 0.04, px); else if (f < -0.55) drop(f < -0.85 ? 0.08 : 0.045, px);
+        // worn smooth along the crown: a faint sheen
+        if (av < 7 && kd !== 2) lift(0.025, px);
+        // lichen toward the verges: small pale rosettes
+        if (edge > 0.25 && hp > 0.2 && vnoise(seed + 57, 1.3, u, v) > 0.9 - edge * 0.06) set3(px, LICHEN[hp > 0.6 ? 0 : 1]);
+      }
       if (kd === 2) {
         // sunk: its own neighbours shade its upper-left edges; its lower-right wall shows
         drop(0.07, px);
@@ -2110,10 +2126,10 @@ const ironRoad = (ctx, kit) => {
       } else if (corner || joint) {
         // the joint: a dark line on the stone's lower-right, its corners worn round
         if (mossy && !polished) set3(px, moss[corner || hash(i, 5) < 0.6 ? 0 : 1]);
-        else drop(kerb ? 0.28 : polished ? 0.14 : corner ? 0.26 : 0.22, px);
+        else drop(kerb ? 0.28 : polished ? 0.14 : av < 7 ? (corner ? 0.2 : 0.16) : corner ? 0.3 : 0.25, px);
       } else if (lip) {
         if (mossy && !polished && hash(i, 9) < edge * 0.5) set3(px, moss[2]);
-        else lift(kerb ? 0.15 : 0.1, px);
+        else lift(kerb ? 0.16 : av < 7 ? 0.09 : 0.13, px);
       }
       // a crack across the flag: a dark line, its far wall lit
       if (kd === 3) {
