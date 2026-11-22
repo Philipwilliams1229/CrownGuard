@@ -128,6 +128,10 @@ export const SCENES = {
 SCENES.thorn_golden = { ...SCENES.thorn_mix, sun: "golden", label: "GOLDEN HOUR: the west-facing faces take the low sun, the banks throw long shadows on the water" };
 SCENES.strip_weir = { ...SCENES.thorn_mix, frames: [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6], strip: [379, 232, 68, 64], label: "THE WEIR, 6 frames: the white fall, the churn running off downstream, the current's dashes travelling" };
 SCENES.strip_reeds = { ...SCENES.fox_lake, frames: [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6], strip: [474, 160, 68, 64], label: "A QUIET REEDY EDGE, 6 frames: reeds sway, ducks paddle, slow ripples run across" };
+SCENES.fox_lake2 = { ...SCENES.fox_lake, label: "THE LAKE, shore pass: the sand runs on under the water and fades as it deepens; the jetty walks out over the shallows" };
+SCENES.fox_lake2_golden = { ...SCENES.fox_lake2, sun: "golden", label: "THE LAKE, shore pass, at golden hour" };
+SCENES.fox_beach_zoom = { ...SCENES.fox_lake2, crop: [352, 196, 168, 112], label: "THE BEACH, 2.5x: dry sand + wrack, damp sand, the lapping edge, ankle-deep, knee-deep, the drop-off" };
+SCENES.strip_beach = { ...SCENES.fox_lake2, frames: [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6], strip: [418, 222, 68, 50], label: "THE BEACH, 6 frames: the waterline laps, caustics move over the shallow sand" };
 SCENES.fox_golden = { ...SCENES.fox_lake, sun: "golden", label: "THE LAKE at golden hour" };
 SCENES.fox_dusk = { ...SCENES.fox_lake, sun: "golden", dusk: true, label: "THE LAKE at dusk: the jetty's lanterns and the hall's lit door, a lantern's light broken on the water" };
 
@@ -140,7 +144,7 @@ const LAKES = {
     islands: [{ cx: 466, cy: 200, rx: 16, ry: 8, zones: [[0, 180, "cut"], [180, 360, "lip"]] }],
     jetty: { x: 404, y: 262, len: 40, side: 1 }, rocks: [[528, 218, 4.5], [536, 211, 3.5], [533, 226, 3], [521, 228, 2.2]],
     birds: [["duck", 488, 182], ["duck", 496, 186], ["duck", 482, 189], ["swan", 360, 204], ["heron", 506, 178]],
-    lanterns: [[427, 238]],
+    lanterns: [[427, 238]], prints: [[399, 262, -1, 0.18, 14], [446, 258, 1, -0.05, 9]],
   },
   oak: {
     cx: 151, cy: 370, rx: 50, ry: 26, lobes: [[3, 0.08, 0.4], [4, 0.05, 1.9]], bays: [],
@@ -222,7 +226,7 @@ function buildField(sc, rivers, bridges, X0, Y0, w, h) {
           const zs = isl >= 0 ? L.islands[isl].zones : L.zones;
           const dj = deg + (vn(deg / 7, isl + 2, 12) - 0.5) * 8;
           let kind = "lip", kw = 1;
-          for (const [a0, a1, kd] of zs) { const dd = isl >= 0 ? (dj + 360) % 360 : dj; if (dd >= a0 && dd < a1) { kind = kd; kw = clamp(Math.min(dd - a0 + 1, a1 - dd + 1) / 13, 0, 1); } }
+          for (const [a0, a1, kd] of zs) { const dd = isl >= 0 ? (dj + 360) % 360 : dj; if (dd >= a0 && dd < a1) { kind = kd; kw = clamp(Math.min(dd - a0 + 1, a1 - dd + 1) / (isl >= 0 ? 13 : 26), 0, 1); } }
           if (isl < 0 && dj < -160) { kind = "lip"; kw = 1; }
           KIND[k] = kind; NEAR[k] = "overhang"; BANK[k] = isl >= 0 ? "I" : "L"; KW[k] = kw;
         }
@@ -276,7 +280,7 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
       } else if (kind === "lip" || kind === "reeds") { if (d < 3.5) put(k, lerp(g, kind === "reeds" ? hex("#3a5a2c") : TURF[1], (1 - d / 3.5) * 0.42)); }
       else if (kind === "beach" || kind === "sand") {
         const pal2 = kind === "sand" ? SAND : GRAVEL;
-        const dune = (B.type === "lake" && kind === "sand" ? 12 + vn(X / 10, 0, 13) * 8 : 5) * (0.1 + 0.9 * sstep(0, 1, F.KW[k]));
+        const dune = (B.type === "lake" && kind === "sand" ? 16 + vn(X / 10, 0, 13) * 10 : 5) * (0.1 + 0.9 * sstep(0, 1, F.KW[k]));
         if (d < dune && hs(X, Y, 9) < (B.type === "lake" ? 1.15 : 0.75) - d / dune) put(k, kind === "sand" ? (vn(X / 5, Y / 3, 14) > 0.5 ? SAND[4] : SAND[3]) : pal2[3 + (hs(X, Y, 10) > 0.5 ? 1 : 0)]);
       }
       continue;
@@ -297,7 +301,12 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     }
     const bodyHW = HWv[k];
     let edge = kind; let wl = ew;            // wl: distance from where the water meets the land
-    if (kind === "beach" || kind === "sand") {
+    if (B.type === "lake" && (kind !== "cut" || isNear) && kind !== "quay") {
+      // a lake's shelving shore: the bed runs on under the water and fades out as it deepens (lakeShore below)
+      const r = lakeShore(kind, ew, X, Y, t, kwt, s, F.BANK[k] === "I", golden);
+      if (r.c) { put(k, r.c); continue; }
+      wl = r.wl;
+    } else if (kind === "beach" || kind === "sand") {
       const bk = (B.type === "river" ? 1.7 : 1.9) * (0.15 + 0.85 * kwt), dry = (kind === "sand" ? 7 : 5) * bk, wet = (kind === "sand" ? 11 : 8) * bk, shelf = (kind === "sand" ? 22 : 18) * bk;
       const lap = Math.sin(t * Math.PI * 2 + s / 23) * 0.9;                                                                 // the lap of the water
       if (ew < dry + lap * 0.3) {
@@ -329,7 +338,7 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     // the open water
     // depth: a river is deepest along its line (so a change of edge never makes a step in the water);
     // a shelving edge (beach, reeds, lip) still lightens the water right at it
-    const qc = B.type === "river" ? clamp((1 - Math.abs(LAT[k])) * 1.55, 0, 1) : clamp((e + (vn(X / 30, Y / 14, 43) - 0.5) * 16) / 60, 0, 1);
+    const qc = B.type === "river" ? clamp((1 - Math.abs(LAT[k])) * 1.55, 0, 1) : clamp((wl + (vn(X / 30, Y / 14, 43) - 0.5) * 10) / 54, 0, 1);
     const qe = B.type !== "river" || kind === "cut" || kind === "rock" || kind === "quay" ? 1 : clamp(wl / 14, 0, 1);
     const q = Math.min(qc, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18;
     let idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9;
@@ -387,6 +396,87 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     if (shade) c = lerp(mul(c, shade), golden ? hex("#2a2050") : hex("#14262e"), 0.12);
     put(k, c);
   }
+}
+
+// ---- a lake's shore, from the land outward: dry sand, damp sand, the lapping waterline, ankle-deep (the bed
+// almost unchanged, tinted), knee-deep (greener, dimmer), the drop-off, then the open water. Each band's edge
+// wanders (noise, a few stray pixels) and is dithered only right at the edge; the bands follow the shore.
+// Returns { c } for a shore pixel, or { wl } (the distance past the drop-off) for the open water to colour.
+const SHELF = {           // art px: [dry, damp, ankle, knee, drop]
+  sand: [10, 8, 20, 18, 12], lip: [0, 0, 4, 5, 5], reeds: [0, 0, 4, 6, 5], rock: [0, 0, 5, 6, 6], beach: [6, 5, 12, 10, 8], cut: [0, 0, 4, 5, 5],
+};
+const SHELF_ISLET = [0, 2, 8, 8, 6];
+const caustic = (X, Y, t) => {
+  const a = vn(X / 6.5 + t * 1.3, Y / 4.2 + t * 0.4, 260), b = vn(X / 5.2 - t * 1.0, Y / 3.6 + t * 0.7, 261);
+  return Math.abs(a - b) < 0.045;
+};
+function lakeShore(kind, ew, X, Y, t, kwt, s, islet, golden) {
+  // a sand beach's widths blend into its neighbours' (a grassy bank's) at its ends, so the shallows taper, never stop
+  const W0 = islet && kind !== "cut" ? SHELF_ISLET : kind === "sand" ? SHELF.sand.map((v, i) => SHELF.lip[i] + (v - SHELF.lip[i]) * kwt) : SHELF[kind] || SHELF.lip;
+  const k = 1, sandy = kind === "sand" || islet, grassy = !sandy;
+  const wob = (i, a) => (vn(X / 11 + i * 7.3, Y / 9 + i * 3.1, 200 + i) - 0.5) * a + (hs(X, Y, 210 + i) > 0.975 ? (hs(X, Y, 220 + i) - 0.5) * 3 : 0);
+  // the band edges (cumulative), each wandering
+  const e1 = W0[0] * k + wob(1, 4 * k), e2 = e1 + W0[1] * k + wob(2, 3 * k);
+  const lap = Math.sin(t * Math.PI * 2 + s / 17 + vn(X / 20, 0, 230) * 3) * 1.4 * Math.min(1, k * 1.5);
+  const eW = e2 + lap;                                                       // the waterline, moving
+  const e3 = e2 + W0[2] * k + wob(3, 5 * k), e4 = e3 + W0[3] * k + wob(4, 5 * k), e5 = e4 + W0[4] * k + wob(5, 4 * k);
+  const edgeDither = (edge, inside, outside) => (Math.abs(ew - edge) < 1 ? (bay(X, Y) < 0.5 ? inside : outside) : null);
+  // the bed: sand (or mud / pebbles by grass and rock), with ripple marks following the shore
+  const bedOf = () => {
+    let c;
+    if (sandy) c = vn(X / 7, Y / 4, 240) > 0.5 ? SAND[3] : SAND[2];
+    else if (kind === "rock") c = hs(Math.floor(X / 3), Math.floor(Y / 2), 241) > 0.5 ? GRAVEL[2] : GRAVEL[1];
+    else c = lerp(hex("#7a6a44"), hex("#5e6a3a"), vn(X / 6, Y / 4, 242));   // silt and weed under a grassy bank
+    const rip = Math.sin(ew * 0.95 + vn(X / 24, Y / 18, 243) * 5);
+    return { c, rip };
+  };
+  const warm = (c) => (golden ? lerp(c, hex("#ffc880"), 0.12) : c);
+  function shelfWater() {
+  if (ew < e3) {                                                              // ankle-deep: the bed almost unchanged
+      const { c: bc, rip } = bedOf();
+      let c = lerp(bc, hex("#a6dccc"), 0.26);
+    if (rip > 0.72) c = lerp(c, mul(c, 0.86), 0.9);
+    { const cx = Math.floor(X / 4), cy = Math.floor(Y / 3); if (sandy && hs(cx, cy, 244) > 0.95 && X % 4 < 2 && Y % 3 === 1) c = lerp(c, X % 4 === 0 ? GRAVEL[3] : GRAVEL[1], 0.8); }   // a pebble
+    if (caustic(X, Y, t)) c = lerp(c, hex("#fbfae4"), 0.5);
+      return { c: warm(edgeDither(e3, null, null) || c) };
+  }
+    if (ew < e4) {                                                              // knee-deep: greener, dimmer
+      const { c: bc, rip } = bedOf();
+      let c = lerp(bc, hex("#58a898"), 0.5);
+    if (rip > 0.82) c = mul(c, 0.92);
+    if (caustic(X, Y, t)) c = lerp(c, hex("#e8f4dc"), 0.28);
+    if (Math.abs(ew - e3) < 1 && bay(X, Y) < 0.5) c = lerp(bedOf().c, hex("#a6dccc"), 0.26);
+      return { c: warm(c) };
+  }
+    if (ew < e5) {                                                              // the drop-off: the bed goes into teal
+      let c = lerp(lerp(bedOf().c, hex("#58a898"), 0.5), WA[4], 0.72);
+    if (Math.abs(ew - e4) < 1 && bay(X, Y) < 0.5) c = lerp(bedOf().c, hex("#58a898"), 0.5);
+    if (ew > e5 - 1.2 && bay(X, Y) < 0.5) c = lerp(c, WA[3], 0.5);
+      return { c };
+  }
+    return null;
+  }
+  if (grassy && ew < 1.2 + lap * 0.4) return { c: ew < 0.6 ? hex("#3a5432") : lerp(FOAM2, hex("#5e6a3a"), 0.45) };   // a grassy bank's thin waterline
+  if (grassy) { const r = shelfWater(); if (r) return r; return { wl: ew - e5 }; }
+  if (ew < e1) {                                                              // dry sand
+    let c = vn(X / 6, Y / 3, 33) > 0.55 ? SAND[4] : SAND[3];
+    if (hs(X, Y, 31) > 0.97) c = hex("#f4ecd8");
+    const wr = e1 - 2.5 + (vn(X / 13, 0, 36) - 0.5) * 3;                       // the wrack: weed and twigs
+    if (Math.abs(ew - wr) < 0.6 + vn(X / 5, 0, 37) * 1.4 && vn(X / 6, 0, 34) > 0.42 && hs(X, Y, 35) > 0.25) c = hs(X, Y, 36) > 0.5 ? hex("#4a5630") : hex("#6e5a3a");   // clumps of weed
+    if (Math.abs(ew - wr) < 0.6 && hs(Math.floor(X / 5), 1, 38) > 0.86) c = hex("#7a5a36");
+    return { c: warm(c) };
+  }
+  if (ew < eW) {                                                              // damp sand: darker, cooler
+    let c = lerp(SAND[2], SAND[1], vn(X / 5, Y / 3, 36));
+    c = lerp(c, hex("#8a948a"), 0.14);
+    if (ew - e1 < 1 && hs(X, 3, 39) > 0.4) c = lerp(c, SAND[0], 0.28);        // the wandering wet line
+    if (hs(X, Y, 37) > 0.95) c = lerp(c, hex("#d8e4e0"), 0.45);               // the sky caught in the wet
+    const dd = edgeDither(e1, null, null);
+    return { c: warm(c) };
+  }
+  if (ew < eW + 1.4) return { c: ew < eW + 0.7 ? FOAM : lerp(FOAM2, SAND[3], 0.3) };    // the lapping edge
+  { const r = shelfWater(); if (r) return r; }
+  return { wl: ew - e5 };
 }
 
 // a pixel of an earth face / quay wall. hf: 0 top .. 1 bottom; fw its height; (fnx, fny): the face's outward normal
@@ -503,7 +593,7 @@ function bird(Pp, kind, X, Y, t, flip) {
 }
 
 // the jetty: piles with wet feet and weed, a plank deck with gaps, a ladder, a lantern post, a moored skiff
-function jetty(Pp, J, t, dusk, lights) {
+function jetty(Pp, J, t, dusk, lights, ewAt = () => 99) {
   // a walk out from the beach (planks across, water showing in the gaps) to a T-head where the skiff ties up.
   // Posts stand just outside the deck: their tops above it, their wet feet (weed, a ripple) in the water beside it.
   const x0 = Math.round(J.x * 2), yLand = Math.round(J.y * 2), L = J.len * 2, Wd = 14, lift = 5;
@@ -511,21 +601,28 @@ function jetty(Pp, J, t, dusk, lights) {
   const fall = DAY.fall, sx = Math.round(fall[0] * 4), sy = Math.round(3 + fall[1] * 2);
   const rect = (xa, ya, w2, h2, fn) => { for (let y = ya; y < ya + h2; y++) for (let x = xa; x < xa + w2; x++) fn(x, y); };
   // its shadow on the water (the sun's way)
-  rect(x0 + sx, yEnd + hH + sy, Wd, L - hH, (x, y) => Pp.set(x, y, hex("#0e2028"), 0.4));
+  // on the dry and damp sand a sand-brown shade, through the shallows a soft dark on the bed, out deep a dark on the water
+  const shadeAt = (x, y) => { const e = ewAt(x, y); return e < 18 ? [hex("#6a5236"), 0.32] : e < 56 ? [hex("#2a5a52"), 0.34] : [hex("#0e2028"), 0.4]; };
+  rect(x0 + sx, yEnd + hH + sy, Wd, L - hH, (x, y) => { const [c, a] = shadeAt(x, y); Pp.set(x, y, c, a); });
   rect(hx0 + sx, yEnd + sy, hW, hH, (x, y) => Pp.set(x, y, hex("#0e2028"), 0.4));
   // the skiff tied alongside the head
   skiff(Pp, hx0 + hW + 9, yEnd + 12, t);
   // a post: its foot in the water (seen below the deck's edge), its top above the deck
   const post = (px, py, tall = 4) => {
-    for (let r = -2; r <= 3; r++) Pp.set(px + r, py + lift + 2, FOAM2, r === -2 || r === 3 ? 0.25 : 0.55);
-    for (let y = 0; y <= lift + 1; y++) { const wet = y >= lift - 1; Pp.set(px, py + y, wet ? hex("#33502e") : WOOD[2]); Pp.set(px + 1, py + y, wet ? hex("#22361e") : WOOD[1]); }
+    const e = ewAt(px, py + lift + 1), dry = e < 18, shallow = e < 56;
+    if (dry) { Pp.set(px + 2, py + lift + 1, hex("#8a7050"), 0.6); Pp.set(px + 3, py + lift + 1, hex("#8a7050"), 0.35); }       // a foot in the sand, its little shadow
+    else {
+      if (shallow) { Pp.set(px + 2, py + lift + 2, hex("#3a6a5e"), 0.45); Pp.set(px + 3, py + lift + 3, hex("#3a6a5e"), 0.3); }  // its shadow on the bed, seen through
+      for (let r = -2; r <= 3; r++) Pp.set(px + r, py + lift + 2, FOAM2, (r === -2 || r === 3 ? 0.25 : 0.55) * (shallow ? 0.6 : 1));
+    }
+    for (let y = 0; y <= lift + 1; y++) { const wet = !dry && y >= lift - (shallow ? 0 : 1); Pp.set(px, py + y, wet ? hex("#33502e") : WOOD[2]); Pp.set(px + 1, py + y, wet ? hex("#22361e") : WOOD[1]); }
     for (let y = 1; y <= tall; y++) { Pp.set(px, py - y, WOOD[4]); Pp.set(px + 1, py - y, WOOD[2]); }
     Pp.set(px, py - tall - 1, WOOD[5]); Pp.set(px + 1, py - tall - 1, WOOD[4]);
   };
   const planks = (xa, ya, w2, h2, across) => {
     for (let y = ya; y < ya + h2; y++) for (let x = xa; x < xa + w2; x++) {
       const u = across ? y - ya : x - xa, pr = Math.floor(u / 3), gap = u % 3 === 2;
-      let c = gap ? hex("#16303a") : WOOD[3 + (hs(pr, 7, 3) > 0.55 ? 1 : 0)];
+      const ge = gap ? ewAt(x, y + lift) : 0; let c = gap ? (ge < 18 ? hex("#7a6040") : ge < 56 ? hex("#3e7a6c") : hex("#16303a")) : WOOD[3 + (hs(pr, 7, 3) > 0.55 ? 1 : 0)];
       if (!gap && hs(x, y, 4) > 0.95) c = WOOD[2];
       if (!gap && (across ? (x === xa || x === xa + w2 - 1) : (y === ya || y === ya + h2 - 1))) c = across && x === xa ? WOOD[5] : WOOD[2];   // the stringers' ends
       if (!gap && across && (x === xa + 2 || x === xa + w2 - 3) && u % 3 === 0) c = hex("#2a2a2e");                          // nail heads
@@ -723,7 +820,8 @@ export async function runScene(name, q) {
     if (L) {
       for (const [x, y, r] of L.rocks) items.push({ y: y * 2, fn: () => boulder(Pp, x * 2, y * 2, r * 2, x + y, ft) });
       for (const [kd, x, y] of L.birds) items.push({ y: y * 2 + 8, fn: () => bird(Pp, kd, x * 2 + (kd === "heron" ? 0 : (x > L.cx ? -1 : 1) * ft * 8), y * 2, ft, x > L.cx) });
-      if (L.jetty) items.push({ y: L.jetty.y * 2, fn: () => jetty(Pp, L.jetty, ft, sc.dusk, lights) });
+      for (const [px, py, dx, dy, n] of L.prints || []) items.push({ y: -1e4 + 1, fn: () => { for (let i = 0; i < n; i++) { const fx = px * 2 + dx * i * 5, fy = py * 2 + dy * i * 5 + (i & 1 ? 2 : -1) + Math.sin(i * 0.7) * 2; const e = -F.D[(Math.round(fy) - Y0) * w + Math.round(fx) - X0]; if (!(e > -14 && e < 9)) continue; Pp.set(fx, fy, SAND[1]); Pp.set(fx + 1, fy, SAND[1]); Pp.set(fx, fy + 1, SAND[2]); } } });
+      if (L.jetty) items.push({ y: L.jetty.y * 2, fn: () => jetty(Pp, L.jetty, ft, sc.dusk, lights, (X, Y) => { const i = Math.round(X) - X0, j = Math.round(Y) - Y0; return i < 0 || j < 0 || i >= w || j >= h ? 99 : -F.D[j * w + i]; }) });
     }
     for (const pd of sc.puddles || []) items.push({ y: -2e4, fn: () => puddle(Pp, F, pd, ft, DAY.id === "golden") });
     items.sort((a, b) => a.y - b.y); for (const it of items) it.fn();

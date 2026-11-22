@@ -82,3 +82,18 @@ sway as 3-4 frame sprites. Memory: one board layer + 6 water frames (~4-6 MB on 
 ## My pick
 Cut bank on far banks and outer bends, lip as the default near bank (variant 1), reeds in slack water, quay at
 bridges and the mill, shingle only on wide inside bends; the lake as shown, with the sand beach and the T jetty.
+
+## Shore pass on the lake (owner: "a proper fade into the water for the sandy bank")
+`lakeShore()` in the painter: from the land outward, in stepped bands whose edges wander (noise plus a few stray
+pixels, dithered only at the edge) and follow the shore: dry sand (footprints, clumped wrack) -> damp sand (darker,
+cooler, a wandering wet line) -> a 1-2 px lapping edge that moves -> ankle-deep (the sand almost unchanged, tinted
+pale turquoise, ripple marks following the shore, pebbles, moving caustic netting) -> knee-deep (greener, dimmer)
+-> the drop-off into teal -> open water (its depth now counted from the drop-off). On the beach the run is ~34 board
+units at its middle and blends into the grassy banks' narrow shelf at its ends (widths interpolated over ~26 deg).
+Grassy, reed and rocky shores and the islet's north side get the same sequence, narrower (silt / pebble / sand
+bed); the cut far shore keeps deep dark water under its face. Jetty: the landward posts stand in the sand (a foot
+shadow, no ripple), the middle ones in the shallows (shadow on the bed, a faint ring), the head in deep water;
+plank gaps show sand, shallows or deep water beneath. PNGs: `ovh2_water_fox_lake2`, `fox_lake2_golden`,
+`fox_beach_zoom` (2.5x), `fox_before_after` (round 2 | this pass, board size), `strip_beach` (6 frames).
+Weak: the wrack and the grassy waterline still read a little like dashed lines up close; a faint contour where the
+islet's shelf meets the lake's on its east side; the walk's planks read ladder-like at board size.
