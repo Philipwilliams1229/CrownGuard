@@ -83,17 +83,35 @@ const ap = (v) => Math.round(v * PX) / PX;
 // bumps along the rim keep the edge leafy instead of a clean ball.
 // Look C: push a leaf green away from grey (richer), toward a warm yellow-green
 export { rich };   // (lives in look-c.js: scenery-vale.js uses it at load)
+// a checker of one colour over what's there, one ART pixel a square whatever the bake's transform
+// (the dithered step between two tones of a leaf mass)
+const DITH = new Map();
+const dither = (c, col) => {
+  let cv = DITH.get(col);
+  if (!cv) {
+    cv = document.createElement("canvas"); cv.width = cv.height = 2;
+    const x = cv.getContext("2d"); x.fillStyle = col; x.fillRect(0, 0, 1, 1); x.fillRect(1, 1, 1, 1);
+    DITH.set(col, cv);
+  }
+  const p = c.createPattern(cv, "repeat"), m = c.getTransform();
+  p.setTransform(new DOMMatrix([1 / m.a, 0, 0, 1 / m.d, -m.e / m.a, -m.f / m.d]));
+  return p;
+};
 const leafClump = (c, x, y, r, leaf, seed, lit) => {
   const b = lit > 0.62 ? lighten(leaf, 0.1) : lit > 0.3 ? leaf : darken(leaf, 0.2);
-  const dk = darken(b, 0.42), lt = lighten(b, 0.26), fl = mix(lighten(b, 0.35), "#e6f87c", 0.55);
+  const dk = darken(b, 0.42), lt = mix(lighten(b, 0.3), "#d8f070", 0.12), fl = mix(lighten(b, 0.4), "#eefa86", 0.6);
   const ry = r * 0.84;
+  // the rim: many small leaf lobes (a serrated, leafy edge), the lower ones a touch fuller
   const bumps = [];
-  for (let i = 0; i < 6; i++) {
-    const a = Math.PI * (0.75 + i * 0.3) + (hash(seed, i + 70) - 0.5) * 0.35;
-    bumps.push([Math.cos(a) * r * 0.9, Math.sin(a) * ry * 0.9, r * (0.2 + hash(seed, i + 80) * 0.1)]);
+  const nb = Math.max(7, Math.min(12, Math.round(r * 0.9)));
+  for (let i = 0; i < nb; i++) {
+    const a = (i / nb) * Math.PI * 2 + hash(seed, 3) * 6 + (hash(seed, i + 70) - 0.5) * 0.4;
+    const lo = Math.sin(a) > 0.3 ? 1.12 : 1;
+    bumps.push([Math.cos(a) * r * 0.88, Math.sin(a) * ry * 0.86, r * (0.16 + hash(seed, i + 80) * 0.1) * lo]);
   }
   const shape = (ox, oy, k) => {
-    blobPath(c, x + ox, y + oy, r * k, ry * k, seed, 0.2, 9);
+    c.beginPath();
+    blobPath(c, x + ox, y + oy, r * k * 0.94, ry * k * 0.94, seed, 0.16, 9);
     for (const [bx, by, br] of bumps) {
       const px = x + ox + bx * k, py = y + oy + by * k;
       c.moveTo(px + br * k, py);
@@ -103,43 +121,74 @@ const leafClump = (c, x, y, r, leaf, seed, lit) => {
   shape(0, 0, 1); c.fillStyle = dk; c.fill();
   c.save();
   shape(0, 0, 1); c.clip();
+  // the lit body slid toward the sun, its edge broken into a checker for a pixel or two
+  shape(-r * 0.1, -r * 0.17, 1); c.fillStyle = dither(c, b); c.fill();
   shape(-r * 0.18, -r * 0.3, 1); c.fillStyle = b; c.fill();
-  if (lit > 0.3) { shape(-r * 0.36, -r * 0.5, 0.78); c.fillStyle = lt; c.fill(); }
+  if (lit > 0.3) {
+    shape(-r * 0.29, -r * 0.42, 0.84); c.fillStyle = dither(c, lt); c.fill();
+    shape(-r * 0.36, -r * 0.5, 0.78); c.fillStyle = lt; c.fill();
+  }
+  // which plane a point lies in (device space test against the same shapes)
+  // (an ellipse test against each plane's slid body: cheap, and close enough for a tuft's tone)
+  const inS = (ox, oy, k, px, py) => { const u = (px - x - ox) / (r * k * 0.98), v = (py - y - oy) / (ry * k * 0.98); return u * u + v * v < 1; };
+  // leaf tufts: little scalloped masses, each lit on its upper left and shaded on its lower right in
+  // the tone of the plane it sits in, laid from the top down so the lower ones cover the upper ones' shade
+  const nt = Math.max(5, Math.min(26, Math.round(r * r * 0.13)));
+  const tufts = [];
+  for (let i = 0; i < nt; i++) {
+    const a = hash(seed, i + 140) * Math.PI * 2, d = Math.sqrt(hash(seed, i + 160)) * r * 0.86;
+    tufts.push([x + Math.cos(a) * d, y + Math.sin(a) * d * 0.84, Math.max(0.9, r * 0.16) * (0.8 + hash(seed, i + 180) * 0.45), i]);
+  }
+  tufts.sort((p, q) => p[1] - q[1]);
+  for (const [tx, ty, tr, i] of tufts) {
+    const z = lit > 0.3 && inS(-r * 0.36, -r * 0.5, 0.78, tx, ty) ? 2 : inS(-r * 0.18, -r * 0.3, 1, tx, ty) ? 1 : 0;
+    // the shade stays calm: only a few tufts break it
+    if (z === 0 && hash(seed, i + 220) < 0.7) continue;
+    const body = z === 2 ? lt : z === 1 ? b : dk;
+    const sh = z === 2 ? b : z === 1 ? mix(b, dk, 0.6) : darken(dk, 0.28);
+    const hi = z === 2 ? fl : z === 1 ? lt : mix(dk, b, 0.55);
+    c.fillStyle = sh; c.beginPath(); c.ellipse(tx + tr * 0.3, ty + tr * 0.32, tr, tr * 0.82, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = body; c.beginPath(); c.ellipse(tx, ty, tr * 0.9, tr * 0.74, 0, 0, Math.PI * 2); c.fill();
+    if (z > 0 || hash(seed, i + 200) < 0.4) { c.fillStyle = hi; c.fillRect(ap(tx - tr * 0.45), ap(ty - tr * 0.5), z === 2 ? 1 : 0.5, 0.5); }
+  }
   // leaf flecks: pale ticks where the sun lands, dark notches in the body
-  for (let i = 0; i < 11; i++) {
+  for (let i = 0; i < 7; i++) {
     const a = hash(seed, i + 90) * Math.PI * 2, d = Math.sqrt(hash(seed, i + 100)) * r * 0.8;
     const fx = ap(x + Math.cos(a) * d), fy = ap(y + Math.sin(a) * d * 0.84);
     const sunny = Math.cos(a) * SUN.x + Math.sin(a) * SUN.y > 0.15;
     c.fillStyle = sunny ? (lit > 0.3 ? fl : lt) : dk;
-    c.fillRect(fx, fy, 1, sunny ? 1 : 0.5);
-    c.fillRect(fx + (sunny ? 0 : 0.5), fy + (sunny ? 1 : 0.5), 0.5, 0.5);
-    if (sunny && lit > 0.3 && i % 2 === 0) c.fillRect(fx + 0.5, fy - 0.5, 0.5, 0.5);
+    c.fillRect(fx, fy, sunny ? 0.5 : 1, 0.5);
   }
   c.restore();
 };
 
-// A broadleaf: a flared trunk and a crown of clumped leaf masses — the dark
-// under-crown showing through between them, upper clumps overhanging (and
-// shading) the lower ones, light catching the upper-left. `seed` picks the
-// shape, so no two variants share a silhouette.
-const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
+// A broadleaf: a flared, barked trunk forking into boughs, and a crown of clumped leaf masses — the dark
+// under-crown and the boughs showing through between them, upper clumps overhanging (and shading) the
+// lower ones, light catching the upper-left, a sky hole or two near the rim. `seed` picks the shape;
+// `form` the kind of tree: 0 a round oak, 1 a tall oval (beech / elm), 2 a broad spreading oak, 3 a
+// birch (white bark, a lighter, airier crown of smaller clumps).
+const oakTree = (ctx, x, y, s, leaf, trunk, seed, form = 0) => {
   const H = (i) => hash(seed, i);
   const base = y + 10;
+  const birch = form === 3;
   leaf = rich(leaf);
+  if (birch) trunk = "#d8d2c2";
+  const SH = [[1, 0.84], [0.84, 1.12], [1.12, 0.74], [0.8, 1.02]][form] || [1, 0.84];
   // the crown's cast shadow, thrown firm and lower right (a ragged hard-edged
   // blob, then a pool at the roots)
   if (!longShade()) {
-    blobPath(ctx, x + 11 * s, base + 0.5, 19 * s, 5.4 * s, seed + 3, 0.16, 11);
+    blobPath(ctx, x + 11 * s, base + 0.5, 19 * s * SH[0], 5.4 * s, seed + 3, 0.16, 11);
     ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
     blobPath(ctx, x + 6 * s, base, 11 * s, 3.2 * s, seed + 5, 0.14, 9);
     ctx.fillStyle = "rgba(28,20,34,0.22)"; ctx.fill();
   }
   shadow(ctx, x + 1 * s, base, 8 * s, 2.4 * s, 0.34);
-  const R = (18 + H(1) * 3.5) * s, Ry = R * (0.84 + H(2) * 0.1);
-  const cx = x + (H(3) - 0.5) * 3 * s, cy = y - 3 * s - Ry;
-  // trunk: tapered, leaning a touch, flaring into three roots at the ground
-  const tw = (2.3 + H(4) * 0.8) * s, lean = (H(5) - 0.5) * 3 * s;
+  const R = (18 + H(1) * 3.5) * s * SH[0], Ry = (18 + H(1) * 3.5) * s * (0.84 + H(2) * 0.1) * SH[1] / 0.84;
+  const cx = x + (H(3) - 0.5) * 3 * s, cy = y - 3 * s - Ry - (form === 1 ? 2 * s : 0);
+  // trunk: tapered, leaning a touch, flaring into roots at the ground
+  const tw = (birch ? 1.7 : form === 2 ? 2.8 : 2.3 + H(4) * 0.8) * s, lean = (H(5) - 0.5) * 3 * s;
   const top = cy + Ry * 0.2;
+  const bark = darken(trunk, birch ? 0.62 : 0.4);
   leafPart(ctx, (c) => {
     c.beginPath();
     c.moveTo(x - tw + lean, top);
@@ -154,33 +203,61 @@ const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
     c.closePath();
     c.fillStyle = lin(c, x - tw * 1.5, 0, x + tw * 1.5, 0, [[0, lighten(trunk, 0.3)], [0.45, trunk], [1, darken(trunk, 0.5)]]);
     c.fill();
-    // the crown's shade across the upper trunk
     c.save(); c.clip();
-    c.fillStyle = darken(trunk, 0.55);
-    c.fillRect(x - 10 * s, top, 20 * s, cy + Ry * 0.95 - top + 2.5 * s);
-    // bark: a seam or two down the shaded side, a lit knot on the sunny one
-    c.fillStyle = darken(trunk, 0.4);
-    c.fillRect(ap(x + tw * 0.35 + lean * 0.2), cy + Ry, 0.5, base - cy - Ry - 2 * s);
-    c.fillRect(ap(x - tw * 0.3 + lean * 0.2), cy + Ry + 3 * s, 0.5, 3.5 * s);
-    c.fillStyle = lighten(trunk, 0.45);
-    c.fillRect(ap(x - tw * 0.75 + lean * 0.25), ap(base - 6 * s), 0.5, 1.5);
+    // bark: plates and furrows running up the trunk (a birch: dark lenticel bands across a white one)
+    if (birch) {
+      for (let k = 0; k < 7; k++) {
+        const yy = ap(base - 1.5 * s - H(k + 300) * (base - top - 3 * s)), w = (0.6 + H(k + 310) * 1.2) * tw;
+        c.fillStyle = k % 3 ? bark : darken(trunk, 0.45);
+        c.fillRect(ap(x - tw + lean * 0.3 + H(k + 320) * tw), yy, ap(w), 0.5);
+      }
+    } else {
+      for (let k = 0; k < 5; k++) {
+        const fx = ap(x + (k / 4 - 0.5) * tw * 1.5 + lean * 0.25), f0 = top + H(k + 330) * 4 * s, f1 = base - 1.5 * s - H(k + 340) * 3 * s;
+        c.fillStyle = k >= 3 ? darken(trunk, 0.55) : bark;
+        for (let yy = ap(f0); yy < f1; yy += 0.5) if (hash(k * 31 + Math.round(yy * 2), seed) > 0.18) c.fillRect(fx + (hash(k, Math.round(yy * 2) + seed) < 0.15 ? 0.5 : 0), yy, 0.5, 0.5);
+      }
+      // a lit plate edge or two on the sunny side, moss at the foot on the shaded one
+      c.fillStyle = lighten(trunk, 0.45);
+      c.fillRect(ap(x - tw * 0.75 + lean * 0.25), ap(base - 6 * s), 0.5, 1.5);
+      c.fillRect(ap(x - tw * 0.55 + lean * 0.3), ap(base - 10 * s), 0.5, 1);
+      c.fillStyle = mix(leaf, "#4a6a2c", 0.5);
+      c.fillRect(ap(x + tw * 0.3), ap(base - 2.5 * s), ap(tw * 1.4), 1);
+      c.fillRect(ap(x + tw * 0.6), ap(base - 3.5 * s), ap(tw * 0.8), 0.5);
+    }
+    // the crown's shade across the upper trunk, its lower edge dithered
+    c.fillStyle = darken(trunk, birch ? 0.4 : 0.55);
+    c.fillRect(x - 10 * s, top, 20 * s, cy + Ry * 0.95 - top + 1.5 * s);
+    c.fillStyle = dither(c, darken(trunk, birch ? 0.4 : 0.55));
+    c.fillRect(x - 10 * s, cy + Ry * 0.95 + 1.5 * s, 20 * s, 2 * s);
     c.restore();
   }, INK, [x - tw * 3, top - 1, x + tw * 3, base + 2], null);
   // the dark under-crown, showing wherever the clumps part
-  leafPart(ctx, (c) => { blobPath(c, cx + s, cy + Ry * 0.2, R * 0.98, Ry * 0.92, seed + 11, 0.12, 12); c.fillStyle = darken(leaf, 0.66); c.fill(); }, INK, [cx - R * 1.2, cy - Ry, cx + R * 1.3, cy + Ry * 1.3]);
+  leafPart(ctx, (c) => { blobPath(c, cx + s, cy + Ry * 0.2, R * 0.98, Ry * (Ry > R ? 0.8 : 0.92), seed + 11, 0.12, 12); c.fillStyle = darken(leaf, 0.66); c.fill(); }, INK, [cx - R * 1.2, cy - Ry, cx + R * 1.3, cy + Ry * 1.3]);
+  // the boughs: the trunk forks into three or four limbs that climb into the crown (seen in the gaps)
+  const boughs = [];
+  const nB = 3 + Math.floor(H(60) * 2);
+  for (let i = 0; i < nB; i++) {
+    const u = (i / (nB - 1)) * 2 - 1 + (H(i + 61) - 0.5) * 0.3;
+    boughs.push([[x + lean, top + 3 * s], [x + lean + u * R * 0.3, top - Ry * 0.25], [cx + u * R * 0.62, cy - Ry * (0.15 + (1 - Math.abs(u)) * 0.35)]]);
+  }
+  const bcol = birch ? "#cfc8b6" : darken(trunk, 0.15);
+  leafPart(ctx, (c) => { for (const b of boughs) limbFill(c, b, tw * 0.62, tw * 0.22, bcol); }, INK, [cx - R * 0.8, cy - Ry * 0.8, cx + R * 0.8, top + 5 * s], null);
   // clumps: a ring around the rim (fuller along the bottom), a heart, and
   // a crown on top — the crown of clumps rounds off into a dome
   const clumps = [];
-  const n = 5 + Math.floor(H(6) * 2);
+  const n = (birch ? 8 : form === 1 ? 7 : 5) + Math.floor(H(6) * 2);
   const a0 = H(7) * 6;
+  const ck = birch ? 0.74 : form === 1 ? 1.1 : 1;
   for (let i = 0; i < n; i++) {
     const a = a0 + (i / n) * Math.PI * 2 + (H(i + 10) - 0.5) * 0.45;
-    const rr = 0.5 + H(i + 20) * 0.12;
+    const rr = (birch ? 0.6 : 0.5) + H(i + 20) * 0.12;
     const px = Math.cos(a) * R * rr * 1.05, py = Math.sin(a) * Ry * rr;
-    clumps.push([px, py, R * (0.5 + H(i + 30) * 0.1) * (py < 0 ? 0.92 : 1.06)]);
+    clumps.push([px, py, (R + Ry) * 0.5 * (0.5 + H(i + 30) * 0.1) * (py < 0 ? 0.92 : 1.06) * ck]);
   }
-  clumps.push([(H(40) - 0.5) * R * 0.25, Ry * 0.1, R * 0.56]);
-  clumps.push([(H(41) - 0.62) * R * 0.3, -Ry * 0.46, R * (0.42 + H(42) * 0.08)]);
+  clumps.push([(H(40) - 0.5) * R * 0.25, Ry * 0.1, R * 0.56 * ck]);
+  clumps.push([(H(41) - 0.62) * R * 0.3, -Ry * 0.46, R * (0.42 + H(42) * 0.08) * (birch ? 0.85 : 1)]);
+  if (form === 1) clumps.push([(H(43) - 0.5) * R * 0.2, -Ry * 0.72, R * 0.4]);
   // lowest first, so each clump above overhangs the one below it
   clumps.sort((p, q) => q[1] - p[1]);
   clumps.forEach(([px, py, r], i) => {
@@ -209,6 +286,19 @@ const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
   ctx.fillStyle = fs;
   ctx.fillRect(cx - R * 1.6, cy - Ry * 1.6, R * 3.2, Ry * 3.2);
   ctx.restore();
+  // sky holes: a gap or two near the rim, where the ground shows through the crown, a twig across one
+  if (BAKE_CV) {
+    const nh = birch ? 3 : 1 + Math.floor(H(70) * 2);
+    for (let i = 0; i < nh; i++) {
+      const a = [0.05, 0.55, 2.55, 3.05, 0.3, 2.85][Math.floor(H(i + 71) * 6)] + (H(i + 72) - 0.5) * 0.3;
+      const hx = ap(cx + Math.cos(a) * R * 0.74), hy = ap(cy + Ry * 0.05 + Math.sin(a) * Ry * 0.62), hr = R * (birch ? 0.08 : 0.065);
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath(); ctx.ellipse(hx, hy, hr * 1.2, hr, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      if (i === 0) { ctx.fillStyle = darken(bcol, 0.3); for (let t = -hr * 1.3; t <= hr * 1.3; t += 0.5) ctx.fillRect(ap(hx + t), ap(hy + t * 0.35), 0.5, 0.5); }
+    }
+  }
 };
 
 // One bough of a conifer: a drooping skirt of needles, its hem ragged with
@@ -264,14 +354,15 @@ const pineTree = (ctx, x, y, s, leaf, trunk, seed, caps = null) => {
     c.fillRect(x - 5 * s, base - 12 * s, 10 * s, 5 * s);
     c.restore();
   }, INK, [x - 5 * s, base - 13 * s, x + 5 * s, base + 2], null);
-  const n = 4;
+  const n = 5;
   const tall = (35 + H(2) * 7) * s;
+  const wide = 0.84 + H(50) * 0.3;   // a slim spire or a broad old one
   const hem0 = base - 4.5 * s;
   const apex = hem0 - tall;
   for (let i = 0; i < n; i++) {
     const f = i / (n - 1);
     const hem = hem0 - (tall - 8 * s) * (i / n) * 1.04;
-    const hw = (14 - 9 * f) * s * (0.9 + H(i + 10) * 0.18);
+    const hw = (14.5 - 10 * f) * s * (0.9 + H(i + 10) * 0.18) * wide;
     const top = i === n - 1 ? apex : hem - hw * 1.2 - 6 * s;
     const lean = (H(i + 20) - 0.5) * 1.6 * s;
     const bx = x + lean;
@@ -296,13 +387,22 @@ const pineTree = (ctx, x, y, s, leaf, trunk, seed, caps = null) => {
       c.translate(-hw * 0.34, -2 * s);
       boughPath(c, bx, top, hem, hw, bseed, s); c.fillStyle = lt; c.fill();
       c.translate(hw * 0.54, 4 * s);
-      // needles: short dark strokes fanning down from the crown line
-      c.fillStyle = dk;
-      for (let k = 0; k < 4 + Math.round(hw / s / 4); k++) {
-        const u = (H(bseed + k) - 0.5) * 1.6, v = 0.45 + H(bseed + k + 40) * 0.4;
+      // the bough's far side, turned from the sun: a darker plane down its right, the step dithered
+      const sx = bx + hw * 0.12;
+      c.fillStyle = dither(c, dk); c.fillRect(sx - 1, top - 4 * s, 1, hem - top + 8 * s);
+      c.fillStyle = mix(b, dk, 0.55); c.fillRect(sx, top - 4 * s, hw * 2, hem - top + 8 * s);
+      boughPath(c, bx, top, hem, hw, bseed, s);
+      // needle sprays: short strokes hanging from the bough, lit on the sun side, dark on the far side,
+      // densest toward the hem
+      const ns = 6 + Math.round(hw / s * 0.9);
+      for (let k = 0; k < ns; k++) {
+        const u = (H(bseed + k) - 0.5) * 1.8, v = 0.35 + H(bseed + k + 40) * 0.6;
         const nx = ap(bx + u * hw * v), ny = ap(top + (hem - top) * v);
+        const sunSide = nx < sx - 0.5;
+        c.fillStyle = sunSide ? (k % 3 ? lt : lighten(lt, 0.18)) : darken(dk, 0.12);
         c.fillRect(nx, ny, 0.5, 1);
         c.fillRect(nx + (u < 0 ? -0.5 : 0.5), ny + 1, 0.5, 0.5);
+        if (sunSide && k % 2) { c.fillStyle = b; c.fillRect(nx + (u < 0 ? -0.5 : 0.5), ny + 1.5, 0.5, 0.5); }
       }
       if (caps) {
         // snow lying on the bough: its own ragged hem, set higher, shaded
@@ -646,31 +746,26 @@ const willow = (ctx, x, y, s, sway, seed = 1) => {
       const X = cx + u * 17 * s, top = cy + (4 + (1 - u * u) * 3) * s, len = (4 + (1 - Math.abs(u)) * 5 + hash(Math.round(u * 40), seed) * 2) * s;
       for (let t = 0; t < len; t += 0.5) px(X + sway * (t / len), top + t, darken(leaf, 0.5));
     }
-    const locks = 5 + Math.floor(H(88) * 2);
-    for (let L = 0; L < locks; L++) {
-      const u = ((L + 0.5) / locks) * 2 - 1 + (H(L + 90) - 0.5) * 0.14;
-      const lw = (1.8 + H(L + 95) * 1.2) * s;
-      const sx0 = cx + u * 16.5 * s;
+    // the strands: a fringe of one-pixel streamers, longest in front, in bundles with gaps between
+    // them; lit down the sun side (pale leaf beads catching the light), dark on the far side
+    const span = 17 * s;
+    let k = 0;
+    for (let X = cx - span; X <= cx + span + 0.01; X += 0.5, k++) {
+      const u = (X - cx) / span;
+      const bundle = Math.floor((u + 1) * 4.5 + H(88) * 3);
+      const gap = hash(bundle, seed + 5) < 0.22 || (k % 3 === 1 && hash(k, seed + 7) < 0.75);
+      if (gap) continue;
       const top = cy + (3.5 + (1 - u * u) * 3) * s;
-      const len = (5 + (1 - Math.abs(u)) * 13 + H(L + 30) * 4) * s;
-      const lit = u < -0.25 ? 1 : u > 0.35 ? -1 : 0;
-      const b0 = lit > 0 ? lighten(leaf, 0.12) : lit < 0 ? darken(leaf, 0.2) : leaf;
-      const hi = lighten(b0, lit > 0 ? 0.3 : 0.16), dk = darken(b0, 0.3), mid = darken(b0, 0.12);
+      const len = (3 + (1 - Math.abs(u)) * 13 + hash(bundle, seed + 9) * 5 + hash(k, seed + 11) * 6) * s;
+      const sideLit = u < -0.2 ? 1 : u > 0.3 ? -1 : 0;
+      const b0 = sideLit > 0 ? lighten(leaf, 0.12) : sideLit < 0 ? darken(leaf, 0.22) : leaf;
+      const hi = lighten(b0, sideLit > 0 ? 0.32 : 0.18), dk = darken(b0, 0.28);
+      const ph = hash(k, seed + 13) * 6;
       for (let t = 0; t < len; t += 0.5) {
-        const k = t / len;
-        const half = lw * Math.max(0, 1 - Math.pow(k, 1.4));
-        const X0 = sx0 + sway * k * 1.4 + Math.sin(k * 2.6 + L) * 0.5 * s;
-        // the lower third parts into strands
-        for (let q = -half; q <= half + 0.01; q += 0.5) {
-          const col = Math.round((q + half) * 2);
-          if (k > 0.55 && col % 2 === 1) continue;
-          const edgeL = q < -half + 0.6, edgeR = q > half - 0.6;
-          // hanging strands: a faint vertical grain, a few loose lit leaves
-          const fleck = hash(L * 97 + col, Math.floor(t * 2) + seed) < (lit > 0 ? 0.16 : 0.08);
-          px(X0 + q, top + t, edgeL ? hi : edgeR ? dk : fleck ? hi : col % 3 === 2 ? mid : b0);
-        }
-        // the strands' tips: a pixel or two past the lock's end
-        if (k > 0.9 && H(L + 70) < 0.6) px(X0 + (H(L + 72) - 0.5) * lw, top + len + (H(L + 74) * 2) * 0.5, b0);
+        const q = t / len;
+        const xx = X + sway * q * 1.4 + u * q * 0.6 * s;
+        const bead = ((t * 2 + ph) | 0) % 5 === 0;
+        px(xx, top + t, q > 0.8 ? dk : bead ? (sideLit >= 0 || hash(k, t * 2) < 0.3 ? hi : b0) : b0);
       }
     }
   }, darken(leaf, 0.72), [cx - 22 * s, cy, cx + 22 * s, base + 4], "under");
@@ -990,7 +1085,7 @@ const paintDecor = (ctx, d, time) => {
     case "watchtower": watchtower(ctx, x, y, s, time); break;
     case "tent": tent(ctx, x, y, s); break;
     case "banner": banner(ctx, x, y, s, time); break;
-    case "tree": oakTree(ctx, x, y, s, d.forest ? WOOD_OAK[band][v % 3] : OAK_TINTS[v % 4], OAK.trunk, seed); break;
+    case "tree": { const form = d.forest ? v % 2 : groundKind(REALM) === "grass" ? v % 4 : v % 3; oakTree(ctx, x, y, s, d.forest ? WOOD_OAK[band][v % 3] : form === 3 ? "#7cbc4e" : OAK_TINTS[v % 4], OAK.trunk, seed, form); break; }
     default: pixRock(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" });
   }
 };
@@ -1016,6 +1111,8 @@ const variantOf = (d) => {
   return { v: Math.floor(hv * 2), band: dep > 46 ? 2 : dep > 16 ? 1 : 0, s: Math.round((d.s || 1) * 4) / 4, sd: 0 };
 };
 
+// trees: their painted root-shadow pools take no outline
+const LEAFY = new Set(["tree", "pine", "snowpine", "willow"]);
 const decorSprite = (d) => {
   const { v, band, s, sd } = variantOf(d);
   const OWNLINE = new Set(["rock", "icerock", "obsidian", "mushroom", "deadtree"]);
@@ -1033,7 +1130,7 @@ const decorSprite = (d) => {
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; baking(was); }
   }, false);
   mirrorBake(wasM);
-  if (NEWRING) tintRing(cv);
+  if (NEWRING) tintRing(cv, LEAFY.has(d.t) ? 200 : 110);
   const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
     const c = cv.getContext("2d");
@@ -1042,7 +1139,7 @@ const decorSprite = (d) => {
     c.restore();
   }
   // the time of day: the sunward edge warmed (as baked: a mirrored piece has the sun on its own left)
-  if (DAY.on) sunRim(cv, mir || DAY.side < 0);
+  if (DAY.on && d.t !== "bogpool") sunRim(cv, mir || DAY.side < 0);   // (flat water takes no sunward edge)
   sp = { cv, hw, top, bot };
   SPRITES.set(key, sp);
   return sp;
@@ -1103,7 +1200,7 @@ const WIDE = new Set(["tent", "watchtower", "gravestone", "cottage", "watermill"
   "irrack", "irbutts", "irtower", "ireyrie", "irgibbet", "irsluice", "irpan", "irmoor", "irquintain", "irdummy",
   "rmlonghouse", "rmlongship", "rmwhale", "rmboat", "rmrack"]);
 // pieces with no shadow of their own to cast (flat on the ground, or in the water)
-const NO_CAST = new Set(["reeds", "rmice", "irpan"]);
+const NO_CAST = new Set(["reeds", "rmice", "irpan", "bogpool"]);
 // one piece as the shadow painter wants it (null: nothing to cast); the gate is baked first so the wood
 // round it knows which trees stand on the crag
 export const decorShadowItem = (d) => {

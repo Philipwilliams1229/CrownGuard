@@ -74,7 +74,18 @@ const stone = (obj, x, w, h, seed, M, cap, o, y = 0) => {
     obj.part(); obj.ellipse(x - w * 0.22, y - h * 0.07, w * 0.17, h * 0.07 + 0.6, cap, 0.8, { round: 0.6 });
     obj.part(); obj.ellipse(x + w * 0.3, y - h * 0.03, w * 0.13, h * 0.05 + 0.5, cap, 0.8, { round: 0.6 });
   }
-  if (o.lichen && h > 10) { obj.ellipse(x - w * 0.18, y - h * 0.5, 1.4, 1, o.lichen, 0.9, { round: 0.5, noLine: true }); }
+  // weathering (2026-11-22 upgrade): a crack down the lit face, moss settled on the crown, lichen crusts
+  if (!o.snow && !o.gloss && h > 7) {
+    const k0 = [tp[0] - w * 0.06 + J(7) * 2, tp[1] + h * 0.16], k1 = [x - w * 0.2 + J(8) * 2, y - h * 0.42], k2 = [x - w * 0.26 + J(9) * 2, y - h * 0.12];
+    obj.toneLine(k0[0], k0[1], k1[0], k1[1], -1.2); obj.toneLine(k1[0], k1[1], k2[0], k2[1], -1.2);
+    obj.toneLine(k0[0] - 1, k0[1], k1[0] - 1, k1[1], 0.7);
+    if (cap) { obj.part(); obj.ellipse(tp[0] + w * 0.1, tp[1] + h * 0.17, w * 0.2, h * 0.1 + 0.6, cap, 0.85, { round: 0.7, ny: -0.4 }); }
+  }
+  if (o.lichen && h > 7) {
+    obj.ellipse(x - w * 0.18, y - h * 0.5, 1.4, 1, o.lichen, 0.9, { round: 0.5, noLine: true });
+    obj.ellipse(x - w * 0.36 + J(10), y - h * 0.26, 1, 0.8, o.lichen, 0.9, { round: 0.5, noLine: true });
+    if (h > 12) obj.ellipse(x + w * 0.22, y - h * 0.62, 1.1, 0.8, o.lichen, 0.9, { round: 0.5, noLine: true });
+  }
   if (o.gloss) { obj.part(); obj.line(x - w * 0.34, y - h * 0.42, x - w * 0.2, y - h * 0.8, o.gloss, 0.95, { noLine: true }); }
 };
 
@@ -177,12 +188,14 @@ export const pixDeadTree = (ctx, x, y, s, seed = 1, burnt = false) => {
 // The new style's outline for a baked decor piece: ONE art pixel, tinted from
 // the piece's own edge colour (mixed toward ink), lighter on the edges the sun
 // reaches (upper left).
-export const tintRing = (cv) => {
+// solidA: the alpha a pixel needs to count as the piece (200 for trees: their painted root shadow pools,
+// ~150, then take no ring)
+export const tintRing = (cv, solidA = 110) => {
   const c = cv.getContext("2d");
   const w = cv.width, h = cv.height;
   const img = c.getImageData(0, 0, w, h), d = img.data;
   const solid = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 110 ? 1 : 0;
+  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > solidA ? 1 : 0;
   const out = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x;
