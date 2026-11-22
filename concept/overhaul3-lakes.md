@@ -68,3 +68,21 @@ Loop checks (step mean / wrap step / shimmer px): 1: 605 / 620 / 0; 2: 296 / 399
 - Strand willows are static in the loops (round 2's tree sway hook not wired). The heron is small (river module's).
 - Tarn on the pond board: the stream runs straight through, so the lake reads more as a widening of the stream.
 - Golden hour: the lake's glitter was thinned from the river's (it covered the whole lake); the streams keep the river's.
+
+## Pass 2 (owner: "1 2 and 4 are all good ... 3 the millpond doesnt look good, remove"; the mere's west end)
+
+- The millpond is DROPPED (its PNGs deleted; its code is still in LOOKS[3], unused).
+- The mere's shape: rounder and clear of the west road (the road's smooth max now 16 wide, the lake moved east), no
+  facets. The CUT BANK never ends in a wedge: its face height = HFACE x tp, tp = smoothstep on the shore's facing
+  (full when north-facing, none by east/west-facing) x smoothstep over `BANK_FADE` 72 art px (36 board units) from each
+  end of the lake; where tp < 0.3 the water meets it as a grassy lip, so the turf line is one continuous edge. Applies
+  to every cut bank (mere, tarn; the fen has none). Before / after: `ovh3_lakes_1_fix.png`.
+- Wide dark water calmed: the river's blotch noise (and the 0.18 depth wobble) fall to 40% beyond ~12-34 px from shore.
+- VARIETY (`VARIETY`, `genLook`): the Greenwood boards with a pond today are Foxmere, Oakmere and Bramblewick; a fourth,
+  Thistlecrag, gets a new small mere placed by search (widest ground clear of road and rivers). Deal: Foxmere the long
+  mere, Bramblewick a tarn (the road loops round it, so a stream runs in and out under it: culverts placed where the
+  seeded rill meets the road), Oakmere the reed fen (low meadow), Thistlecrag a small round mere in a hollow among crags.
+  Sheet `ovh3_lakes_variety.png`, panels `ovh3_lakes_v_<realm>.png` (`?scene=v_<realm>`, `?variety=a,b,c,d`).
+- Weak spots: Bramblewick's tarn is small for three lobes and its south outflow is a short stub to the road (the culvert
+  sprite faces the viewer, so at the downstream end it reads back to front); the v_ panels skip any board scatter left
+  inside the water by masking it (a stray ground layer drew grass in the Foxmere variety panel; cause not found).

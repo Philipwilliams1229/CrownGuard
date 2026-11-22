@@ -17,7 +17,26 @@
       const shot = (name, cv) => fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
       const load = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src + "?" + Date.now(); });
       try {
-        if (q.get("grid")) {
+        if (q.get("probe")) {
+          const { REALMS, selectRealm } = await import("/src/data/maps.js"), T = await import("/src/data/terrain.js");
+          const out = [];
+          for (const id of Object.keys(REALMS)) { try { selectRealm(id); } catch (e) { continue; } if (!T.PONDS.length) continue;
+            out.push(`${id} [${REALMS[id].groundArt || REALMS[id].faction || ""}] rivers ${T.RIVERS.length} ponds ` + T.PONDS.map((p) => `${Math.round(p.x)},${Math.round(p.y)} ${p.w}x${p.h} ${p.t || ""}`).join(" ; ")); }
+          st.textContent = out.join(" || "); document.title = "DONE";
+        } else if (q.get("fix")) {
+          // the mere's west end before / after, at 2.5x: the left half of each close-up
+          const a = await load("/.shots/ovh3_lakes_1_zoom_before.png"), b = await load("/.shots/ovh3_lakes_1_zoom.png");
+          const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120 + 40; const c = cv.getContext("2d");
+          c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height); c.imageSmoothingEnabled = false;
+          c.drawImage(a, 0, 60, 836, 1060, 0, 40, 836, 1060); c.drawImage(b, 0, 60, 836, 1060, 844, 40, 836, 1060);
+          c.font = "bold 22px monospace"; c.fillStyle = "#f4ead0"; c.fillText("BEFORE: the bank stops in a wedge, the west end in facets", 10, 28); c.fillText("AFTER: one turf line, the face tapers away over ~36 units", 854, 28);
+          await shot("ovh3_lakes_1_fix", cv); document.title = "DONE";
+        } else if (q.get("variety")) {
+          const ids = q.get("variety").split(","), cv = document.createElement("canvas"); cv.width = 840 * 2 + 8; cv.height = 560 * 2 + 8; const c = cv.getContext("2d");
+          c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height); c.imageSmoothingEnabled = true;
+          for (let i = 0; i < ids.length; i++) { const im = await load(`/.shots/ovh3_lakes_v_${ids[i]}.png`); if (im) c.drawImage(im, (i % 2) * 848, Math.floor(i / 2) * 568, 840, 560); }
+          await shot("ovh3_lakes_variety", cv); document.title = "DONE";
+        } else if (q.get("grid")) {
           // for looking: ?grid=a,b,c&cols=2&w=840 -> .shots/ovh3l_look.png
           const names = q.get("grid").split(","), cols = +(q.get("cols") || 2), cw = +(q.get("w") || 840);
           const ims = (await Promise.all(names.map((n) => load(`/.shots/${n}.png`)))).filter(Boolean), ch = Math.round(cw * ims[0].height / ims[0].width);
@@ -30,15 +49,17 @@
           const cv = document.createElement("canvas"); cv.width = 840 * 3 + 16; cv.height = 560 * 2 + 8 + 30;
           const c = cv.getContext("2d"); c.imageSmoothingEnabled = true; c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height);
           c.font = "bold 16px monospace"; c.fillStyle = "#f4ead0";
-          const cells = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]];
-          for (let n = 1; n <= 4; n++) {
-            const im = await load(`/.shots/ovh3_lakes_${n}_noon.png`); if (!im) continue; const [cx, cy] = cells[n - 1];
+          const cells = { 1: [0, 0], 2: [1, 0], 4: [2, 0] };
+          for (const n of [1, 2, 4]) {
+            const im = await load(`/.shots/ovh3_lakes_${n}_noon.png`); if (!im) continue; const [cx, cy] = cells[n];
             c.drawImage(im, cx * 848, 30 + cy * 568, 840, 560);
           }
           const rv = [["ovh2_water_wolf_a_cut", 0, 0], ["ovh2_water_wolf_d_reeds", 1, 0], ["ovh2_water_wolf_b_lip", 0, 1], ["ovh2_water_wolf_e_quay", 1, 1]];
-          for (const [nm, i, j] of rv) { const im = await load(`/.shots/${nm}.png`); if (im) c.drawImage(im, 2 * 848 + i * 420, 30 + 568 + j * 280, 420, 280); }
-          for (let n = 1; n <= 4; n++) { const im = await load(`/.shots/ovh3_lakes_${n}_pond.png`); if (im) c.drawImage(im, 848 + ((n - 1) % 2) * 420, 30 + 568 + Math.floor((n - 1) / 2) * 280, 418, 278); }
-          c.fillText("1 the mere  |  2 the tarn  |  3 the millpond          (row 2)  4 the reed fen  |  the same four on a pond board  |  the APPROVED river (cut, reeds, lip, quay), same scale", 8, 20);
+          for (const [nm, i, j] of rv) { const im = await load(`/.shots/${nm}.png`); if (im) c.drawImage(im, 848 + i * 420 + (i ? 4 : 0), 30 + 568 + j * 280, 420, 280); }
+          for (const [i, nm] of [[0, "2_golden"], [1, "4_golden"], [2, "1_zoom"], [3, "4_zoom"]]) { const im = await load(`/.shots/ovh3_lakes_${nm}.png`); if (im) c.drawImage(im, 2 * 848 + (i % 2) * 422, 30 + 568 + Math.floor(i / 2) * 280, 418, 278); }
+          for (const [i, n] of [[0, 1], [1, 2], [2, 4]]) { const im = await load(`/.shots/ovh3_lakes_${n}_pond.png`); if (im) c.drawImage(im, (i % 2) * 420, 30 + 568 + Math.floor(i / 2) * 280, 418, 278); }
+          const gd = await load("/.shots/ovh3_lakes_1_golden.png"); if (gd) c.drawImage(gd, 420, 30 + 568 + 280, 418, 278);
+          c.fillText("1 the mere  |  2 the tarn  |  4 the reed fen   (approved; the millpond dropped)    row 2: the three on a pond board + the mere at golden hour  |  the APPROVED river, same scale  |  golden tarn, golden fen, 2.5x mere, 2.5x fen", 8, 20);
           document.body.appendChild(cv);
           if (q.get("save") === "1") await shot("ovh3_lakes_sheet", cv);
           st.textContent = "sheet"; document.title = "DONE";
@@ -62,8 +83,7 @@
               continue;
             }
             document.body.appendChild(canvas);
-            const m = /^l(\d)_(\w+)$/.exec(n);
-            if (q.get("save") === "1") await shot(`ovh3_lakes_${m[1]}_${m[2]}`, canvas);
+            if (q.get("save") === "1") await shot(n.startsWith("v_") ? `ovh3_lakes_${n}` : `ovh3_lakes_${n.replace(/^l/, "")}`, canvas);
             st.textContent += ` | ${n}: ${log.join("; ")}`;
           }
           document.title = "DONE";

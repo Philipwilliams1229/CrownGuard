@@ -38,11 +38,11 @@ const near = (x, y, cx, cy, r) => Math.hypot(x - cx, y - cy) < r;
 // qmax (how deep it gets: 1 = the river's middle), streams (river specs painted by the river painter), props
 const LOOKS = {
   1: { name: "1 The mere", line: "THE MERE: a deep pool held in the land like the river's cut: cut far shore, grassy near lip, one reed bay",
-    fox: { shape: (x, y) => union(x, y, [[424, 210, 92, 40], [474, 206, 44, 32], [362, 224, 30, 20]], 22), wob: 2,
-      kind: (x, y, nx, ny) => near(x, y, 346, 236, 30) ? "reeds" : ny < -0.38 ? "cut" : "lip",
+    fox: { shape: (x, y) => union(x, y, [[446, 210, 78, 40], [484, 206, 38, 32], [394, 224, 30, 22]], 30), wob: 1.6,
+      kind: (x, y, nx, ny) => near(x, y, 378, 240, 26) ? "reeds" : ny < -0.05 ? "cut" : "lip",
       birds: [["duck", 470, 214], ["duck", 478, 218]], rings: [[420, 206, 0.1, 9, 1], [505, 200, 0.55, 7, 0], [395, 226, 0.8, 6, 0]] },
     oak: { shape: (x, y) => union(x, y, [[118, 396, 62, 33], [150, 388, 34, 26], [76, 410, 22, 15]], 14), wob: 2.5,
-      kind: (x, y, nx, ny) => near(x, y, 66, 420, 22) ? "reeds" : ny < -0.38 ? "cut" : "lip",
+      kind: (x, y, nx, ny) => near(x, y, 66, 420, 22) ? "reeds" : ny < -0.05 ? "cut" : "lip",
       birds: [["duck", 136, 398]], rings: [[112, 390, 0.2, 7, 1], [160, 384, 0.65, 5, 0]] },
     deep: 38, qmax: 0.88, zoom: [318, 158, 168, 112], loop: [318, 150, 230, 150], pondZoom: null,
   },
@@ -51,7 +51,7 @@ const LOOKS = {
         let d = union(x, y, [[348, 220, 40, 26], [430, 198, 44, 30], [508, 218, 36, 28], [388, 214, 24, 12], [470, 206, 20, 13]], 9);
         return Math.max(d, -ell(x, y, 464, 252, 18, 32));                                                                       // the headland pushing north
       }, wob: 4,
-      kind: (x, y, nx, ny) => near(x, y, 466, 238, 30) || near(x, y, 400, 226, 9) ? "rock" : ny < -0.3 ? "cut" : "lip",
+      kind: (x, y, nx, ny) => near(x, y, 466, 238, 30) || near(x, y, 400, 226, 9) ? "rock" : ny < -0.05 ? "cut" : "lip",
       streams: [
         { pts: [[454, 136], [456, 150], [450, 164], [446, 180]], w: 20, spec: { def: "cut", flow: 0.7, zones: [{ bank: "W", from: 0, to: 999, kind: "lip" }] } },
         { pts: [[326, 232], [318, 254], [312, 276], [318, 300], [330, 322], [332, 346], [322, 370], [316, 392]], w: 24, spec: { def: "lip", flow: 0.6, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } },
@@ -60,7 +60,7 @@ const LOOKS = {
       rocks: [[466, 252, 1.15], [476, 246, 0.7], [457, 258, 0.75], [404, 232, 0.6]], boulders: [[465, 221, 3.2], [472, 217, 2.2], [457, 224, 1.8], [352, 202, 2]],
       birds: [["heron", 486, 232]], rings: [[430, 198, 0.15, 9, 1], [508, 212, 0.6, 7, 0], [352, 222, 0.85, 6, 0]] },
     oak: { shape: (x, y) => { const d = union(x, y, [[90, 392, 46, 30], [154, 410, 40, 28], [120, 400, 26, 16]], 9); return Math.max(d, -ell(x, y, 124, 438, 12, 22)); }, wob: 3,
-      kind: (x, y, nx, ny) => near(x, y, 124, 424, 22) ? "rock" : ny < -0.3 ? "cut" : "lip",
+      kind: (x, y, nx, ny) => near(x, y, 124, 424, 22) ? "rock" : ny < -0.05 ? "cut" : "lip",
       streams: [
         { pts: [[56, 228], [62, 262], [76, 300], [80, 340], [88, 376]], w: 20, spec: { def: "lip", flow: 0.7, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } },
         { pts: [[176, 418], [192, 440], [204, 468], [196, 496], [190, 524]], w: 22, spec: { def: "lip", flow: 0.6, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } },
@@ -102,7 +102,57 @@ const BOARD = {
   oak: { realm: "oakmere", crop: [20, 236, 420, 280], towers: [["archer", 260, 300, 3]], at: 18 },
 };
 // scene names: l<n>_noon | l<n>_golden | l<n>_zoom | l<n>_pond | anim_lake<n>
+// ---------------- VARIETY: the three approved kinds dealt across the Greenwood's boards ----------------
+// Greenwood boards with a pond or lake today: Foxmere (190x80), Oakmere (84x46), Bramblewick (100x62). The deal: neighbours
+// differ, size and shape from a seed; the tarn only where a stream can run in and out (culvert to culvert under the road);
+// the reed fen on the low, wet board. A fourth board (Thistlecrag) gets a small round mere in the best hollow clear of the road.
+const rnd = (seed) => { let a = seed >>> 0 || 1; return () => ((a = (Math.imul(a, 1664525) + 1013904223) >>> 0) / 4294967296); };
+// walk from (x, y) in direction dy until the road (a culvert) or the board's edge; meander from the seed
+function rill(x, y, dy, R) {
+  const pts = [[x, y]]; let cx = x, cy = y, hitRoad = null;
+  for (let i = 0; i < 60; i++) {
+    cy += dy * 6; cx += (R() - 0.5) * 7;
+    if (cy < -10 || cy > 570) break;
+    if (W.nearestOnPath(cx, cy).d < W.PATH_HALF + 2) { hitRoad = [cx, cy - dy * 4]; break; }
+    if (i % 3 === 2) pts.push([cx, cy]);
+  }
+  pts.push(hitRoad ? hitRoad : [cx, cy]);
+  return { pts, culvert: hitRoad };
+}
+export function genLook(kind, cx, cy, rx, ry, seed) {
+  const R = rnd(seed), sg = R() < 0.5 ? -1 : 1, j = (a) => (R() - 0.5) * a;
+  if (kind === "mere") {
+    const bay = [cx - sg * rx * 0.62, cy + ry * 0.4];
+    return { shape: (x, y) => union(x, y, [[cx, cy, rx, ry], [cx + sg * rx * 0.42, cy - ry * 0.12 + j(4), rx * 0.52, ry * 0.82], [bay[0], bay[1] - 4, rx * 0.36, ry * 0.5]], rx * 0.34), wob: 1.6,
+      kind: (x, y, nx, ny) => near(x, y, bay[0] - sg * 4, bay[1] + 6, rx * 0.34) ? "reeds" : ny < -0.05 ? "cut" : "lip",
+      birds: [["duck", cx + sg * rx * 0.3, cy]], rings: [[cx - rx * 0.2, cy - 4, 0.2, 8, 1]] };
+  }
+  if (kind === "tarn") {
+    const L1 = [cx - rx * 0.62, cy + j(ry * 0.5), rx * 0.42, ry * 0.72], L2 = [cx + j(6), cy - ry * 0.2, rx * 0.44, ry * 0.8], L3 = [cx + rx * 0.62, cy + j(ry * 0.5), rx * 0.4, ry * 0.7];
+    const hd = [cx + rx * 0.3, cy + ry * 0.95, rx * 0.16, ry * 0.75];
+    const inn = rill(L2[0] + j(10), L2[1] - L2[3] * 0.7, -1, R), out = rill(L1[0], L1[1] + L1[3] * 0.7, 1, R);
+    return { shape: (x, y) => Math.max(union(x, y, [L1, L2, L3, [(L1[0] + L2[0]) / 2, (L1[1] + L2[1]) / 2, rx * 0.3, ry * 0.4], [(L2[0] + L3[0]) / 2, (L2[1] + L3[1]) / 2, rx * 0.26, ry * 0.4]], 9), -ell(x, y, ...hd)), wob: 3,
+      kind: (x, y, nx, ny) => near(x, y, hd[0], hd[1] - hd[3] * 0.4, rx * 0.3) ? "rock" : ny < -0.05 ? "cut" : "lip",
+      streams: [{ pts: inn.pts, w: 18, spec: { def: "cut", flow: 0.7, zones: [{ bank: "W", from: 0, to: 999, kind: "lip" }] } },
+                { pts: out.pts, w: 22, spec: { def: "lip", flow: 0.6, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } }],
+      culverts: [inn.culvert, out.culvert].filter(Boolean), rocks: [[hd[0], hd[1] + 2, 1.1], [hd[0] + 8, hd[1] - 4, 0.7]], boulders: [[hd[0], hd[1] - hd[3] * 0.9, 3]], birds: [], rings: [[L2[0], L2[1], 0.15, 8, 1]] };
+  }
+  // the reed fen
+  const E = [[cx - rx * 0.45, cy, rx * 0.55, ry * 0.85], [cx + rx * 0.2, cy - ry * 0.25, rx * 0.5, ry * 0.75], [cx + rx * 0.6, cy + ry * 0.2, rx * 0.4, ry * 0.7], [cx, cy + ry * 0.5, rx * 0.45, ry * 0.4]];
+  const isl = [cx + j(rx * 0.3), cy + j(ry * 0.3), rx * 0.12, ry * 0.12];
+  return { shape: (x, y) => Math.max(union(x, y, E, 14), -ell(x, y, ...isl)), wob: 3, wobF: 14, kind: () => "reeds",
+    beds: [[isl[0], isl[1] + 2, 3], [cx - rx * 0.5, cy + ry * 0.2, 3]], punt: [cx + rx * 0.2, cy + ry * 0.3], willows: [[cx - rx * 1.05, cy - ry * 0.3, 1, 13]],
+    birds: [["heron", cx - rx * 0.1, cy + ry * 0.2]], rings: [[cx, cy - 4, 0.1, 6, 0]] };
+}
+export const VARIETY = {
+  foxmere: { kind: "mere", line: "FOXMERE: the LONG MERE: the board's big open water; a deep pool with a cut far bank (round 3's mere)", look: () => LOOKS[1].fox, c: [430, 210] },
+  oakmere: { kind: "fen", line: "OAKMERE: the REED FEN: low meadow ground and a small pond beside the road: soft, wild, shallow", look: () => LOOKS[4].oak, c: [118, 398] },
+  bramblewick: { kind: "tarn", line: "BRAMBLEWICK: a TARN: the road loops round it on two sides, so a stream can run in and out under it (two culverts)", gen: [285, 190, 62, 34, 7] },
+  thistlecrag: { kind: "mere", line: "THISTLECRAG: a SMALL ROUND MERE in a hollow among the crags (placed by seed in the widest ground clear of the road)", gen: "auto", seed: 11 },
+};
 export const sceneOf = (name) => {
+  const v = /^v_(\w+)$/.exec(name);
+  if (v) { const V = VARIETY[v[1]]; return { variety: V, realm: v[1], towers: [], at: 14, crop: null, sun: "noon", anim: null, label: V.line, n: 9, look: { deep: V.kind === "fen" ? 46 : V.kind === "tarn" ? 18 : 38, qmax: V.kind === "fen" ? 0.5 : 0.88 } }; }
   const m = /^(?:anim_lake(\d)|l(\d)_(noon|golden|zoom|pond))$/.exec(name); if (!m) throw new Error("no scene " + name);
   const n = +(m[1] || m[2]), kind = m[1] ? "anim" : m[3], look = LOOKS[n], bd = kind === "pond" ? "oak" : "fox";
   const crop = kind === "zoom" ? look.zoom : kind === "anim" ? look.loop : BOARD[bd].crop;
@@ -112,6 +162,7 @@ export const sceneOf = (name) => {
 
 // ---------------- the lake's field: mask -> exact signed distance (art px, + land) ----------------
 const INF = 1e20;
+const BANK_FADE = 72;   // art px (36 board units)
 function edt1(f, n, d, v, z) {
   let k = 0; v[0] = 0; z[0] = -INF; z[1] = INF;
   for (let q = 1; q < n; q++) {
@@ -138,7 +189,7 @@ function lakeMask(L, X0, Y0, w, h, pad) {
     if (wob) v += (vn(x / (L.wobF || 22), y / 14, 301) - 0.5) * 2 * wob + (vn(x / 7, y / 6, 302) - 0.5) * wob * 0.15;
     if (v >= 0) continue;
     // the road stays dry, and the shore curves away from it (a smooth max, never a straight clipped edge)
-    const rd = W.nearestOnPath(x, y).d; v = -smin(-v, -(W.PATH_HALF + 12 - rd), 9);
+    const rd = W.nearestOnPath(x, y).d; v = -smin(-v, -(W.PATH_HALF + 14 - rd), 16);
     if (v >= 0) continue;
     IN[j * W2 + i] = 1;
   }
@@ -197,7 +248,8 @@ function buildLake(sc, X0, Y0, w, h) {
     const k = j * w + i; if (BODY[k] < 0) continue;
     KW[k] = Math.min(KW[k], ...[k - 1, k + 1, k - w, k + w].filter((q) => BODY[q] >= 0 && KIND[q] === KIND[k]).map((q) => KW[q] + 0.09));
   }
-  const F = { D, NX, NY, S, KIND, NEAR, BODY, KW, OWN, w, h, Fr, bodies: [{ type: "lake" }] };
+  let xmin = 1e9, xmax = -1e9; for (let k = 0; k < N; k++) if (Dl[k] < 0) { const X = X0 + (k % w); if (X < xmin) xmin = X; if (X > xmax) xmax = X; }
+  const F = { D, NX, NY, S, KIND, NEAR, BODY, KW, OWN, w, h, Fr, xmin, xmax, bodies: [{ type: "lake" }] };
   if (Fr) {   // the river painter's view: the merged edge, only the stream's pixels
     const B2 = new Int8Array(N).fill(-1); for (let k = 0; k < N; k++) if (OWN[k] && Fr.BODY[k] >= 0) B2[k] = Fr.BODY[k];
     F.Fr2 = { ...Fr, D, NX, NY, BODY: B2 };
@@ -216,8 +268,14 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
     const k = j * w + i, d = D[k]; if (d > 8 || BODY[k] < 0 || OWN[k]) continue;
     const X = X0 + i, Y = Y0 + j, nx = NX[k], ny = NY[k], kind = KIND[k], isNear = ny > 0.35, s = F.S[k];
     const g = [P[k * 4], P[k * 4 + 1], P[k * 4 + 2]];
+    // a CUT bank never stops in a wedge: its face eases to nothing as the shore turns from north- to west/east-facing,
+    // and over a long run (BANK_FADE art px) toward each end of the lake, so the turf lip above it is one continuous line
+    const tp = kind === "cut" ? sstep(0.05, -0.55, ny) * sstep(F.xmin, F.xmin + BANK_FADE, X) * sstep(F.xmax, F.xmax - BANK_FADE, X) : 1;
+    const ek = kind === "cut" && tp < 0.3 ? "lip" : kind;     // where the face has gone, the water meets a grassy lip
     if (d >= 0) {   // the land side: exactly the river's
-      if ((kind === "cut" || kind === "rock") && !isNear && d < 2.2) put(k, lerp(g, TURF[5], d < 1 ? 0.55 : 0.25));
+      if (kind === "cut" && !isNear && d < 2.2 && tp > 0.05) put(k, lerp(g, TURF[5], (d < 1 ? 0.55 : 0.25) * Math.min(1, tp * 1.5)));
+      else if (ek === "lip" && kind === "cut" && d < 3.5) put(k, lerp(g, TURF[1], (1 - d / 3.5) * 0.42 * (1 - tp / 0.3)));
+      else if (kind === "rock" && !isNear && d < 2.2) put(k, lerp(g, TURF[5], d < 1 ? 0.55 : 0.25));
       else if (kind === "cut" && isNear && d < 1.2) put(k, lerp(g, TURF[4], 0.4));
       else if (kind === "quay" && d < (isNear ? 9 : 5)) {
         const run = Math.floor((s + (isNear ? 0 : 3)) / 11), jt = ((s % 11) + 11) % 11 < 1;
@@ -226,28 +284,28 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
       } else if (kind === "lip" || kind === "reeds") { if (d < 3.5) put(k, lerp(g, kind === "reeds" ? hex("#3a5a2c") : TURF[1], (1 - d / 3.5) * 0.42)); }
       continue;
     }
-    const kwt = sstep(0, 1, KW[k]), e = -d, fw = W.faceW(kind, nx, ny) * (0.15 + 0.85 * kwt);
+    const kwt = sstep(0, 1, KW[k]), e = -d, fw = (kind === "cut" ? (isNear ? 0 : W.HFACE.cut * tp) : W.faceW(kind, nx, ny)) * (0.15 + 0.85 * kwt);
     if (e < fw) { put(k, W.facePixel(kind, e / fw, fw, e, X, Y, s, -nx, -ny)); continue; }
     let ew = e - fw;
-    if (isNear && (kind === "cut" || kind === "rock" || kind === "quay")) {
+    if (isNear && (ek === "cut" || kind === "rock" || kind === "quay")) {
       if (kind === "quay") { if (ew < 2) { put(k, ew < 1 ? STONE[2] : STONE[0]); continue; } }
       else if (ew < 1.6) { put(k, ew < 0.8 ? TURF[3] : TURF[1]); continue; }
     }
     // depth: the river's q, measured from the shore; a shelving edge lightens right at it, as the river's does
     const qc = clamp((ew + (vn(X / 30, Y / 14, 43) - 0.5) * 8) / look.deep, 0, 1) * look.qmax;
-    const qe = kind === "cut" || kind === "rock" || kind === "quay" ? 1 : clamp(ew / 14, 0, 1);
-    const q = Math.min(qc, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18;
-    const idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9, ri = clamp(Math.round(idx), 0, 6);
+    const qe = ek === "cut" || kind === "rock" || kind === "quay" ? 1 : clamp(ew / 14, 0, 1);
+    const q = Math.min(qc, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18 * (1 - 0.6 * sstep(12, 34, ew));
+    const idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9 * (1 - 0.6 * sstep(12, 34, ew)), ri = clamp(Math.round(idx), 0, 6);
     let c = WA[ri];
     // the bank's shade and the low sun's long shadow (the river's)
-    const fdot = -(nx * fall[0] + ny * fall[1]), Hs = W.HFACE[kind] || (kind === "lip" || kind === "reeds" ? 3 : 1.5);
+    const fdot = -(nx * fall[0] + ny * fall[1]), Hs = (ek === "cut" ? W.HFACE.cut * tp : W.HFACE[ek]) || (ek === "lip" || ek === "reeds" ? 3 : 1.5);
     const shadeLen = (isNear ? 0 : Math.max(0, -ny) * Hs * 0.45) + Math.max(0, fdot) * Hs * (0.3 + slen * 0.55) + (isNear ? 3.2 : 0);
     const shade = ew < shadeLen ? (ew < shadeLen - 1.5 ? 0.62 : 0.78) : 0;
     // the edge itself (the river's)
-    if (kind === "lip" && ew < 1.2) c = hex("#22361e");
-    else if (kind === "lip" && ew < 6) c = lerp(c, hex("#4c7a3c"), 0.32 * (1 - ew / 6));
+    if (ek === "lip" && ew < 1.2) c = hex("#22361e");
+    else if (ek === "lip" && ew < 6) c = lerp(c, hex("#4c7a3c"), 0.32 * (1 - ew / 6));
     else if (kind === "reeds" && ew < 12) c = lerp(c, hex("#3e5636"), 0.42 * (1 - ew / 12));
-    else if ((kind === "cut" || kind === "rock") && !isNear && ew < 1.3) c = lerp(c, FOAM2, 0.55);
+    else if ((ek === "cut" || kind === "rock") && !isNear && ew < 1.3) c = lerp(c, FOAM2, 0.55);
     else if (kind === "quay" && !isNear && ew < 2.2) c = ew < 1.1 ? hex("#3a5a34") : lerp(c, FOAM2, 0.35);
     // still water's marks, in the river's mark language: its light dashes (one tone up, two up, a foam fleck), but lying
     // in level wind-lanes, forming and fading where they lie (a slow cross-fade, ~6 px of drift a loop), never running
@@ -261,7 +319,7 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
     const cl = vn(X / 60, Y / 22, 72);                                                                       // the sky lying on it: still
     if (cl > 0.66 + bay(X, Y) * 0.08 && ew > 8) c = lerp(c, hex("#a8ccc4"), 0.16);
     // the lap at the foot of a face: foam working in and out (a breath a loop, travelling along the shore)
-    if ((kind === "cut" || kind === "rock" || kind === "quay") && !isNear && ew < 4 && sc.anim) {
+    if ((ek === "cut" || kind === "rock" || kind === "quay") && !isNear && ew < 4 && sc.anim) {
       const f2 = vn(s / 7, ew / 2.2, 79), br = 0.5 + 0.5 * Math.sin(TAU * t - s / 30);
       if (kind !== "quay" && ew < 3.2 && f2 > 0.66 - br * 0.16 - (ew < 1.6 ? 0.08 : 0)) c = lerp(c, FOAM, ew < 1.6 ? 0.7 : 0.4);
       if (kind === "quay" && ew > 1.4 && f2 > 0.74 - br * 0.12) c = lerp(c, WA[Math.min(6, ri + 2)], 0.6);
@@ -342,10 +400,26 @@ const imgs = () => (IMG ||= { skiff: skiffImg(), punt: puntImg(), sluice: sluice
 
 // ---------------- the scene ----------------
 export async function runScene(name, q) {
-  const sc = sceneOf(name), L = sc.L, log = [], DT = 1 / 60;
+  const sc = sceneOf(name), log = [], DT = 1 / 60;
   W.setDay(sc.sun);
   W.selectRealm(sc.realm); W.selectFaction("greenwood"); W.setWaveWindow(null); W.setLevelWeather(null);
   IMG = null; for (const k in M) delete M[k];   // the sculpts take the sun of the day being drawn
+  if (sc.variety) {
+    const V = sc.variety; let cx, cy;
+    if (V.look) { sc.L = V.look(); [cx, cy] = V.c; }
+    else {
+      let gx = V.gen;
+      if (gx === "auto") {   // the widest ground clear of the road, the rivers and the board's edge
+        const segs = W.RIVERS.flatMap((r) => r.segs), rd = (x, y) => Math.min(999, ...segs.map((g2) => { const vx = g2.x2 - g2.x1, vy = g2.y2 - g2.y1, t = clamp(((x - g2.x1) * vx + (y - g2.y1) * vy) / (vx * vx + vy * vy || 1), 0, 1); return Math.hypot(x - g2.x1 - vx * t, y - g2.y1 - vy * t) - r0(g2); }));
+        const r0 = () => 20; let best = [0, 420, 280];
+        for (let y = 70; y <= 490; y += 10) for (let x = 70; x <= 700; x += 10) { const sc2 = Math.min(W.nearestOnPath(x, y).d - W.PATH_HALF, rd(x, y), x - 20, 720 - x, y - 20, 540 - y); if (sc2 > best[0]) best = [sc2, x, y]; }
+        const r = clamp(best[0] - 22, 22, 42); gx = [best[1], best[2], r, r * 0.66, V.seed];
+      }
+      [cx, cy] = gx; sc.L = genLook(V.kind, ...gx);
+    }
+    sc.crop = [clamp(Math.round(cx - 210), 0, 420), clamp(Math.round(cy - 140), 0, 280), 420, 280];
+    log.push(`lake at ${Math.round(cx)},${Math.round(cy)}`);
+  }
   const g = {
     run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 3, phase: "build",
     towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
@@ -362,6 +436,7 @@ export async function runScene(name, q) {
   W.startWave(g);
   for (let el = 0; el < (sc.anim ? 0 : sc.at); el += DT) { W.updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") W.startWave(g); }
   if (sc.anim) { g.enemies = []; g.projectiles = []; g.effects = []; }
+  const L = sc.L;
   // the board's own water goes; the lake is drawn new. Work on the whole board's art px, then crop.
   const [cx0, cy0, cw, ch] = sc.crop, X0 = cx0 * 2, Y0 = cy0 * 2, w = cw * 2, h = ch * 2;
   W.RIVERS.length = 0; W.PONDS.length = 0;
@@ -370,7 +445,7 @@ export async function runScene(name, q) {
   log.push(`field ${Math.round(performance.now() - t0)} ms`);
   // decor that now stands in the water (or on its very edge) is taken away; the look's own rocks are added
   const dAt = (x, y) => { const i = Math.round(x * 2) - X0, j = Math.round(y * 2) - Y0; return i < 0 || j < 0 || i >= w || j >= h ? 99 : F.D[j * w + i]; };
-  for (let i = W.DECOR.length - 1; i >= 0; i--) { const d = W.DECOR[i]; if (dAt(d.x, d.y) < 10 || (/reed|lily/.test(d.t) && dAt(d.x, d.y) < 40)) W.DECOR.splice(i, 1); }
+  for (let i = W.DECOR.length - 1; i >= 0; i--) { const d = W.DECOR[i]; if (dAt(d.x, d.y) < 10 || L.shape(d.x, d.y) < 5 || (/reed|lily/.test(d.t) && dAt(d.x, d.y) < 40)) W.DECOR.splice(i, 1); }
   for (const [x, y, s] of L.rocks || []) W.DECOR.push({ x, y, t: "rock", s, v: Math.round(x) % 3 });
   const crop = (cv) => { const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(cv, X0, Y0, w, h, 0, 0, w, h); return c; };
   const cvA = document.createElement("canvas"); cvA.width = 1680; cvA.height = 1120;
@@ -424,7 +499,7 @@ export async function runScene(name, q) {
       blit(Pp, im, x * 2 - 12, y * 2 - len * 2 - 6);
     } });
     if (L.sluice) items.push({ y: L.sluice[1] * 2 + 4, fn: () => blit(Pp, I.sluice, L.sluice[0] * 2 - 18, L.sluice[1] * 2 - 20 + 2) });
-    if (L.culvert) items.push({ y: L.culvert[1] * 2, fn: () => blit(Pp, I.culvert, L.culvert[0] * 2 - 20, L.culvert[1] * 2 - 14) });
+    for (const cu of L.culverts || (L.culvert ? [L.culvert] : [])) items.push({ y: cu[1] * 2, fn: () => blit(Pp, I.culvert, cu[0] * 2 - 20, cu[1] * 2 - 14) });
     for (const wl of willows) items.push({ y: wl.y * 2, fn: () => {
       for (let j = -6; j <= 6; j++) for (let i = -34; i <= 34; i++) { const r = Math.hypot(i / 34, j / 6); if (r < 1 && (i + j) % 2 === 0 || r < 0.7) Pp.set(wl.x * 2 + i + 10, wl.y * 2 + j + 2, hex("#203a1c"), 0.35 * (1 - r)); }
       const c = wl.sp.cv; blit(Pp, { w: c.width, h: c.height, data: c.getContext("2d").getImageData(0, 0, c.width, c.height).data }, wl.x * 2 - wl.sp.ax, wl.y * 2 - wl.sp.ay);
@@ -434,6 +509,7 @@ export async function runScene(name, q) {
     for (let k = 0; k < w * h; k++) {
       const a0 = A[k * 4], a1 = A[k * 4 + 1], a2 = A[k * 4 + 2], b0 = Bd[k * 4], b1 = Bd[k * 4 + 1], b2 = Bd[k * 4 + 2];
       if (Math.abs(a0 - b0) + Math.abs(a1 - b1) + Math.abs(a2 - b2) < 4) continue;
+      if (F.D[k] < -3 && F.BODY[k] >= 0 && !F.OWN[k] && sc.variety) continue;   // stray ground scatter the board drew where the lake now lies
       if (MOD[k]) {
         const al = [0, 1, 2].map((c) => { const bb = Bd[k * 4 + c], aa = A[k * 4 + c], sh = SHADE[c]; return Math.abs(bb - sh) < 12 ? null : (bb - aa) / (bb - sh); }).filter((v) => v != null);
         const amx = Math.max(...al), amn = Math.min(...al);
