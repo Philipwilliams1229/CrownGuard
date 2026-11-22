@@ -40,7 +40,7 @@ const BASE = { bark: "#6e4a30", barkUp: "#a8623a", birchBark: "#e2ddcc", mark: "
 export const PAL = {
   summer: { ...BASE, oak: ["#5c9a3c", "#4f8f3e", "#64a040"], beech: "#5a9440", birch: "#8ab846", bush: "#4f8f3a", haw: "#5f9a40", blossom: "#f4eee4", flower: ["#f2eee0", "#f0c8d8", "#f4d860"], hawBloom: 0.35 },
   spring: { ...BASE, oak: ["#86c04c", "#7ab448", "#94c858"], beech: "#9ccc5a", birch: "#b0d868", bush: "#76b04a", haw: "#78b04a", blossom: "#fbf6f0", flower: ["#6c7ae8", "#f4e070", "#f6f2ea"], willow: "#a6cc5c", hawBloom: 1, bluebells: true },
-  autumn: { ...BASE, oak: ["#c8902c", "#b8582a", "#d0a832", "#6a9a3c", "#c47a2c"], beech: "#c86a2a", birch: "#e6be38", bush: "#a8442a", haw: "#b85a2c", blossom: "#c8342a", flower: ["#e8b040", "#d86a3a", "#f2eee0"], willow: "#d4b83c", moss: "#8a8a3a", hawBloom: 0.5, berries: true },
+  autumn: { ...BASE, oak: ["#6a9a3c", "#a8ac38", "#d0a832", "#c8902c", "#c47a2c", "#b8582a"], beech: "#c86a2a", birch: "#e6be38", bush: "#a8442a", haw: "#b85a2c", blossom: "#c8342a", flower: ["#e8b040", "#d86a3a", "#f2eee0"], willow: "#d4b83c", moss: "#8a8a3a", hawBloom: 0.5, berries: true },
   winter: { ...BASE, oak: ["#8a6a44"], beech: "#a07a48", birch: "#8a8a6a", bush: "#5a6a44", haw: "#5a4a3a", blossom: "#c8342a", flower: ["#f4f6f8"], willow: "#7a7a4a", bare: true, snow: "#f2f6fa", pine: "#2f6a4e", pine2: "#2a5e46", hawBloom: 0, berries: true },
 };
 
@@ -302,6 +302,9 @@ export const mixT = (seed) => (h2(seed | 0, 17, 5) < 0.5 ? TREAT[3] : TREAT[4]);
 // ---- species --------------------------------------------------------------------------------------------
 // each returns { cv, ax, ay }; args (pal, k, sway, dk (wood depth tint), seed, T)
 const oakCol = (pal, seed) => pal.oak[Math.abs(seed | 0) % pal.oak.length];
+// a tree's SECOND leaf colour is a NEIGHBOUR of its first on the palette's ramp, never two steps away
+// (owner, 2026-11-22: "green and yellow, yellow and orange, orange and red. but not jumping from green to orange")
+const oakCol2 = (pal, seed) => { const n = pal.oak.length, i = Math.abs(seed | 0) % n; return pal.oak[i + 1 < n ? i + 1 : Math.max(0, i - 1)]; };
 // the wood's depth: deeper trees take a cooler, darker leaf (a dark roof), not just a tone down
 const hx2 = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
 const deep = (c, dk) => { if (!dk) return c; const a = hx2(c), b = [34, 62, 52], t = dk > 1 ? 0.55 : 0.3; return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
@@ -327,7 +330,7 @@ export const SP = {
   // C's bigger spreading oak, with a visible fork and boughs
   oak(pal, k = 1, s = 0, dk = 0, seed = 1, T = TREAT[3]) {
     return sprite(Math.ceil(158 * k), Math.ceil(150 * k), 10, T, (P) => {
-      const bk = mat(pal.bark), lf = leafMat(deep(oakCol(pal, seed), dk)), lf2 = leafMat(deep(oakCol(pal, seed + 1), dk)), un = mat(oakCol(pal, seed), { contrast: 1.3 }), ms = mat(pal.moss);
+      const bk = mat(pal.bark), lf = leafMat(deep(oakCol(pal, seed), dk)), lf2 = leafMat(deep(oakCol2(pal, seed), dk)), un = mat(oakCol(pal, seed), { contrast: 1.3 }), ms = mat(pal.moss);
       for (const [x, y] of [[-15, 4], [13, 5], [3, 6]]) bark(P, [[0, -6], [x * 0.7 * k, y * 0.4 * k], [x * k, y * k]], [3.6 * k, 2.4 * k, 1.2], bk, 41, { strokes: false });
       bark(P, [[0, 2], [-1 * k, -26 * k], [0, -42 * k]], [7.5 * k, 6 * k, 5.4 * k], bk, 40);
       P.ellipse(-3 * k, -12 * k, 2.5 * k, 4 * k, ms, 41, { wrap: true });
@@ -552,7 +555,7 @@ export const SP = {
   },
   fern(pal, k = 1, s = 0, dk = 0, seed = 8) {
     return sprite(Math.ceil(34 * k), Math.ceil(20 * k), 3, null, (P) => {
-      const lf = mat(pal.bare ? "#8a6a3a" : pal.oak[0] === "#c8902c" ? "#b87a30" : "#4f8f3e");
+      const lf = mat(pal.bare ? "#8a6a3a" : pal.oak[0] === "#6a9a3c" ? "#b87a30" : "#4f8f3e");
       const r = rng(seed);
       for (let n = 0; n < 7; n++) {
         const a = Math.PI * (0.1 + 0.8 * (n / 6)) + (r() - 0.5) * 0.2, L = (11 + r() * 4) * k, ex = -Math.cos(a) * L, ey = -Math.sin(a) * L * 0.7;
