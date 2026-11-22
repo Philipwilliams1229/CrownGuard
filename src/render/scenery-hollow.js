@@ -746,7 +746,7 @@ const stampBody = (ctx, b, x, y) => ctx.drawImage(b.cv, x - b.ox, y - b.oy, b.bw
 // a witch-fire flame: a teardrop, white-hot at the heart, flickering
 const witchFlame = (ctx, x, y, r, time, ph, a = 1) => {
   const f = 0.75 + 0.25 * Math.sin(time * 9 + ph) + 0.1 * Math.sin(time * 23 + ph * 2);
-  glow(ctx, x, y - r * 0.5, r * 5.5, TEAL, 0.16 * a * f);
+  stepGlow(ctx, x, y - r * 0.5, r * 5.5, 0.4 * a * f);
   const h = r * 2.6 * f, lean = Math.sin(time * 3.1 + ph) * r * 0.35;
   ctx.fillStyle = rgba("#3aa888", 0.85 * a);
   ctx.beginPath(); ctx.moveTo(x - r, y); ctx.quadraticCurveTo(x - r, y - h * 0.5, x + lean, y - h); ctx.quadraticCurveTo(x + r, y - h * 0.5, x + r, y); ctx.closePath(); ctx.fill();
@@ -1186,8 +1186,7 @@ const wispLight = (ctx, x, y, s, t, ph, gy, water = false) => {
       for (let v = -ry; v < ry; v += 0.5) { const w = rx * Math.sqrt(1 - ((v + 0.25) / ry) ** 2); ctx.fillRect(ap(px + 1 - w), ap(gy + 0.5 + v), ap(w * 2), 0.5); }
     }
   }
-  glow(ctx, px, py, 15 * s, TEAL, 0.26 * fade);
-  glow(ctx, px, py, 6 * s, "#c8fff0", 0.42 * fade);
+  stepGlow(ctx, px, py, 13 * s, 0.75 * fade);
   // a crisp ring of teal round the heart
   ctx.fillStyle = rgba(TEAL, 0.85 * fade);
   ctx.fillRect(ap(px - 1.5), ap(py - 1), 3, 2); ctx.fillRect(ap(px - 1), ap(py - 1.5), 2, 3);
@@ -2688,6 +2687,16 @@ const waterCut = (src, wl, R, seed, wx0 = null, wy0 = 0) => {
   const at = (x, y) => (y * w + x) * 4;
   const solid = (x, y) => x >= 0 && x < w && y >= 0 && y < H0 && sd[at(x, y) + 3] > 110;
   for (let y = 0; y < wl; y++) for (let x = 0; x < w; x++) { const o = at(x, y); d[o] = sd[o]; d[o + 1] = sd[o + 1]; d[o + 2] = sd[o + 2]; d[o + 3] = sd[o + 3]; }
+  // (upgrade 2026-11-22) the fen's mist rims every top edge and, fainter, the
+  // western edges: the stone stands out of the murk instead of on it
+  const MISTR = [180, 196, 188];
+  for (let y = 1; y < wl - 6; y++) for (let x = 1; x < w; x++) {
+    const o = at(x, y);
+    if (sd[o + 3] < 110) continue;
+    const k = !solid(x, y - 1) ? 0.42 : !solid(x - 1, y) ? 0.22 : !solid(x, y - 2) ? 0.16 : 0;
+    if (!k) continue;
+    d[o] += (MISTR[0] - d[o]) * k; d[o + 1] += (MISTR[1] - d[o + 1]) * k; d[o + 2] += (MISTR[2] - d[o + 2]) * k;
+  }
   // the wet band: darker toward the water, streaked with algae
   const ALG = [58, 78, 52];
   for (let k = 1; k <= 6; k++) {
@@ -2706,10 +2715,11 @@ const waterCut = (src, wl, R, seed, wx0 = null, wy0 = 0) => {
   for (let x = 0; x < w; x++) if (solid(x, wl - 1)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
   for (let r = 1; r < R; r++) {
     if (r % 3 === 2) continue;
-    const sy = wl - r, f = r / R, sh = ((r >> 1) & 1) ? 1 : 0;
+    const sy = wl - r, f = r / R, sh = ((r >> 1) & 1) ? 1 : (r % 5 === 4 ? -1 : 0);
     for (let x = 0; x < w; x++) {
       const sx = x - sh;
       if (!solid(sx, sy) || !wetPx(x, wl + r)) continue;
+      if (r > 2 && hash(Math.floor(x / 3) + r * 13, seed + 47) < 0.12 + f * 0.3) continue;   // ripples break it up
       const o = at(x, wl + r), so = at(sx, sy), m = 0.58 + 0.32 * f;
       d[o] = sd[so] + (P.deep[0] - sd[so]) * m; d[o + 1] = sd[so + 1] + (P.deep[1] - sd[so + 1]) * m; d[o + 2] = sd[so + 2] + (P.deep[2] - sd[so + 2]) * m;
       d[o + 3] = Math.round(190 * Math.pow(1 - f, 0.8));
@@ -3155,8 +3165,8 @@ const drawRelics = (ctx, time) => {
       // then a ring going out over the whole mere
       const toll = (t * 0.09 + ph) % 1, k = toll < 0.12 ? Math.sin((toll / 0.12) * Math.PI) : 0;
       const lx = r.x - 4.4 * s + 0.035 * 16 * s, ly = r.y - 16 * s;
-      glow(ctx, lx, ly, 6 * s, TEAL, 0.07 + 0.3 * k);
-      glow(ctx, lx + 8.8 * s, ly, 5 * s, TEAL, 0.05 + 0.2 * k);
+      stepGlow(ctx, lx, ly, 6 * s, 0.15 + 0.6 * k);
+      stepGlow(ctx, lx + 8.8 * s, ly, 5 * s, 0.1 + 0.4 * k);
       if (toll < 0.5) {
         const life = toll / 0.5, rx = 14 * s + life * 60, ry = rx * 0.32, a = 0.75 * (1 - life);
         ctx.fillStyle = rgba(TEAL, a);
@@ -3182,7 +3192,7 @@ const drawRelics = (ctx, time) => {
         const ey = r.y - ((r.v || 0) % 2 ? 19 : 21) * s + 2.6 * s;
         ctx.fillStyle = rgba(TEAL, k);
         ctx.fillRect(ap(r.x - 2 * s), ap(ey), 1, 0.5); ctx.fillRect(ap(r.x + 1 * s), ap(ey), 1, 0.5);
-        glow(ctx, r.x, ey, 4 * s, TEAL, 0.2 * k);
+        stepGlow(ctx, r.x, ey, 4 * s, 0.4 * k);
       }
     }
   }
@@ -4874,4 +4884,245 @@ const weirBakeS = (r) => {
     });
   });
   return { cv, x: x0 - pad, y: y - top, w: W, h: H, gaps, gw, wy: y, s };
+};
+
+// ======================================================================
+// THE SCENERY UPGRADE (2026-11-22): the reed bed and the bog pool, the last
+// two fen pieces still on the old soft painter, re-made in art pixels. Both
+// keep their old box, foot and place (footprints untouched). The water is
+// painted pixel by pixel at bake time: a peat cut face under the far bank,
+// stepped depth from a murky shallow rim to a black middle, the cold sky in
+// the near half (Bayer-dithered), the far bank's shade, broken glints on the
+// sun's side, ripple rings round every stem, and the reeds' own reflections.
+// No ring (`flat`): the sculptor's tinted line does the reeds.
+// ======================================================================
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bay = (i, j) => (BAYER4[(j & 3) * 4 + (i & 3)] + 0.5) / 16;
+const FEN_W = {
+  cut: "#2e2a1e", cut2: "#3a3424", cutLit: "#57523a", lip: "#6c6a46", lipLit: "#8a8656", wetMud: "#1e2018",
+  rim: "#34463c", mid: "#22302c", deep: "#161f1d", sky: "#3c5450", sky2: "#52706a", glint: "#a6c4ba", glint2: "#e0f0e8",
+  refl: "#2c3a2e", ring: "#6e8a80",
+};
+// paint art pixels into a decor bake: put(i, j, hex, a?) at art px (i, j) from (x, gy)
+const pxPut = (ctx, x, gy) => {
+  const q = 1 / RES;
+  return (i, j, col, a = 1) => { ctx.fillStyle = a < 1 ? rgba(col, a) : col; ctx.fillRect(x + i * q, gy + j * q, q, q); };
+};
+// a fen water pocket: an irregular ellipse (art px), its peat cut under the far
+// bank and its lit lip on the near; returns inside(i, j) for the stems above it
+const fenWater = (put, cx, cy, RX, RY, seed, o = {}) => {
+  const C = FEN_W, harm = [hash(seed, 1) * 6.28, hash(seed, 2) * 6.28, hash(seed, 3) * 6.28];
+  const edge = (a) => 1 + 0.09 * Math.sin(a * 2 + harm[0]) + 0.06 * Math.sin(a * 3 + harm[1]) + 0.04 * Math.sin(a * 5 + harm[2]);
+  const rN = (i, j) => { const u = (i + 0.5 - cx) / RX, v = (j + 0.5 - cy) / RY; return Math.hypot(u, v) / edge(Math.atan2(v, u)); };
+  const inside = (i, j) => rN(i, j) < 1;
+  const X0 = Math.floor(cx - RX * 1.25) - 3, X1 = Math.ceil(cx + RX * 1.25) + 3, Y0 = Math.floor(cy - RY * 1.25) - 3, Y1 = Math.ceil(cy + RY * 1.25) + 3;
+  const cutH = o.cut ?? Math.max(2, Math.round(RY * 0.3));
+  for (let j = Y0; j <= Y1; j++) for (let i = X0; i <= X1; i++) {
+    const r = rN(i, j);
+    if (r >= 1) {
+      // the bank: a lit lip round the near (south) and west rims, wet dark mud right at the water
+      if (r < 1 + 1.6 / Math.min(RX, RY) && inside(i, j - 1)) put(i, j, C.wetMud);
+      else if (r < 1 + 2.6 / Math.min(RX, RY)) {
+        const v = (j + 0.5 - cy) / RY, u = (i + 0.5 - cx) / RX;
+        if (v > 0.1 && inside(i, j - 2)) put(i, j, (u < 0.2 && bay(i, j) < 0.6) ? C.lipLit : C.lip);
+        else if (v <= 0.1 && u < -0.3 && bay(i, j) < 0.35) put(i, j, C.lip, 0.7);
+      }
+      continue;
+    }
+    // the peat cut: the far bank's face, seen across the water
+    let k = 0; while (k < cutH + 1 && inside(i, j - k - 1)) k++;
+    if (k < cutH) { put(i, j, k === 0 ? C.cutLit : (k === 1 && hash(i, seed + 5) < 0.4) || hash(i * 3 + k, seed) < 0.15 ? C.cut2 : C.cut); continue; }
+    // depth from the bank (in px) and the cold sky in the near half
+    let d = 99; for (const [di, dj] of [[3, 0], [-3, 0], [0, 2], [0, -2], [2, 1], [-2, 1], [2, -1], [-2, -1]]) if (!inside(i + di, j + dj)) d = Math.min(d, Math.max(Math.abs(di), Math.abs(dj) * 1.5));
+    const v = (j + 0.5 - cy) / RY;
+    let col = d <= 1.5 ? C.rim : r < 0.55 ? C.deep : C.mid;
+    if (k === cutH || (k === cutH + 1 && bay(i, j) < 0.5)) col = C.deep;          // the far bank's shade
+    else if (v > 0.05 && d > 1.5) {
+      // the cold sky lies in broken horizontal streaks, thicker toward the near bank
+      const s = (v - 0.05) / 0.95, run = Math.floor((i + 40) / (3 + (j & 1) * 2)), h = hash(run * 7 + j, seed);
+      if (h < 0.18 + s * 0.6) col = s > 0.55 && h < 0.12 + s * 0.2 ? C.sky2 : C.sky;
+    }
+    put(i, j, col);
+  }
+  // broken glints on the sun's side, and one bright spark
+  for (let q = 0; q < (o.glints ?? 5); q++) {
+    const gi = Math.round(cx - RX * 0.75 + hash(seed, q + 60) * RX * 1.0), gj = Math.round(cy - RY * 0.3 + hash(seed, q + 66) * RY * 0.9);
+    const len = q === 0 ? 5 : 2 + Math.floor(hash(seed, q + 72) * 3);
+    for (let t = 0; t < len; t++) if (inside(gi + t, gj) && inside(gi + t, gj - cutH - 1)) put(gi + t, gj, q === 0 && t < 2 ? C.glint2 : C.glint, 0.9 - t / len * 0.55);
+  }
+  return inside;
+};
+// one reed blade, a bulrush, a broken stem; the reflection under it when it stands in water
+const reedStem = (obj, bx, by, top, lean, M, z, o = {}) => {
+  const curl = o.curl ?? 0, tx = bx + lean + curl, ty = by - top + Math.abs(curl) * 0.6;
+  const w = o.w ?? 1.1;
+  obj.part(); obj.limb([[bx, by], [bx + lean * 0.3, by - top * 0.5], [bx + lean * 0.8, by - top * 0.88], [tx, ty]], [w, w * 0.8, w * 0.55, 0.35], M, z, { round: 0.7, noLine: o.noLine });
+  return [bx + lean * 0.8, by - top * 0.88];
+};
+const reedBedS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, H = (i) => hash(seed, i), u = 2 * s;
+  const put = pxPut(ctx, x, gy);
+  const RX = 13 * u * 0.95, RY = 3.6 * u;
+  const wet = fenWater(put, 2, 1, RX, RY, seed, { glints: 3, cut: 2 });
+  const OL = fenMat("#53603a", 0.9), OL2 = fenMat("#78804a", 0.9), STRAW = fenMat("#a29660", 0.8), STRAW2 = fenMat("#c4b87e", 0.7);
+  const RUSHM = fenMat("#6a4630", 0.85), STALK = fenMat("#4e5a38", 0.6);
+  const stems = [];
+  // where each stands: across the water, the back rank first
+  const lay = (n, h0, h1, k0, back) => {
+    for (let i = 0; i < n; i++) {
+      const bx = (-10 + (i + H(k0 + i)) * (20 / n)) * u * 0.95, by = (back ? -1.4 : 0.6) * u + (H(k0 + i + 30) - 0.5) * 1.6 * u;
+      const hh = (h0 + H(k0 + i + 60) * (h1 - h0)) * u, lean = (H(k0 + i + 90) - 0.45) * 5 * u * (back ? 0.7 : 1);
+      stems.push({ bx, by, hh, lean, k: k0 + i, back });
+    }
+  };
+  lay(11, 13, 20, 0, true);
+  lay(9, 7, 12, 300, false);
+  // the reflections first, then the rings at their feet
+  for (const st of stems) {
+    const bi = Math.round(st.bx), bj = Math.round(st.by) + 1;
+    if (!wet(bi, bj)) continue;
+    const n = Math.min(Math.round(st.hh * 0.35), 10);
+    for (let t = 1; t < n; t++) { if (t % 3 === 2) continue; const ri = Math.round(st.bx - st.lean * t / st.hh) + ((t >> 1) & 1); if (wet(ri, bj + t)) put(ri, bj + t, FEN_W.refl, 0.8 - t / n * 0.5); }
+    if (H(st.k + 150) < 0.5) for (const di of [-2, -1, 1, 2]) if (wet(bi + di, bj + (Math.abs(di) === 2 ? 0 : 1))) put(bi + di, bj + (Math.abs(di) === 2 ? 0 : 1), FEN_W.ring, 0.55);
+  }
+  pxShade(ctx, x, gy, 6 * s, 0.4, 13 * s, 2.4 * s, 0.22, true, seed);
+  const DK = fenMat("#3e4a30", 0.7);
+  pxSculpt(ctx, x, gy, Math.ceil(56 * s) + 24, Math.ceil(54 * s) + 28, (obj) => {
+    // the clump's dark heart at the water, leaves splaying low off it
+    for (let k = 0; k < 3; k++) { obj.part(); obj.ellipse((-6 + k * 6 + (H(k + 500) - 0.5) * 3) * u * 0.9, -0.6 * u, 4.4 * u, 2.2 * u, DK, -1 + k * 0.01, { round: 0.6, ny: -0.3 }); }
+    for (let k = 0; k < 8; k++) {
+      const bx = (-9 + k * 2.4) * u * 0.95, dir = k < 4 ? -1 : 1, hh = (2.5 + H(k + 510) * 2.5) * u;
+      reedStem(obj, bx, 0.6 * u, hh, dir * (2 + H(k + 511) * 2) * u, k % 3 ? OL : OL2, 2.5 + k * 0.01, { curl: dir * 2 * u, w: 0.9, noLine: true });
+    }
+    stems.forEach((st, idx) => {
+      const z = (st.back ? 0 : 2) + idx * 0.01, pick = H(st.k + 200);
+      const M = pick < 0.18 ? STRAW : pick < 0.3 ? STRAW2 : st.back ? OL : OL2;
+      const curl = H(st.k + 130) < 0.35 ? Math.sign(st.lean || 1) * (1 + H(st.k + 131) * 2) * u : 0;
+      if (H(st.k + 120) < 0.18) {
+        // broken and folded over, its end trailing
+        const [kx, ky] = reedStem(obj, st.bx, st.by, st.hh * 0.6, st.lean * 0.6, M, z);
+        const dir = Math.sign(st.lean || 1);
+        obj.part(); obj.capsule(kx, ky, 0.6, kx + dir * 4 * u, ky + 3.4 * u, 0.4, STRAW, z + 0.005, { round: 0.6, limb: false });
+      } else reedStem(obj, st.bx, st.by, st.hh, st.lean, M, z, { curl, w: st.back ? 1.2 : 1.05, noLine: !st.back && idx % 2 === 0 });
+    });
+    // bulrushes: a stalk, a velvet head lit on its left, a spike above it
+    const nb = 2 + (v % 3);
+    for (let i = 0; i < nb; i++) {
+      const bx = (-7 + i * (14 / Math.max(1, nb - 1)) + (H(i + 200) - 0.5) * 3) * u * 0.95, by = -0.4 * u;
+      const hh = (15 + H(i + 210) * 6) * u, lean = (H(i + 220) - 0.5) * 3 * u, hx = bx + lean * 0.85, hy = by - hh;
+      obj.part(); obj.capsule(bx, by, 0.6, hx, hy + 3, 0.5, STALK, 1 + i * 0.02, { round: 0.5, limb: false });
+      obj.part(); obj.capsule(hx, hy - 3.2 * s, 1.6 * s + 0.2, hx + lean * 0.05, hy + 3.2 * s, 1.6 * s + 0.2, RUSHM, 1.5 + i * 0.02, { round: 0.95, limb: false });
+      obj.line(hx, hy - 3.4 * s - 1, hx + lean * 0.05, hy - 3.4 * s - 3.5, STALK, 1.5 + i * 0.02);
+      const [rbx, rby] = [Math.round(bx), Math.round(by) + 1];
+      if (wet(rbx, rby)) for (let t = 1; t < 6; t++) if (wet(rbx, rby + t) && t % 3 !== 2) obj.dot(rbx - lean * t / hh, rby + t, fenMat(FEN_W.refl, 0.3), -3, { cast: 0, noLine: true });
+    }
+    // a little duckweed and a floating straw at the near rim
+    for (let k = 0; k < 6; k++) {
+      const di = Math.round(-RX * 0.7 + H(k + 400) * RX * 1.6), dj = Math.round(1 + RY * (0.35 + H(k + 401) * 0.4));
+      if (wet(di, dj)) obj.dot(di, dj, fenMat(MOSS_LT, 0.5), -2, { cast: 0, noLine: true });
+    }
+  });
+};
+
+const bogPoolS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 6, u = 2 * s;
+  const rx = (13 + hash(seed, 1) * 3) * s * u, ry = (5.5 + hash(seed, 2) * 1.5) * s * u;
+  const put = pxPut(ctx, x, gy);
+  const wet = fenWater(put, 0, 0, rx / s, ry / s, seed, { glints: 6 });
+  // lily pads (the board's own pad painter), now and then a white flower
+  const np = 2 + (v % 3);
+  const padPut = (i, j, c) => { if (!wet(i, j)) return; put(i, j, `rgb(${c[0]},${c[1]},${c[2]})`, c[3] && c[3] < 200 ? 0.45 : 1); };
+  for (let i = 0; i < np; i++) {
+    const a = hash(seed, i + 10) * Math.PI * 2, d = 0.2 + hash(seed, i + 20) * 0.35;
+    padPx(padPut, Math.round(Math.cos(a) * rx / s * d + rx / s * 0.15), Math.round(Math.sin(a) * ry / s * d + 1), (2 + hash(seed, i + 30) * 0.8) * s, seed + i);
+  }
+  if (v % 2 === 0) {
+    const fi = Math.round(rx / s * 0.3), fj = Math.round(-ry / s * 0.05);
+    for (const [di, dj, c] of [[0, -1, "#fbf6ee"], [-1, 0, "#fbf6ee"], [1, 0, "#d6cec4"], [0, 1, "#d6cec4"], [0, 0, "#e8c050"]]) put(fi + di, fj + dj, c);
+  }
+  // sedge and a few reeds at the reedy end, moss on the near lip
+  const OL = fenMat("#5c6a42", 0.8), STRAW = fenMat("#a29660", 0.7);
+  pxSculpt(ctx, x, gy, Math.ceil(rx / s * 2.4) + 24, Math.ceil(ry / s * 2 + 36 * s) + 24, (obj) => {
+    const ex = -rx / s * 0.92;
+    for (let k = 0; k < 9; k++) {
+      const bx = ex + (hash(seed, k + 90) - 0.3) * 8 * s, by = -ry / s * 0.2 + hash(seed, k + 91) * ry / s * 0.7;
+      const hh = (5 + hash(seed, k + 92) * 7) * u, lean = (hash(seed, k + 93) - 0.6) * 4 * u;
+      reedStem(obj, bx, by, hh, lean, hash(seed, k + 94) < 0.3 ? STRAW : OL, 1 + k * 0.01, { curl: hash(seed, k + 96) < 0.4 ? -1.5 * u : 0, w: 0.9 });
+    }
+    for (let k = 0; k < 7; k++) {
+      const a = 0.4 + hash(seed, k + 95) * 2.3, mi = Math.cos(a) * (rx / s + 2.5), mj = Math.sin(a) * (ry / s + 2);
+      obj.ellipse(mi, mj, 1.6, 1, fenMat(MOSS_LT, 0.7), 0.5, { round: 0.8, cast: 0 });
+    }
+  });
+};
+Object.assign(HOLLOW_ART.decor, { reedbed: reedBedS, bogpool: bogPoolS });
+HOLLOW_ART.flat.push("reedbed", "bogpool");
+
+// ---- the will-o'-wisp, re-made (2026-11-22, the scenery upgrade) ------------
+// Its body through the sculptor (stake, reed clump, snag, tussock), and its
+// halo in hard steps: a small stepped disc baked once per size and blitted at
+// the wisp's fade (the old round gradient read as a vector disc).
+const HALO = new Map();
+const haloSprite = (r) => {
+  const key = Math.round(r * 4);
+  let cv = HALO.get(key);
+  if (!cv) {
+    const n = Math.ceil(r * PX) * 2 + 2, c0 = n / 2;
+    cv = document.createElement("canvas"); cv.width = n; cv.height = n;
+    const c = cv.getContext("2d"), T = hexC(TEAL), L = hexC("#d8fff0");
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const d = Math.hypot(i + 0.5 - c0, j + 0.5 - c0) / (r * PX), b = bay(i, j) * 0.14;
+      const a = d + b < 0.32 ? 0.5 : d + b < 0.58 ? 0.3 : d + b < 0.86 ? 0.16 : d < 1 && bay(i, j) < 0.5 ? 0.08 : 0;
+      if (!a) continue;
+      const k = d < 0.32 ? L : T;
+      c.fillStyle = `rgba(${k[0]},${k[1]},${k[2]},${a})`; c.fillRect(i, j, 1, 1);
+    }
+    HALO.set(key, cv);
+  }
+  return cv;
+};
+const stepGlow = (ctx, x, y, r, a) => {
+  const cv = haloSprite(r), w = cv.width / PX, was = ctx.globalAlpha;
+  ctx.globalAlpha = was * Math.max(0, Math.min(1, a));
+  ctx.drawImage(cv, Math.round((x - w / 2) * PX) / PX, Math.round((y - w / 2) * PX) / PX, w, w);
+  ctx.globalAlpha = was;
+};
+const wispBodyS = (c, x, gy, v, s) => {
+  const u = 2 * s, OAK = fenMat("#4a4038", 0.9), RAG = fenMat("#7c7a6c", 0.7), IRON = fenMat("#6a4a36", 0.8);
+  const OL = fenMat("#53603a", 0.9), OL2 = fenMat("#78804a", 0.9), RUSHM = fenMat("#6a4630", 0.85), SNAG = fenMat("#5e564a", 0.75);
+  const B = fenMat("#e0d8c4", 0.6), EY = pixFlat("#1a1418");
+  pxShade(c, x, gy, 3 * s, 0.4, 7 * s, 2 * s, 0.26, true, 61 + v);
+  pxSculpt(c, x, gy, Math.ceil(30 * s) + 20, Math.ceil(26 * s) + 24, (obj) => {
+    const tufts = (xs) => xs.forEach((bx, k) => reedStem(obj, bx * u, 0.5, (2.5 + hash(k, 71 + v) * 2.5) * u, (bx < 0 ? -1 : 1) * 1.6 * u, k % 2 ? OL : OL2, 3 + k * 0.01, { curl: (bx < 0 ? -1 : 1) * u, w: 0.8, noLine: true }));
+    if (v === 0) {
+      obj.part(); obj.limb([[0, 0], [-1 * u, -10 * u], [-1.4 * u, -18 * u]], [2.4 * s, 1.9 * s, 1.4 * s], OAK, 1, { round: 0.9 });
+      obj.part(); obj.capsule(-1.2 * u, -15 * u, 1.3 * s, 3.4 * u, -18.4 * u, 0.9 * s, OAK, 1.1, { round: 0.9, limb: false });
+      obj.part(); obj.poly([[-1.6 * u, -12 * u], [0.4 * u, -12.4 * u], [2.4 * u, -8 * u], [1.8 * u, -5.5 * u], [1 * u, -7.5 * u], [0.4 * u, -6 * u], [-0.4 * u, -9.5 * u]], RAG, 2, { round: 0.4 });
+      obj.ellipse(-1.6 * u, -4 * u, 1.6, 1.2, IRON, 2, { round: 0.6, cast: 0 });
+      tufts([-2.8, -2, 2.2, 3]);
+    } else if (v === 1) {
+      for (let k = 0; k < 8; k++) reedStem(obj, (k - 3.5) * 1.3 * u, 0, (8 + hash(k, 71) * 7) * u, (hash(k, 72) - 0.5) * 3 * u, k % 3 ? OL : OL2, 1 + k * 0.01, { w: 1, noLine: k % 2 === 0, curl: hash(k, 73) < 0.3 ? u : 0 });
+      for (const [bx, h] of [[-1.6, 12], [1.8, 10]]) {
+        obj.part(); obj.capsule(bx * u, 0, 0.6, bx * u, -h * u + 2, 0.5, fenMat("#4e5a38", 0.6), 2, { limb: false });
+        obj.part(); obj.capsule(bx * u, -h * u - 2.8 * u, 1.8, bx * u, -h * u + 0.2 * u, 1.8, RUSHM, 2.1, { round: 0.95, limb: false });
+      }
+    } else if (v === 2) {
+      obj.part(); obj.poly([[-3.4 * u, 1], [-2.6 * u, -6 * u], [-1.6 * u, -9 * u], [-0.6 * u, -7 * u], [0.6 * u, -10.5 * u], [1.6 * u, -6.5 * u], [2.6 * u, -5 * u], [3.6 * u, 1]], SNAG, 1, { round: 0.8 });
+      obj.ellipse(-0.8 * u, -4 * u, 1, 1.6, EY, 1.2, { cast: 0 });
+      obj.ellipse(1.8 * u, -3 * u, 3, 1.4, fenMat("#b0703e", 0.9), 1.3, { round: 0.95 });
+      tufts([-3.8, -3, 3.4, 4]);
+    } else {
+      obj.part(); obj.ellipse(0, -1.5 * u, 6 * u, 2.6 * u, fenMat("#4c5634", 0.8), 0.5, { round: 0.7 });
+      for (let k = 0; k < 10; k++) reedStem(obj, (k - 4.5) * 1.1 * u, -1 * u, (3 + hash(k, 81) * 4) * u, (k - 4.5) * 0.5 * u, k % 2 ? OL : OL2, 1 + k * 0.01, { w: 0.8, noLine: true, curl: (k < 5 ? -1 : 1) * u });
+      obj.part(); obj.ellipse(0.6 * u, -2.6 * u, 3.2, 3, B, 2, { round: 0.95 }); obj.rect(0.6 * u - 1.6, -2.6 * u + 1.5, 3.2, 2.2, B, 2, { round: 0.3 });
+      obj.ellipse(0.6 * u - 1.2, -2.6 * u, 0.8, 0.9, EY, 2.2, { cast: 0 }); obj.ellipse(0.6 * u + 1.2, -2.6 * u, 0.8, 0.9, EY, 2.2, { cast: 0 });
+    }
+  });
+};
+HOLLOW_ART.decor.fenwisp = (ctx, x, y, s, o) => {
+  const v = (o.v || 0) % 4, gy = y + 8, t = o.time || 0;
+  const b = bodyS(`wisp|${v}|${s}`, 22 * s + 8, 22 * s + 12, 11 * s + 4, 18 * s + 6, (c, ox, oy) => wispBodyS(c, ox, oy, v, s));
+  stampBody(ctx, b, x, gy);
+  const [wx, wy] = WISP_AT[v];
+  wispLight(ctx, x + wx * s, gy + wy * s, s, t, x * 0.13 + y * 0.07, gy);
 };
