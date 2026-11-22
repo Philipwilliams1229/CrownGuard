@@ -196,23 +196,23 @@ export const WEATHER_KINDS = {
     paint: "gravemist", sound: "moan",
   },
   // ---- the Hollowfen: the BLOOD MOON (owner, 2026-11-21; replaces the grave mist) ----
-  // ONE moon a level: the red light creeps in (`rollIn`), holds at its height
-  // (`lasts`), then fades (`rollOut`) and never comes back that level. It
-  // rises at the horn of a seeded wave `moonAt` of the way through the level
-  // (whole: true, the Throne of Dust, at the first horn and never sets; Free
-  // Play at wave 2). Only while it is at its height (g.moonUp, read by
+  // ONE moon a level, for its LAST `moonLast` waves: the sun sets and the red
+  // light creeps in (`rollIn`) from that wave's horn, and the moon holds to the
+  // end (`lasts` 1e7). whole: true (the Throne of Dust) rises at the first
+  // horn; Free Play at wave 2. Only while it is at its height (g.moonUp, read by
   // dealDamage) does a Risen felled by a physical blow get back up; and every
   // undead foe that is not burning mends `mend` of its health a second
   // (update.js). RISE_ONLY_IN_MOON (data/enemies.js) is the switch back to
   // the old rule (Risen always get back up).
   bloodmoon: {
     name: "Blood Moon", moon: true,
-    first: [1e7, 1e7], calm: [1e7, 1e7], rollIn: [30, 35], lasts: [180, 180], rollOut: [30, 35],
-    moonAt: [0.5, 0.7], mend: 0.015, fx: {},
-    // the height (owner, 2026-11-22: "a full 3 minutes on mild and we can go longer on the higher
-    // settings"): mild 3 min, strong 4-5 min by strength; ~30 s creeping in and ~30 s fading
-    grade: (s) => ({ lasts: s < 0.6 ? [180, 180] : span(240, 255, 285, 300, Math.min(1, (s - 0.7) / 0.2)),
-      moonAt: s < 0.6 ? [0.45, 0.6] : [0.35, 0.5] }),
+    first: [1e7, 1e7], calm: [1e7, 1e7], rollIn: [40, 45], lasts: [1e7, 1e7], rollOut: [30, 35],
+    mend: 0.015, fx: {},
+    // The level's last waves (owner, 2026-11-22: "more like a last few waves kind of thing ... make
+    // it more like 8 and 12"; "on some levels, the sun sets, and a blood moon rises"): the sun goes
+    // down at the horn of the `moonLast`-th wave from the end (mild 8, strong 12), the red light
+    // creeps in over ~40 s, and the moon never sets (the Endless March after a win stays under it)
+    grade: (s) => ({ moonLast: s < 0.6 ? 8 : 12 }),
     paint: "bloodmoon", sound: "moan",
   },
   // ---- zone V, the Ashen Reach: ERUPTIONS (no level yet) ----
@@ -330,7 +330,7 @@ const ensure = (g, def) => {
 export const moonWaveOf = (w, def) => {
   if (w.moonWave == null) {
     const V = victoryWave() || 20;
-    w.moonWave = def.whole ? 1 : SANDBOX ? 2 : Math.max(2, Math.round(V * roll(w.srng, def.moonAt || [0.5, 0.7])));
+    w.moonWave = def.whole ? 1 : SANDBOX ? 2 : Math.max(2, V - (def.moonLast || 8) + 1);
   }
   return w.moonWave;
 };
@@ -730,7 +730,7 @@ export const FORECAST = {
   storm:     { brewing: "Storm brewing", rising: "Storm rolling in", height: "Storm overhead", easing: "Storm passing", likely: "Storm likely" },
   gravemist: { brewing: "Mist gathering", rising: "Mist rising", height: "Grave mist", easing: "Mist thinning", likely: "Mist likely" },
   blizzard:  { brewing: "Snow coming", rising: "Wind rising", height: "Blizzard", easing: "Blizzard easing", likely: "Snow likely" },
-  bloodmoon: { brewing: "The moon rises red", rising: "Blood moon rising", height: "Blood moon", easing: "Blood moon setting", likely: "Blood moon likely" },
+  bloodmoon: { brewing: "The sun is setting", rising: "Blood moon rising", height: "Blood moon", easing: "Blood moon setting", likely: "Blood moon likely" },
   eruption:  { brewing: "The mountain rumbles", rising: "Ash falling", height: "Eruptions", easing: "Eruptions dying down", likely: "Eruptions likely" },
 };
 // the last foe out of the wood still has the road to walk (~55 px/s)

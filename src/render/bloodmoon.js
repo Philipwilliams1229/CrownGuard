@@ -156,6 +156,19 @@ export const bloodmoonPaint = (ctx, g, w) => {
   ctx.globalCompositeOperation = "lighter";
   ctx.globalAlpha = k * swell;
   ctx.drawImage(LAYERS.rake, -8, -8, W + 16, H + 16);
+  // the sun going down (owner, 2026-11-22: "the sun sets, and a blood moon rises"): while the moon
+  // creeps in, a warm dusk wash swells and passes, at its strongest halfway, before the red takes over
+  const dusk = w.phase === "rising" ? Math.sin(Math.PI * k) : 0;
+  if (dusk > 0.01) {
+    ctx.globalCompositeOperation = "soft-light";
+    ctx.globalAlpha = 0.55 * dusk;
+    ctx.fillStyle = "#ff9a3c";
+    ctx.fillRect(-8, -8, W + 16, H + 16);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.12 * dusk;
+    ctx.fillStyle = "#a8501c";
+    ctx.fillRect(-8, -8, W + 16, H + 16);
+  }
   ctx.globalCompositeOperation = prevOp;
   // each hall's torches as light
   ctx.globalAlpha = k;

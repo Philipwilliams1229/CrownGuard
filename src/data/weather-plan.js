@@ -33,9 +33,9 @@ export const weatherStrength = (index, count, boss) => {
 };
 
 // A chapter with its own curve (index, count, boss) -> spec | null. The
-// Hollowfen's blood moon (owner, 2026-11-21): none on the Grave Road, mild
-// (a 60-85 s moon) on levels 2-7, strong (2-3 min) on 8-14, and the Throne of
-// Dust under it the whole level.
+// Hollowfen's blood moon (owner, 2026-11-21/22): none on the Grave Road, mild
+// (the last 8 waves) on levels 2-7, strong (the last 12) on 8-14, and the
+// Throne of Dust under it the whole level.
 const CURVES = {
   hollow: (i, n, boss) => boss ? { kind: "bloodmoon", strength: 1, whole: true }
     : i < 1 ? null

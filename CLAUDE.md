@@ -887,15 +887,18 @@ owner wants it reversible and played in a preview before it reaches main.
   2 s. Under the full moon every undead foe (Hollow faction, raised, wraiths; not neutral) mends
   `mend` 1.5% of max health a second unless burning (update.js, beside `regen`).
   **The switch back:** `RISE_ONLY_IN_MOON` in src/data/enemies.js (false = the old rule).
-- **One moon a level** (owner: "one moon per level only"): kind `bloodmoon` (engine/weather.js),
-  `moon: true`; first/calm are 1e7 so the clock never brings a second spell. `moonStart` cuts the
-  first calm at the horn of `moonWaveOf` (seeded: `moonAt` 0.5-0.7 of the level's waves when mild,
-  0.4-0.6 strong; `whole` at wave 1; Free Play at wave 2). Then ~30-35 s creeping in, the height
-  (`lasts`, owner 2026-11-22 after playing it: "a full 3 minutes on mild and we can go longer on the
-  higher settings": mild 180 s, strong 240-300 s by strength; `moonAt` mild 0.45-0.6, strong 0.35-0.5
-  so it fits), ~30-35 s fading. The forecast says "The moon rises red" for its wave. Owner on the
-  first play (Saltgrave, died at wave 14): "significantly harder ... a good balance" to the chapter
-  being "really punishing in the beginning, but then got easier".
+- **One moon a level, for its LAST waves** (owner, 2026-11-22: "more like a last few waves kind of
+  thing" (after the moon set, the rest of the level felt "underwhelming"), "more like 8 and 12", and
+  "on some levels, the sun sets, and a blood moon rises"): kind `bloodmoon` (engine/weather.js),
+  `moon: true`, first / calm / lasts all 1e7. `moonStart` cuts the first calm at the horn of
+  `moonWaveOf` = the level's waves - `moonLast` + 1 (mild 8, strong 12; `whole` at wave 1; Free Play
+  at wave 2): the sun sets and the red light creeps in over `rollIn` 40-45 s, and the moon never sets
+  (the Endless March after a win stays under it). Before that it was a 3-5 min moon in mid-level,
+  which covered only ~4-7 waves. The forecast says "The sun is setting" for its wave.
+  The sunset look: while rising, a warm dusk wash (soft-light orange) swells and passes before the red
+  (`dusk` in bloodmoonPaint). Saltgrave `--endure` seed 1: sun sets at wave 13, full 14-20 (929 / 476
+  castle damage); the Lichgate sets at 14 (1686 / 1252, was ~700 / ~600 with the mid-level moon and
+  ~1250 under the old always-rise rule).
 - **Where** (`CURVES.hollow`, weather-plan.js): none on the Grave Road, mild on levels 2-7, strong
   on 8-14, and the Throne of Dust under it the whole level (`whole: true`, lasts 1e7).
 - The checkpoint keeps the moon's wave and schedule (CrownguardGame.jsx `checkpointOf` / resume).
@@ -935,6 +938,9 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
   Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
   blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
+- **Sunsets elsewhere** (2026-11-22, owner: "sunset lighting type things in the other levels as well ...
+  this is a good first step"): the Blood Moon's dusk wash and night lighting (render/bloodmoon.js,
+  render/nightlight.js) are the starting point.
 
 ## Open threads (as of 2026-09-29)
 

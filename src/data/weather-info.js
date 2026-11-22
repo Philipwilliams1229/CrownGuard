@@ -51,13 +51,13 @@ export const WEATHER_INFO = {
     tip: "Spread your halls down the road so something is always close, and keep knights where the mist gathers.",
   },
   bloodmoon: {
-    blurb: "Night falls over the fen and the moon comes up red. Under it the dead will not stay dead.",
+    blurb: "In the last waves the sun goes down over the fen and the moon comes up red. Under it the dead will not stay dead.",
     effects: (d) => [
-      `While the moon is full, a Risen felled by steel, arrows or stones pulls itself back together once, at half health. Magic, fire and holy blows keep it down.${RISE_ONLY_IN_MOON ? " With no moon, the dead stay down." : ""}`,
+      `While the moon is full, a Risen felled by steel, arrows or stones pulls itself back together once, at half health. Magic, fire and holy blows keep it down.${RISE_ONLY_IN_MOON ? " Before the moon, the dead stay down." : ""}`,
       `Every undead foe mends ${pct(d.mend)} of its health a second while the moon is full, unless it is burning.`,
     ],
-    opens: (d) => d.whole ? "The moon is up from the first horn" : "One blood moon, past the middle of the level",
-    rhythm: (d) => d.whole ? "It never sets this level" : `Red light creeps in for about ${secs(d.rollIn)}, then the moon is full for ${secs(d.lasts)} of fighting, then it fades, and it does not rise again`,
+    opens: (d) => d.whole ? "The moon is up from the first horn" : `The sun sets for the last ${d.moonLast} waves`,
+    rhythm: (d) => d.whole ? "It never sets this level" : `The red light creeps in for about ${secs(d.rollIn)}, and the moon stays up until the level is won`,
     tip: "Save your wizards and fire for the moon: what they kill stays down, and burning foes cannot mend.",
   },
   blizzard: {
@@ -151,9 +151,9 @@ export const nowOf = (g) => {
         : `${end[0].toUpperCase()}${end.slice(1)}.`;
   } else if (def.moon) {
     const left = w.seg && w.clock != null ? Math.max(0, w.seg.t1 - w.clock) : 0;
-    next = !w.moonStarted ? `The blood moon rises at the horn of wave ${moonWaveOf(w, def)}.`
+    next = !w.moonStarted ? `The sun sets and the blood moon rises at the horn of wave ${moonWaveOf(w, def)}.`
       : w.phase === "rising" ? `Full in about ${about(left)}.`
-        : w.phase === "squall" ? (def.whole ? "It does not set this level." : `It sets in about ${about(left)} of fighting.`)
+        : w.phase === "squall" ? "It does not set this level."
           : w.phase === "easing" ? `Gone in about ${about(left)}.` : "It will not rise again this level.";
     if (next && w.phase !== "calm" && g.phase !== "combat") next += " Its clock stands still between waves.";
   } else if (w.seg && w.clock != null) {
