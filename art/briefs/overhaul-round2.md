@@ -156,3 +156,6 @@ GROUND
   triangle jut on the left side just doesnt read right. make that top edge more continuous I think." (Where the
   cut bank ends at the lake's west end it stops in a pointed wedge and the shore kinks; the bank's top edge
   should run on as one smooth curve round the end, its face tapering out gradually.)
+- **The tarn's culverts** (a comment on round 3's lake variety sheet): "these like pipe entrances need work. we
+  should be able to see in the one on the bottom". (The culvert on the lake's south side opens toward the viewer:
+  draw its dark mouth with the water running into it; the north one is seen from behind / above.)
