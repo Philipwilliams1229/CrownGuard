@@ -99,3 +99,5 @@ campaign map gets "likeminded changes" too.
   plane and the SOUTH face toward the viewer, with its arches, is a step darker: the castle's three values. Under
   a low western sun the west-facing ends and cutwaters catch the light; under an eastern sun the east ones. The
   round-1 humpback drew its near face about as light as the deck: fix when it is built.)
+- **Trees: treatment 3 ("leafy edge") is CHOSEN** (a comment on its Thornbrook panel): "This is the one. Take
+  another pass at the willow though".
