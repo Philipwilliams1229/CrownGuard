@@ -1,0 +1,120 @@
+<!doctype html>
+<!--
+  Sunset concept lab (brief art/briefs/sunset.md): the REAL engine and draw() on Bellmarsh (the Hollow),
+  a wave in progress, stepped through the sunset's k. Options T (today), A, B, C, D (concept/sunset.js).
+
+    /sunset-lab.html?opt=A,B,C,D&k=0,0.15,0.3,0.45,0.6,0.8,1&tag=x
+      opt     comma list (T = today's wash), default A,B,C,D
+      k       the frames' clock (default the seven in the brief)
+      shade=line   option C's shade comes in as a line (default: a plain fade)
+      perf=1  time draw() per option at k 0.45 (software Chromium: a rough number)
+  Saves .shots/sun_<opt>_strip.png (all frames, two rows), sun_<opt>_crop.png (2x crop, k 0.45) and
+  sun_<opt>_full_<k>.png (full-res frames for the k named in full=).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>sunset lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { S, setSunset, resetWater } from "/concept/sunset.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", DT = 1 / 60;
+      const OPTS = (q.get("opt") || "A,B,C,D").split(",");
+      const KS = (q.get("k") || "0,0.15,0.3,0.45,0.6,0.8,1").split(",").map(Number);
+      const FULL = (q.get("full") || "0.45").split(",").map(Number);
+      S.shadeMode = q.get("shade") || "fade";
+      selectRealm(q.get("realm") || "bellmarsh");
+      selectFaction(q.get("faction") || "hollow");
+      setWaveWindow(null);
+      setLevelWeather({ kind: "bloodmoon", strength: 1, whole: true });
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 9) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      const TW = q.get("towers") ?? "archer@0.18:3,knight@0.32:3,wizard@0.45:3,catapult@0.6:2,archer@0.74:3,knight@0.86:2";
+      for (const spec of TW.split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
+      startWave(g);
+      const secs = Number(q.get("secs")) || 16;
+      for (let i = 0; i < 60 * secs; i++) { updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); }
+      const T0 = g.time + 40;
+      const cv = document.createElement("canvas"); cv.width = W * 2; cv.height = H * 2;
+      const w = g.weather;
+      const snap = (opt, k) => {
+        g.time = T0; setSunset(g, opt, k);
+        draw(g, cv, { current: null }); draw(g, cv, { current: null });
+        const c = document.createElement("canvas"); c.width = cv.width; c.height = cv.height;
+        c.getContext("2d").drawImage(cv, 0, 0);
+        return c;
+      };
+      const post = (name, c) => fetch(`/__shot?name=${name}`, { method: "POST", body: c.toDataURL("image/png").slice(22) });
+      const log = [];
+      // where to crop: the hall nearest the middle of the board's road at k .45's line, plus road and foes
+      const cropBox = () => {
+        const E = (y) => 0; // placeholder
+        const t = g.towers[Number(q.get("cropT") ?? 2)] || g.towers[0];
+        const cx = Number(q.get("cx")) || (t ? t.x : W / 2), cy = Number(q.get("cy")) || (t ? t.y : H / 2);
+        return [Math.max(0, Math.min(W - 280, cx - 140)), Math.max(0, Math.min(H - 180, cy - 100))];
+      };
+      for (const opt of OPTS) {
+        resetWater();
+        g.time = T0 - 30; setSunset(g, opt === "T" ? "T" : opt, 0.5); draw(g, cv, { current: null }); // warm bakes (and Today's toast)
+        const frames = KS.map((k) => ({ k, c: snap(opt, k) }));
+        // the strip: two rows (4 + 3), each frame 840x560
+        const cols = 4, rows = Math.ceil(frames.length / cols), fw = W, fh = H;
+        const sc = document.createElement("canvas"); sc.width = fw * cols; sc.height = fh * rows;
+        const x = sc.getContext("2d"); x.fillStyle = "#14161c"; x.fillRect(0, 0, sc.width, sc.height);
+        frames.forEach((f, i) => {
+          const ox = (i % cols) * fw, oy = Math.floor(i / cols) * fh;
+          x.imageSmoothingEnabled = true; x.drawImage(f.c, ox, oy, fw, fh);
+          x.fillStyle = "rgba(10,10,14,0.78)"; x.fillRect(ox + 6, oy + 6, 82, 22);
+          x.fillStyle = "#f4ead2"; x.font = "bold 15px monospace"; x.fillText("k " + f.k.toFixed(2), ox + 12, oy + 22);
+        });
+        await post(`sun_${opt}_${TAG}_strip`, sc);
+        // the 2x crop at k 0.45 (nearest-neighbour, 280x180 units -> 1120x720)
+        const [bx, by] = cropBox();
+        const f45 = frames.find((f) => Math.abs(f.k - 0.45) < 1e-6) || frames[3];
+        const cc = document.createElement("canvas"); cc.width = 1120; cc.height = 720;
+        const cx = cc.getContext("2d"); cx.imageSmoothingEnabled = false;
+        cx.drawImage(f45.c, bx * 2, by * 2, 560, 360, 0, 0, 1120, 720);
+        await post(`sun_${opt}_${TAG}_crop`, cc);
+        for (const fk of FULL) { const ff = frames.find((f) => Math.abs(f.k - fk) < 1e-6); if (ff) await post(`sun_${opt}_${TAG}_full_${String(fk).replace(".", "")}`, ff.c); }
+        if (q.get("perf")) {
+          const time = (n) => { const t0 = performance.now(); for (let i = 0; i < n; i++) { g.time += 0.016; draw(g, cv, { current: null }); } return (performance.now() - t0) / n; };
+          setSunset(g, opt, 0.45); time(10);
+          log.push(`${opt}: ${time(80).toFixed(2)} ms/frame at k .45 (enemies ${g.enemies.length}, towers ${g.towers.length})`);
+        }
+      }
+      window.__log = log.join(" | ");
+      window.__info = `towers: ${g.towers.map((t) => `${t.kind}@${Math.round(t.x)},${Math.round(t.y)}`).join(" ")}; foes ${g.enemies.length}`;
+      document.title = "DONE"; document.getElementById("status").textContent = "saved .shots/sun_*";
+    </script>
+  </body>
+</html>
