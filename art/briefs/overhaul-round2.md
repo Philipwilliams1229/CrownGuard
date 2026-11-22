@@ -101,3 +101,7 @@ campaign map gets "likeminded changes" too.
   round-1 humpback drew its near face about as light as the deck: fix when it is built.)
 - **Trees: treatment 3 ("leafy edge") is CHOSEN** (a comment on its Thornbrook panel): "This is the one. Take
   another pass at the willow though".
+- **The willow** (a comment on the three-forms sheet): "Ok I like this one the best, but make it green for
+  the normal time and then more bare for winter." (The lead's reading, to be confirmed by the owner: they like
+  the WINTER willow's shape best: the clear trunk, arching boughs and thin hanging strands; they want that
+  strand-built shape, in green, as the everyday willow, and an even barer one for winter.)
