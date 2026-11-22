@@ -918,7 +918,7 @@ owner wants it reversible and played in a preview before it reaches main.
   Build it with `VITE_PREVIEW_SEED=1` (owner: "put some progress on the campaign map"): main.jsx then
   loads `src/native/previewSeed.js`, which on a device with no save writes one with the Greenwood, the
   Iron Marches and the Grave Road cleared (Saltgrave next), every hall's paths and finals open and
-  20,000 in the treasury. The real build never loads it (no chunk is emitted without the flag).
+  the treasury topped up to 350,000 once per `SEED_V` (bump it to top up again). The real build never loads it (no chunk is emitted without the flag).
 
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
