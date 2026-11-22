@@ -19,15 +19,19 @@
 // data-no-floats) that hud.css reads, so no component needs to know.
 
 const KEY = "crownguard.prefs.v1";
-//   saver   battery saver: the battle is drawn 30 times a second, not 60 (the
-//           main loop's pacing in CrownguardGame.jsx; the game's speed is the same)
-const DEFAULTS = { shake: true, floats: true, newSprites: true, spellLight: true, saver: false };
+//   fps      how many times a second the battle is drawn: one of FPS_CHOICES (the main
+//            loop's pacing in CrownguardGame.jsx; the game's speed is the same at each).
+//            An old save's `saver: true` (the 30 switch it replaced) loads as 30.
+//   showFps  the small green frame counter in the screen's upper right corner
+export const FPS_CHOICES = [24, 30, 60];
+const DEFAULTS = { shake: true, floats: true, newSprites: true, spellLight: true, showFps: true, fps: 60 };
 
 function load() {
   try {
     const raw = JSON.parse((typeof localStorage !== "undefined" && localStorage.getItem(KEY)) || "{}");
     const out = { ...DEFAULTS };
-    for (const k of Object.keys(DEFAULTS)) if (typeof raw[k] === "boolean") out[k] = raw[k];
+    for (const k of Object.keys(DEFAULTS)) if (typeof DEFAULTS[k] === "boolean" && typeof raw[k] === "boolean") out[k] = raw[k];
+    if (FPS_CHOICES.includes(raw.fps)) out.fps = raw.fps; else if (raw.saver === true) out.fps = 30;
     out.newSprites = true;
     return out;
   } catch {
