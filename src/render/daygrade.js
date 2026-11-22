@@ -23,7 +23,7 @@
 // the apron's cache key so a new sun repaints it.
 import { W, H } from "../data/constants.js";
 import { DAY, onDay } from "../data/sun.js";
-import { RIVERS, PONDS, COAST, inRiver, inSea, underBridge } from "../data/terrain.js";
+import { RIVERS, PONDS, COAST, inRiver, inSea, underBridge, forestDepthAt } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
@@ -75,7 +75,28 @@ const wetAt = (x, y) => {
 };
 
 // Bake the three layers for a world rect, `cell` world units a cell.
-const bakeRect = (x0, y0, w, h, cell) => {
+// The apron (the landscape beyond the board) is ONE finished picture, ground and trees together,
+// graded once; on the board the ground takes the whole grade and what stands only ACTORS of it. So
+// the apron takes the strength that matches the board's look at the edge it continues (lead,
+// 2026-11-22: a hard line at the board's edge, the west strip washed amber beside the wood):
+//   - every term reads the rake at the nearest point ON the board, so nothing jumps at the edge
+//     (the edge glow and the full-strength light no longer grow past it);
+//   - past an edge where the board ends in wood (the west wood) or in the castle (the east), the
+//     apron takes APRON_WOOD, about what a tree on the board gets;
+//   - the apron is laid like the board's open ground: the whole grade, then ACTORS of it again (the
+//     board's over pass falls on its ground too), so open turf at the edge matches exactly;
+//   - past an edge of open turf (the top and bottom), it starts at the board's full strength and
+//     eases to APRON_WOOD over APRON_EASE units, as the apron's own wood thickens;
+//   - water beyond the board keeps the full sheen and glints, like the board's.
+export const APRON = { WOOD: 0.32, EASE: 56 };   // WOOD x (1 + ACTORS) ~ the 0.4-0.45 a tree on the board gets
+const apronK = (x, y) => {
+  const cx = Math.max(0, Math.min(W, x)), cy = Math.max(0, Math.min(H, y));
+  if (x > W - 4 || forestDepthAt(cx, cy) > -6) return APRON.WOOD;
+  const out = Math.max(-x, x - W, -y, y - H, 0);
+  const t = clamp01(out / APRON.EASE), e = t * t * (3 - 2 * t);
+  return 1 + (APRON.WOOD - 1) * e;
+};
+const bakeRect = (x0, y0, w, h, cell, apron = false) => {
   const cw = Math.ceil(w / cell), ch = Math.ceil(h / cell);
   const mk = () => { const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch; const c = cv.getContext("2d"); return { cv, c, img: c.createImageData(cw, ch) }; };
   const soft = mk(), mul = mk(), add = mk();
@@ -96,7 +117,8 @@ const bakeRect = (x0, y0, w, h, cell) => {
     const x = x0 + (i + 0.5) * cell, y = y0 + (j + 0.5) * cell, o = (j * cw + i) * 4;
     const b = BAYER[(j & 3) * 4 + (i & 3)] - 0.5;
     const n = vnoise(x, y, 120) * 0.65 + vnoise(x + 300, y - 170, 46) * 0.35;   // 0..1
-    const r = rakeAt(x, y);
+    const r = apron ? rakeAt(Math.max(0, Math.min(W, x)), Math.max(0, Math.min(H, y))) : rakeAt(x, y);
+    const ak = apron ? apronK(x, y) : 1;
     // the light: strongest at the sun's edge, broken by the noise, in ten dithered steps (fewer showed the dither as dots on the road)
     const lit = clamp01(0.04 + 0.96 * Math.pow(clamp01(r), 1.6) + (n - 0.5) * 0.42);
     const ls = Math.round(clamp01(lit + b * 0.1) * 10) / 10;
@@ -108,10 +130,10 @@ const bakeRect = (x0, y0, w, h, cell) => {
     const cs = Math.round(clamp01(cool + b * 0.14) * 7) / 7;
     if (ls > 0 && !wet) {
       soft.img.data[o] = P.soft[0]; soft.img.data[o + 1] = P.soft[1]; soft.img.data[o + 2] = P.soft[2];
-      soft.img.data[o + 3] = Math.round(255 * clamp01(softA * k * ls));
+      soft.img.data[o + 3] = Math.round(255 * clamp01(softA * k * ls * ak));
     }
     // one multiply layer: warm where lit, cool where not (the colours mix in between)
-    const wa = wet ? 0 : warmA * k * ls, ca = coolA * k * cs * (wet ? 0.6 : 1), ta = wa + ca;
+    const wa = wet ? 0 : warmA * k * ls * ak, ca = coolA * k * cs * (wet ? 0.6 : ak), ta = wa + ca;
     if (ta > 0.004) {
       const fw = wa / ta;
       mul.img.data[o] = Math.round(P.warm[0] * fw + P.cool[0] * (1 - fw));
@@ -122,7 +144,7 @@ const bakeRect = (x0, y0, w, h, cell) => {
     // added light: a thin glow at the sun's edge, and the water's sheen and glints
     let aa = 0, col = P.glow;
     const gs = Math.round(clamp01(sm(0.8, 1.02, r) + b * 0.3) * 3) / 3;
-    if (gs > 0) aa = GRADE.glow * k * gs;
+    if (gs > 0) aa = GRADE.glow * k * gs * ak;
     if (wet) {
       col = P.glint;
       const gr = Math.pow(clamp01(r), 1.6);
@@ -174,10 +196,12 @@ export const dayGradeOver = (ctx, g) => { if (DAY.warm > 0 && !GRADE.off) lay(ct
 // The same grade for any world rect (the apron beyond the board; the caller's transform is world
 // units). Kept for one rect at a time, at 2 world units a cell (the apron is repainted rarely).
 export const dayGradeRect = (ctx, x0, y0, x1, y1) => {
-  if (!DAY.on || !(DAY.warm > 0)) return;
+  if (!DAY.on || !(DAY.warm > 0) || GRADE.off || globalThis.__noDayApron) return;
   const fx0 = Math.floor(x0 / 2) * 2, fy0 = Math.floor(y0 / 2) * 2, key = `${DAY.v}|${REALM && REALM.id}|${fx0}|${fy0}|${x1}|${y1}`;
-  if (!RECT || RECT.key !== key) { RECT = bakeRect(fx0, fy0, x1 - fx0, y1 - fy0, 2); RECT.key = key; }
+  if (!RECT || RECT.key !== key) { RECT = bakeRect(fx0, fy0, x1 - fx0, y1 - fy0, 2, true); RECT.key = key; }
+  // as the board's open ground gets it: the ground pass whole, then the over pass's share on top
   lay(ctx, RECT, 1, 1, 1);
+  lay(ctx, RECT, GRADE.ACTORS, GRADE.ACTORS, 0);
 };
 
 // ---- the sun's edge light on every figure (pixrigs LIGHTS: rigs.js / crews.js stamp the rim) ----
