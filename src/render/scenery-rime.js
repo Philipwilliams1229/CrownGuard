@@ -129,7 +129,7 @@ const rimeTurf = (ctx, kit) => {
     drift[j * FW + i] = fbm((u + wx) / 150, (v + wy) / 48, seed + 11);
     rip[j * FW + i] = vn(u / 70, v / 34, seed + 21);
     wood[j * FW + i] = forestDepthAt(x, y);
-    dmask[j * FW + i] = sstep(0.5, 0.72, fbm(u / 170, v / 30, seed + 31));
+    dmask[j * FW + i] = sstep(0.56, 0.76, fbm(u / 170, v / 30, seed + 31));
     // crests scalloped into crescents, horns trailing downwind, every ~40 units across the wind
     const sv = v + (vn(u / 80, v / 60, seed + 45) - 0.5) * 40;
     dwob[j * FW + i] = (fbm(u / 140, v / 90, seed + 41) - 0.5) * 60 + 16 * (1 - Math.cos(sv * Math.PI * 2 / 40)) * 0.5;
@@ -147,7 +147,7 @@ const rimeTurf = (ctx, kit) => {
   const DP = 84, FC = 0.8;                                          // dune spacing along the wind; where the crest stands in it
   const DUNE = { f: 0, A: 0 };
   const dune = (x, y) => {                                          // its slope along the wind (per unit) and its height 0..1
-    const A = at(dmask, x, y) * 0.34;
+    const A = at(dmask, x, y) * 0.5;
     if (A < 0.004) { DUNE.A = 0; DUNE.f = 0; return [0, 0]; }
     const p = (windU(x, y) + at(dwob, x, y)) / DP, f = p - Math.floor(p);
     DUNE.A = A; DUNE.f = f;
@@ -171,15 +171,15 @@ const rimeTurf = (ctx, kit) => {
       // slope of the drifts and dunes, lit facing the level's sun (upper left at noon), blue where it turns away
       const [dU, dH] = dune(x, y);
       const gx = (at(drift, x + 2, y) - at(drift, x - 2, y)) / 4 + dU * WC, gy = (at(drift, x, y + 2) - at(drift, x, y - 2)) / 4 + dU * WS;
-      const sun = Math.max(-1.4, Math.min(1, -(gx * 0.42 * SX + gy * 0.58) * 42 * (1 + 0.5 * LOW)));
+      const sun = Math.max(-1.4, Math.min(1, -(gx * 0.42 * SX + gy * 0.58) * 42 * (1 + 0.1 * LOW) * (1 - 0.25 * LOW * (SX < 0 ? 1 : 0))));
       const dz = streak(px, py) - 0.5, dz2 = streak(px + 37, py + 3) - 0.5;
       let tt = 0.5 + (D - 0.5) * 0.7 + dH * 0.55 + sun * 0.5 + dz * 0.05;
       let tn = tt < 0.2 ? 1 : tt < 0.36 ? 2 : tt < 0.68 ? 3 : tt < 0.84 ? 4 : 5;
       let tp = sun + dz2 * 0.45 < -0.3 ? 0 : sun + dz2 * 0.4 > 0.35 ? 2 : 1;
       if (sun + dz2 * 0.4 < -0.95 && tn > 2) tn--;          // the deep lee, one step down and blue
       // the dune's cornice: a lit lip right on the crest, a dark seam of shadow under its overhang
-      if (DUNE.A > 0.07) {
-        const e = DUNE.f - FC, lip = 0.022 + DUNE.A * 0.05;
+      if (DUNE.A > 0.2) {
+        const e = DUNE.f - FC, lip = 0.01 + (DUNE.A - 0.2) * 0.06;
         if (e > -lip && e < 0) { tn = Math.min(6, Math.max(tn, 4) + 1); tp = 2; }
         else if (e >= 0 && e < 0.016 + DUNE.A * 0.03 && SX > 0) { tn = Math.max(1, tn - 1); tp = 0; }
       }
@@ -312,9 +312,11 @@ const rimeTurf = (ctx, kit) => {
       const f = Math.max(0, a) / Lt, hw = R * (a < 0 ? Math.sqrt(1 - (a / (R * 0.6)) ** 2) : Math.pow(1 - f, 1.4)) + (vn(px / 3, py / 4, q.x | 0) - 0.5) * 1.2;
       if (hw <= 0.4 || Math.abs(b) > hw) continue;
       const e = b / hw;                                               // -1 north rim .. +1 south rim
-      if (e < -0.7) shift(px, py, 2, 2);
-      else if (e < 0.15) shift(px, py, 1, 2);
-      else if (e < 0.75) shift(px, py, SX > 0 ? -1 : 1, SX > 0 ? 0 : 2);
+      const fade = a > Lc * 0.75 && hash(px, py * 7) < (a - Lc * 0.75) / (Lc * 0.25);   // the tail's end breaks up
+      if (fade) continue;
+      if (e < -0.6) shift(px, py, 2, 2);
+      else if (e < -0.1) shift(px, py, 1, 2);
+      else if (e < 0.6) shift(px, py, SX > 0 ? -1 : 1, SX > 0 ? 0 : 2);
       else shift(px, py, -2, 0);
     }
   }
@@ -322,7 +324,7 @@ const rimeTurf = (ctx, kit) => {
   const ST = STRAW.map(hexRGB);
   // ---- scoured ground: the wind has stripped the snow off a few low rises down to frozen earth and dead grass
   const ER = [hexRGB("#3a3036"), hexRGB("#52463f"), hexRGB("#6c5e50"), hexRGB("#8a7a64")];
-  const nEarth = 3 + (rng() * 3 | 0);
+  const nEarth = 1 + (rng() * 2 | 0);
   for (let n = 0; n < nEarth; n++) {
     const rx = 6 + rng() * 9, ry = rx * (0.32 + rng() * 0.12), at0 = spot(rx + 4);
     if (!at0) continue;
@@ -333,10 +335,10 @@ const rimeTurf = (ctx, kit) => {
       const q = Math.hypot(u / rx, v / ry) + (fbm(px / 5, py / 4, sd) - 0.5) * 0.9;
       if (q > 1.05) continue;
       if (q > 0.88) { if (hash(px, py * 3 + sd) < 0.4) set(px, py, ER[hash(px + 1, py) < 0.5 ? 1 : 2]); continue; }   // the ragged, dusted rim
-      const nn = vn(px / 2, py / 2, sd + 3), lit = -(u / rx) * 0.35 * SX - (v / ry) * 0.4 + (nn - 0.5);
-      if (nn > 0.74) { shift(px, py, 1, 2); continue; }             // snow still lying in its hollows
-      set(px, py, ER[lit > 0.35 ? 3 : lit > -0.05 ? 2 : lit > -0.4 ? 1 : 0]);
-      if (hash(px, py + sd) < 0.06) { set(px, py - 1, ST[2]); set(px, py - 2, ST[3]); }   // stubs of dead grass
+      const nn = vn(u / 6, v / 1.6, sd + 3), lit = -(u / rx) * 0.5 * SX - (v / ry) * 0.6 + (vn(px / 6, py / 6, sd + 4) - 0.5) * 0.5;
+      if (nn > 0.62 || (q > 0.7 && nn > 0.45)) { shift(px, py, nn > 0.75 ? 1 : 0, 2); continue; }   // snow streaked over it along the wind
+      set(px, py, ER[lit > 0.45 ? 2 : lit > -0.45 ? 1 : 0]);
+      if (hash(px, py + sd) < 0.015) set(px, py - 1, ST[2]);   // stubs of dead grass
     }
   }
 
@@ -647,6 +649,7 @@ const rmrunestone = (ctx, x, y, s, o) => {
   vShade(ctx, x, gy, 9 * s * U, 2, 8 * s * U, 3.2 * s * U / 1.4, 0.26);
   sculpt(Math.ceil(w * 3.4) + 16, Math.ceil(h * 1.15) + 20, 10, (ob, M) => {
     ob.part(); ob.poly(slabPts(w, h, 0), M.stone, 0, { round: 1, ny: -0.05 });
+    const sid = ob._pid;
     // the serpent band, cut and painted: teal edge, ochre core, looping down the face
     const band = (t) => {
       const q = t * 3.1, bx = Math.sin(q * 2.1 + 0.4) * w * 0.55, by = -3 - t * h * 0.78 + Math.sin(q * 4.2) * 1.4;
@@ -658,7 +661,19 @@ const rmrunestone = (ctx, x, y, s, o) => {
     ob.part(); ob.ellipse(hd[0], hd[1], 2.8, 2.2, M.ochre, 2.5, { round: 0.9 });
     ob.part(); ob.dot(hd[0] + 0.5, hd[1] - 0.5, M.teal, 3, {});
     // runes: short cut ticks beside the band
-    for (let k = 0; k < 9; k++) { const t = (k + 0.5) / 9, b = band(t), d = k % 2 ? 4.2 : -4.2; ob.part(); ob.line(b[0] + d, b[1] - 1.5, b[0] + d, b[1] + 1.5, M.runeDk, 1.5, {}); if (k % 3 === 0) ob.dot(b[0] + d + 1, b[1], M.runeDk, 1.5, {}); }
+    // (upgrade 2026-11-22) runes cut beside the band: a stave and its branches, deep enough to read
+    for (let k = 0; k < 7; k++) {
+      const t = (k + 0.5) / 7, b = band(t), d = k % 2 ? 4.6 : -4.6, rx = b[0] + d, ry = b[1];
+      ob.part(); ob.line(rx, ry - 2.5, rx, ry + 2.5, M.runeDk, 1.5, {});
+      const g = (sd + k) % 4;
+      if (g === 0) ob.line(rx, ry - 2.5, rx + 2, ry - 0.5, M.runeDk, 1.5, {});
+      else if (g === 1) { ob.line(rx, ry - 1.5, rx + 2, ry - 2.5, M.runeDk, 1.5, {}); ob.line(rx, ry, rx + 2, ry - 1, M.runeDk, 1.5, {}); }
+      else if (g === 2) ob.line(rx - 1.5, ry - 1, rx + 1.5, ry + 1, M.runeDk, 1.5, {});
+      else ob.line(rx, ry - 2.5, rx - 2, ry - 0.5, M.runeDk, 1.5, {});
+    }
+    // lichen: ochre-orange crusts and pale grey-green rosettes on the stone's face, its foot dark with damp
+    for (let k = 0; k < 9; k++) { const lx = (jit(sd, k + 60) - 0.5) * w * 1.6, ly = -h * (0.1 + jit(sd, k + 70) * 0.75); ob.part(); ob.dot(lx, ly, k % 3 ? M.ochre : M.iceLt, 0.8, {}); if (k % 2) ob.dot(lx + 1, ly + 1, M.ochre, 0.8, {}); }
+    ob.toneLine(-w * 0.95, -2, w * 0.95, -2, -1, sid); ob.toneLine(-w * 0.95, -3, w * 0.9, -3, -1, sid);
     ob.part(); ob.poly([[-w * 0.92, -h * 0.84], [-w * 0.3, -h * 1.03], [w * 0.5, -h * 1.0], [w * 0.92, -h * 0.82], [w * 0.2, -h * 0.9], [-w * 0.3, -h * 0.8]], M.snow, 3, SNOW_N);
     bank(ob, M, -w * 0.9, 7 * s, 6);
   }, ctx, x, gy);
@@ -697,14 +712,20 @@ const rmwhale = (ctx, x, y, s, o) => {
   sculpt(Math.ceil(66 * S) + 20, Math.ceil(32 * S) + 24, 16, (ob, M) => {
     if (v === 0) {
       // ribs hooking up out of the snow from a buried spine, all bowed one way, tallest at the chest
+      // (upgrade 2026-11-22) each rib is an ARCH: up from the spine half-buried on the north, over, and down into
+      // the snow on the south; the far leg in shade, the near leg lit, a snow load on every crown
       const n = 6;
-      for (const row of [1, 0]) for (let k = 0; k < n; k++) {
-        const t = k / (n - 1), bx = (-18 + t * 32 + row * 3) * S, by = (-2.5 + t * 2 - row * 3) * S;
-        const hg = (8 + Math.sin(Math.min(1, t * 1.2) * Math.PI) * 10) * S * (row ? 0.85 : 1);
-        ob.part(); along(ob, bez([bx, by], [bx - 4 * s, by - hg * 0.55], [bx, by - hg], [bx + 6 * s, by - hg * 1.02]), 9, 1.9 * s, 1.0 * s, row ? M.boneFar : M.bone, row ? 0 : 1, { round: 1 });
-        lump(ob, M, bx + 1, by + 0.5, 5 * s, 2.2 * s, 6 + row);
+      ob.part(); for (let k = 0; k < 9; k++) ob.ellipse((-20 + k * 4.4) * S, (-5.5 + k * 0.3) * S, 2.4 * s, 1.8 * s, M.boneFar, -0.5, { round: 0.8 });
+      for (let k = 0; k < n; k++) {
+        const t = k / (n - 1), bx = (-17 + t * 30) * S, by = (-5 + t * 0.6) * S, fy = (0.5 + t * 0.6) * S;
+        const hg = (9 + Math.sin(Math.min(1, t * 1.15) * Math.PI) * 9) * S;
+        const top = [bx + 2 * s, by - hg];
+        ob.part(); along(ob, bez([bx, by], [bx - 3 * s, by - hg * 0.6], [top[0] - 4 * s, top[1]], top), 8, 1.9 * s, 1.3 * s, M.boneFar, 0, { round: 1 });
+        ob.part(); along(ob, bez(top, [top[0] + 5 * s, top[1]], [bx + 6 * s, fy - hg * 0.45], [bx + 4 * s, fy]), 9, 1.3 * s, 1.9 * s, M.bone, 2 + k * 0.05, { round: 1 });
+        ob.part(); ob.ellipse(top[0] + 1, top[1] - 1.4 * s, 2.8 * s, 1.1 * s, M.snow, 4, { round: 0.8 });
+        lump(ob, M, bx + 4 * s, fy + 0.5, 4.4 * s, 1.8 * s, 6);
+        lump(ob, M, bx, by + 0.5, 3.6 * s, 1.5 * s, 1);
       }
-      ob.part(); for (let k = 0; k < 9; k++) ob.ellipse((-20 + k * 4.4) * S, (-2 + k * 0.3) * S, 2.4 * s, 1.8 * s, M.boneFar, 0.5, { round: 0.8 });
       bank(ob, M, -20 * S, 11 * s, 7); bank(ob, M, 10 * S, 12 * s, 7);
     } else {
       // the skull: a long flat rostrum ending in the brain-case, the jaw beside it
@@ -813,11 +834,12 @@ const rmrack = (ctx, x, y, s, o) => {
       const fp = ob._pid;
       if (!back) { ob.toneLine(fx, top + 3, fx, top + len * 0.8, 1, fp); ob.toneLine(fx + 1, top + 3, fx + 1, top + len * 0.75, -1, fp); }
       ob.part(); ob.poly([[fx - wd * 0.8, top + len * 0.82], [fx + wd * 0.8, top + len * 0.82], [fx + wd * 0.5, top + len + 1.2], [fx - wd * 0.5, top + len + 1.2]], back ? M.dark : M.fishDk, z + 0.1, { round: 0.6 });
-      ob.part(); ob.poly([[fx - 0.5, top + 2], [fx - 2.4 * s, top - 0.6], [fx - 1.2 * s, top - 0.4], [fx, top + 0.8], [fx + 1.2 * s, top - 0.4], [fx + 2.4 * s, top - 0.6], [fx + 0.5, top + 2]], back ? M.dark : M.fishDk, z + 0.2, {});
+      ob.part(); ob.poly([[fx - 0.6, top + 2.4], [fx - 3.4 * s, top - 1.6], [fx - 1.4 * s, top - 0.2], [fx, top + 0.8], [fx + 1.4 * s, top - 0.2], [fx + 3.4 * s, top - 1.6], [fx + 0.6, top + 2.4]], back ? M.dark : m, z + 0.2, {});
+      if (!back) { ob.part(); ob.dot(fx - 3 * s, top - 1.4, M.fishDk, z + 0.25, {}); ob.dot(fx + 3 * s, top - 1.4, M.fishDk, z + 0.25, {}); }
     };
     for (let k = 0; k < 6; k++) {
       const fx = -span + 6 * s + k * (span * 2 - 12 * s) / 5 + (jit(sd, k + 5) - 0.5) * 2 * s, top = -hh + 1;
-      const len = (8 + jit(sd, k) * 4) * S * 0.75, wd = 2.4 * s;
+      const len = (9 + jit(sd, k) * 4) * S * 0.75, wd = 1.7 * s;
       fish(fx + 1.6 * s, top - 1, len * 0.92, wd * 0.9, 0.5, true);
       fish(fx - 1.4 * s, top, len, wd, 3, false);
       ob.part(); ob.rect(fx - 2, top - 2.2, 4, 1.8, M.straw, 3.6, {});
@@ -867,6 +889,13 @@ const rmicefall = (ctx, x, y, s, o) => {
         ob.part(); ob.poly([[cx, t0], [cx + wd, t0], [cx + wd, t0 + len * 0.85], [cx + wd * 0.5, t0 + len], [cx, t0 + len * 0.85]], k % 3 === 0 ? M.iceLt : k % 3 === 1 ? M.iceB : M.iceDk, 4 + k * 0.05, { round: 0.9 });
       }
       ob.part(); ob.ellipse(-8 * S, -1, 3 * S, 1.4, M.snow, 5, { round: 0.8 });
+      // (upgrade 2026-11-22) icicles hanging from the snow cap's lip, a lit west edge on each
+      for (let k = 0; k < 14; k++) {
+        const t = k / 13, ix = (-0.9 + t * 1.75) * w, cap = ix < -w * 0.6 ? -h * 0.6 : ix < -w * 0.1 ? -h * 0.8 : ix < w * 0.45 ? -h * 0.78 : -h * 0.6;
+        if (ix > -6 * S && ix < 8 * S) continue;
+        const L = 3 + hash(sd, k + 30) * 6 * s;
+        ob.part(); ob.poly([[ix - 1, cap], [ix + 1, cap], [ix, cap + L]], k % 2 ? M.iceLt : M.iceB, 3.5, { round: 0.6 });
+      }
     } else {
       const spires = [[-9, 14, 4.5], [-2, 22, 5.5], [6, 17, 5], [12, 10, 4]];
       spires.forEach(([dx, hh, wd], i) => {
@@ -1117,7 +1146,17 @@ const gatePost = (c, x, gy, h, out) => {
       o.part(); o.capsule(0, by, 5, 0, by - 4, 5, k % 2 ? M.teal : M.ochre, 1, { round: 1 });
       o.part(); o.dot(-0.5, by - 2, M.woodDk, 2, {});
     }
-    o.part(); o.line(-4, -H * 0.9, -4, -H * 0.3, M.snow, 2, {});
+    // (upgrade 2026-11-22) interlace cut between the bands: crossing diagonal grooves, lit lips
+    for (let k = 0; k < 3; k++) {
+      const y0 = -H * (0.22 + k * 0.17) - 5, y1 = -H * (0.22 + (k + 1) * 0.17) + 1, pid = o._pid - 0;
+      for (let q = y0; q > y1 + 2; q -= 4) { o.toneLine(-3.6, q, 2.6, q - 3, -1); o.toneLine(2.6, q, -3.6, q - 3, -1); o.toneLine(-3.6, q - 1, 1.6, q - 3.6, 1); }
+    }
+    // a wolf pelt hung from the top band, ragged hem, grey-brown with a pale belly stripe
+    const py0 = -H * 0.82, ph = H * 0.2;
+    o.part(); o.poly([[-5.6, py0], [5.6, py0 + 1], [6.2, py0 + ph * 0.7], [4.4, py0 + ph], [2.6, py0 + ph * 0.8], [0.6, py0 + ph * 1.05], [-1.6, py0 + ph * 0.78], [-3.8, py0 + ph * 0.98], [-6, py0 + ph * 0.6]], M.sealDk, 2.2, { round: 0.7 });
+    for (let q = 0; q < 5; q++) o.toneLine(-4 + q * 2, py0 + 2, -4.4 + q * 2, py0 + ph * 0.7, q % 2 ? 1 : -1, o._pid);
+    o.part(); o.ellipse(-3, py0 + 0.5, 3.4, 1.3, M.snow, 2.6, { round: 0.8 });
+    o.part(); o.line(-4, -H * 0.62, -4, -H * 0.3, M.snow, 2, {});
     o.part(); o.ellipse(-1, -0.5, 8, 2.8, M.snow, 6, { round: 0.8 });
     // the neck curling up and out, the head with an open jaw
     o.part(); along(o, bez([0, -H + 2], [-out * 3, -H - 8], [out * 3, -H - 12], [out * 5, -H - 15]), 8, 3.4, 2.4, M.woodDk, 3, { round: 1 });
@@ -1125,14 +1164,20 @@ const gatePost = (c, x, gy, h, out) => {
     o.part(); o.poly([[hx - out * 2.4, hy - 3.8], [hx + out * 9, hy - 2.2], [hx + out * 9.2, hy], [hx + out * 3.4, hy + 0.2]], M.ochre, 4, { round: 0.4, ny: -0.2 });
     o.part(); o.poly([[hx + out * 3, hy + 1], [hx + out * 8.4, hy + 0.8], [hx + out * 7.4, hy + 3.2], [hx - out * 0.4, hy + 3.8]], M.ochre, 3.5, { round: 0.3 });
     o.part(); o.dot(hx + out * 2.4, hy - 2, M.teal, 5, {});
+    for (let q = 0; q < 3; q++) { o.part(); o.dot(hx + out * (4.5 + q * 1.5), hy + 0.6, M.bone, 4.2, {}); }      // teeth
+    o.part(); o.line(hx + out * 5, hy + 1.6, hx + out * 10.5, hy + 3.4, M.red, 4.1, {});                          // the tongue lolling out
+    o.part(); o.poly([[hx - out * 1.6, hy - 3.4], [hx - out * 4.6, hy - 7.4], [hx - out * 0.2, hy - 4]], M.woodDk, 4.3, {});  // a swept-back ear
     for (let q = 0; q < 3; q++) { o.part(); o.ellipse(-out * (0.4 + q * 1.4) + out * 1, -H - 5 - q * 3.2, 1.4, 1.4, M.woodDk, 2.5, {}); }
     o.part(); o.ellipse(hx + out * 2, hy - 4.6, 4.4, 1.5, M.snow, 5, { round: 0.8 });
   }, c, x, gy);
 };
 const shield = (c, x, y, rx, ry, k) => {
   sculpt(20, 12, 8, (o, M) => {
-    o.part(); o.ellipse(0, 0, rx * 2, ry * 2, k % 2 ? M.teal : M.ochre, 0, { round: 1 });
-    o.part(); o.dot(-0.5, -0.5, M.steel, 1, {});
+    o.part(); o.ellipse(0, 0, rx * 2 + 0.8, ry * 2 + 0.8, M.woodDk, 0, { round: 1 });
+    o.part(); o.ellipse(0, 0, rx * 2 - 0.4, ry * 2 - 0.4, k % 2 ? M.teal : M.ochre, 0.5, { round: 1 });
+    const R2 = rx * 2 - 0.6, R3 = ry * 2 - 0.6;
+    o.part(); o.poly([[0, 0], [0, -R3], [R2 * 0.7, -R3 * 0.7], [R2, 0], [0, 0], [0, R3], [-R2 * 0.7, R3 * 0.7], [-R2, 0]], k % 2 ? M.ochre : M.red, 0.6, { round: 1 });
+    o.part(); o.ellipse(-0.2, -0.2, Math.max(1, rx * 0.6), Math.max(1, ry * 0.6), M.steel, 1, { round: 1 });
   }, c, x, y);
 };
 
