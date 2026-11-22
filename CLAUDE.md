@@ -1035,6 +1035,16 @@ things more radically ... Especially the bridges, they need a good rework ... fe
 change the shore shapes, river widths (wider only ...) add some more larger puddles"), and asked for style
 directions to be proposed first: a concept round follows (the brief's STATUS has it). When the owner says
 overhaul, show bold options before building.
+- **The overhaul concept round** (same day; brief `art/briefs/overhaul-concepts.md`): five Opus artists drew
+  A / B / C for water, bridges, trees, rocks and decorations, ground, each on a real board patch beside TODAY
+  (`concept/overhaul-<feature>.js` + `.md` notes, labs `overhaul-<feature>.html`, PNGs `.shots/ovh_*`). Private
+  Artifact "Crownguard Overhaul Concepts" (slug 26a17ef8-c22c-4713-8e52-168dfabde95b; page built in
+  `scratchpad/overhaul-page/`, republish with publish_files + slug + base_version). The team's picks all point
+  at giving the land HEIGHT: water A (cut below the meadow, bank faces, weirs) with B's reeds; bridges A (the
+  humpback with real arches) per chapter by material; trees A (grand trees, ~1.7x) with C's ground rings and
+  seasons; decor B (places, not props) at A's scale; ground A (terraces and scarps) with C's puddles.
+  **Awaiting the owner's picks; nothing is built.** Building means wider / repathed rivers, bank faces, scarps
+  and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
   `shallowsLit`, glints capped at pale gold; water.js; coast.js): rivers shelve from pale shallows with the
   bed showing (point bars inside bends) to a dark channel; baked flow streaks that slide downstream, foam

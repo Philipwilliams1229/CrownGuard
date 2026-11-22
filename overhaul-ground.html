@@ -1,0 +1,68 @@
+<!doctype html>
+<!--
+  Overhaul concept: THE GROUND (concept/overhaul-ground.js, art/briefs/overhaul-concepts.md).
+  Draws every panel and saves it through the dev server as .shots/ovh_ground_<scene>_<today|A|B|C>.png
+  (1680 x 1120: a 420 x 280 board-unit patch at 2x). TODAY is the real engine's draw() of a board, cropped.
+    /overhaul-ground.html            all panels
+    /overhaul-ground.html?only=1_A,2_today
+  Scenes: 1 Greenwood (today = Thornbrook), 2 Iron Marches (Ironford), 3 the Rimewater (Frostwake, option A only).
+  Extra: 1_Agold, 1_Cgold (golden hour).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul ground</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; display: block; margin: 6px 0; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { renderGround } from "/concept/overhaul-ground.js";
+      const q = new URLSearchParams(location.search), only = q.get("only")?.split(",");
+      const want = (n) => !only || only.includes(n);
+      const st = document.getElementById("status");
+      const save = async (name, cv) => { await fetch(`/__shot?name=ovh_ground_${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) }); document.body.append(cv); };
+      // TODAY: the real board, a 420 x 280 unit window of it at 2x
+      const today = async (name, realm, faction, towers, crop) => {
+        setDay("noon"); selectRealm(realm); selectFaction(faction); setWaveWindow(null); setLevelWeather(null);
+        const g = { run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 5, phase: "build", towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false, selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0 };
+        for (const [kd, at, lv] of towers) {
+          const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0); let spot = null;
+          for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) { const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s; if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; } }
+          if (!spot) continue; placeTower(g, kd, spot[0], spot[1]); const t = g.towers[g.towers.length - 1]; for (let l = 1; l < lv; l++) upgradeTower(g, t); t.readyAt = 0; t.raised = null;
+        }
+        for (let i = 0; i < 30; i++) updateGame(g, 1 / 60);
+        startWave(g);
+        for (let el = 0; el < 9; el += 1 / 60) { updateGame(g, 1 / 60); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+        const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+        draw(g, cv, { current: null }); draw(g, cv, { current: null });
+        const out = document.createElement("canvas"); out.width = 1680; out.height = 1120;
+        const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+        o.drawImage(cv, crop[0] * 2, crop[1] * 2, 840, 560, 0, 0, 1680, 1120);
+        await save(name, out);
+      };
+      const option = async (name, opt, chap, sun) => {
+        const r = await renderGround(opt, chap, sun);
+        const c = document.createElement("canvas"); c.width = r.w; c.height = r.h; c.getContext("2d").putImageData(new ImageData(r.rgba, r.w, r.h), 0, 0);
+        const out = document.createElement("canvas"); out.width = r.w * 2; out.height = r.h * 2;
+        const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(c, 0, 0, out.width, out.height);
+        await save(name, out);
+      };
+      const T1 = [["archer", 0.22, 3], ["knight", 0.3, 2], ["wizard", 0.62, 2]];
+      try {
+        if (want("1_today")) await today("1_today", "thornbrook", "greenwood", T1, [40, 120]);
+        if (want("2_today")) await today("2_today", "ironford", "iron", T1, [110, 150]);
+        if (want("3_today")) await today("3_today", "frostwake", "rime", T1, [140, 40]);
+        for (const [n, o, ch, sun] of [["1_A", "A", "green"], ["1_B", "B", "green"], ["1_C", "C", "green"], ["1_Agold", "A", "green", "golden"], ["1_Cgold", "C", "green", "golden"],
+          ["2_A", "A", "iron"], ["2_B", "B", "iron"], ["2_C", "C", "iron"], ["3_A", "A", "rime"]]) { if (want(n)) { st.textContent = n; await option(n, o, ch, sun || "noon"); } }
+        document.title = "DONE"; st.textContent = "saved .shots/ovh_ground_*.png";
+      } catch (e) { st.textContent = "ERROR " + e.stack; document.title = "ERR"; }
+    </script>
+  </body>
+</html>
