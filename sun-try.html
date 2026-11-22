@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  Attempts at one hall's sunset shadow foot (render/sunset.js SHADOW_TUNE), side by side, zoomed.
+    /sun-try.html?kind=archer&form=3&tag=x   (options are in OPTS below)
+  Saved to .shots/suntry_<tag>.png
+-->
+<html>
+  <head><meta charset="utf-8" /><title>sun try</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import * as T from "/src/render/towers.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { sunCurves, sunFrame, drawHallShadows, SUN, SHADOW_TUNE } from "/src/render/sunset.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", U = Number(q.get("u") ?? 0.35);
+      selectRealm("bellmarsh");
+      const P = { archer: T.drawArcherTower, knight: T.drawGarrison, band: T.drawBandTower, support: T.drawSupportTower };
+      const KIND = q.get("kind") || "archer", fs = q.get("form") || "3";
+      const form = /^\d$/.test(fs) ? { level: Number(fs) } : { level: 3, branch: fs[0], rank4: fs[1] || null };
+      const OPTS = JSON.parse(q.get("opts") || "null") || [
+        { name: "A", mode: "lip", ax: 0.0, ch: [0.49, -0.63], widen: 1.8, flare: 16 },
+        { name: "B", mode: "lip", ax: 0.2, ch: [0, -1], widen: 1.8, flare: 16 },
+        { name: "C", mode: "lip", ax: 0.2, ch: [0.49, -0.63], widen: 2.0, flare: 28 },
+        { name: "D", mode: "lip", ax: 0.35, ch: [-0.3, -0.95], widen: 1.8, flare: 16 },
+        { name: "E", mode: "lip", ax: 0.2, ch: [0.3, -0.95], widen: 1.5, flare: 8 },
+        { name: "now", mode: "side" },
+      ];
+      const CW = 150, CH = 115, R = 2, Z = 3;
+      const cv = document.createElement("canvas"); cv.width = CW * R * Z * 3; cv.height = CH * R * Z * Math.ceil(OPTS.length / 3);
+      const out = cv.getContext("2d"); out.imageSmoothingEnabled = false;
+      const cell = document.createElement("canvas"); cell.width = CW * R; cell.height = CH * R;
+      const ctx = cell.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      const scratch = document.createElement("canvas"); scratch.width = 300; scratch.height = 300;
+      const sctx = scratch.getContext("2d");
+      const ground = groundLayer();
+      OPTS.forEach((o, n) => {
+        Object.assign(SHADOW_TUNE, { mode: "side", ax: 0, ch: null, widen: 1.8, flare: 16 }, o, { v: n + 1 });
+        const time = 3.2 + n * 0.001, c = sunCurves(U);
+        const t = { id: 3, kind: KIND, x: 40, y: 72, level: form.level, branch: form.branch || null, rank4: form.rank4 || null,
+          cd: 0, aim: "first", lastAim: Math.PI, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null };
+        sunFrame(time, c); SUN.list = []; sctx.setTransform(R, 0, 0, R, 0, 0); P[KIND](sctx, t, time);
+        ctx.setTransform(R, 0, 0, R, 0, 0);
+        ctx.drawImage(ground, 200 * 2, 160 * 2, CW * 2, CH * 2, 0, 0, CW, CH);
+        drawHallShadows(ctx, c.len, c.shadow); sunFrame(time, c); P[KIND](ctx, t, time);
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#fff"; ctx.font = "bold 14px monospace"; ctx.fillText(o.name, 6, 18);
+        out.drawImage(cell, (n % 3) * CW * R * Z, Math.floor(n / 3) * CH * R * Z, CW * R * Z, CH * R * Z);
+      });
+      fetch("/__shot?name=suntry_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) }).then(() => { window.__done = true; });
+    </script>
+  </body>
+</html>

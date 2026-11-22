@@ -89,7 +89,8 @@ const opaqueOf = (cv) => { const c = cv.getContext("2d"), d = c.getImageData(0, 
 const bakeHallSun = (H, dir) => {
   let per = HSIL.get(H);
   if (!per) HSIL.set(H, (per = {}));
-  if (per[dir]) return per[dir];
+  const pk = dir + "|" + SHADOW_TUNE.v;
+  if (per[pk]) return per[pk];
   const w = H.back.width, h = H.back.height, B = H.box;
   const ob = opaqueOf(H.back), of = H.front ? opaqueOf(H.front) : new Uint8Array(w * h);
   const op = (i, j) => i >= 0 && j >= 0 && i < w && j < h && (ob[j * w + i] || of[j * w + i]);
@@ -118,7 +119,13 @@ const bakeHallSun = (H, dir) => {
   // edge leaves the base on its far side from the sun and the rest of the foot is hidden by the hall.
   // The chord shortens until B lies on the hall's own picture (behind it); above the foot the shadow
   // flares to the base's width across the light (S) over 16 units of height.
-  const A = [0.92 * rx, cyb + 0.4 * ry];   // low on the right side: a square base's front face is tall
+  const T = SHADOW_TUNE, CH = T.ch ? (() => { const l = Math.hypot(T.ch[0], T.ch[1]); return [T.ch[0] / l, T.ch[1] / l]; })() : CH0;
+  let A = [0.92 * rx, cyb + 0.4 * ry];   // low on the right side: a square base's front face is tall
+  if (T.mode === "lip") {               // on the base's drawn outline, ax of the way from the middle to its right edge
+    const ci = Math.round(ox + T.ax * rx * 2);
+    let lj = h - 1; while (lj > 0 && !op(ci, lj)) lj--;
+    A = [T.ax * rx, (lj + 0.5 - oy) / 2];
+  }
   // no higher than a little above the back of the base, or a low wide hall's shadow starts at its roof
   let Lc = Math.min(1.8 * rx, (A[1] - (cyb - ry - 0.6 * rx)) / -CH[1]), Bp;
   for (;;) {
@@ -126,7 +133,7 @@ const bakeHallSun = (H, dir) => {
     if ((op(Math.round(ox + Bp[0] * 2), Math.round(oy + Bp[1] * 2)) && op(Math.round(ox + Bp[0] * 2), Math.round(oy + Bp[1] * 2) - 4)) || Lc < 0.6 * rx) break;
     Lc -= 0.1 * rx;
   }
-  const across = Lc * Math.abs(CH[0] * DIR[1] - CH[1] * DIR[0]), S = Math.max(1, (1.8 * rx) / Math.max(1, across));
+  const across = Lc * Math.abs(CH[0] * DIR[1] - CH[1] * DIR[0]), S = Math.max(1, ((T.widen ?? 1.8) * rx) / Math.max(1, across));
   // the sprite's x lies along the chord (x = +rx at A), S times as long, its rows narrowed by 1/S at the foot
   const M = [(A[0] + Bp[0]) / 2, (A[1] + Bp[1]) / 2], col = [-(S * Lc / (2 * rx)) * CH[0], -(S * Lc / (2 * rx)) * CH[1]];
   const k0 = 1 / S;
@@ -160,7 +167,7 @@ const bakeHallSun = (H, dir) => {
   // by height (a dither stretched into stripes under the shear)
   { const d = sil.img.data;
     for (let j = 0; j <= base; j++) {
-      const hh = (base - j) / 2, f = k0 + (1 - k0) * Math.min(1, hh / 16), t = (base - j) / tall;
+      const hh = (base - j) / 2, f = k0 + (1 - k0) * Math.min(1, hh / (T.flare ?? 16)), t = (base - j) / tall;
       const a = t < 0.55 ? 160 : t < 0.75 ? 115 : t < 0.9 ? 75 : 40;
       for (let i = 0; i < w; i++) {
         const si = Math.round(ox + (i + 0.5 - ox) / f - 0.5);
@@ -172,7 +179,7 @@ const bakeHallSun = (H, dir) => {
   // the width across the light: the base's widest row (half-width rx) lands on the footing ellipse's two
   // tangent points for this light (where its outline turns away from the sun), so the shadow leaves the
   // base cleanly instead of jutting past its front (owner: "it juts out at the bottom")
-  return (per[dir] = { back: back.cv, front: front.cv, sil: sil.cv, base, M, col });
+  return (per[pk] = { back: back.cv, front: front.cv, sil: sil.cv, base, M, col });
 };
 const layBox = (ctx, cv, H, x, y, dir) => {
   const B = H.box;
@@ -190,7 +197,9 @@ export const hallRim = (ctx, H, x, y, dir, side, time) => {
 // the ground pass: last frame's halls, each its own shape, sheared down-right from its base line
 export const SHEAR = 0.75;      // shadow length per unit of height, x len (2.5 at sunset)
 export const SUN_SHEAR = SHEAR;
-const CH = (() => { const l = Math.hypot(0.3, 0.95); return [-0.3 / l, -0.95 / l]; })();   // the shadow's foot: up-left from the base's right side
+const CH0 = (() => { const l = Math.hypot(0.3, 0.95); return [-0.3 / l, -0.95 / l]; })();   // the shadow's foot: up-left from the base's right side
+// the shadow foot's shape (sun-try.html tries options on one hall; bump v to rebake)
+export const SHADOW_TUNE = { v: 0, mode: "side", ax: 0, ch: null, widen: 1.8, flare: 16 };
 export const drawHallShadows = (ctx, len, a) => {
   const list = SUN.list;
   SUN.list = [];
