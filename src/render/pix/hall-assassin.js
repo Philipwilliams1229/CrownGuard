@@ -235,7 +235,7 @@ export const build = (o = {}) => (back) => {
   }
   // on the ground in front: every prop stands clear of the tent's wall
   if (r4 === "ab") noticeBoard(back, -27, 12, seed); else knifeBoard(back, -30, 12, lvl + 1);
-  if (lvl >= 2 && !guild) lampPost(back, LANTERN, 8);
+  // (no lamp post: the Covert keeps no light, owner 2026-11-22)
   if (r4 === "ba") { vat(back, -18, 22, 12, 9); vat(back, -5, 26, 9.2, 7.2); }
   if (r4 === "bb") for (const [dx, dy, r] of PODS) pod(back, dx * 2, dy * 2, r, dx);
   if (guild && !r4) {                                                 // the poisoner's bench with a pestle bowl
@@ -245,11 +245,10 @@ export const build = (o = {}) => (back) => {
   }
 
   const lights = [];
-  if (lvl >= 2 && !guild) lights.push({ key: "lamp", x: LANTERN - 5, y: -20, r: 24, col: court ? "#f0c060" : "#b0a0e0", a: 0.8 });
   return {
     live: [], lights,
     // the people, for the pages that stand figures on a hall themselves (the game's hall file draws its own)
-    crew: [...(lvl >= 3 ? [{ fig: "hooded", x: -4, y: 5, dir: 1, clip: "idle", variant: guild ? "g" : "c" }] : []), { fig: "hooded", x: 20, y: 18, dir: 1, clip: "idle", variant: guild ? "g" : "c" }],
+    crew: [],   // (the idle hoods by the tent are gone, owner 2026-11-22: only the working blades)
     shadow: { rx: 36, ry: 9, dx: 7, dy: 9 },
   };
 };

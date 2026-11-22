@@ -51,11 +51,8 @@ export const drawAssassin = (ctx, t, time) => {
   // the tent (pix/hall-assassin.js), built round the master's doorway; mirrored to the last strike with the sun kept
   const H = bake ? hallPix("assassin", assHall, { level: s.lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3, { flip: f < 0 }) : null;
   if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, dir: f, k: { lamp: 0.75 + 0.25 * Math.sin(time * 3 + t.id) } });
-  // the second hood waits in the doorway from three, half in the dark
-  const variant = s.guild ? "g" : "c";   // (the new figure's look: fig-hooded.js LOOKS)
-  if (s.lvl >= 3 && !t.noFolk) {
-    const [clip, fr] = watching(time + t.id * 2.3 + 4.1); drawCrewPix(ctx, HOODED, x - f * 2, y + 2.5, f, clip, fr, { variant });
-  }
+  // (no idle hoods by the tent and no lookout out front: the owner, 2026-11-22, wanted only the working
+  // blades, the units drawn with the bands)
   // live: the vats bubble; the pods breathe
   if (r4 === "ba") for (const [vx, vy, i] of [[x - f * 9, y + 6.4, 0], [x - f * 2.5, y + 9.4, 1]]) {
     const k = (time * 1.3 + i * 0.5 + t.id * 0.2) % 1;
@@ -66,30 +63,5 @@ export const drawAssassin = (ctx, t, time) => {
     const k = (time * 0.35 + i * 0.25 + t.id * 0.1) % 1;
     const px = x + f * PODS[i][0] + Math.sin(time * 1.5 + i) * 2;
     glow(ctx, px, y + 2 - k * 16, 1.6 + k * 1.5, SPORE, 0.7 * (1 - k));
-  }
-  // ---- the blade on watch out front, facing the road; when the work is on
-  // he goes up in black smoke and is gone until the job is done
-  const wx = x + f * 10, wy = y + 9;
-  const anim = t.anim || 0;
-  if (t.noFolk) return;   // (him, his glint, his smoke and his streak: the build puts him in last)
-  if (anim <= 0.4) {
-    const [clip, fr] = watching(time + t.id * 1.37);
-    const rec = drawCrewPix(ctx, HOODED, wx, wy, f, clip, fr, { variant });
-    const [gx, gy] = markOf(rec, "glint", f);
-    if (Math.sin(time * 2.3 + t.id) > 0.92) glow(ctx, wx + gx, wy + gy, 2, "#ffffff", 0.9);   // the edge of the knife in his hand glints
-  } else {
-    // he drops into a crouch, blade half out, and the smoke takes him
-    const k = (anim - 0.4) / 0.6, p = 1 - k;
-    if (anim > 0.75) {
-      ctx.save(); ctx.globalAlpha = Math.min(1, (anim - 0.75) / 0.17);
-      drawCrewPix(ctx, HOODED, wx, wy, f, "vanish", fracFrame(HOODED, "vanish", (1 - anim) / 0.25), { variant });   // he drops as he fades
-      ctx.restore();
-    }
-    for (let i = 0; i < 4; i++) {
-      const a = i * 1.7 + t.id, r = 2 + p * 5;
-      soft(ctx, wx + Math.cos(a) * r, wy - 8 - i * 3 - p * 4, 4 + p * 3, 4 + p * 2.5, [[0, `rgba(34,26,40,${0.75 * k})`], [0.6, `rgba(52,42,60,${0.45 * k})`], [1, "rgba(52,42,60,0)"]]);
-    }
-    // the blade leaves toward the road: a streak of steel
-    if (k > 0.5) { ctx.fillStyle = `rgba(232,236,242,${(k - 0.5) * 1.6})`; for (let i = 0; i < 3; i++) ctx.fillRect(wx + f * (5 + p * 12 + i * 2.5) - 0.6, wy - 12 + i * 0.4, 1.4, 0.8); }
   }
 };

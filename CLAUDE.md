@@ -1432,6 +1432,9 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
 
 ## The Covert reworked (2026-11-09, owner request)
 
+(2026-11-22, owner: the Covert keeps no light and no idle people: no lamp post, no night light, no hood in
+the doorway or lookout out front; only the working blades, drawn with the bands.)
+
 "Make the assassin class a bit better." Provisional, pending the owner's playtest.
 - **No rally flag:** the reach is a ring round the TENT (`pickPrey` centres on
   `t.x/t.y`; the blades drop a mark once it is past `range` + half its body
