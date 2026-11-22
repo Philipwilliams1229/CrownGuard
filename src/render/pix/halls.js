@@ -113,7 +113,8 @@ export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
   // Every light the hall carries (owner, 2026-11-22): warm ones (torches, lanterns, forges, furnaces, fires)
   // as warm pools, magic ones (orbs, crystals, coils) in their own colour, smaller and softer; reach capped
   // so a big torch matches the rest (the River Watch's beacon was a huge square of light)
-  if (nightOn(time) && prefs.spellLight !== false) for (const l of H.spec.lights || []) {
+  // the Covert stays dark: assassins don't light their camp (owner, 2026-11-22)
+  if (nightOn(time) && prefs.spellLight !== false && H.name !== "assassin") for (const l of H.spec.lights || []) {
     const on = o.k && o.k[l.key] != null ? o.k[l.key] : l.k ?? 1;
     if (on < 0.05) continue;
     const warm = isWarm(l.col);
