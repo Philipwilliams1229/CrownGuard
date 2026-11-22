@@ -22,6 +22,13 @@ import { toCanvas } from "./pix.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
 
 const BAKES = new Map(), FRAMES = new Map();
+// a fire's colour: red-orange to yellow (red high, green above blue); anything else is magic light
+const WARM = new Map();
+const isWarm = (col) => {
+  let w = WARM.get(col);
+  if (w === undefined) { const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(col).slice(i, i + 2), 16)); w = r >= 200 && r > b + 60 && g >= b + 20; WARM.set(col, w); }
+  return w;
+};
 export const resetHallBakes = () => { BAKES.clear(); FRAMES.clear(); };
 const sprite = (img) => ({ cv: toCanvas(img), ox: img.ox, oy: img.oy });
 const framesOf = (key, make) => { let f = FRAMES.get(key); if (!f) FRAMES.set(key, (f = make().map(sprite))); return f; };
@@ -103,7 +110,15 @@ const glows = (ctx, H, x, y, time, side, o, id, dir = 1) => {
 export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
   const id = o.id || 0, dir = o.dir < 0 ? -1 : 1;
   // at night (render/nightlight.js) each torch / lamp of the hall is a light on the board
-  if (nightOn(time) && prefs.spellLight !== false) for (const l of H.spec.lights || []) if (l.key === "torch") noteLamp(x + dir * l.x / 2, y + l.y / 2, l.r / 2, l.col, l.a ?? 0.7, -l.y / 2);
+  // Every light the hall carries (owner, 2026-11-22): warm ones (torches, lanterns, forges, furnaces, fires)
+  // as warm pools, magic ones (orbs, crystals, coils) in their own colour, smaller and softer; reach capped
+  // so a big torch matches the rest (the River Watch's beacon was a huge square of light)
+  if (nightOn(time) && prefs.spellLight !== false) for (const l of H.spec.lights || []) {
+    const on = o.k && o.k[l.key] != null ? o.k[l.key] : l.k ?? 1;
+    if (on < 0.05) continue;
+    const warm = isWarm(l.col);
+    noteLamp(x + dir * l.x / 2, y + l.y / 2, Math.min(l.r, warm ? 24 : 18) / 2, l.col, (l.a ?? 0.7) * Math.min(1, on + 0.3) * (warm ? 1 : 0.75), -l.y / 2, !warm);
+  }
   if (H.shadow) stampPix(ctx, H.shadow, x, y);
   lay(ctx, H.back, H, x, y, dir);
   noteHall(H, x, y, dir, time); hallRim(ctx, H, x, y, dir, "back", time);   // the setting sun (render/sunset.js)

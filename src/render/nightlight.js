@@ -22,7 +22,8 @@ export const nightTick = (time) => { STAMP = time; };
 export const nightOn = (time) => time - STAMP < 0.3 && time - STAMP > -0.3;
 
 let CUR = [], PREV = [];
-export const noteLamp = (x, y, r, col, k, ground = 10) => { if (CUR.length < 96) CUR.push({ x, y, r, col, k, ground }); };
+// cool: a magic light (an orb, a crystal) glows in its own colour, its edge darkening into it, not into red
+export const noteLamp = (x, y, r, col, k, ground = 10, cool = false) => { if (CUR.length < 160) CUR.push({ x, y, r, col, k, ground, cool }); };
 // called once a frame by the night painter after the bloom: this frame's lamps become the pools' list
 export const swapLamps = () => { PREV = CUR; CUR = []; };
 export const clearLamps = () => { CUR = []; PREV = []; };
@@ -33,21 +34,21 @@ const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
 // a lamp's colour ramp, hot core to a deep outer ring (kept warm whatever the lamp's own colour)
-const ramp = (col) => {
+const ramp = (col, cool) => {
   const c = hex(col);
-  return [mix(c, [255, 250, 225], 0.55), mix(c, [255, 255, 255], 0.12), c, mix(c, [150, 40, 20], 0.55)];
+  return [mix(c, [255, 250, 225], 0.55), mix(c, [255, 255, 255], 0.12), c, cool ? mix(c, [16, 12, 40], 0.5) : mix(c, [150, 40, 20], 0.55)];
 };
 
 const SPR = new Map();
 // kind "ground": a flat pool (rx wide, 0.55 x that tall); "bloom": a round glow
-const sprite = (rx, col, kind) => {
-  const key = `${kind}|${rx}|${col}`;
+const sprite = (rx, col, kind, cool = false) => {
+  const key = `${kind}|${rx}|${col}|${cool ? 1 : 0}`;
   let s = SPR.get(key);
   if (s) return s;
   const ry = kind === "ground" ? Math.max(2, Math.round(rx * 0.55)) : rx;
   const w = Math.ceil(rx * 2 * PX) + 2, h = Math.ceil(ry * 2 * PX) + 2;
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
-  const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data, R = ramp(col);
+  const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data, R = ramp(col, cool);
   const cx = w / 2, cy = h / 2;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const dx = (i + 0.5 - cx) / (rx * PX), dy = (j + 0.5 - cy) / (ry * PX), dd = Math.hypot(dx, dy);
@@ -76,7 +77,7 @@ export const drawLampPools = (ctx, time) => {
   ctx.globalCompositeOperation = "lighter";
   for (const L of PREV) {
     const fl = FLICK[Math.floor(time * 12 + L.x * 0.37) & 7], high = Math.max(0.35, 1 - L.ground / 46);
-    const s = sprite(bucket(L.r * 2.5 + 6), L.col, "ground");
+    const s = sprite(bucket(L.r * 2.5 + 6), L.col, "ground", L.cool);
     ctx.globalAlpha = pa * Math.min(1, L.k * fl * high * 1.15);
     // the pool sits on the ground below the flame, a touch toward the viewer
     ctx.drawImage(s.cv, Math.round(L.x * PX) / PX - s.w / PX / 2, Math.round((L.y + L.ground * 0.9 + 3) * PX) / PX - s.h / PX / 2, s.w / PX, s.h / PX);
@@ -89,7 +90,7 @@ export const drawLampBloom = (ctx, time) => {
   ctx.globalCompositeOperation = "lighter";
   for (const L of CUR) {
     const fl = FLICK[Math.floor(time * 12 + L.x * 0.37) & 7];
-    const s = sprite(bucket(L.r * 0.9 + 2), L.col, "bloom");
+    const s = sprite(bucket(L.r * 0.9 + 2), L.col, "bloom", L.cool);
     ctx.globalAlpha = pa * Math.min(1, L.k * fl);
     ctx.drawImage(s.cv, Math.round(L.x * PX) / PX - s.w / PX / 2, Math.round(L.y * PX) / PX - s.h / PX / 2, s.w / PX, s.h / PX);
   }
