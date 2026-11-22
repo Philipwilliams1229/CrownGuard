@@ -116,4 +116,12 @@ has nothing to do here: stop.
   frame cost was measured per area by the agents (water ~+0.2 ms, the rest baked), not as one number;
   first-sight bakes grew (decor ~720 -> ~860 ms, Rime ground +80 ms on the dev Mac); nothing seen on a
   phone or iPad; rocks and logs in rivers still shade for a noon light under an eastern sun.
-- Pushing to GitHub: NOT approved. The owner wants to see before / after pictures first.
+- Pushed to main 2026-11-22 (owner: "go ahead and push this so i can see how the water works now").
+- **The owner's verdict on the pictures (same morning): "I was hoping for more of an 'overhaul' ... These are
+  incremental upgrades at best ... Dont be afraid to change things more radically to fit in with our new
+  standard of graphics. Especially the bridges, they need a good rework. And how those rivers interact with
+  the bridges, feel free to repath the rivers ... change the shore shapes, river widths (wider only, dont make
+  any smaller streams) add some more larger puddles to maps."** They want style directions PROPOSED first
+  ("we can nail down a style direction and go from there"): a concept round for water, bridges, trees, rocks,
+  ground. Lesson for the lead: when the owner says overhaul, show bold concept options BEFORE building; a team
+  told to "keep the style" polishes.

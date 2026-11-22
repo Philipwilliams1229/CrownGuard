@@ -1029,7 +1029,12 @@ things, old towers, mills, bridges, water ... Especially the water, I wouldnt mi
 fancy, but watch the cost on the engine ... shaders, depths, better wave animations, river physics." Built
 overnight by Opus agents by file (brief, ownership, what is left: `art/briefs/scenery-water-upgrade.md`;
 before / after pairs in `.shots/preview-upgrade/`). Canvas 2D only: per-pixel work at bake, a frame only
-blits. The engine is untouched (ir3 `--endure` identical). NOT pushed: the owner sees the pictures first.
+blits. The engine is untouched (ir3 `--endure` identical). Pushed 2026-11-22 so the owner can see the water
+move. **The owner's verdict: "incremental upgrades at best"; they wanted an OVERHAUL** ("Dont be afraid to change
+things more radically ... Especially the bridges, they need a good rework ... feel free to repath the rivers ...
+change the shore shapes, river widths (wider only ...) add some more larger puddles"), and asked for style
+directions to be proposed first: a concept round follows (the brief's STATUS has it). When the owner says
+overhaul, show bold options before building.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
   `shallowsLit`, glints capped at pale gold; water.js; coast.js): rivers shelve from pale shallows with the
   bed showing (point bars inside bends) to a dark channel; baked flow streaks that slide downstream, foam
