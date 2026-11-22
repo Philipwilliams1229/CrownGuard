@@ -11,7 +11,6 @@
 //   - the night (the caller's shade), the lamps and the moon's red come in after.
 // Concept and clip: sunset-concepts.html (option C), sunset-anim.html.
 import { W } from "../data/constants.js";
-import { HALL_FOOT } from "../data/hallfoot.js";
 
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -101,9 +100,37 @@ const bakeHallSun = (H, dir) => {
   const LINE = [255, 168, 70], SOFT = [255, 140, 46];
   let top = h;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (op(i, j)) { top = Math.min(top, j); break; }
-  // the shadow's root: the middle of the footing (the anchor is up the base's back, Fable 2026-11-22)
-  const ft = HALL_FOOT[H.name] || { up: 8, down: 14 }, drop = Math.max(0, ft.down - ft.up);
-  const base = Math.min(h - 1, B.oy + drop), tall = Math.max(1, base - top);
+  // the shadow's root, measured on the base AS DRAWN (Fable, 2026-11-22: the footing in hallfoot.js is the
+  // building's footprint with its props, so a root laid from it jutted out under the base's front-left;
+  // owner: "that jut is definitely still there"): the front lip below the anchor, and the base's widest
+  // row (symmetric about the anchor, so side props don't count) in the 20 rows above it.
+  const ox = Math.round(B.ox), oy = Math.round(B.oy);
+  let lip = h - 1;
+  while (lip > oy && ![-2, -1, 0, 1].some((d) => op(ox + d, lip))) lip--;
+  const hw = (j) => { let a = 0; while (op(ox + a, j) && op(ox - 1 - a, j)) a++; return a; };
+  let base = lip, best = 0;
+  for (let j = lip; j > lip - 20 && j >= 0; j--) best = Math.max(best, hw(j));
+  // the LOWEST row near full width (a square plinth's bottom, a round base a little below its middle)
+  for (let j = lip; j > lip - 20 && j >= 0; j--) if (hw(j) >= 0.9 * best) { base = j; break; }
+  const rx = Math.max(2, best / 2), ry = (lip - base) / 2, cyb = (base - oy) / 2;
+  // the shadow's foot (owner, after two tries: no shadow may show under the base's front): a chord from the
+  // base's RIGHT side (A, a touch below its middle row) up-left behind the body (B), so the shadow's near
+  // edge leaves the base on its far side from the sun and the rest of the foot is hidden by the hall.
+  // The chord shortens until B lies on the hall's own picture (behind it); above the foot the shadow
+  // flares to the base's width across the light (S) over 16 units of height.
+  const A = [0.92 * rx, cyb + 0.4 * ry];   // low on the right side: a square base's front face is tall
+  // no higher than a little above the back of the base, or a low wide hall's shadow starts at its roof
+  let Lc = Math.min(1.8 * rx, (A[1] - (cyb - ry - 0.6 * rx)) / -CH[1]), Bp;
+  for (;;) {
+    Bp = [A[0] + Lc * CH[0], A[1] + Lc * CH[1]];
+    if ((op(Math.round(ox + Bp[0] * 2), Math.round(oy + Bp[1] * 2)) && op(Math.round(ox + Bp[0] * 2), Math.round(oy + Bp[1] * 2) - 4)) || Lc < 0.6 * rx) break;
+    Lc -= 0.1 * rx;
+  }
+  const across = Lc * Math.abs(CH[0] * DIR[1] - CH[1] * DIR[0]), S = Math.max(1, (1.8 * rx) / Math.max(1, across));
+  // the sprite's x lies along the chord (x = +rx at A), S times as long, its rows narrowed by 1/S at the foot
+  const M = [(A[0] + Bp[0]) / 2, (A[1] + Bp[1]) / 2], col = [-(S * Lc / (2 * rx)) * CH[0], -(S * Lc / (2 * rx)) * CH[1]];
+  const k0 = 1 / S;
+  const tall = Math.max(1, base - top);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     if (!op(i, j)) continue;
     const k = j * w + i, L = of[k] ? front : back;
@@ -111,12 +138,6 @@ const bakeHallSun = (H, dir) => {
     else if (!op(i + 2 * sx, j)) put(L, k, LINE, 215);
     else if (!op(i + 3 * sx, j)) put(L, k, SOFT, 90);                 // a third, softer
     if (!op(i, j - 1) && (op(i - sx, j) || !op(i + sx, j))) put(L, k, SOFT, 120);   // tops facing up catch the low sun too
-    // the shadow: the silhouette above the base line, thinning toward the top (dithered)
-    // stepped by height, not dithered (a dither stretched into stripes under the shear)
-    if (j <= base) {
-      const t = (base - j) / tall, d = sil.img.data;
-      d[k * 4] = 22; d[k * 4 + 1] = 10; d[k * 4 + 2] = 26; d[k * 4 + 3] = t < 0.55 ? 160 : t < 0.75 ? 115 : t < 0.9 ? 75 : 40;
-    }
   }
   // the sunward quarter of each run of stone in a row takes a stepped amber wash (so the wall matches
   // the crew at board size, not only its edge line)
@@ -134,13 +155,24 @@ const bakeHallSun = (H, dir) => {
       i = e + step;
     }
   }
+  // the shadow: the silhouette above the base row, its rows narrowed to k0 of their width at the foot and
+  // flaring to full width over the first 16 units up (so it leaves the base inside its outline), stepped
+  // by height (a dither stretched into stripes under the shear)
+  { const d = sil.img.data;
+    for (let j = 0; j <= base; j++) {
+      const hh = (base - j) / 2, f = k0 + (1 - k0) * Math.min(1, hh / 16), t = (base - j) / tall;
+      const a = t < 0.55 ? 160 : t < 0.75 ? 115 : t < 0.9 ? 75 : 40;
+      for (let i = 0; i < w; i++) {
+        const si = Math.round(ox + (i + 0.5 - ox) / f - 0.5);
+        if (!op(si, j)) continue;
+        const k = j * w + i; d[k * 4] = 22; d[k * 4 + 1] = 10; d[k * 4 + 2] = 26; d[k * 4 + 3] = a;
+      }
+    } }
   for (const L of [back, front, sil]) L.c.putImageData(L.img, 0, 0);
   // the width across the light: the base's widest row (half-width rx) lands on the footing ellipse's two
   // tangent points for this light (where its outline turns away from the sun), so the shadow leaves the
   // base cleanly instead of jutting past its front (owner: "it juts out at the bottom")
-  const ry = (ft.up + ft.down) / 2, rx = ft.rx || 16, ta = Math.atan(-(ry * DIR[0]) / (rx * DIR[1]));
-  const qw = [Math.cos(ta), (ry / rx) * Math.sin(ta)];
-  return (per[dir] = { back: back.cv, front: front.cv, sil: sil.cv, drop, qw });
+  return (per[dir] = { back: back.cv, front: front.cv, sil: sil.cv, base, M, col });
 };
 const layBox = (ctx, cv, H, x, y, dir) => {
   const B = H.box;
@@ -158,6 +190,7 @@ export const hallRim = (ctx, H, x, y, dir, side, time) => {
 // the ground pass: last frame's halls, each its own shape, sheared down-right from its base line
 export const SHEAR = 0.75;      // shadow length per unit of height, x len (2.5 at sunset)
 export const SUN_SHEAR = SHEAR;
+const CH = (() => { const l = Math.hypot(0.3, 0.95); return [-0.3 / l, -0.95 / l]; })();   // the shadow's foot: up-left from the base's right side
 export const drawHallShadows = (ctx, len, a) => {
   const list = SUN.list;
   SUN.list = [];
@@ -167,13 +200,13 @@ export const drawHallShadows = (ctx, len, a) => {
   for (const q of list) {
     const s = bakeHallSun(q.H, q.dir < 0 ? -1 : 1), B = q.H.box;
     ctx.save();
-    ctx.translate(q.x, q.y + s.drop / 2);
+    ctx.translate(q.x + s.M[0], q.y + s.M[1]);
     // a point h above the base falls h*L along DIR; the tower's WIDTH lies across the light (QW, the
     // ground's perpendicular to DIR as the camera sees it), so the shadow is as wide as the tower
     // (owner: "make sure the shadows take the full width of the towers")
-    ctx.transform(s.qw[0], s.qw[1], -L * DIR[0], -L * DIR[1], 0, 0);
+    ctx.transform(s.col[0], s.col[1], -L * DIR[0], -L * DIR[1], 0, 0);
     if (q.dir < 0) ctx.scale(-1, 1);
-    ctx.drawImage(s.sil, -B.ox / 2, -(B.oy + s.drop) / 2, B.w / 2, B.h / 2);
+    ctx.drawImage(s.sil, -B.ox / 2, -s.base / 2, B.w / 2, B.h / 2);
     ctx.restore();
   }
   ctx.globalAlpha = pa;

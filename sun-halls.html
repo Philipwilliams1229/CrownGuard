@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  The setting sun on every hall form (render/sunset.js): one kind a sheet, its nine forms in a row, the top
+  row at sunset (u, default 0.35: the longest shadows, full amber), the bottom row under the moon (u 1).
+  Each cell runs the real code: the hall drawn once to note it, its shadow laid, the hall drawn again.
+  Saved to .shots/sunhall_<kind>[_<tag>].png.
+    /sun-halls.html?kind=archer&u=0.35&tag=x
+-->
+<html>
+  <head><meta charset="utf-8" /><title>sun halls</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import * as T from "/src/render/towers.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { sunCurves, sunFrame, drawHallShadows, SUN } from "/src/render/sunset.js";
+      const q = new URLSearchParams(location.search);
+      const KIND = q.get("kind") || "archer", TAG = q.get("tag"), U = Number(q.get("u") ?? 0.35);
+      selectRealm(q.get("realm") || "bellmarsh");
+      const P = {
+        archer: T.drawArcherTower, knight: T.drawGarrison, wizard: T.drawWizardSpire, support: T.drawSupportTower,
+        catapult: T.drawCatapult, spiker: T.drawBladewheel, goldworks: T.drawGoldworks, trapsmith: T.drawTrapsmith,
+        falconry: T.drawFalconry, gunpowder: T.drawGunpowder, riverwatch: T.drawRiverwatchHall, assassin: T.drawAssassin, sunforge: T.drawSunforge, band: T.drawBandTower,
+      };
+      const forms = [
+        { level: 1 }, { level: 2 }, { level: 3 },
+        { level: 3, branch: "a" }, { level: 3, branch: "a", rank4: "a" }, { level: 3, branch: "a", rank4: "b" },
+        { level: 3, branch: "b" }, { level: 3, branch: "b", rank4: "a" }, { level: 3, branch: "b", rank4: "b" },
+      ];
+      const CW = 190, CH = 140, R = 2;
+      const cv = document.createElement("canvas");
+      cv.width = CW * R * forms.length; cv.height = CH * R * 2;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      const scratch = document.createElement("canvas"); scratch.width = CW * R; scratch.height = CH * R;
+      const sctx = scratch.getContext("2d");
+      const ground = groundLayer();
+      forms.forEach((f, i) => [U, 1].forEach((u, row) => {
+        const time = 3.2 + i * 0.37 + row * 0.001;
+        const t = {
+          id: i + 3, kind: KIND, x: 55, y: CH * 0.62, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
+          cd: 0, aim: "first", lastAim: Math.PI, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [],
+          rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null,
+        };
+        const c = sunCurves(u);
+        try {
+          sunFrame(time, c); SUN.list = [];
+          sctx.setTransform(R, 0, 0, R, 0, 0); P[KIND](sctx, t, time);          // note it
+          ctx.save();
+          ctx.setTransform(R, 0, 0, R, i * CW * R, row * CH * R);
+          ctx.drawImage(ground, 200 * 2, 160 * 2, CW * 2, CH * 2, 0, 0, CW, CH);
+          drawHallShadows(ctx, c.len, c.shadow);
+          sunFrame(time, c);
+          P[KIND](ctx, t, time);
+          ctx.fillStyle = "#fff"; ctx.font = "8px monospace";
+          ctx.fillText(`${f.level}${f.branch || ""}${f.rank4 || ""} u${u}`, 3, 9);
+          ctx.restore();
+        } catch (e) { console.error(e); }
+      }));
+      const name = `sunhall_${KIND}${TAG ? "_" + TAG : ""}`;
+      fetch("/__shot?name=" + name, { method: "POST", body: cv.toDataURL("image/png").slice(22) })
+        .then(() => { window.__done = true; document.getElementById("status").textContent = "saved .shots/" + name + ".png"; });
+    </script>
+  </body>
+</html>
