@@ -218,7 +218,7 @@ export const restartWave = (g) => {
     if (td.paidTotal) t.paidTotal = td.paidTotal;
     return t;
   });
-  g.enemies = []; g.projectiles = []; g.effects = []; g.blastHits = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
+  g.enemies = []; g.projectiles = []; g.effects = []; g.blastHits = []; g.ghastHits = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   if (s.barricades) { g.barricades = s.barricades.map((r) => ({ ...r, segs: r.segs.map((sg) => ({ ...sg })) })); g._spikeKey = s.spikeKey; }

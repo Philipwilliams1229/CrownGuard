@@ -913,7 +913,15 @@ Bring these up with the owner; don't act on them unasked.
   B gas cloud, C bold blast ring, D swarm of flies. Weak: B's puffs read as balls, C's stain is flat
   noise, D's flies are 1-2 px at board size, the pool's hand-over jumps. Building any option needs
   the engine's pool (laid at the death, update.js `deathBurst`) held back or drawn under its stain.
-  Waiting on the owner's pick.
+  The owner picked **A's first half, no pool** (same day): IN THE GAME (brief
+  `art/briefs/ghast-burst-build.md`; rings.js `case "plagueburst"`, baked `gb*` frames shared by all
+  bursts): a lumpy swell on the body (220 ms), a white flash, gobbets thrown out in arcs that land
+  out to the rim, splats fading by 900 ms, nothing left on the road. The DAMAGE (owner): 75 once, no
+  pool or damage over time (was 26 + a 3.5 s pool of 12 a second); each soldier in 55 is struck as
+  the rot reaches him (`GHAST_SWELL` 220 + `GHAST_FLY` 300 x distance / reach, `g.ghastHits`,
+  update.js `runGhastHits`; cleared by a retried wave). `deathBurst` with `dps` would still lay a
+  pool. Measured `--chapter hollow --endure`, better doctrine, seeds 1/2: 9551 / 9199 -> 9824 /
+  10507 (the Dead Weir 994 -> 1676 on seed 2); all 15 held, none stuck. Pending the owner's playtest.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

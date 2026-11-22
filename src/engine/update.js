@@ -366,6 +366,37 @@ const runBlastHits = (g) => {
   g.blastHits = g.blastHits.filter((h) => h.at > now);
   for (const h of due) if (!h.e.dead && g.enemies.includes(h.e)) h.fn(h.e);
 };
+// the Plague Ghast's burst (owner, 2026-11-21): swell, split, the rot flies out; a soldier is
+// scalded when it reaches him (his distance over the reach of GHAST_FLY). rings.js "plagueburst"
+// reads the same numbers off the effect.
+const GHAST_SWELL = 220, GHAST_FLY = 300, GHAST_LIFE = 900;
+const runGhastHits = (g) => {
+  if (!g.ghastHits?.length) return;
+  const now = g.time * 1000, keep = [];
+  for (const h of g.ghastHits) {
+    if (h.at > now) { keep.push(h); continue; }
+    if (h.sound) { sfx.play("plague"); h.sound = false; }
+    h.done ||= new Set();
+    let left = false;
+    for (const t of unitHosts(g)) for (const u of t.units) {
+      if (u.state === "dead" || h.done.has(u)) continue;
+      const d = Math.hypot(u.x - h.x, u.y - h.y);
+      if (d > h.r) continue;
+      if (now < h.at + GHAST_FLY * (d / h.r)) { left = true; continue; }
+      h.done.add(u);
+      if (u.shield) {
+        u.shield = false; u.shieldCd = 6500;
+        g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
+      } else {
+        u.hp -= h.dmg;
+        g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 220 });
+      }
+      if (u.hp <= 0) killUnit(g, t, u);
+    }
+    if (left && now < h.at + GHAST_FLY) keep.push(h);
+  }
+  g.ghastHits = keep;
+};
 const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.2, LOG_STALL = 0.25;
 // the Powder Keg Run's log goes up where it stops, or as it leaves the field
 const logBlast = (g, lg, bx, by) => {
@@ -2501,23 +2532,13 @@ export function updateGame(g, dt) {
         g.reformed = (g.reformed || 0) + 1;
       }
       if (e.deathBurst) {
+        // (owner, 2026-11-21) the ghast swells, splits and throws its rot out (Round 7 A, the
+        // first half): one hard scald, no pool. Each soldier in reach is struck as the gobbets
+        // reach him: GHAST_SWELL ms of swelling, then GHAST_FLY ms to fly out to the rim.
         const b = e.deathBurst;
-        g.effects.push({ type: "plagueburst", x: e.x, y: e.y, ttl: 1400, life: 1400, r: b.r }); // owner: the bubbles pop slowly
-        sfx.play("plague");
-        g.grounds.push({ x: e.x, y: e.y, r: b.r * 0.8, dps: b.dps, until: tms + b.dur, kind: "plague" });
-        for (const t of unitHosts(g)) {
-          for (const u of t.units) {
-            if (u.state === "dead" || Math.hypot(u.x - e.x, u.y - e.y) > b.r) continue;
-            if (u.shield) {
-              u.shield = false; u.shieldCd = 6500;
-              g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
-            } else {
-              u.hp -= b.dmg;
-              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 220 });
-            }
-            if (u.hp <= 0) killUnit(g, t, u);
-          }
-        }
+        g.effects.push({ type: "plagueburst", x: e.x, y: e.y, face: e.face, ttl: GHAST_LIFE, life: GHAST_LIFE, r: b.r, swell: GHAST_SWELL, fly: GHAST_FLY });
+        (g.ghastHits ||= []).push({ at: tms + GHAST_SWELL, x: e.x, y: e.y, r: b.r, dmg: b.dmg, sound: true });
+        if (b.dps > 0) g.grounds.push({ x: e.x, y: e.y, r: b.r * 0.8, dps: b.dps, until: tms + b.dur, kind: "plague" });
       }
     }
     g.enemies = g.enemies.filter((e) => !e.dead);
@@ -3515,6 +3536,7 @@ export function updateGame(g, dt) {
     // wave of damage emanate from the centre"): picture, ring and white flash all
     // read the ttl, so one pace slows them together. Visual only: the damage lands at once.
     runBlastHits(g);
+    runGhastHits(g);
     for (const fx of g.effects) fx.ttl -= sdt * 1000 * (BLAST_PACE[fx.type] || 1);
     g.effects = g.effects.filter((fx) => fx.ttl > 0);
     // the storm's rain puts burning ground out faster (weather.js WX.burnOut)
