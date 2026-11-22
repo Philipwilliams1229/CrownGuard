@@ -85,16 +85,7 @@ and REPORT it; otherwise ask the lead in your report.
 
 ## STATUS (the lead keeps this current)
 
-ALL DONE (2026-11-22, night), committed locally, build passing, gw1 sim won. For the owner to look
-at: Free Play > Hero and Pace > "Time of day" on any board, or the campaign (each level's card names
-its hour). Preview pictures of every sun: `.shots/preview/`.
-- Built: the sun's core and plan (`data/sun.js`), sculpted light, cast shadows (halls, soldiers, foes),
-  the castle, scenery (mirrored lit side, silhouette shadows, spawn crag / camp / gate, bridges, hem
-  bushes, the apron and its trees' shadows onto the board), the hour's colour (board and apron), the
-  level card's hour, Free Play's chips, guides.
-- NOT DONE / weak (put to the owner): the lit side of the crag, Iron camp and bridges; rally flags,
-  banners, ballistae cast nothing; figures' amber edge is strong at sunrise / golden (daygrade.js
-  `dayKeyLights` k); tall halls' shadows cross the road at the lowest suns (dayshadows.js `P.shear`);
-  the ground layer rebuilds ~1 s on the Mac at a level's start under a sun (unmeasured on a phone);
-  a hurt castle's lost merlons still cast; nothing seen on a real device.
-- Pushed to main 2026-11-22 (owner: "Yes, push it live").
+The time of day itself is finished and live on main (2026-11-22). **The night's work continues in
+`art/briefs/scenery-water-upgrade.md` (the scenery and water upgrade the owner asked for next): read
+that brief and its STATUS section and carry on from there.** It is not "ALL DONE" until that brief's
+STATUS says so.
