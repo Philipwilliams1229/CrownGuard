@@ -101,7 +101,7 @@ function splitMass(M, n, seed) {
 function crown(P, M, T, seed, L) {
   const cl = T.leaf, mn = M.tier || M.casc ? Math.max(4, M.hw * 0.6) : Math.min(M.rx, M.ry), ebD = T.edge / mn;
   // leaf cells may be stretched and slanted (a willow's long narrow leaves hanging down): ly tall, shear slant
-  const ly = M.ly || 1, sh = M.shear || 0;
+  const ly = M.ly || 1, sh = M.shear || 0, sx = M.sx || 0;   // sx: the mass's sway offset (its leaves ride with it)
   const ctr = (ix, iy) => [(ix + 0.1 + 0.8 * h2(ix, iy, seed)) * cl, (iy + 0.1 + 0.8 * h2(iy, ix, seed + 7)) * cl];
   const [x0, y0, x1, y1] = bbox(M);
   const dot = (g) => g.nx * L[0] + g.ny * L[1] + g.nz * L[2];
@@ -109,19 +109,19 @@ function crown(P, M, T, seed, L) {
     const px = i + 0.5 - P.ox, py = j + 0.5 - P.oy, g = geom(M, px, py);
     if (g.d > 1 + ebD) continue;
     // the leaf cell this pixel sits in
-    const TX = px - sh * py, TY = py / ly, gx = Math.floor(TX / cl), gy = Math.floor(TY / cl);
+    const TX = (px - sx) - sh * py, TY = py / ly, gx = Math.floor(TX / cl), gy = Math.floor(TY / cl);
     let f1 = 1e9, f2 = 1e9, bx = 0, by = 0, cx = 0, cy = 0;
     for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
       const [qx, qy] = ctr(gx + a, gy + b), dd = Math.hypot(TX - qx, TY - qy);
-      if (dd < f1) { f2 = f1; f1 = dd; by = qy * ly; bx = qx + sh * by; cx = gx + a; cy = gy + b; } else if (dd < f2) f2 = dd;
+      if (dd < f1) { f2 = f1; f1 = dd; by = qy * ly; bx = qx + sx + sh * by; cx = gx + a; cy = gy + b; } else if (dd < f2) f2 = dd;
     }
     const gc = geom(M, bx, by), cellH = h2(cx, cy, seed + 3);
     // silhouette: whole leaf cells, so the edge is a fringe of leaves, never a fuzz of single pixels
     const edge = g.d > 1 - ebD;
     if (edge && !(gc.d < 1 + ebD * (0.15 + 0.7 * cellH) - ebD * 0.4 && f1 < cl * (0.5 + 0.2 * cellH))) continue;
     // bough gaps (dark: the under-crown shows) and sky holes (see-through) — big cells, lower crown / rim
-    const G = 6.5, hx = Math.floor(px / G), hy = Math.floor(py / G), hc = h2(hx, hy, seed + 21);
-    const hcx = (hx + 0.5) * G, hcy = (hy + 0.5) * G, hd = Math.hypot((px - hcx) / G, (py - hcy) / (G * 0.8));
+    const G = 6.5, hx = Math.floor((px - sx) / G), hy = Math.floor(py / G), hc = h2(hx, hy, seed + 21);
+    const hcx = (hx + 0.5) * G + sx, hcy = (hy + 0.5) * G, hd = Math.hypot((px - hcx) / G, (py - hcy) / (G * 0.8));
     if (!M.tier && !M.noGaps && T.gaps && g.v > 0.05 && g.d < 0.8 && hc < T.gaps && hd < 0.42) continue;
     if (!M.tier && !M.noGaps && T.sky && g.d > 0.62 && g.d < 0.92 && hc > 1 - T.sky && hd < 0.36) { P._sky = P._sky || []; P._sky.push([i, j]); continue; }
     let n = g, bias = M.bias || 0;
@@ -150,6 +150,7 @@ function crown(P, M, T, seed, L) {
     if (M.casc && g.v > 0.88) bias -= 1;   // a cascade's hem a tone down (the fall's shade comes from its normal)
     if (M.tier && py > M.hem - 3.5 && g.d < 1.2) bias -= (py > M.hem - 1.5 ? 2 : 1);   // each skirt's shaded hem: the tiers stay apart
     if (T.core && g.v > 0.25 && !M.tier && !M.casc) bias -= T.core * clamp((g.v - 0.25) * 2.4, 0, 1) * (g.d < 0.85 ? 1 : 0.5);
+    if (sx || P._sxm) (P._sxm ||= new Int8Array(P.w * P.h))[j * P.w + i] = sx;
     P._put(i, j, M.m, M.z + g.nz * 8, n.nx, n.ny, n.nz, { bias, edge: T.lobeEdge !== false }, (1 - g.d) * mn);
   }
 }
@@ -175,10 +176,10 @@ function sprite(w, h, foot, T, build, o = {}) {
     const d = R.data, ring = P._ring, lv = P._lv;
     for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) {
       const k = j * w + i;
-      if (!ring[k] || h2(i >> 1, j >> 1, 91) > T.broken) continue;
-      let lit = false;
-      for (const q of [k + 1, k + w, k - 1, k - w]) if (P.m[q] >= 0 && LEAFM.has(P.m[q]) && lv[q] >= 3 && !ring[q]) lit = true;
-      if (lit) d[k * 4 + 3] = 0;
+      if (!ring[k]) continue;
+      let lit = false, sq = 0;     // the drop pattern rides with the swaying mass beside it (no shimmer)
+      for (const q of [k + 1, k + w, k - 1, k - w]) if (P.m[q] >= 0 && LEAFM.has(P.m[q]) && lv[q] >= 3 && !ring[q]) { lit = true; sq = P._sxm ? P._sxm[q] : 0; }
+      if (lit && h2((i - sq) >> 1, j >> 1, 91) <= T.broken) d[k * 4 + 3] = 0;
     }
   }
   if (DAY.on && DAY.warm) { // the low sun's colour on the tree itself (the board's grade does the same to the figures)
@@ -192,9 +193,23 @@ function sprite(w, h, foot, T, build, o = {}) {
 const leafMat = (c, o) => { const m = mat(c, o); LEAFM.add(m); return m; };
 const sw = (s, f) => Math.round(s * Math.pow(clamp(f, 0, 1), 1.4));
 
+// ---- ROUND 4: SWAY for the animated loops (art/briefs/overhaul-animation.md) ----
+// A lab sets SWAY.at(i) = this frame's lean, in art px at the crown's top, of leaf mass (or pine tier, or willow
+// bunch) i, before it bakes a tree; null = still. Whole masses move by whole pixels and their leaf cells, gaps and
+// broken outline ride with them, so a sway never shimmers. Trunks and boughs never move. SWAY.t = the loop's clock
+// (seconds), for the willow's ripples. SWAY.log collects the offsets used (the lab counts distinct poses).
+export const SWAY = { at: null, t: null, log: null };
+const swayOf = (i, hf) => { if (!SWAY.at) return 0; const d = Math.round(SWAY.at(i) * Math.pow(clamp(hf, 0, 1), 1.3)); if (SWAY.log) SWAY.log.push(d); return d; };
+function swayMasses(masses) {
+  if (!SWAY.at) return masses;
+  const top = Math.max(1, ...masses.map((M) => -(M.y ?? M.hem ?? 0)));
+  return masses.map((M, i) => { const d = swayOf(i, -(M.y ?? 0) / top); M._dx = d; return d ? { ...M, x: M.x + d, sx: d } : M; });
+}
+
 // lay masses through a treatment: the dark under-crown first (where the gaps look into), then the lobes
 function leafMasses(P, masses, T, seed, under) {
   const L = sunL();
+  masses = swayMasses(masses);
   if (under) for (const M of masses) if (!M.tier && !M.noUnder) { P.part(); P.ellipse(M.x, M.y + M.ry * 0.25, M.rx * 0.78, M.ry * 0.6, under, M.z - 30, { fix: 0 }); }
   let i = 0;
   for (const M of masses) for (const L2 of splitMass(M, M.split ?? T.split, seed + i * 7)) { P.part(); crown(P, L2, T, seed * 13 + i * 31, L); i++; }
@@ -238,7 +253,9 @@ function twigMasses(P, masses, roots, bk, pal, seed, k, z = 42) {
     const L = Math.hypot(bx - ax, by - ay);
     for (let t = 0.1; t < 0.9; t += 1 / Math.max(2, L)) { const xx = ax + (bx - ax) * t, yy = ay + (by - ay) * t - r - 0.4; if (h2(Math.round(xx), Math.round(yy), seed + 9) < 0.7) P.dot(xx, yy, sn, zz + 5, { n: [0, -0.8, 0.6] }); }
   };
+  const topY = Math.max(1, ...masses.map((M) => -M.y));
   masses.forEach((M, mi) => {
+    const tdx = swayOf(mi, -M.y / topY);     // the loops' tremble: only the pale tips move, the limbs hold
     let best = roots[0], bd = 1e9;
     for (const r of roots) { const d = Math.hypot(r[0] - M.x, (r[1] - M.y) * 1.3); if (d < bd) { bd = d; best = r; } }
     // the hub sits LOW in the mass, toward its bough: the twigs fan UP and out from it (a crown, not a starburst)
@@ -251,9 +268,9 @@ function twigMasses(P, masses, roots, bk, pal, seed, k, z = 42) {
     const twig = (ax, ay, ex, ey, zt) => {     // a fine twig: dark inner two-thirds, a pale tip, a small side fork
       const qx = ax + (ex - ax) * 0.62, qy = ay + (ey - ay) * 0.62;
       P.line(ax, ay, qx, qy, twD, zt, { noLine: true, n: [-0.3, -0.5, 0.8] });
-      P.line(qx, qy, ex, ey, twT, zt, { noLine: true, n: [-0.4, -0.6, 0.7] });
+      P.line(qx, qy, ex + tdx, ey, twT, zt, { noLine: true, n: [-0.4, -0.6, 0.7] });
       const fa = Math.atan2(ey - ay, ex - ax) + (R() < 0.5 ? 0.55 : -0.55), fl = 2 + R() * 2;
-      P.line(qx, qy, qx + Math.cos(fa) * fl, qy + Math.sin(fa) * fl, twT, zt, { noLine: true, n: [-0.4, -0.6, 0.7] });
+      P.line(qx, qy, qx + Math.cos(fa) * fl + tdx, qy + Math.sin(fa) * fl, twT, zt, { noLine: true, n: [-0.4, -0.6, 0.7] });
     };
     for (let n = 0; n < N; n++) {
       const a = Math.PI * (0.88 + 1.24 * (n + 0.3 + R() * 0.4) / N);           // from lower-left over the top to lower-right
@@ -352,7 +369,8 @@ export const SP = {
       for (let i = 0; i < n; i++) {
         const f = i / (n - 1), hem = hem0 - tall * 0.78 * (i / n), hw = (32 - 22 * f) * k * (0.92 + h2(i, seed, 2) * 0.16);
         const top = i === n - 1 ? hem0 - tall : hem - hw * 1.25 - 6 * k;
-        const M = { tier: 1, x: sw(s, (-hem) / tall) + (h2(i, seed, 5) - 0.5) * 2 * k, top, hem, hw, m: i % 2 ? lf2 : lf, z: 40 + i * 6, bias: -Math.min(1, dk) };
+        const dxp = swayOf(i, (i + 1) / n);   // a pine's skirts lean in turn, the top most
+        const M = { tier: 1, x: sw(s, (-hem) / tall) + (h2(i, seed, 5) - 0.5) * 2 * k + dxp, sx: dxp, top, hem, hw, m: i % 2 ? lf2 : lf, z: 40 + i * 6, bias: -Math.min(1, dk) };
         P.part(); crown(P, M, T, seed * 7 + i, sunL());
         if (pal.snow) { // snow lies on each skirt's upper slope
           const sn = mat(pal.snow, { contrast: 0.5 });
@@ -372,7 +390,7 @@ export const SP = {
       { w: 86, h: 116, lean: 3, tr: 4.2, fork: -40, boughs: [[-20, -84, -28, -76], [2, -98, 2, -92], [22, -86, 30, -78]], hw: 9, hem: -14 },
       { w: 70, h: 72, lean: 2, tr: 2.6, fork: -22, boughs: [[-16, -50, -22, -44], [4, -58, 6, -52], [20, -48, 26, -42]], hw: 7, hem: -8 },
     ][form];
-    return sprite(Math.ceil((F.w + 24) * k), Math.ceil((F.h + 20) * k), 10, T, (P) => {
+    return sprite(Math.ceil((F.w + 24) * k), Math.ceil((F.h + 20) * k) + (o.wet ? 6 : 0), o.wet ? 16 : 10, T, (P) => {
       const bk = mat("#6a4e36"), col = pal.bare ? "#b08a40" : pal.willow, lf = leafMat(deep(col, dk)), lfB = leafMat(deep(col, 2), { contrast: 0.9 });
       const R = rng(seed * 5 + form), L = sunL();
       // trunk: a lean, a flared foot, a fork
@@ -398,6 +416,7 @@ export const SP = {
         const kit = flat("#efe2a0"), drop = mat("#e0b848");
         const RS = rng(seed * 7 + form);               // structure only (the sway never draws from it)
         ends.forEach(([ax, ay, ex, ey], i) => {
+          const si = SWAY.at ? SWAY.at(i) : s;         // each bunch swings on its own beat (loops)
           const n0 = Math.round(F.hw * (bare ? 0.85 : spring ? 2.2 : 3.1) * k);
           const ex0 = ex - sw(s, 0.6);                   // the arch's own end, without the bough's sway
           for (let m = 0; m < n0; m++) {
@@ -411,24 +430,33 @@ export const SP = {
             const lit = (x0 < fx + 4 * k) && !far;        // the sunward bunches are lit, the far ones darker
             let lastX = null, tipX = 0, tipY = 0;
             for (let q = 0; q < len; q++) {
-              const f = q / len, X = Math.round(x0 + out * f * 3 + Math.round(sw(s, f) * 0.8)), Y = Math.round(y0 + q);
+              const f = q / len, X = Math.round(x0 + out * f * 3 + Math.round(sw(si, f) * 0.8)), Y = Math.round(y0 + q);
               tipX = X; tipY = Y;
               if (bare) { P.dot(X, Y, wd[m % 3], z, { n: [m & 1 ? 0.5 : -0.5, 0.1, 0.85], noLine: f > 0.15 }); if (f < 0.5 && (q & 1)) P.dot(X + (m & 1 ? 1 : -1), Y, wd[2], z - 0.5, { n: [0, 0.3, 0.9], noLine: true }); continue; }
               P.dot(X, Y, far ? leafM[1] : core, z, { n: [-0.3, 0.2, 0.9], bias: far ? -2 : 0, noLine: true });
               // a leaf every other pixel, alternate sides, slanting down: 2 px, sometimes 3
               if ((((q + Math.floor(ph * 4)) & 1) === 0 || !far) && f > 0.03) {
-                if (autumn && h2(X, Y, seed) < 0.25) continue;      // autumn: some already fallen
-                if (spring && h2(X, Y, seed + 1) < 0.3) continue;   // spring: sparser, still opening
+                if (autumn && h2(m * 977 + i * 31, q, seed) < 0.25) continue;      // autumn: some already fallen
+                if (spring && h2(m * 977 + i * 31, q, seed + 1) < 0.3) continue;   // spring: sparser, still opening
                 const sd = (((q + Math.floor(ph * 4)) >> (far ? 1 : 0)) & 1) ? 1 : -1, lm = leafM[(m + q) % 2];
                 const b0 = (far ? -2 : 0) + (lit && f < 0.55 ? 1 : 0) + (f > 0.85 ? -1 : 0) - Math.min(1, dk);
                 P.dot(X + sd, Y, lm, z + 0.5, { n: [sd * 0.5, 0.2, 0.85], bias: b0, noLine: true });
                 P.dot(X + sd, Y + 1, lm, z + 0.5, { n: [sd * 0.5, 0.4, 0.8], bias: b0 - (sd > 0 ? 1 : 0), noLine: true });
-                if (h2(X, Y, seed + 2) < 0.3) P.dot(X + 2 * sd, Y + 2, lm, z + 0.4, { n: [sd * 0.6, 0.5, 0.6], bias: b0 - 1, noLine: true });
-                if (spring && h2(X, Y, seed + 3) < 0.12) P.dot(X - sd, Y + 1, kit, z + 1, { unlit: true });   // catkins
+                if (h2(m * 977 + i * 31, q, seed + 2) < 0.3) P.dot(X + 2 * sd, Y + 2, lm, z + 0.4, { n: [sd * 0.6, 0.5, 0.6], bias: b0 - 1, noLine: true });
+                if (spring && h2(m * 977 + i * 31, q, seed + 3) < 0.12) P.dot(X - sd, Y + 1, kit, z + 1, { unlit: true });   // catkins
               }
               lastX = X;
             }
-            if (wet) for (const [dx, dy] of [[-3, 1], [-2, 1], [2, 1], [3, 1], [-1, 2], [1, 2], [0, 2]]) P.dot(tipX + dx, tipY + dy, flat("#e4f2f4"), 10, { unlit: true });
+            if (wet && SWAY.t == null) for (const [dx, dy] of [[-3, 1], [-2, 1], [2, 1], [3, 1], [-1, 2], [1, 2], [0, 2]]) P.dot(tipX + dx, tipY + dy, flat("#e4f2f4"), 10, { unlit: true });
+            else if (wet) {
+              // the loop: the tip dips and a ring spreads from it every 2 s (each strand on its own beat), fading as it grows
+              const u = (SWAY.t / 2 + h2(m, i, seed + 40)) % 1, rr = 1.5 + u * 6, ry = rr * 0.42, pale = flat("#e4f2f4"), mid = flat("#b4d6e2");
+              P.dot(tipX, tipY + 1, pale, 10, { unlit: true });
+              if (u < 0.8) for (let a = 0; a < 6.283; a += 1 / rr) {
+                if (u > 0.45 && h2(Math.round(a * 10), m, i) < (u - 0.45) * 2.2) continue;   // the ring breaks up as it fades (fixed per angle)
+                P.dot(tipX + Math.cos(a) * rr, tipY + 1 + Math.sin(a) * ry, u < 0.4 ? pale : mid, 10, { unlit: true });
+              }
+            }
             void lastX;
           }
           // a few short leafy sprigs standing on the arch itself (so the crown's top is not a bare line)
@@ -508,7 +536,8 @@ export const SP = {
       const r = rng(seed * 101), N = Math.round(26 * (pal.hawBloom || 0) * (pal.hawBloom >= 1 ? 2.6 : 1));
       for (let n = 0; n < N; n++) {
         const a = -2.3 + (r() - 0.5) * (pal.hawBloom >= 1 ? 4.4 : 2.6), d = 0.45 + r() * 0.5, cx = Math.cos(a) * d * 38 * k, cy = -48 * k + Math.sin(a) * d * 22 * k;
-        for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 1]].slice(0, 2 + (n % 3))) P.dot(cx + dx, cy + dy, bl, 120, { n: [-0.4, -0.5, 0.75], wrap: true });
+        let nd = 1e9, ox = 0; for (const M of HM) { const dd = Math.hypot(M.x - cx, M.y - cy); if (dd < nd) { nd = dd; ox = M._dx || 0; } }
+        for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 1]].slice(0, 2 + (n % 3))) P.dot(cx + dx + ox, cy + dy, bl, 120, { n: [-0.4, -0.5, 0.75], wrap: true });
       }
     });
   },
@@ -763,3 +792,149 @@ export function fireflies(ctx, pts, seed) {
   ctx.restore();
 }
 void ugly;
+
+// ============ ROUND 4: THE ANIMATED LOOPS (art/briefs/overhaul-animation.md) ============
+// Every clock here is a whole fraction of the loop (LOOP.secs), so frame F-1 runs into frame 0.
+export const LOOP = { secs: 4, fps: 10, F: 40 };
+// a gust leans a crown downwind and lets it back: 0 -> 1 -> 0 over one period (never a back-and-forth jitter)
+export const lean = (ph) => 0.5 - 0.5 * Math.cos(2 * Math.PI * ph);
+const TAU = Math.PI * 2;
+
+// fireflies drifting on small closed loops and blinking slowly (on ~0.6-1.2 s, one dim frame either end)
+export function fireflyLoop(ctx, pts, seed, t) {
+  const r = rng(seed);
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  for (const [bx, by] of pts) {
+    const ax = 3 + r() * 6, ay = 2 + r() * 3, p1 = r(), p2 = r(), p3 = r(), per = r() < 0.5 ? 2 : 4, on = 0.28 + r() * 0.12, k0 = 0.6 + r() * 0.4;
+    const x = Math.round(bx + ax * Math.sin(TAU * (t / 4 + p1))), y = Math.round(by + ay * Math.sin(TAU * (t / 2 + p2)));
+    const b = (t / per + p3) % 1; if (b >= on) continue;
+    const k = (b < 0.07 || b > on - 0.07 ? 0.45 : 1) * k0;
+    ctx.fillStyle = `rgba(150,170,40,${0.26 * k})`; ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillRect(x - 1, y - 2, 3, 5);
+    ctx.fillStyle = `rgba(190,220,80,${0.6 * k})`; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3);
+    ctx.fillStyle = `rgba(250,255,170,${0.95 * k})`; ctx.fillRect(x, y, 1, 1);
+  }
+  ctx.restore();
+}
+
+// autumn: leaves leave a crown (x0, y0), fall with a side-to-side drift that dies as they near the ground, tumble
+// (broad, edge-on, flipped, half-turned, a turn every 0.2 s) and settle at (x1, y1). Each lands on its own TWIN, a
+// litter leaf laid in the ground beforehand (leafLitter), so the one that lands can go without a pop.
+const leafShape = (ctx, X, Y, turn, c) => {
+  // a leaf a little larger than life so it reads at board size: broad (4 x 2), edge-on (1 x 3), flipped (its dark
+  // underside up), half-turned
+  const dk = "#6a3420";
+  if (turn === 0) { ctx.fillStyle = c; ctx.fillRect(X, Y, 3, 1); ctx.fillRect(X + 1, Y + 1, 3, 1); ctx.fillStyle = dk; ctx.fillRect(X, Y + 1, 1, 1); ctx.fillRect(X + 1, Y + 2, 2, 1); }
+  else if (turn === 1) { ctx.fillStyle = c; ctx.fillRect(X + 1, Y, 1, 2); ctx.fillStyle = dk; ctx.fillRect(X + 1, Y + 2, 1, 1); }
+  else if (turn === 2) { ctx.fillStyle = dk; ctx.fillRect(X, Y, 3, 1); ctx.fillStyle = c; ctx.fillRect(X + 1, Y + 1, 3, 1); }
+  else { ctx.fillStyle = c; ctx.fillRect(X, Y, 2, 1); ctx.fillRect(X + 1, Y + 1, 2, 1); ctx.fillStyle = dk; ctx.fillRect(X + 2, Y + 2, 1, 1); }
+};
+export function leafLitter(ctx, L) { for (const l of L) leafShape(ctx, Math.round(l.x1), Math.round(l.y1), 0, l.col); }
+export function leafFall(ctx, L, t) {
+  for (const l of L) {
+    const u = (t / LOOP.secs + l.ph) % 1, FALL = 0.8;
+    if (u >= FALL) continue;                         // lying on its twin
+    const v = u / FALL, e = 0.55 * v * v + 0.45 * v;   // slow off the bough, a little faster near the ground
+    const x = l.x0 + (l.x1 - l.x0) * v + Math.sin(v * Math.PI * 3 + l.ph * 6) * 5 * (1 - v), y = l.y0 + (l.y1 - l.y0) * e;
+    const X = Math.round(x), Y = Math.round(y), turn = v > 0.97 ? 0 : (Math.floor(u * LOOP.F / 2) + l.n) % 4;
+    if (l.y1 - y > 3) { ctx.fillStyle = "rgba(36,24,30,0.22)"; ctx.fillRect(Math.round(x + (l.y1 - y) * 0.3), Math.round(l.y1) + 2, 2, 1); }
+    leafShape(ctx, X, Y, turn, l.col);
+  }
+}
+
+// winter: flakes falling slowly (12-22 art px a second), each living one loop: fading in and out in one dim step
+export function snowLoop(ctx, x0, y0, w, h, t, n, seed) {
+  const r = rng(seed);
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    const bx = x0 + r() * w, by = y0 + r() * h - 40, v = 12 + r() * 10, ph = r(), p2 = r(), big = r() < 0.25;
+    const u = (t / LOOP.secs + ph) % 1, y = Math.round(by + u * LOOP.secs * v), x = Math.round(bx + 1.6 * Math.sin(TAU * (u * 2 + p2)) + u * 6);
+    const al = u < 0.08 || u > 0.92 ? 0.45 : 1;
+    ctx.globalAlpha = 0.5 * al; ctx.fillStyle = "#6a7890"; ctx.fillRect(x + 1, y + 1, 1, big ? 2 : 1);   // a cool rim so a flake reads over snow
+    ctx.globalAlpha = 0.95 * al; ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, y, big ? 2 : 1, 1); if (big) ctx.fillRect(x, y + 1, 1, 1);
+  }
+  ctx.restore();
+}
+// once a loop a little snow slides off a bough (x, y canvas px) at t0: a clump falls (accelerating, a powder trail),
+// bursts on the ground `drop` px below and the burst fades out before the loop ends
+export function snowSlide(ctx, x, y, t, t0 = 1.2, drop = 30) {
+  const dt = t - t0; if (dt < 0) return;
+  ctx.save(); ctx.fillStyle = "#f6f9fc";
+  const FALL = 0.5;
+  if (dt < FALL) {
+    const yy = Math.round(y + drop * (dt / FALL) * (dt / FALL)), xx = Math.round(x + dt * 6);
+    ctx.fillStyle = "#8a98b0"; ctx.fillRect(xx, yy + 2, 4, 1); ctx.fillStyle = "#f6f9fc"; ctx.fillRect(xx, yy, 4, 2); ctx.fillRect(xx + 1, yy - 1, 2, 1);
+    ctx.globalAlpha = 0.5; for (let k = 1; k <= 3; k++) ctx.fillRect(Math.round(xx + 1 - k * 0.6), Math.round(yy - k * 3 - 1), 1, 1);   // powder trail
+  } else {
+    const d2 = dt - FALL, gy = y + drop;
+    ctx.globalAlpha = d2 < 0.6 ? 0.9 : d2 < 1.2 ? 0.55 : d2 < 1.8 ? 0.25 : 0;
+    if (ctx.globalAlpha) { ctx.fillRect(Math.round(x + 3), gy + 1, 4, 1); ctx.fillRect(Math.round(x + 4), gy, 2, 1); }
+    if (d2 < 0.5) for (const [a, s] of [[-2.6, 1], [-2, 0.8], [-1.1, 1], [-0.5, 0.7], [-0.2, 0.9], [-2.9, 0.6]]) {
+      ctx.globalAlpha = d2 < 0.25 ? 0.85 : 0.45;
+      ctx.fillRect(Math.round(x + 4 + Math.cos(a) * d2 * 22 * s), Math.round(gy + Math.sin(a) * d2 * 12 * s + d2 * d2 * 30), 1, 1);
+    }
+  }
+  ctx.restore();
+}
+
+// a butterfly in flight, at (x, y) canvas px: wings open / half / shut / half
+export function bfly(ctx, x, y, n) {
+  const X = Math.round(x), Y = Math.round(y), w = "#f4e488", wd = "#c8a848";
+  ctx.fillStyle = "#3a3030"; ctx.fillRect(X, Y, 1, 2);
+  const px = (dx, dy, c) => { ctx.fillStyle = c; ctx.fillRect(X + dx, Y + dy, 1, 1); };
+  if (n === 0) { for (const s of [-1, 1]) { px(s, -1, w); px(2 * s, -1, w); px(s, 0, w); px(2 * s, 1, wd); } }
+  else if (n === 1 || n === 3) { for (const s of [-1, 1]) { px(s, -1, w); px(s, 0, wd); } }
+  else { px(0, -1, w); px(0, -2, w); }
+}
+
+// the extra small-life parts the loops need: a robin without its twig (0 wings up, 1 down, 2 flare, 3 perched),
+// the twig alone, a bare trunk for the squirrel's cell
+export const LIFE2 = {
+  bird(flip = 1) {
+    return [0, 1, 2, 3].map((n) => mini(16, 12, 2, (P) => {
+      const br = mat("#8a6a4a"), red = mat("#e07a3a"), dk = flat("#2a2226"), f = flip, x = 0, y = -3.2;
+      P.part(); P.ellipse(x, y, 2.4, 1.8, br, 40); P.ellipse(x + 1 * f, y + 0.6, 1.2, 1.1, red, 41, { wrap: true }); P.dot(x + 2.4 * f, y - 0.4, dk, 42); P.dot(x - 2.6 * f, y + 0.4, br, 40);
+      P.part();
+      if (n === 0) { P.line(x - 1 * f, y - 1, x - 3 * f, y - 4, br, 45); P.line(x, y - 1, x + 1 * f, y - 4, br, 45); }
+      if (n === 1) { P.line(x - 1 * f, y, x - 4 * f, y + 2, br, 45); P.line(x, y, x + 1 * f, y + 2, br, 45); }
+      if (n === 2) { P.line(x - 1 * f, y - 1, x - 4 * f, y - 3, br, 45); P.line(x, y - 1, x + 2 * f, y - 3, br, 45); P.dot(x, y + 2, dk, 46); }
+      if (n === 3) { P.dot(x, y + 2, dk, 46); P.dot(x + 1 * f, y + 2, dk, 46); }
+    }));
+  },
+  twig() { return mini(30, 12, 4, (P) => { const tw = mat("#6e4a30"); P.part(); P.limb([[-14, -2], [0, -3], [13, -1]], [1.2, 1, 0.6], tw, 20); P.limb([[5, -3], [9, -7]], [0.6, 0.4], tw, 20); }); },
+  trunk() { return mini(18, 60, 2, (P) => { const bk = mat("#6e4a30"); P.part(); P.limb([[0, 0], [0, -58]], [6, 5.5], bk, 10); for (const s of [-1, 1]) P.toneLine(s * 2, -2, s * 2, -56, -1); }); },
+};
+
+// each creature's 4-second routine, frame f of 40 (10 a second): which of its frames, and where (art px)
+export const ROUTINE = {
+  // graze (head down, chewing every 0.4 s), lift the head and look, an ear flick, back down
+  deer: (f) => ({ n: f < 16 ? ((f >> 2) & 1) : f < 28 ? 2 : f < 31 ? 3 : f < 34 ? 2 : 0 }),
+  // sit, an ear turned, two hops right, sit, turn, two hops back (the turn round is the loop's seam)
+  rabbit: (f) => {
+    if (f < 18) return { n: f >= 10 && f < 16 ? 1 : 0, dx: 0, flip: 1 };
+    if (f < 22) return { n: f < 20 ? 2 : 3, dx: f < 20 ? 3 : 5, flip: 1 };
+    if (f < 24) return { n: f < 23 ? 2 : 3, dx: f < 23 ? 8 : 10, flip: 1 };
+    if (f < 30) return { n: 0, dx: 10, flip: 1 };
+    if (f < 34) return { n: f < 32 ? 2 : 3, dx: f < 32 ? 7 : 5, flip: -1 };
+    if (f < 36) return { n: f < 35 ? 2 : 3, dx: f < 35 ? 2 : 0, flip: -1 };
+    return { n: 0, dx: 0, flip: -1 };
+  },
+  // trots in, sits and looks about, trots on out (it is off its cell at the seam)
+  fox: (f) => (f < 12 ? { n: f % 3, dx: -34 + f * 5.3 } : f < 22 ? { n: 3, dx: 30 } : { n: f % 3, dx: 30 + (f - 21) * 4.8 }),
+  // eyes open, a blink, the head turned, a shuffle on the bough
+  owl: (f) => ({ n: f === 14 || f === 15 ? 1 : f >= 20 && f < 32 ? 2 : f === 36 || f === 37 ? 3 : 0 }),
+  // climbs (stretch, tuck) 12 px, pauses with the tail up, looks round, slips round the back of the trunk
+  squirrel: (f) => (f < 16 ? { n: (f >> 1) & 1, dy: -4 * (f >> 2) } : f < 26 ? { n: 2, dy: -12 } : f < 32 ? { n: 3, dy: -12 } : null),
+  // a robin flies in from the right, flares, perches, then flies off left (off its branch at the seam)
+  bird: (f) => {
+    const ease = (u) => u * u * (3 - 2 * u);
+    if (f < 4 || f > 37) return null;
+    if (f < 12) { const u = ease((f - 4) / 8); return { n: f & 1, x: 56 * (1 - u), y: -34 * (1 - u) - 4 * Math.sin(u * Math.PI) }; }
+    if (f < 14) return { n: 2, x: 0, y: -1 };
+    if (f < 28) return { n: 3, x: 0, y: 0, hop: f >= 20 && f < 22 };
+    if (f < 30) return { n: 2, x: -1, y: -2 };
+    const u = (f - 29) / 8; return { n: f & 1, x: -60 * u * u - 4 * u, y: -40 * u };
+  },
+  // the butterfly's flight over its flowers: a closed loop (4 s across, 2 s up and down), wings every 0.1 s
+  bfly: (f, ph = 0) => { const t = f / LOOP.fps; return { n: f % 4, dx: Math.round(13 * Math.sin(TAU * (t / 4 + ph))), dy: Math.round(-9 - 5 * Math.sin(TAU * (t / 2 + ph * 2))) }; },
+};

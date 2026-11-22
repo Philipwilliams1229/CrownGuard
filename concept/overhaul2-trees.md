@@ -150,3 +150,38 @@ Weak: each winter mass still reads a little as its own fan (a "pom-pom" crown) o
 tan, with no sun-side / shade-side value; the winter willow is much barer than its summer self (the strand willow's
 agreed winter, but it is the one tree whose silhouette changes); the willow's bough ends still poke above the strands
 as dark knobs; a few green flecks remain at the edge of the boxes; the dusk's western glow is subtle at board size.
+
+## ROUND 4: ANIMATED LOOPS (2026-11-22, art/briefs/overhaul-animation.md)
+Lab: `overhaul2-trees.html?anim=<name>` (or `?mode=wildlife`), run through `?mode=idle` + `queue([...])`. Every loop is 4 s at
+10 fps (40 frames, sheets 5 x 8; wildlife 4 x 10), a crop of the real board at 2 px a board unit (1 px an art px), no wave
+running (nothing on the road), the board's own animation (water, flags, mill wheel, hall crews) held still: only the trees, the
+creatures and the effects move. Sheets `.shots/ovh3_anim_<name>_c5r8_fps10.png` + `_still.png`.
+How the sway works (painter `SWAY`): the lab sets `SWAY.at(i)` = the lean of mass i before baking a tree; `leafMasses` shifts
+each mass by a whole pixel offset (`round(lean x height^1.3)`, so low masses move less, the trunk and boughs never), and the
+leaf cells, bough gaps, sky holes and the broken outline are computed RELATIVE to the mass (`M.sx`, `P._sxm`), so a moved mass
+is the same picture moved, never a re-rolled texture (shimmer check: 0 pixels on every tree loop). Pine skirts lean in turn;
+willow strands swing per bunch (whole strands, leaf choices keyed to the strand, not the pixel grid); winter twigs move only their
+pale tips. The gust: lean = 0.5 - 0.5 cos(2 pi (t/4 - x/160 - 0.07 i)): trees lean downwind and come back, a wave crossing left
+to right at 40 units/s (neighbours a beat apart), each mass a beat behind the one before.
+- trees_meadow: birch grove, hawthorn, oak, round oak, pine; crowns lean up to 2 px (pine 1.5); a robin flies in, flares,
+  perches on the hawthorn ~1.4 s and flies off; two butterflies on closed loops; a rabbit sits, turns an ear, hops and back.
+- willow_water: the strand willow by Thornbrook's river; strand tips swing up to ~2 px on their own beats; the trailing strands
+  dip and send a ring every 2 s (each strand its own phase) that spreads 1.5 -> 7.5 px and breaks up as it fades.
+- wood_edge_day: treatment 4 wood, front row only sways (lean 1.4 px), deep rows still; two deer graze / chew / look up / ear
+  flick (half a loop apart); a squirrel climbs a front trunk, pauses tail up, looks, slips round the back; a rabbit.
+- wood_edge_dusk: the same at dusk; ~70 fireflies drift on 2-4 s closed loops and blink (on 0.6-1.2 s, one dim frame each end);
+  the owl blinks, turns its head, shuffles; the hall's torch flickers (nightlight.js FLICK, 12 steps a second: 48 a loop, seamless).
+- autumn_leaves: the meadow in autumn; ~45 leaves leave the broadleaves (none from the pine), fall over 3.2 s with a dying
+  side-to-side drift and a tumble every 0.2 s, land on a TWIN laid in the litter (so the landed one can go without a pop).
+- winter: the meadow in winter; crowns lean a quarter as far (only twig tips tremble, the pine's skirts 1 px); ~150 flakes at
+  12-22 px/s, each fading in and out over one loop; at 1.2 s a clump slides off the pine's skirt, falls and bursts in powder.
+- wildlife: deer, rabbit, robin (on a twig), butterfly, squirrel, owl (dusk cell), fox (trots in, sits, trots off) at 4x.
+Game cost: sway = pre-baked poses per tree: the meadow's trees need 6-17 distinct poses each over a loop (pine 3-6, winter
+fewer), ~4-7 ms a bake, 60-90 KB a pose canvas, so ~1 MB per swaying tree kind; bake lazily, a few a frame, and play them by the
+same lean clock (blit only). Only lone trees and the wood's front row sway. Creatures: 4-frame strips (as today's LIFE) on
+timelines, ~0.05 ms. Fireflies ~70 additive 5x5 stamps (~0.1 ms); falling leaves 2-6 rects each; snow 150 rects.
+Faked for the loop: the water, mill wheel, flags and crews are frozen; the snow slide does not take snow off the bough; the
+autumn twins are drawn into the litter; the bird and fox enter and leave inside the loop.
+Weak: falling leaves are small at board size (they read in motion, barely in a still); snowflakes are faint over the snow
+(a cool rim helps a little); the willow's sway is subtle; the owl's squirrel's and robin's routines are short and identical every
+loop; the dusk tint hides the deer.

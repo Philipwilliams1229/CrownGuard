@@ -27,11 +27,17 @@
       import { DECOR, FOREST, forestDepthAt, inRiver } from "/src/data/terrain.js";
       import { PATH_HALF } from "/src/data/constants.js";
       import { layShadows } from "/concept/overhaul-trees.js";
-      import { SP, TREAT, PAL, REACH, LIFE, LIFE_STRIP, rng, h2, standRing, fallingLeaves, fireflies, mixT, duskShade } from "/concept/overhaul2-trees.js";
+      import { SP, TREAT, PAL, REACH, LIFE, LIFE_STRIP, rng, h2, standRing, fallingLeaves, fireflies, mixT, duskShade,
+        SWAY, LOOP, lean, fireflyLoop, leafFall, leafLitter, snowLoop, snowSlide, bfly, LIFE2, ROUTINE } from "/concept/overhaul2-trees.js";
       import { nightTick, clearLamps, swapLamps, drawLampPools, drawLampBloom } from "/src/render/nightlight.js";
       const q = new URLSearchParams(location.search), DT = 1 / 60;
-      const MODE = q.get("mode") || "board", SCENE = q.get("scene") || "1", OPTN = q.get("opt") || "today";
-      const SEASON = q.get("season") || "summer", SUN = q.get("sun") || "noon";
+      // ROUND 4, the animated loops: ?anim=<name> (art/briefs/overhaul-animation.md) -> .shots/ovh3_anim_<name>_c5r8_fps10.png
+      //   trees_meadow | willow_water | wood_edge_day | wood_edge_dusk | autumn_leaves | winter;  ?mode=wildlife for the creatures' sheet
+      const ANIMS = { trees_meadow: ["m", "summer", "noon"], willow_water: ["w", "summer", "noon"], wood_edge_day: ["e", "summer", "noon"],
+                      wood_edge_dusk: ["e", "summer", "dusk"], autumn_leaves: ["m", "autumn", "noon"], winter: ["m", "winter", "noon"] };
+      const ANIM = ANIMS[q.get("anim")] ? q.get("anim") : null, AN = ANIM ? ANIMS[ANIM] : null;
+      const MODE = q.get("mode") || "board", SCENE = AN ? AN[0] : q.get("scene") || "1", OPTN = AN ? "mix" : q.get("opt") || "today";
+      const SEASON = AN ? AN[1] : q.get("season") || "summer", SUN = AN ? AN[2] : q.get("sun") || "noon";
       // smooth value noise (bilinear, smoothstepped) for the snow cover
       const vnoise = (x, y, sd) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
         const a = h2(xi, yi, sd), b = h2(xi + 1, yi, sd), c = h2(xi, yi + 1, sd), d = h2(xi + 1, yi + 1, sd); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
@@ -149,6 +155,36 @@
         throw new Error("done");
       }
 
+      // ---------------- round 4: the creatures' loops at 4x on plain grass (one sheet) ----------------
+      if (MODE === "wildlife") {
+        const Z = 4, CW = 52, CH = 44, FW = 4 * CW * Z, FH = 2 * CH * Z, NF = LOOP.F, COLS = 4, ROWS = NF / COLS;
+        const sheet = document.createElement("canvas"); sheet.width = FW * COLS; sheet.height = FH * ROWS; const shx = sheet.getContext("2d"); shx.imageSmoothingEnabled = false;
+        const fc = document.createElement("canvas"); fc.width = 4 * CW; fc.height = 2 * CH; const fx = fc.getContext("2d");
+        const deer = LIFE.deer(1), rab = { 1: LIFE.rabbit(1), "-1": LIFE.rabbit(-1) }, fox = LIFE.fox(1), owl = LIFE.owl(), sq = LIFE.squirrel(2), bird = LIFE2.bird(-1), twig = LIFE2.twig(), trunk = LIFE2.trunk();
+        const grass = (x, y, w, h, dark) => { fx.fillStyle = dark ? "#2c3a2e" : "#6aa83e"; fx.fillRect(x, y, w, h); for (let n = 0; n < w * h / 30; n++) { fx.fillStyle = dark ? "#34442f" : ["#62a03a", "#72b044", "#5e9a38"][n % 3]; fx.fillRect(x + ((h2(n, x, 3) * w) | 0), y + ((h2(n, y + 1, 3) * h) | 0), 2, 1); } };
+        const put = (sp, X, Y) => fx.drawImage(sp.cv, Math.round(X - sp.ax), Math.round(Y - sp.ay));
+        const cell = (cx, cy, w, fn) => { fx.save(); fx.beginPath(); fx.rect(cx * CW, cy * CH, w * CW, CH); fx.clip(); fn(); fx.restore(); };
+        for (let f = 0; f < NF; f++) {
+          fx.clearRect(0, 0, fc.width, fc.height);
+          // row 1: deer, rabbit, robin, butterfly;  row 2: squirrel, owl (dusk), fox (two cells); each cell clipped
+          cell(0, 0, 1, () => { grass(0, 0, CW, CH); put(deer[ROUTINE.deer(f).n], 26, 38); });
+          cell(1, 0, 1, () => { grass(CW, 0, CW, CH); const R = ROUTINE.rabbit(f); put(rab[R.flip][R.n], CW + 20 + R.dx, 34); });
+          cell(2, 0, 1, () => { grass(2 * CW, 0, CW, CH); put(twig, 2 * CW + 26, 36); const R = ROUTINE.bird(f); if (R) put(bird[R.n], 2 * CW + 28 + R.x * 0.5, 33 + R.y * 0.5 - (R.hop ? 1 : 0)); });
+          cell(3, 0, 1, () => { grass(3 * CW, 0, CW, CH); for (const [x, y, c] of [[-3, 0, "#f0c8d8"], [-2, 0, "#f0c8d8"], [2, 1, "#f4d860"], [5, -1, "#f2eee0"], [-6, 1, "#f4d860"]]) { fx.fillStyle = "#4e7a32"; fx.fillRect(3 * CW + 26 + x, 37 + y, 1, 3); fx.fillStyle = c; fx.fillRect(3 * CW + 26 + x, 36 + y, 1, 1); }
+            const R = ROUTINE.bfly(f, 0); bfly(fx, 3 * CW + 26 + R.dx, 36 + R.dy, R.n); });
+          cell(0, 1, 1, () => { grass(0, CH, CW, CH); put(trunk, 26, 2 * CH + 14); const R = ROUTINE.squirrel(f); if (R) put(sq[R.n], 31, 2 * CH + 5 + R.dy); });
+          cell(1, 1, 1, () => { grass(CW, CH, CW, CH, true); put(owl[ROUTINE.owl(f).n], CW + 26, 2 * CH - 8); });
+          cell(2, 1, 2, () => { grass(2 * CW, CH, 2 * CW, CH); const R = ROUTINE.fox(f); put(fox[R.n], 2 * CW + 18 + R.dx * 1.1, 2 * CH - 8); });
+          fx.fillStyle = "#20242c"; for (let c = 1; c < 4; c++) if (c !== 3) fx.fillRect(c * CW, CH, 1, CH); for (let c = 1; c < 4; c++) fx.fillRect(c * CW, 0, 1, CH); fx.fillRect(0, CH, 4 * CW, 1);
+          const X = (f % COLS) * FW, Y = Math.floor(f / COLS) * FH;
+          shx.drawImage(fc, X, Y, FW, FH);
+          if (f === 0) { const st = document.createElement("canvas"); st.width = FW; st.height = FH; const sx = st.getContext("2d"); sx.imageSmoothingEnabled = false; sx.drawImage(fc, 0, 0, FW, FH); await fetch("/__shot?name=ovh3_anim_wildlife_still", { method: "POST", body: st.toDataURL("image/png").slice(22) }); }
+        }
+        document.body.appendChild(sheet);
+        await save(`ovh3_anim_wildlife_c${COLS}r${ROWS}_fps${LOOP.fps}`, sheet);
+        throw new Error("done");
+      }
+
       // ---------------- round 3 sheets ----------------
       // mixsheet: the same six trees in treatment 3 and 4 side by side (3x, a board-size copy in each cell's corner)
       // wsheet:   six trees, summer above and winter below, same seed / size / anchor (2x)
@@ -216,6 +252,15 @@
              life: [["rabbit", 284, 432, 1], ["rabbit", 268, 440, -1], ["fox", 318, 420, -1], ["butterfly", 360, 280, 1], ["butterfly", 590, 350, 1], ["songbird", 604, 316, 1], ["deer", 552, 362, -1]],
              flies: [[256, 320], [462, 420], [563, 210], [300, 250], [600, 320], [330, 380]] },
       };
+      // the loops' crops (board units, ~260 x 170, drawn at 2 px a unit). sway: a front tree's lean at its crown top, art px
+      S.m = { realm: "thornbrook", crop: [452, 0, 260, 170], at: 0, towers: [["archer", 470, 95, 3]],
+              lone: [["birches", 532, 90, 0.85], ["hawthorn", 620, 58, 0.8], ["oak", 566, 126, 0.85], ["roundoak", 648, 112, 0.75], ["pine", 694, 140, 0.9]],
+              bush: [[612, 126]], anim: { sway: 2.2, bird: "hawthorn", bfly: [[594, 82, 0], [508, 120, 0.4]], rabbit: [[682, 98]], slide: "pine" } };
+      S.w = { realm: "thornbrook", crop: [350, 148, 206, 136], at: 0, towers: [],
+              lone: [["willow", 450, 216, 1.15], ["birches", 384, 262, 0.75]], bush: [[468, 168]], anim: { sway: 2.6 } };
+      S.e = { realm: "thornbrook", crop: [22, 236, 258, 170], at: 0, towers: [["archer", 230, 345, 2]],
+              lone: [], bush: [[215, 410]], keep: [[62, 428, 92, 46]], anim: { sway: 1.4, front: true, deer: [[128, 262, 1], [150, 270, -1]], rabbit: [[146, 300]], squirrel: [68, 300],
+              owl: [72, 292], flies: [[80, 300], [110, 330], [140, 290], [60, 350], [170, 320], [120, 380], [200, 300], [45, 290], [95, 270], [160, 262]] } };
       const sc = S[SCENE];
       if (MODE === "full") sc.crop = [0, 0, 840, 560];
       setDay(SUN === "golden" ? "golden" : "noon");
@@ -240,8 +285,10 @@
         t.readyAt = 0; t.raised = null;
       }
       for (let i = 0; i < 30; i++) updateGame(g, DT);
-      startWave(g);
-      for (let el = 0; el < sc.at; el += DT) { updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+      if (!ANIM) {   // the loops show no wave: everything that moves must loop
+        startWave(g);
+        for (let el = 0; el < sc.at; el += DT) { updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+      }
       const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
       const pnow = performance.now.bind(performance), T0 = pnow(), dnow = Date.now, D0 = dnow();
       performance.now = () => T0; Date.now = () => D0;      // hold the wind still, so the ground-only draw matches
@@ -361,7 +408,7 @@
           let o = {};
           if (it.sp === "willow") { const wet = inRiver(it.x - 26, it.y, 2) ? -1 : inRiver(it.x + 26, it.y, 2) ? 1 : 0; o = { wet, form: wet ? 0 : it.seed % 2 ? 1 : 2 }; }
           it.T = OPTN === "mix" ? mixT(it.seed) : T;
-          it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, it.T, o);
+          it.o = o; it.spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, it.T, o);
         }
         for (const it of items) if (it.lone && it.sp !== "bush") standRing(ctx, it.x * 2, it.y * 2 + 2, (REACH[it.sp] || REACH.oak)[1] * 2 * it.k * (it.sp === "pine" ? 1.15 : 0.95), it.seed * 7, SEASON, it.sp === "pine");
         // wood floor in spring: bluebells drifting along the hem
@@ -371,7 +418,7 @@
       }
       // small life (never on the road)
       const lifeItems = [];
-      for (const [nm, x, y, fl] of OPTN === "today" ? [] : sc.life || []) {
+      for (const [nm, x, y, fl] of OPTN === "today" || ANIM ? [] : sc.life || []) {
         if (nearestOnPath(x, y).d < PATH_HALF + 10) { LOG.push("life off road: " + nm); continue; }
         if (nm === "owl" && SUN !== "dusk") continue;
         if ((nm === "butterfly") && (SEASON === "winter" || SUN === "dusk")) continue;
@@ -379,6 +426,7 @@
       }
       // shadows (one mask), then everything back to front
       const all = [...items, ...lifeItems];
+      if (ANIM) { await animate(); throw new Error("done"); }
       if (OPTN !== "today") layShadows(ctx, all.filter((it) => !it.life).map((it) => ({ sp: it.spr, px: Math.round(it.x * 2), py: Math.round(it.y * 2) })), 1680, 1120, 0.12);
       all.sort((a, b) => a.y - b.y);
       for (const it of all) ctx.drawImage(it.spr.cv, Math.round(it.x * 2 - it.spr.ax), Math.round((it.y - (it.oy || 0)) * 2 - it.spr.ay));
@@ -394,6 +442,89 @@
         const pts = []; const r = rng(31);
         for (const [x, y] of sc.flies) for (let n = 0; n < 6; n++) pts.push([(x + (r() - 0.5) * 40) * 2, (y + (r() - 0.5) * 22 - 6) * 2]);
         fireflies(ctx, pts, 5);
+      }
+      // ---------- ROUND 4: the loop ----------
+      async function animate() {
+        const A = sc.anim, [x0, y0, w0, h0] = sc.crop, FW = w0 * 2, FH = h0 * 2, NF = LOOP.F, COLS = 5, ROWS = NF / COLS;
+        layShadows(ctx, items.map((it) => ({ sp: it.spr, px: Math.round(it.x * 2), py: Math.round(it.y * 2) })), 1680, 1120, 0.12);
+        const inCrop = (it) => it.x > x0 - 70 && it.x < x0 + w0 + 70 && it.y > y0 - 10 && it.y < y0 + h0 + 150;
+        const live = items.filter(inCrop);
+        // who sways: lone trees and the wood's front row (the deep rows stand still); bushes and ferns hold
+        for (const it of live) { it.sways = it.sp !== "bush" && it.sp !== "fern" && (it.lone || (A.front && it.dk === 0)); it.ph = h2(it.seed, 3, 9) * 0.12; it.poses = new Set(); }
+        const byName = (nm) => live.find((it) => it.sp === nm && it.lone);
+        // autumn: leaves off the broadleaves, each settling on a twin laid in the litter now
+        const leaves = [];
+        if (SEASON === "autumn") {
+          const r = rng(12), cols = ["#ff8a30", "#ffd448", "#e8502c", "#fff070"];
+          for (const it of live) if (it.lone && it.sp !== "pine" && it.sp !== "bush") {
+            const n = it.sp === "hawthorn" ? 5 : 11, R = (REACH[it.sp] || REACH.oak)[1] * it.k * 2;
+            for (let i = 0; i < n; i++) {
+              const sx = it.x * 2 + (r() - 0.5) * R * 1.4, sy = it.y * 2 - (REACH[it.sp] || REACH.oak)[0] * it.k * 2 * (0.7 + r() * 0.5);
+              const lx = sx + (r() - 0.2) * 34, ly = it.y * 2 + (r() - 0.3) * 26;
+              if (nearestOnPath(lx / 2, ly / 2).d < PATH_HALF - 4) continue;
+              leaves.push({ x0: sx, y0: sy, x1: lx, y1: ly, ph: (i / n + r() * 0.12) % 1, n: i, col: cols[(i + it.seed) % 4] });
+            }
+          }
+          leafLitter(ctx, leaves);
+        }
+        const base = ctx.getImageData(x0 * 2, y0 * 2, FW, FH);
+        const fc = document.createElement("canvas"); fc.width = FW; fc.height = FH; const fx = fc.getContext("2d"); fx.imageSmoothingEnabled = false;
+        const sheet = document.createElement("canvas"); sheet.width = FW * COLS; sheet.height = FH * ROWS; const shx = sheet.getContext("2d");
+        const scratch = document.createElement("canvas"); scratch.width = 1680; scratch.height = 1120;
+        const LF = {}; const lifeF = (nm, fl) => (LF[nm + fl] ||= (LIFE2[nm] || LIFE[nm])(fl));
+        const wood = (x, y) => live.filter((it) => it.dk === 0 && /oak|beech/.test(it.sp)).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+        const sq = A.squirrel ? wood(...A.squirrel) : null;
+        LOG.push("willows " + live.filter((it) => it.sp === "willow").map((it) => `${Math.round(it.x)},${Math.round(it.y)} wet ${it.o && it.o.wet}`).join(" "));
+        const bake = { n: 0, ms: 0 };
+        for (let f = 0; f < NF; f++) {
+          const t = f / LOOP.fps;
+          fx.setTransform(1, 0, 0, 1, 0, 0); fx.putImageData(base, 0, 0); fx.setTransform(1, 0, 0, 1, -x0 * 2, -y0 * 2);
+          const draws = [];
+          for (const it of live) {
+            let spr = it.spr;
+            if (it.sways) {
+              // the gust crosses the scene left to right (one wave every 160 units: neighbours lean a beat apart);
+              // each mass of a crown on its own small delay
+              SWAY.at = (i) => A.sway * (SEASON === "winter" ? 0.55 : 1) * (it.sp === "pine" ? 0.7 : 1) * (it.dk ? 0.8 : 1) * lean(t / LOOP.secs - it.x / 160 - it.ph - 0.07 * i);
+              SWAY.t = t; SWAY.log = []; const T0 = performance.now();
+              spr = SP[it.sp](pal, it.k, 0, it.dk, it.seed, it.T, it.o || {});
+              bake.ms += performance.now() - T0; bake.n++;
+              it.poses.add(SWAY.log.join(",")); SWAY.at = null; SWAY.t = null; SWAY.log = null;
+            }
+            draws.push({ y: it.y, cv: spr.cv, x: Math.round(it.x * 2 - spr.ax), yy: Math.round(it.y * 2 - spr.ay) });
+          }
+          const put = (y, sp, X, Y) => draws.push({ y, cv: sp.cv, x: Math.round(X - sp.ax), yy: Math.round(Y - sp.ay) });
+          for (const [x, y, fl] of A.deer || []) put(y, lifeF("deer", fl)[ROUTINE.deer((f + (fl > 0 ? 0 : 17)) % NF).n], x * 2, y * 2);
+          for (const [x, y] of A.rabbit || []) { const R = ROUTINE.rabbit(f); put(y, lifeF("rabbit", R.flip)[R.n], x * 2 + R.dx, y * 2); }
+          if (sq && SUN !== "dusk") { const R = ROUTINE.squirrel(f); if (R) put(999, lifeF("squirrel", 2)[R.n], sq.x * 2 + 5, sq.y * 2 - 4 + R.dy); }
+          if (A.owl && SUN === "dusk") put(A.owl[1] + 400, lifeF("owl", 1)[ROUTINE.owl(f).n], A.owl[0] * 2, A.owl[1] * 2);
+          if (A.bird && SUN !== "dusk" && SEASON !== "winter") { const h = byName(A.bird), R = ROUTINE.bird(f); if (h && R) put(400, lifeF("bird", -1)[R.n], h.x * 2 + 6 + R.x, h.y * 2 - 66 * h.k + R.y - (R.hop ? 1 : 0)); }
+          draws.sort((a, b) => a.y - b.y);
+          for (const d of draws) fx.drawImage(d.cv, d.x, d.yy);
+          if (SUN !== "dusk" && SEASON !== "winter") for (const [x, y, ph] of A.bfly || []) { const R = ROUTINE.bfly(f, ph); bfly(fx, x * 2 + R.dx, y * 2 + R.dy, R.n); }
+          if (leaves.length) leafFall(fx, leaves, t);
+          if (SEASON === "winter") {
+            const p = A.slide && byName(A.slide); if (p) snowSlide(fx, p.x * 2 + 10 * p.k, p.y * 2 - 44 * p.k, t, 1.2, Math.round(42 * p.k));
+            snowLoop(fx, x0 * 2, y0 * 2, FW, FH, t, 150, 5);
+          }
+          if (SUN === "dusk") {
+            fx.setTransform(1, 0, 0, 1, 0, 0); duskShade(fx, 0, FW);
+            clearLamps(); nightTick(g.time); draw(g, scratch, { current: null });   // the halls note their torches again (time held)
+            fx.setTransform(2, 0, 0, 2, -x0 * 2, -y0 * 2);
+            drawLampBloom(fx, g.time + t); swapLamps(); drawLampPools(fx, g.time + t);
+            fx.setTransform(1, 0, 0, 1, -x0 * 2, -y0 * 2);
+            const pts = []; const r = rng(31);
+            for (const [x, y] of A.flies || []) for (let n = 0; n < 8; n++) { const px = x + (r() - 0.5) * 44, py = y + (r() - 0.5) * 22 - 6; if (nearestOnPath(px, py).d > PATH_HALF + 4) pts.push([px * 2, py * 2]); }
+            fireflyLoop(fx, pts, 5, t);
+          }
+          shx.drawImage(fc, (f % COLS) * FW, Math.floor(f / COLS) * FH);
+          if (f === 0) await fetch(`/__shot?name=ovh3_anim_${ANIM}_still`, { method: "POST", body: fc.toDataURL("image/png").slice(22) });
+          document.getElementById("status").textContent = "frame " + f;
+        }
+        const poses = live.filter((it) => it.sways).map((it) => it.sp + ":" + it.poses.size);
+        LOG.push(`${live.length} items, ${poses.length} sway, poses ${poses.join(" ")}, bakes ${bake.n} avg ${(bake.ms / Math.max(1, bake.n)).toFixed(1)} ms`);
+        document.body.appendChild(sheet);
+        await save(`ovh3_anim_${ANIM}_c${COLS}r${ROWS}_fps${LOOP.fps}`, sheet);
       }
       // ---------- crop and save ----------
       const out = document.createElement("canvas"); out.width = MODE === "full" ? 1680 : cw * 4; out.height = MODE === "full" ? 1120 : ch * 4;
