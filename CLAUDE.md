@@ -927,7 +927,9 @@ Bring these up with the owner; don't act on them unasked.
   `concept/fx-r8-burst.js`, `build-fx-concepts.mjs round8`): private Artifact "Crownguard Effects
   Concepts, Round 8" (slug 67072951-4f90-4be3-9fe8-abd0357b8df3): A heavy falls close, B streaked
   splatter, C spray burst (droplets vanish fast), D bouncing gobbets + a ring of droplets on the rim.
-  All keep the engine's timing. Waiting on the owner's pick.
+  All keep the engine's timing. The owner picked **A** (2026-11-22): IN THE GAME (rings.js `gbGobs`:
+  4 big gobbets low and short near the middle, 8 middling mid-way, 56 flecks with satellites to the
+  rim; swell, flash and timing unchanged; 10 bursts at once ~0.19 ms a frame). Pending their look.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

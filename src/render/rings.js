@@ -904,8 +904,10 @@ const gbH = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.54
 const gbCl = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const gbEase = (t) => 1 - (1 - gbCl(t)) * (1 - gbCl(t));
 const gbP = (c, x, y, col, a = 1) => { c.globalAlpha = a; c.fillStyle = col; c.fillRect(Math.floor(x), Math.floor(y), 1, 1); c.globalAlpha = 1; };
-const gbGobs = [];
-for (let k = 0; k < 30; k++) { const rim = k < 12; gbGobs.push({ a: rim ? (k / 12) * TAU + gbH(k, 1) * 0.4 : gbH(k, 2) * TAU, rho: rim ? GB_R * (0.9 + 0.1 * gbH(k, 3)) : GB_R * (0.2 + 0.65 * gbH(k, 4)), s: rim ? 4 + (k % 3) : 2 + (k % 3), h: 26 + gbH(k, 6) * 20 }); }
+const gbGobs = [];                                   // Round 8 A: heavy falls close, only small flecks carry to the rim
+for (let k = 0; k < 4; k++) gbGobs.push({ a: (k / 4) * TAU + 0.4 + gbH(k, 1) * 0.3, rho: GB_R * (k & 1 ? 0.38 + 0.06 * gbH(k, 2) : 0.18 + 0.06 * gbH(k, 2)), s: 6 - (k & 1), h: 12 + gbH(k, 3) * 6, big: 1 });
+for (let k = 0; k < 8; k++) gbGobs.push({ a: (k / 8) * TAU + 0.2 + gbH(k, 4) * 0.3, rho: GB_R * (0.48 + 0.26 * gbH(k, 5)), s: 3 + (k & 1), h: 22 + gbH(k, 6) * 8 });
+for (let k = 0; k < 56; k++) gbGobs.push({ a: (k / 56) * TAU + gbH(k, 7) * 0.1, rho: GB_R * (0.78 + 0.22 * gbH(k, 8)), s: k % 4 === 0 ? 2 : 1, h: 30 + gbH(k, 9) * 16, fleck: 1 });
 const gbSplat = (c, x, y, r) => {
   const ry = Math.max(1, Math.round(r * GB_SQ));
   for (let dy = -ry; dy <= ry; dy++) for (let dx = -r; dx <= r; dx++) {
@@ -916,6 +918,7 @@ const gbSplat = (c, x, y, r) => {
   if (r >= 3) gbP(c, x + r + 1, y + 1, GB_ROT[3]);
 };
 const gbGob = (c, x, y, s) => {
+  if (s <= 1) { gbP(c, x, y, GB_ROT[1]); if (s === 1) gbP(c, x + 1, y, GB_ROT[3]); return; }
   for (let dy = -s; dy <= s; dy++) for (let dx = -s; dx <= s; dx++) {
     const d = Math.hypot(dx, dy); if (d > s + 0.3) continue;
     const l = -(dx * 0.6 + dy * 0.8) / Math.max(1, s);
@@ -957,16 +960,19 @@ const gbBake = (ms, life, swell, fly, seedFlip) => {
   } else {
     const t = ms - swell, items = [];
     for (const o of gbGobs) {
-      const dur = Math.max(40, fly * (o.rho / GB_R)), u = t / dur;       // lands exactly when the damage front reaches that far
+      const dur = Math.max(36, fly * (o.rho / GB_R) * (o.big ? 1.6 : 1)), u = t / dur;   // small ones land as the damage front reaches that far
       const tx = Math.round(Math.cos(o.a) * o.rho), ty = Math.round(Math.sin(o.a) * o.rho * GB_SQ);
       if (u < 0) continue;
       if (u < 1) {
         const e = gbEase(u), x = Math.round(tx * e), y = BODY * (1 - e) + ty * e, z = 4 * o.h * u * (1 - u);
-        if (bay(tx & 1023, ty & 1023) < 0.5) gbP(g.k, tx, ty, GB_ROT[4], 0.7);   // where it will land
+        if (!o.fleck && bay(tx & 1023, ty & 1023) < 0.5) gbP(g.k, tx, ty, GB_ROT[4], 0.7);   // where it will land
         items.push({ y: ty + 1, d: () => gbGob(a.k, x, Math.round(y - z), o.s) });
-      } else {
-        const age = (t - dur) / 80, r = Math.max(2, Math.round(o.s * (1.2 + 0.9 * gbEase(age)) + 1));
-        if (fadeT === 0 || bay(tx & 1023, ty & 1023) > fadeT) gbSplat(g.k, tx, ty, r);
+      } else if (fadeT === 0 || bay(tx & 1023, ty & 1023) > fadeT) {
+        if (o.fleck) {                                                   // a fine spatter: a dot, a lit neighbour, satellites
+          gbP(g.k, tx, ty, GB_ROT[2]); gbP(g.k, tx + 1, ty, GB_ROT[3]); gbP(g.k, tx, ty + 1, GB_ROT[3]);
+          if (o.s > 1) { gbP(g.k, tx - 1, ty, GB_ROT[2]); gbP(g.k, tx + 2, ty + 1, GB_ROT[3]); }
+          if (gbH(o.a, 4) < 0.6) gbP(g.k, tx + Math.round(Math.cos(o.a) * 3), ty + Math.round(Math.sin(o.a) * 2), GB_ROT[3]);
+        } else gbSplat(g.k, tx, ty, Math.max(2, Math.round(o.s * (1.2 + 0.9 * gbEase((t - dur) / 80)) + 1)));
       }
     }
     items.sort((p, q) => p.y - q.y); for (const it of items) it.d();
