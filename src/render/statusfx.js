@@ -222,13 +222,15 @@ const crackSprite = (hw, T, f) => memo(`crk|${hw}|${T}|${f}`, () => {
 });
 
 // ---- SHIELD PIPS (concept A): a small shield-blue pip per blow still owed, in a row --------
+// (owner, 2026-11-21: "just a bit more vibrant": the pips' own blues, a step bluer than SH)
 const PIP = ["..1..", ".111.", "12221", "12221", ".121.", "..3.."];
+const PIPC = ["#eef6ff", "#8ebcec", "#4f80c6"];
 const pipSprite = (n, flash) => memo(`pip|${n}|${flash ? 1 : 0}`, () => {
   const gap = 8, cw = n * gap + 6, ch = 12, ax = cw >> 1, ay = 6;
   const cv = mk(cw, ch), g = cv.getContext("2d", { willReadFrequently: true });
   for (let i = 0; i < n; i++) {
     const x0 = Math.round(ax + (i - (n - 1) / 2) * gap) - 2;
-    stamp(g, PIP, flash ? { 1: "#fff", 2: SH[0], 3: SH[1] } : { 1: SH[0], 2: SH[1], 3: SH[2] }, x0, 2);
+    stamp(g, PIP, flash ? { 1: "#fff", 2: PIPC[0], 3: PIPC[1] } : { 1: PIPC[0], 2: PIPC[1], 3: PIPC[2] }, x0, 2);
   }
   inkTint(cv, "#1c2a4c", 1);
   return { cv, ax, ay };
@@ -349,9 +351,12 @@ export const statusStun = (ctx, e, time, feet, hr) => {
   stampAt(ctx, stunSprite(bucketHW(e.size), bucketT(hr), f), e.x + ((f >> 1) & 1 ? 0.5 : -0.5), feet);
 };
 export const statusCrack = (ctx, e, time, feet, hr) => stampAt(ctx, crackSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
-// the shield: pips at the crown (just under the health bar)
-export const statusShield = (ctx, e, time, tms, feet, hr) => {
-  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, Math.ceil(e.guard))), e.guardFlash > tms), e.x, feet - hr + 3);
+// the shield: pips ON the health bar's line, `mid` = the bar's middle in world units (owner,
+// 2026-11-21: under the bar they hid in the head). Drawn over the bar, whose health cannot move
+// while a pip stands (steel is swallowed whole, magic and burns glance off). The row's middle
+// sits 1 art px above the sprite's anchor, hence the half unit.
+export const statusShield = (ctx, e, time, tms, mid) => {
+  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, Math.ceil(e.guard))), e.guardFlash > tms), e.x, mid + 0.5);
 };
 
 // ---- PHYSICAL HIT (concept B): a hard white pop, steel and ember sparks flung out, a slash, dust ----

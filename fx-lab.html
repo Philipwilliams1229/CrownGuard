@@ -103,10 +103,11 @@ const SCENES = {
   },
   status() {
     const en = [];
-    const S = [{ burnUntil: TMS * 2 }, { slowUntil: TMS * 2 }, { poisonUntil: TMS * 2 }, { brittleUntil: TMS * 2 }, { stunUntil: TMS * 2 }, { healedFlash: TMS * 2 }, { burnUntil: TMS * 2, slowUntil: TMS * 2 }];
+    const S = [{ burnUntil: TMS * 2 }, { slowUntil: TMS * 2 }, { poisonUntil: TMS * 2 }, { brittleUntil: TMS * 2 }, { stunUntil: TMS * 2 }, { healedFlash: TMS * 2 }, { burnUntil: TMS * 2, slowUntil: TMS * 2 },
+      { stunUntil: TMS * 2, slowUntil: TMS * 2, slowPct: 0.4 }, { guard: 3 }, { guard: 2, hp: 1e9 }];   // stun + slow (no frost ring), pips hurt and at full
     ["goblin", "orc", "wolf", "boarrider", "armored"].forEach((t, r) => {
       if (!ENEMIES[t]) return;
-      S.forEach((st, c) => en.push(at(170 + c * 85, 80 + r * 100, t, st)));
+      S.forEach((st, c) => en.push(at(170 + c * 60, 80 + r * 100, t, st.hp ? { ...st, hp: ENEMIES[t].hp } : st)));
     });
     return scene(en, {});
   },

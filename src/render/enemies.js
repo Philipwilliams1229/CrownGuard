@@ -215,9 +215,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
     if (e.mres >= 0.3) { ctx.fillStyle = "#b890e0"; ctx.fillRect(x0 - 5, barY - 1, 3, 3); ctx.fillRect(x0 - 4, barY + 2, 1, 1); }
   }
   // raised shields / chaplain and magister wards: one pip per blow still to
-  // be swallowed whole, sitting just under the health bar so you can see
-  // them being spent
-  if (e.guard > 0) statusShield(ctx, e, time, tms, e.y + e.size * 0.55 + hover, headroom(skin));
+  // be swallowed whole, on the health bar's own line (over it when it shows)
+  // so you can see them being spent
+  if (e.guard > 0) statusShield(ctx, e, time, tms, barY + (e.boss ? 1.5 : 1));
   if (emerging || rise < 1) ctx.globalAlpha = 1;
 };
 

@@ -86,9 +86,13 @@ copy what the rebuilt pieces do.
 Status tells (`drawStatus` in fx.js) must tell the holds apart at 1x:
 slow = a dizzy star wheel over the head (more stars and a lazier turn as
 `slowPct` rises), freeze (`frozenUntil`) = an ice shell sized by the rig's
-body (`bodySpan`), stun = a jagged gold ring that shakes. Freeze beats
-stun, either hides slow's stars, and an immune foe (`immSlow`/`immStun`)
-shows none. Check them in `status-lab.html` (sheet, film strip, perf).
+body (`bodySpan`), stun = gold stars wheeling round the crown. Freeze beats
+stun, either hides slow's stars, a stun also hides slow's frost ring at the
+feet (owner, 2026-11-21: the stars alone), and an immune foe
+(`immSlow`/`immStun`) shows none. Shield pips sit ON the health bar's line,
+over the bar when it shows (`statusShield(..., mid)`; a pip standing means the
+health cannot move), in their own slightly bluer `PIPC`. `fx-lab.html?scenes=status`
+has a stun + slow column and pips hurt / at full. Check them in `status-lab.html` (sheet, film strip, perf).
 
 A new creature: add an entry to the matching `rigs-*.js` file (same shape as
 `RIGS`: `{ kind, box: { hw, up, down }, p }`), keep colours in the `skin /
