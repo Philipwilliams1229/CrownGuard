@@ -1815,6 +1815,7 @@ const ironTurf = (ctx, kit) => {
 // the turf laps over it where it faces up-left; the verge beyond is road.js's
 // (a shadow, a strip of gravel, worn turf), painted before this. Only the box
 // the road can reach is read, held and written back.
+let ROAD_RT = null;
 const ironRoad = (ctx, kit) => {
   if (!SEGS.length) return;
   const rng = kit.rng, seed = REALM.seed | 0;
@@ -1849,8 +1850,9 @@ const ironRoad = (ctx, kit) => {
         let t = ((x - s.x1) * vx + (y - s.y1) * vy) / L2;
         t = t < tlo ? tlo : t > thi ? thi : t;
         const dx = x - s.x1 - vx * t, dy = y - s.y1 - vy * t, i = row + pxx;
-        const d = Math.sqrt(dx * dx + dy * dy), b = best[i];
-        if (d >= b) continue;
+        const d2 = dx * dx + dy * dy, b = best[i];
+        if (d2 >= b * b) continue;
+        const d = Math.sqrt(d2);
         best[i] = d;
         // a crossing: the stretch laid first keeps the flags it already has
         if (b < KERB && d < KERB && si - segOf[i] > 9) continue;
@@ -1982,12 +1984,12 @@ const ironRoad = (ctx, kit) => {
   // 6 a sliver at a mitre too small to be a stone (moss and grit)
   const FN = NC * 64 + 64;
   const sU = new Float32Array(FN), sV = new Float32Array(FN), sA = new Float32Array(FN), sN = new Uint32Array(FN);
-  const sX = new Float32Array(FN), sY = new Float32Array(FN);
-  for (let i = 0; i < N; i++) {
+  const sX = new Float32Array(FN), sY = new Float32Array(FN), sDa = new Float32Array(FN), sDb = new Float32Array(FN), sDc = new Float32Array(FN);
+  for (let ry = 0, i = 0; ry < BH; ry++) for (let rx = 0; rx < BW; rx++, i++) {
     const s = id[i];
     if (s < 0 || s >= KID) continue;
     sU[s] += along[i]; sV[s] += across[i]; sA[s] += Math.abs(across[i]); sN[s]++;
-    sX[s] += i % BW; sY[s] += (i / BW) | 0;
+    sX[s] += rx; sY[s] += ry;
   }
   // The wheels' tracks: on for a stretch of courses, off for the next, and
   // never within 8 of a bend (the wheels spread out to take it).
@@ -2002,10 +2004,13 @@ const ironRoad = (ctx, kit) => {
     if (bent && (si % 8 || (si > 0 && um < sg.start + 8) || (si < last && um > sg.start + sg.len - 8))) continue;
     rutOn[c] = 1;
   }
+  const EAST = DAY.side > 0, LX = EAST ? 0.6 : -0.6, LY = -0.8;
   const fKind = new Uint8Array(FN), fTone = new Uint8Array(FN);
   for (let s = 0; s < FN; s++) {
     if (!sN[s]) continue;
     sU[s] /= sN[s]; sV[s] /= sN[s]; sA[s] /= sN[s]; sX[s] /= sN[s]; sY[s] /= sN[s];
+    const r = 1 / (Math.sqrt(sN[s]) * 0.5 + 0.5);
+    sDa[s] = r * LX; sDb[s] = r * LY; sDc[s] = sX[s] * sDa[s] + sY[s] * sDb[s];
     const h = hash(s + seed, 13);
     fKind[s] = s === SILL ? 0 : sN[s] < 12 ? 6 : h < 0.007 ? 1 : h < 0.03 ? 2 : h < 0.06 ? 3 : h < 0.074 ? 4 : 0;
     // the crown's flags are worn paler, the verges' darker
@@ -2013,7 +2018,10 @@ const ironRoad = (ctx, kit) => {
     fTone[s] = Math.max(0, Math.min(4, s === SILL ? 1 : t));
   }
   // 5: a kerb stone gone, turf in its place
-  const kindOf = (s) => (s >= KID ? (hash(s + seed, 13) < 0.022 ? 5 : 0) : fKind[s]);
+  // (a kerb stone's kind and tone worked out once a stone, not once a pixel: 0-2 tone, +3 gone)
+  const KERBQ = new Int8Array(1000000).fill(-1);
+  const kerbQ = (s) => { const j = s - KID; let q = KERBQ[j]; if (q < 0) q = KERBQ[j] = Math.floor(hash(s + seed, 7) * 3) + (hash(s + seed, 13) < 0.022 ? 3 : 0); return q; };
+  const kindOf = (s) => (s >= KID ? (kerbQ(s) >= 3 ? 5 : 0) : fKind[s]);
 
   const R = REALM;
   const main = R.PATH_MAIN, dk = R.PATH_DK;
@@ -2050,14 +2058,13 @@ const ironRoad = (ctx, kit) => {
   const set3 = (c, m) => { c[0] = m[0]; c[1] = m[1]; c[2] = m[2]; };
   const px = [0, 0, 0];
   // a table of noise for the per-pixel flecks (no hash asked per pixel)
-  const EAST = DAY.side > 0, LX = EAST ? 0.6 : -0.6, LY = -0.8;
-  const LICHEN = [hexRGB(mix(main, "#c8c890", 0.42)), hexRGB(mix(main, "#9aa070", 0.4))];
-  const RT = new Float32Array(65536);
-  for (let q = 0; q < 65536; q++) RT[q] = hash(q, 3);
-  for (let i = 0; i < N; i++) {
+  // (the same table every bake: made once)
+  const RT = ROAD_RT || (ROAD_RT = Float32Array.from({ length: 65536 }, (_, q) => hash(q, 3)));
+  for (let ry = 0, i = -1; ry < BH; ry++) for (let lx = 0; lx < BW; lx++) {
+    i++;
     const s = id[i];
     if (s < 0) continue;
-    const o = i * 4, lx = i % BW, pxx = BX0 + lx, py = BY0 + ((i / BW) | 0);
+    const o = i * 4, pxx = BX0 + lx, py = BY0 + ry;
     const d = best[i];
     const u = along[i], v = across[i], av = Math.abs(v);
     const kerb = s >= KID, kd = kindOf(s);
@@ -2069,7 +2076,8 @@ const ironRoad = (ctx, kit) => {
     const corner = (eUp || eDn) && (eLf || eRt);
     // how near the verge: 0 in the road's middle, 1 at the kerb
     const edge = kerb ? 1 : Math.max(0, Math.min(1, (av - (KERB - 12)) / 12));
-    const mossy = hash(Math.floor(u / 2.2) * 31 + (v > 0 ? 7 : 0), Math.floor(av / 2.2) + seed) < edge * 0.75;
+    // (no hash in the road's middle, where edge is 0 and nothing can be mossy)
+    const mossy = edge > 0 && hash(Math.floor(u / 2.2) * 31 + (v > 0 ? 7 : 0), Math.floor(av / 2.2) + seed) < edge * 0.75;
     if (kd === 1 && !(joint || lip) || kd === 6) {
       // ---- a flag gone (a broken rim of it left) or a sliver: bare earth,
       // in the shade of the stones' upper-left edges, a pebble or two; moss
@@ -2091,7 +2099,7 @@ const ironRoad = (ctx, kit) => {
       }
     } else {
       let c;
-      if (kerb) c = kerbT[Math.floor(hash(s + seed, 7) * 3)];
+      if (kerb) c = kerbT[kerbQ(s) % 3];
       else if (kd === 4) c = odd;
       else c = tones[fTone[s]];
       set3(px, c);
@@ -2111,13 +2119,10 @@ const ironRoad = (ctx, kit) => {
       // (ir2) each flag a low cushion: its sunward shoulder a step lighter, its far shoulder a step
       // darker (two flat steps, no gradient), so the stones read one by one at board size
       if (!kerb && kd !== 1 && s !== SILL) {
-        const r = Math.sqrt(sN[s]) * 0.5 + 0.5, du = (lx - sX[s]) / r, dv = (((i / BW) | 0) - sY[s]) / r;
-        const f = du * LX + dv * LY;
+        const f = lx * sDa[s] + ry * sDb[s] - sDc[s];
         if (f > 0.5) lift(f > 0.8 ? 0.07 : 0.04, px); else if (f < -0.55) drop(f < -0.85 ? 0.08 : 0.045, px);
         // worn smooth along the crown: a faint sheen
         if (av < 7 && kd !== 2) lift(0.025, px);
-        // lichen toward the verges: small pale rosettes
-        if (edge > 0.25 && hp > 0.2 && vnoise(seed + 57, 1.3, u, v) > 0.9 - edge * 0.06) set3(px, LICHEN[hp > 0.6 ? 0 : 1]);
       }
       if (kd === 2) {
         // sunk: its own neighbours shade its upper-left edges; its lower-right wall shows
