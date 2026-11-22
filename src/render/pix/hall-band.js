@@ -81,6 +81,23 @@ const crown = (px, x, y, z) => { px.part(); px.rect(x - 4, y, 8, 2.5, GOLD, z, {
 // a torch on a post: the flame is live, the light is baked
 const torchPost = (back, x, DY, top) => { beam(back, x, DY - 2, x, DY - top, 3, IRON, -7, { grain: false }); back.part(); back.rect(x - 3, DY - top - 3, 6, 3, IRON_L, -6.9, { n: [0, -0.5, 0.8] }); };
 
+// a hanging lantern (night lights, 2026-11-22): a short chain, an iron cap, a lit pane, an iron foot; the light is listed by the caller
+const LAMP = flat("#ffd070", { emis: true }), LAMP_HOT = flat("#fff0b0", { emis: true });
+const hangLamp = (px, x, y, z = -6.5) => {
+  px.part(); px.rect(x - 0.5, y, 1, 3, IRON, z, { cast: 0 });
+  px.part(); px.rect(x - 3, y + 3, 6, 1.5, IRON, z + 0.1, { n: [0, -0.5, 0.8] });
+  px.part(); px.rect(x - 2, y + 4.5, 4, 5, LAMP, z + 0.2, { cast: 0 }); px.rect(x - 1, y + 5.5, 2, 3, LAMP_HOT, z + 0.3, { cast: 0 });
+  px.part(); px.rect(x - 3, y + 9.5, 6, 1.5, IRON, z + 0.3, { n: [0, -0.5, 0.8] });
+  for (const dx of [-3, 2]) px.rect(x + dx, y + 4.5, 1, 5, IRON, z + 0.3, { cast: 0 });
+};
+const lampLight = (lights, key, x, y) => lights.push({ key, x, y, r: 18, col: "#ffcf70", a: 0.8 });
+// a torch on a post, flame live, light listed
+const postTorch = (back, live, lights, key, x, DY, top) => {
+  torchPost(back, x, DY - 6, top);
+  live.push({ kind: "flame", x, y: DY - 6 - top - 3 });
+  lights.push({ key, x, y: DY - 6 - top - 5, r: 22, col: "#ffa040", a: 0.75 });
+};
+
 // ---- build ----------------------------------------------------------------------------------------
 export const build = (o = {}) => (back, front) => {
   const st = STYLES[o.style || "B"], key = keyOf(o), L = layout(o), { R, DY, band } = L, seed = (o.seed || 0) * 7 + (key.length || 1);
@@ -107,6 +124,8 @@ export const build = (o = {}) => (back, front) => {
     }
     back.part(); for (let i = 0; i <= 30; i++) { const t = i / 30; back.dot(lx + (rx - lx) * t, top + 1.5 + Math.sin(t * Math.PI) * 6, ROPE, -6.95, { cast: 0 }); }
     live.push({ kind: "pennant", x: rx, y: DY - 2, col: "#284a8c", pole: 49, len: 13 });
+    beam(back, lx, top + 16, lx + 7, top + 16, 2, OAK, -6.8, { grain: false });                // a lantern on a bracket off the left pole
+    hangLamp(back, lx + 7, top + 16); lampLight(lights, "lamp", lx + 7, top + 24);
   } else if (key === "3") {
     // the raised bandstand: eight boarded panels, a stair at the front
     platform(back, front, L, { ...base, foot: TIMBER, footSt: STYLES.A, boards: Math.PI / 4, course: 99, deckM: TIMBER_L, planks: 5, rail: OAK, trim: GOLD, posts: 8, strings: [[DY + 1, 1.6, GOLD], [DY + 12, 1.4, OAK]] });
@@ -123,6 +142,7 @@ export const build = (o = {}) => (back, front) => {
     back.part(); back.ellipse(0, cy - 2, 7, 5, GOLD_L, -7.35, { round: 0.9 });
     crown(back, 0, cy - ry + 1, -7.2);
     live.push({ kind: "pennant", x: 0, y: cy - ry - 4, col: "#284a8c", pole: 8, len: 12 });
+    postTorch(back, live, lights, "torchR", R - 3, DY, 36);
   } else if (key === "a" || key === "aa") {
     const gild = key === "aa";
     platform(back, front, L, { ...base, foot: S, deckM: SL, rail: S, trim: GOLD, course: 5, strings: [[DY + 1, 1.8, GOLD], [DY + band + 6, 1.4, gild ? GOLD : SL]], railSt: st });
@@ -136,6 +156,7 @@ export const build = (o = {}) => (back, front) => {
     if (!gild) {
       standard(back, -(R - 3), DY, 50, 12, 24, BLUE_D, GOLD);
       standard(back, R - 3, DY, 50, 12, 24, BLUE_D, GOLD);
+      postTorch(back, live, lights, "torchL", -14, DY, 58); postTorch(back, live, lights, "torchR", 14, DY, 58);
     } else {
       live.push({ kind: "pennant", x: -(R - 3), y: DY - 2, col: "#284a8c", pole: 62, len: 16, h: 9 }, { kind: "pennant", x: R - 3, y: DY - 2, col: "#d8b34a", pole: 62, len: 16, h: 9 });
       for (const sgn of [-1, 1]) {
@@ -165,6 +186,7 @@ export const build = (o = {}) => (back, front) => {
     }
     // a pennant on the carriage's tail
     live.push({ kind: "pennant", x: R - 8, y: DY - 3, col: "#d8b34a", pole: 46, len: 14 });
+    postTorch(back, live, lights, "torchL", -(R - 5), DY, 40);
   } else if (key === "b" || key === "ba") {
     const gild = key === "ba";
     platform(back, front, L, { ...base, foot: S, deckM: gild ? GOLD : SL, rail: gild ? GOLD : OAK, trim: GOLD, course: 5, strings: [[DY + 1, 1.8, GOLD]], railSt: st });
@@ -180,6 +202,7 @@ export const build = (o = {}) => (back, front) => {
     if (!gild) {
       standard(back, -(R - 3), DY, 54, 11, 26, CRIM, GOLD);
       standard(back, R - 3, DY, 54, 11, 26, CRIM, GOLD);
+      postTorch(back, live, lights, "torchL", -15, DY, 58); postTorch(back, live, lights, "torchR", 15, DY, 58);
     } else {
       // cloth-of-gold canopy on four posts: back pair behind the players, side pair in front of nothing
       // (owner, 2026-11-18: the same as the Full Company's: lower, posts on the deck, no wider than it;
@@ -189,6 +212,7 @@ export const build = (o = {}) => (back, front) => {
       for (const x of [-(R - 4), R - 4]) beam(front, x, DY + 4, x, roofY + 4, 3, GOLD, 11, { grain: false });
       cone(back, { cx: 0, y: roofY, r: CR, h: 13, sq: 0.3, m: GOLD, z: -6, st, rows: 5, seed });
       back.part(); back.ellipse(0, roofY - 14, 2, 2, CRIM, -5.9, { round: 0.9 });
+      for (const sgn of [-1, 1]) { hangLamp(back, sgn * 19, roofY + 9, -5.7); lampLight(lights, sgn < 0 ? "lampL" : "lampR", sgn * 19, roofY + 17); }   // a lantern hung under each side of the canopy
       for (let x = -(CR - 1); x <= CR - 1; x += 5) { const u = x / CR, y = roofY + CR * 0.3 * Math.sqrt(Math.max(0, 1 - u * u)) + 0.5, c = (Math.round(x / 5) & 1) ? CRIM : GOLD_L; back.part(); back.poly([[x - 2.5, y], [x + 2.5, y], [x, y + 4]], c, -5.8, { cast: 0 }); }
     }
   } else if (key === "bb") {

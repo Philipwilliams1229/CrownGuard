@@ -287,7 +287,7 @@ export const build = (o = {}) => (back, front) => {
   magDoor(back, 9, 8, 12, 18, lvl >= 3 ? STONE_L : STONE, lvl >= 3 ? (dragon ? DOOR_C : DOOR_R) : DOOR_W, 0.2, sun, {
     straps: lvl >= 2 ? [-14, -5] : [], ring: lvl === 2, vous: lvl >= 3, flame: lvl >= 3 ? (dragon ? FLAME_O : GOLD) : null,
   });
-  if (lvl >= 3) lamp(back, 9.5, D + 3, 0.6);
+  if (lvl >= 2) lamp(back, 9.5, D + 3, 0.6);
 
   // ---- on the ground before the store, back to front ----
   const things = [];
@@ -324,7 +324,7 @@ export const build = (o = {}) => (back, front) => {
 
   // what moves, and what gives light
   const live = [], lights = [];
-  if (lvl >= 3) lights.push({ key: "torch", x: 9.5, y: D + 10, r: 15, col: "#ffc060", a: 0.6 });
+  if (lvl >= 2) lights.push({ key: "torch", x: 9.5, y: D + 10, r: lvl >= 3 ? 18 : 15, col: "#ffc060", a: lvl >= 3 ? 0.75 : 0.65 });
   if (dragon) { live.push({ kind: "flame", x: 24, y: 7, w: 6, h: 9 }); lights.push({ key: "torch", x: 24, y: 2, r: 26, col: "#ff9040", a: 0.8 }); }
   return {
     live, lights,
