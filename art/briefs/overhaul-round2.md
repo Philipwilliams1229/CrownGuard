@@ -138,3 +138,6 @@ GROUND
   dithered teal-to-navy lake water. Lesson: after two failed passes on one design, offer new options.)
 - **Farmland** (a comment on the four-boards sheet): "bramblewick and millrace are too busy, lets make the
   plots bigger or something." (Fewer, bigger fields on those two; calmer.)
+- **Farmland** (a comment on a zoomed farm picture): "there are lots of little tiny rows of stuff next to the
+  roads, they look kinda silly. There should be a minimum space required to add in a cultivated field." (No
+  slivers: a cultivated field needs a minimum area and minimum width; ground too small is plain grass.)
