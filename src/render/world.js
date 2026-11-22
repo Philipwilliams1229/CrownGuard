@@ -1062,7 +1062,6 @@ function paintDetail(G, look, kind, rng) {
     const bloom = (x, y, sp, big) => {
       const px = P(x), py = P(y), c = SP[sp];
       if (!G.isTurf(px, py) || G.reg[py * G.PW + px] & 4) return;
-      if (typeof window !== "undefined") { window.__life = window.__life || []; window.__life.push([Math.round(x), Math.round(y), sp]); }
       G.shift(px + 1, py + 1, -1);
       G.set(px, py, stemD);
       G.set(px, py - 1, stemL);
