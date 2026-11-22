@@ -975,7 +975,8 @@ dynamic shadow positions for each time of day ... color adjustments as we get in
 positions, fixed per level, the lead proposes the list, LOOK ONLY (no rule reads it), and the painted
 bright side of towers and figures moves to the sun's side (they picked it from a trial,
 `node scripts/sun-sides.mjs`). Built overnight by an Opus team (brief, ownership and status:
-`art/briefs/time-of-day.md`). NOT yet seen by the owner; NOT pushed.
+`art/briefs/time-of-day.md`). The owner saw the preview shots ("breathing some fresh life into this
+game") and had it pushed live 2026-11-22; pending their playtest on a device.
 - **`src/data/sun.js`** (a leaf): `SUN_POS` (sunrise, early, morning in the EAST, the right, over the
   castle: shadows fall left; noon; afternoon, late, golden in the WEST), the live sun `DAY` (`on` false at
   noon, `side`, `elev`, `L`, `fall`, `len`, `col`, `warm`, `rim`, `shade`, `tone`, `v`), `setDay(id)`,

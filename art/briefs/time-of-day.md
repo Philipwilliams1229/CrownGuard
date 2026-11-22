@@ -97,4 +97,4 @@ its hour). Preview pictures of every sun: `.shots/preview/`.
   `dayKeyLights` k); tall halls' shadows cross the road at the lowest suns (dayshadows.js `P.shear`);
   the ground layer rebuilds ~1 s on the Mac at a level's start under a sun (unmeasured on a phone);
   a hurt castle's lost merlons still cast; nothing seen on a real device.
-- Pushing to GitHub: NOT approved yet (asked; the owner has not answered). Commit locally only.
+- Pushed to main 2026-11-22 (owner: "Yes, push it live").
