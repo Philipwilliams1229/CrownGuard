@@ -75,3 +75,10 @@ campaign map gets "likeminded changes" too.
   `overhaul2-<feature>.html`, `concept/overhaul2-<feature>.md`, PNGs
   `.shots/ovh2_<feature>_<scene>_<option>.png` (each at most 1680 x 1120). You may import round 1's
   painter from `concept/overhaul-<feature>.js` (do not edit it).
+
+## The owner on round 2 (2026-11-22)
+
+- **The lake:** "Lake still needs work. A proper fade into the water for the sandy bank would look so
+  much better." (Round 2's beach is a pale band with a hard edge against deep teal water: the sand must
+  be seen running on UNDER the water and fading out with depth.) The rest of round 2: "I'll get back to
+  you on the rest later."
