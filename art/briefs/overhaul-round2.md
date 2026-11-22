@@ -44,8 +44,20 @@ kind of thing in other areas."
   it in line with our new standard. Lets be sure to include some light sources in all of these
   types of areas to bring them to life as the sun goes down."
 
-**Ground:** not reviewed yet by the owner. Do not assume a pick (use today's ground, or the game's
-own, under your feature).
+**Ground** (reviewed later the same day): "greenwood, love the terraces and the countryside, but I
+would [not] want either on every level. Some variety would be nice. I like the look of C but its way
+too detailed, a dialed back version could work well. Lets see some more concepts." Iron: "more of
+the same points. I would want to see some other styles mixed in too to different areas, following
+the theme of that area". "A looks cool on rimewater. A and C both look good on the golden hour, but
+again C would need some work." (Read: terraces on SOME levels, worked countryside on SOME, a calmer
+lush C as the everyday meadow; variety level to level.)
+
+**SCOPE NOW (owner, same message): "we can keep our work more focused rn, just focusing on the
+first area of the map."** Round 2 is the GREENWOOD ONLY. Do not draw the Iron Marches, Hollowfen or
+Rimewater in this round (skip any per-chapter panels your task text asks for); spend that effort on
+polish and on more Greenwood variety (different Greenwood levels: thornbrook, gullwick, millrace,
+kingstones, thistlecrag ...). Once a Greenwood look is nailed down the other areas follow, and the
+campaign map gets "likeminded changes" too.
 
 ## What round 2 must do differently
 

@@ -1051,6 +1051,9 @@ overhaul, show bold options before building.
   chapter before any building, more wildlife like the deer; decor: a combination (B's village details with
   today's houses, A's big rocks and tower re-sculpted, C's cliff edges and rock walls), Iron and the graveyard
   need polish, a light source in every lived-in place. Ground not reviewed yet. A second concept round is running.
+  Ground (later): terraces and the worked countryside each on SOME Greenwood levels, not all ("some variety would be
+  nice"), C (lush) liked but "way too detailed": a dialled-back C; A "looks cool on rimewater". **Scope: the
+  Greenwood only for now** ("just focusing on the first area of the map"); the other areas and the campaign map follow.
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
@@ -1096,6 +1099,10 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
   Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
   blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
+- **The campaign map takes the time of day** (2026-11-22, "wishlist stuff ... for sure"): once the board's
+  new look is nailed down, "likeminded changes" to the campaign map, with dynamic lighting: finishing a level
+  fought in the afternoon opens the map at the same time of day; "marching" to the next level moves the sun on
+  to the next marker (more steps if the levels are further apart).
 - **Time of day changes play** (2026-11-22, owner: "look only for now, but mark it down as a future
   thing to think about"): a low sun doing something in the rules (e.g. glare for halls shooting into
   it). Put ideas to the owner before building any.
