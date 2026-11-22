@@ -20,10 +20,44 @@
 //   timber — the Greenwood's warm oak trestle on fieldstone abutments
 //   fen    — the Hollowfen's grey, mossy, gap-toothed version of it
 //   stone  — the Iron Marches' dressed-stone arch bridge with parapets
+//            (in the Rimewater, groundArt "rime": snow on the coping, the
+//            pillar caps and drifted against the kerbs)
+//
+// The scenery and water upgrade (2026-11-22): planks with three lines of
+// grain, knots, nail heads where they cross the stringers, staggered butt
+// joints; wear as a pale dithered track with no lane lines; flags with
+// pits, hairline cracks, moss and grime in the joints toward the kerbs;
+// weathered coping; the arches' undersides catch the water's light; a wet
+// slick and weed at every pile's waterline; the fen's timber wet and dark.
+// Smooth ramps (the arch's light, wear, snow) are hard pixel steps dithered
+// only round each step (shadeD), never a field of checker.
+//
+// The time of day: a bridge is never mirrored. The bake reads DAY.side
+// (setBakeSun): under an eastern sun it is lit from the upper right (faces,
+// post edges, the ink's lit side, the short baked shadow). Sprites are keyed
+// by DAY.id and dropped on onDay. castBridges (sceneryday.js liftCast) draws
+// only the span itself (`body`, kept only while DAY.on), not its baked shade
+// or reflection on the water.
+//
+// bridgePiers() — for the river's painter (wakes and foam behind piers):
+// every pile, pier and wing-wall face standing in the water, in board
+// coordinates on the GROUND plane (the river's own frame, not lifted):
+// [{ x, y, r, kind: "pile" | "pier" | "wall", bridge }]. Baking a span is
+// what finds them, so the first call bakes any span not yet baked.
 
 import { BRIDGES, RIVERS, CHEVRONS, archAt, inRiver, BRIDGE_HALF, BRIDGE_RISE } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import { PX, SUN, rgb, rgba, hash } from "./paint.js";
+import { DAY, onDay } from "../data/sun.js";
+
+// ---- the sun the bake works to ---------------------------------------------
+// A bridge is never mirrored: under an eastern sun (DAY.side > 0) the bake is
+// lit from the upper RIGHT instead (SN, the ink's lit side, faceEdges, the
+// short baked shadow K). Sprites are keyed by the side and dropped on onDay.
+const SN = { x: SUN.x, y: SUN.y };
+let EAST = false;
+let SNOWY = false;           // the Rimewater: snow on the coping, rails and deck edges
+const setBakeSun = () => { SNOWY = REALM.groundArt === "rime"; EAST = DAY.side > 0; SN.x = EAST ? -SUN.x : SUN.x; SN.y = SUN.y; K[0] = EAST ? -0.56 : 0.56; };
 
 // ---- the kinds ---------------------------------------------------------
 const KINDS = {
@@ -54,7 +88,7 @@ const KERB_IN = 32.2;       // the edge beams (or the parapets) run from here ou
 const KERB_H = 1.2;         // how far the edge beam stands above the planks
 const POST_V = 34;          // the line the rail posts stand on
 const DROP = 2;             // the water lies this far below the banks
-const K = [0.56, 0.44];     // where a thing's shadow falls, per unit of height
+const K = [0.56, 0.44];     // where a thing's shadow falls, per unit of height (x flips under an eastern sun: setBakeSun)
 const PILE_OUT = 3.4;
 const EMB = 0.62;           // an abutment's pitched side: its fall per unit out from the deck
 const EMB_STONE = 0.9;
@@ -66,6 +100,18 @@ const mx = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2
 const lt = (a, t) => mx(a, CREAM, t);
 const dk = (a, t) => mx(a, PLUM, t);
 const css = (a) => `rgb(${a[0] | 0},${a[1] | 0},${a[2] | 0})`;
+// an ordered (Bayer) dither: smooth ramps (the arch's light, wear, snow) in hard pixel steps
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bay = (i, j) => (BAYER[(j & 3) * 4 + (i & 3)] + 0.5) / 16;
+// shade `col` by t (-..+: darker..lighter) in steps of `st`, dithered between steps
+const shadeD = (col, t, i, j, st = 0.07) => {
+  // (dithered only in a narrow band round each step: a whole field of checker reads as noise)
+  const n = Math.floor(t / st + 0.5 + (bay(i, j) - 0.5) * 0.4);
+  return n > 0 ? lt(col, n * st) : n < 0 ? dk(col, -n * st) : col;
+};
+const SNOW = [236, 242, 248], SNOW_SH = [184, 198, 222];
+// the snow's colour at a pixel: bright, with a blue-shaded lower edge (e.joint / e.rim below)
+const snowAt = (e, i, j) => (e.joint ? SNOW_SH : bay(i, j) < 0.12 ? mx(SNOW, SNOW_SH, 0.5) : SNOW);
 
 // ---- the span's frame ------------------------------------------------------
 // `arch`: the span whose arch the deck follows, when `b` is that span run on
@@ -120,14 +166,19 @@ const frameOf = (b, arch = b) => {
   // the deck's own tilt catches the sun or turns from it: +1, 0 or -1
   const slope = (u) => {
     const d = (L(u + 0.3) - L(u - 0.3)) / 0.6;
-    const sh = -d * (c * SUN.x + s * SUN.y);
+    const sh = -d * (c * SN.x + s * SN.y);
     return sh > 0.15 ? 2 : sh > 0.05 ? 1 : sh < -0.15 ? -2 : sh < -0.05 ? -1 : 0;
+  };
+  // the same, continuous: how much lighter (+) or darker (-) the tilt makes the deck, for shadeD
+  const slopeC = (u) => {
+    const d = (L(u + 0.3) - L(u - 0.3)) / 0.6;
+    return Math.max(-0.24, Math.min(0.24, -d * (c * SN.x + s * SN.y) * 1.3));
   };
   // the side (+1 / -1) whose outward face looks at the camera, if any
   const near = c > 0.2 ? 1 : c < -0.2 ? -1 : 0;
   // the side that faces the sun (its rail throws a shadow onto the deck)
-  const sunSide = (-s * SUN.x + c * SUN.y) > 0 ? 1 : -1;
-  return { b, c, s, half, mid, L, at, onTop, onFaceV, wet, wetRun, slope, near, sunSide, useMask };
+  const sunSide = (-s * SN.x + c * SN.y) > 0 ? 1 : -1;
+  return { b, c, s, half, mid, L, at, onTop, onFaceV, wet, wetRun, slope, slopeC, near, sunSide, useMask };
 };
 
 // the way the nearest river runs at (x, y), a unit vector downstream
@@ -219,8 +270,8 @@ const inkData = (img, passes, skip = null, ox = 0, oy = 0) => {
           const k = i * 4;
           let r = 0, g = 0, b = 0, c = 0, lit = 0;
           const take = (j, isLit) => { if (!ring[j]) return; r += d[j * 4]; g += d[j * 4 + 1]; b += d[j * 4 + 2]; c++; if (isLit) lit++; };
-          if (x > 0) take(i - 1, false);
-          if (x < w - 1) take(i + 1, true);
+          if (x > 0) take(i - 1, EAST);
+          if (x < w - 1) take(i + 1, !EAST);
           if (y > 0) take(i - w, false);
           if (y < h - 1) take(i + w, true);
           const m = lit * 2 >= c ? 0.42 : 0.58;
@@ -396,10 +447,10 @@ const block = (c, F, u0, u1, v0, v1, z0, z1, top, side, lu = 0, lv = 0) => {
   // (lu, lv): how far its top stands off plumb, for a post that leans
   const P = (u, v, z) => (z === z1 ? F.at(u + lu, v + lv, z) : F.at(u, v, z));
   const sides = [
-    [u0, v1, u1, v1, F.c, -F.s * SUN.x + F.c * SUN.y],     // the +v side
-    [u0, v0, u1, v0, -F.c, F.s * SUN.x - F.c * SUN.y],     // the -v side
-    [u1, v0, u1, v1, F.s, F.c * SUN.x + F.s * SUN.y],      // the +u side
-    [u0, v0, u0, v1, -F.s, -F.c * SUN.x - F.s * SUN.y],    // the -u side
+    [u0, v1, u1, v1, F.c, -F.s * SN.x + F.c * SN.y],     // the +v side
+    [u0, v0, u1, v0, -F.c, F.s * SN.x - F.c * SN.y],     // the -v side
+    [u1, v0, u1, v1, F.s, F.c * SN.x + F.s * SN.y],      // the +u side
+    [u0, v0, u0, v1, -F.s, -F.c * SN.x - F.s * SN.y],    // the -u side
   ];
   for (const [ua, va, ub, vb, look, sun] of sides) {
     if (look <= 0.15) continue;
@@ -474,7 +525,7 @@ const shadowLayer = (F, S, P, posts, water) => {
       if (onWater(i, j)) {
         const col = inU ? band : thrown;
         d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = inU ? 240 : 205;
-      } else if (inT) { d[k] = 28; d[k + 1] = 16; d[k + 2] = 38; d[k + 3] = 62; }
+      } else if (inT) { d[k] = 28; d[k + 1] = 16; d[k + 2] = 38; d[k + 3] = 80; }
       else d[k + 3] = 0;
     }
   }
@@ -531,6 +582,9 @@ const bakeSpan = (b0, pal) => {
   F.useMask(S);
   const B = layerOf(S);     // the span itself (inked)
   const ripples = [];
+  // what stands in the water, for bridgePiers (ground-plane points)
+  const piersOut = [];
+  const pierAt = (u, v, r, kind) => { const [x, y] = F.at(u, v, 0); piersOut.push({ x, y, r, kind }); };
 
   const plank = rgb(P.plank || "#8a7050"), plankDk = rgb(P.plankDk || "#6a5440"), beam = rgb(P.beam), rail = rgb(P.rail);
   const stoneC = rgb(P.stone), moss = rgb(P.moss);
@@ -647,7 +701,7 @@ const bakeSpan = (b0, pal) => {
       // the water laps at its face
       const fu = q.A[0] - q.n[0] * (q.T / 2 + 0.3) + q.dir[0] * 2.5, fv = q.A[1] - q.n[1] * (q.T / 2 + 0.3) + q.dir[1] * 2.5;
       const [rx, ry] = F.at(fu, fv, -DROP);
-      if (F.wet(fu - q.n[0] * 0.6, fv - q.n[1] * 0.6)) ripples.push({ x: rx, y: ry + 0.5, w: 2.5, seed: q.A[1] * 0.3 + q.e });
+      if (F.wet(fu - q.n[0] * 0.6, fv - q.n[1] * 0.6)) { ripples.push({ x: rx, y: ry + 0.5, w: 2.5, seed: q.A[1] * 0.3 + q.e }); pierAt(fu, fv, 1.5, "wall"); }
     }
   };
 
@@ -804,6 +858,7 @@ const bakeSpan = (b0, pal) => {
       if (wetFoot) {
         const [rx, ry] = F.at(u, vp, -DROP);
         ripples.push({ x: rx, y: ry + 1.2, w: 2.6, seed: u * 0.37 + sd });
+        pierAt(u, vp, 1.1, "pile");
       }
     }
   }
@@ -824,6 +879,7 @@ const bakeSpan = (b0, pal) => {
         if (tv * sd < 0) { tu = -tu; tv = -tv; }
         if (Math.abs(tv) < 0.35) { tv = 0.35 * sd; const l = Math.hypot(tu, tv); tu /= l; tv /= l; }
         cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope, deep, [tu, tv]);
+        pierAt(up, sd * HALF, 2.8, "pier");
       }
     }
   }
@@ -893,7 +949,12 @@ const bakeSpan = (b0, pal) => {
           const c0 = mx(rail, beam, 0.35);
           if (e.lip) return lt(c0, 0.2);
           if (e.joint || e.rim) return dk(c0, 0.35);
-          if (z < -DROP + 1.2) return mx(dk(c0, 0.3), moss, 0.4);
+          // the wet band and weed at the waterline, a dark slick just above it
+          if (z < -DROP + 1.4) {
+            if (z > -DROP + 0.5 && hash(i, 7) < 0.3) return lt(moss, 0.1);
+            return mx(dk(c0, 0.38), moss, 0.35);
+          }
+          if (z < -DROP + 2.2) return dk(c0, 0.14);
           return c0;
         }
         if (id >= 40 && id < 200) return dk(mx(beam, rail, 0.4), 0.15);
@@ -907,6 +968,7 @@ const bakeSpan = (b0, pal) => {
       });
       // the piles' wet feet
       for (const u of piles) {
+        pierAt(u, v0, 1.1, "pile"); pierAt(u, -v0, 1.1, "pile");
         const [rx, ry] = F.at(u, v0, -DROP);
         ripples.push({ x: rx, y: ry + 0.6, w: 2.4, seed: u * 0.53 });
       }
@@ -937,11 +999,15 @@ const bakeSpan = (b0, pal) => {
     let patchK = fen ? Math.floor(R(17) * n) : -1;
     if (patchK === gapK) patchK = (patchK + 2) % n;
     const HOLE = 100000;
+    // the fen's timber is old and wet through: darker, near black at the seams, with a damp sheen
+    const fenWet = dk(plank, 0.3);
     const tones = fen
-      ? [lt(plank, 0.08), plank, mx(plank, plankDk, 0.5), plankDk, mx(plank, moss, 0.18)]
+      ? [lt(fenWet, 0.06), fenWet, mx(fenWet, plankDk, 0.5), dk(plankDk, 0.18), mx(fenWet, moss, 0.2)]
       : [lt(plank, 0.05), plank, mx(plank, plankDk, 0.3), mx(plank, plankDk, 0.55)];
-    const worn = lt(mx(plank, road, fen ? 0.12 : 0.28), fen ? 0.06 : 0.1);
-    const gap = dk(beam, 0.4);
+
+    const gap = fen ? dk(beam, 0.62) : dk(beam, 0.4);
+    const worn = fen ? lt(mx(fenWet, road, 0.1), 0.04) : lt(mx(plank, road, 0.28), 0.1);
+    const buttOf = (k) => (k === 0 || k === n - 1 || hash(k, 56 + (b.x | 0)) < 0.45 ? 99 : (hash(k, 55 + (b.x | 0)) - 0.5) * 40);
     surfacePiece(S, B, deckBox, (X, Y, o) => {
       F.onTop(X, Y, 0, o);
       const u = o[0], v = o[1], av = Math.abs(v);
@@ -952,7 +1018,8 @@ const bakeSpan = (b0, pal) => {
         if (br.k === k && v * br.sd > br.at + (hash(k, Math.floor(u * 4)) - 0.5) * 1.6) return HOLE;
       }
       if (k === gapK && v > gapV0 + (hash(Math.floor(u * 4), 3) - 0.5) * 1.4 && v < gapV1 + (hash(Math.floor(u * 4), 4) - 0.5) * 1.4) return HOLE;
-      return k;
+      // planks are laid in two lengths, their butt joints staggered plank to plank
+      return k + (v > buttOf(k) ? 2000 : 0);
     }, (id, u, v, e, i, j) => {
       const av = Math.abs(v);
       if (id === HOLE) {
@@ -960,29 +1027,53 @@ const bakeSpan = (b0, pal) => {
         if (Math.abs(av - 27) < 0.9 || Math.abs(av - 9) < 0.9) return Math.abs(av - 27) < 0.35 || Math.abs(av - 9) < 0.35 ? mx(beam, rail, 0.4) : beam;
         return voidC;
       }
-      const f = u + F.half - id * pitch;
-      let col = tones[Math.floor(hash(id, 11 + (b.x | 0)) * tones.length)];
-      if (id === patchK) col = lt(mx(col, moss, 0.34), 0.06);
+      const k = id % 2000, seg = id >= 2000 ? 1 : 0;
+      const f = u + F.half - k * pitch;
+      let col = tones[Math.floor(hash(k * 3 + seg, 11 + (b.x | 0)) * tones.length)];
+      if (k === patchK) col = lt(mx(col, moss, 0.34), 0.06);
       // the sills at each end are heavier timbers, darker
-      if (id === 0 || id === n - 1) col = mx(col, beam, 0.35);
+      if (k === 0 || k === n - 1) col = mx(col, beam, 0.35);
       // the arch: the half that rises toward the sun is lit, the half that
-      // falls toward the camera turned from it, a whole tone each way
+      // falls toward the camera turned from it, in dithered steps
       const sl = F.slope(u);
-      if (sl) col = sl > 0 ? lt(col, sl > 1 ? 0.2 : 0.11) : dk(col, sl < -1 ? 0.2 : 0.11);
-      // the worn track down the middle, paler where feet and wheels go
-      if (av < 21) col = mx(col, worn, av < 14 ? 0.34 : 0.17);
-      if (Math.abs(av - 11.5) < 1.2 && !fen) col = dk(col, 0.07);
-      // grain: a faint streak along some planks, and the odd knot
-      const g = f / pitch;
-      if ((Math.abs(g - 0.34) < 0.07 || Math.abs(g - 0.7) < 0.06) && hash(id * 7 + Math.floor((v + 40) / 5.5), 3) < 0.45) col = dk(col, 0.08);
-      const kv = (hash(id, 78) - 0.5) * 52;
-      if (hash(id, 77) < 0.35 && Math.abs(v - kv) < 0.7 && Math.abs(g - 0.5) < 0.12) col = dk(col, 0.28);
-      // nails where the planks cross the two outer stringers, a few planks
-      // bare, the rest a pixel off here and there
-      if (hash(id, 91 + (b.x | 0)) > 0.22) {
-        const sv = v > 0 ? 1 : 2, nv = 27 + (hash(id, 92 + sv) - 0.5) * 1.2;
-        const ng = (hash(id, 94 + sv) - 0.5) * 0.18;
-        if (Math.abs(av - nv) < 0.28 && (Math.abs(g - 0.3 - ng) < 0.1 || (hash(id, 96 + sv) < 0.7 && Math.abs(g - 0.72 - ng) < 0.1))) col = dk(col, 0.42);
+      col = shadeD(col, F.slopeC(u), i, j, 0.06);
+      // the worn track: paler and drier where feet and wheels go, fading out
+      // to the edges with no line (the owner dislikes lane ruts)
+      const wear = Math.max(0, Math.min(1, (22 - av) / 13)) * (0.75 + 0.25 * hash(k, 21));
+      if (wear > 0) col = mx(col, worn, Math.round(wear * 3 + bay(i, j) - 0.5) * (fen ? 0.06 : 0.1));
+      // grain: three wavy lines along each plank, broken here and there
+      const g = f / pitch, ph = hash(k * 3 + seg, 4) * 6.3;
+      for (let q = 0; q < 3; q++) {
+        const gl = 0.22 + q * 0.27 + Math.sin(v * (0.21 + q * 0.07) + ph + q * 2) * 0.05;
+        const dg = g - gl;
+        if (Math.abs(dg) < 0.08 && hash(k * 5 + q, Math.floor((v + 40) * 0.6)) < 0.8) { col = dk(col, q === 1 ? 0.15 : 0.11); break; }
+        if (dg < -0.08 && dg > -0.16 && q !== 1 && hash(k * 5 + q, Math.floor((v + 40) * 0.5) + 9) < 0.5) { col = lt(col, 0.07); break; }
+      }
+      // a knot or two, with the grain darkening round it
+      const kv = (hash(k * 3 + seg, 78) - 0.5) * 48, kg = 0.35 + hash(k, 79) * 0.3;
+      if (hash(k * 3 + seg, 77) < 0.4) {
+        const kr = Math.hypot((g - kg) * pitch, (v - kv) * 0.55);
+        if (kr < 0.42) col = dk(col, 0.34); else if (kr < 0.85) col = dk(col, 0.1);
+      }
+      // nail heads where the planks cross the stringers (9 and 27 out), two a
+      // crossing: a dark head with a lit pixel on its sun side
+      for (const sv of [9, 27]) {
+        if (Math.abs(av - sv) > 0.7) continue;
+        for (const ng of [0.26, 0.74]) {
+          if (hash(k * 7 + sv, ng * 10 + 3) < 0.15) continue;
+          const du = (g - ng) * pitch, dv = av - sv;
+          if (Math.abs(du) < 0.3 && Math.abs(dv) < 0.3) col = dk(col, 0.55);
+          else if (Math.abs(dv) < 0.3 && du > -0.8 && du < -0.3) col = lt(col, 0.2);
+        }
+      }
+      // the fen's wet sheen: a cool pale streak along the grain of some planks, where light catches water
+      if (fen && Math.abs(g - 0.62) < 0.07 && hash(k * 3 + seg, Math.floor((v + 40) / 4)) < 0.4) col = mx(col, [150, 178, 170], 0.22);
+      // grime gathers along the kerbs
+      if (av > 29.5 && bay(i, j) < (av - 29.5) / 3.5) col = dk(col, 0.1);
+      if (SNOWY) {
+        const edge = 27.4 + hash(k, 41 + (v > 0 ? 1 : 0)) * 2.4;
+        if (av > edge + 0.5) return snowAt(e, i, j);
+        if (av > edge) return SNOW_SH;
       }
       // the road's dust carried onto each end, in drifts
       const dust = (Math.abs(u) - (F.half - 6)) / 6;
@@ -996,7 +1087,7 @@ const bakeSpan = (b0, pal) => {
       // the end sill's outer edge: a dark line where the road runs on, broken by dust
       if (Math.abs(u) > F.half - 0.5 && hash(Math.floor(v * 2), 7 + (b.x | 0)) > 0.3) return dk(beam, 0.05);
       if (e.joint) return gap;
-      if (e.lip) return lt(col, sl > 0 ? 0.26 : 0.13);
+      if (e.lip) return lt(col, sl > 0 ? 0.26 : 0.15);
       return col;
     });
     // the edge beams, standing a little proud of the planks
@@ -1037,7 +1128,10 @@ const bakeSpan = (b0, pal) => {
   deckShadow(S, B, F, P, posts);
 
   if (stone && F.near) {
-    for (const up of piersOf(F.near * HALF + F.near * 0.6).piers) cutwater(S, B, F, up, F.near, stoneT, moss, ripples, cope, deep);
+    for (const up of piersOf(F.near * HALF + F.near * 0.6).piers) {
+      cutwater(S, B, F, up, F.near, stoneT, moss, ripples, cope, deep);
+      pierAt(up, F.near * (HALF + 2), 2.8, "pier"); pierAt(up, -F.near * HALF, 2.8, "pier");
+    }
   }
 
   drawWing(wingFront);
@@ -1086,7 +1180,8 @@ const bakeSpan = (b0, pal) => {
     const R0 = clear(r.x + r.w / 2 + 0.5, r.y + 0.25) && clear(r.x + r.w / 2 + 1.5, r.y + 0.25);
     if (L0 || R0) seen.push({ ...r, l: L0, r: R0 });
   }
-  return { cv: G.cv, x0, y0, w: S.pw / PX, h: S.ph / PX, px: PX, ripples: seen, shine: water.shine, lampAt, lamp: P.lamp, fen };
+  // (the span alone is kept only while a low sun needs its cast shadow: castBridges)
+  return { cv: G.cv, body: DAY.on ? B.cv : null, piers: piersOut, x0, y0, w: S.pw / PX, h: S.ph / PX, px: PX, ripples: seen, shine: water.shine, lampAt, lamp: P.lamp, fen };
 };
 
 // ---- the face's reflection ---------------------------------------------------
@@ -1255,7 +1350,9 @@ const bentPile = (S, B, F, u, sd, P, shade, deep, wetFoot) => {
     faceEdges(c, F, u, vp, 1.1, zb, zt, lt(face, shade ? 0.12 : 0.24), dk(face, 0.3));
     // the damp, green-dark foot, and the wet line where it meets the water
     const band = (z0, z1, col) => poly(c, [F.at(us, va, z1), F.at(us, vb, z1), F.at(us, vb, z0), F.at(us, va, z0)], css(col));
-    band(zb, zb + 1.3, mx(dk(face, 0.3), moss, 0.4));
+    band(zb, zb + 2.1, dk(face, 0.14));
+    band(zb, zb + 1.3, mx(dk(face, 0.32), moss, 0.42));
+    band(zb + 1, zb + 1.3, mx(face, moss, 0.55));
     if (wetFoot) band(zb, zb + 0.5, mx(dk(deep, 0.5), moss, 0.2));
     // the cap: the bent's beam end, standing out past the deck's edge and the pile
     const [ca, cb] = lh(sd * (HALF - 1.5), sd * (HALF + PILE_OUT + 1.6));
@@ -1268,6 +1365,7 @@ const bentPile = (S, B, F, u, sd, P, shade, deep, wetFoot) => {
 // The paving: the Iron road's flags carried over the span, kerbed, the ruts
 // running on across it; then the parapets' coping and inner faces.
 const stoneDeck = (S, B, F, P, box, stoneT) => {
+  const moss = rgb(P.moss);
   const main = rgb(REALM.PATH_MAIN || "#a69c86"), dkP = rgb(REALM.PATH_DK || "#847a66");
   const tones = [lt(main, 0.05), main, mx(main, dkP, 0.14), mx(main, [142, 150, 152], 0.12), mx(main, [176, 154, 116], 0.12)];
   const kerbT = [mx(main, [208, 204, 192], 0.3), mx(main, [184, 180, 170], 0.2), mx(main, dkP, 0.1)];
@@ -1296,16 +1394,39 @@ const stoneDeck = (S, B, F, P, box, stoneT) => {
     const av = Math.abs(v);
     const kerb = id >= 5000;
     let col = kerb ? kerbT[Math.floor(hash(id, 7) * 3)] : tones[Math.floor(hash(id, 7) * 5)];
-    // the ruts: two flat steps, like the road's
-    const re = Math.abs(av - 11.5 - (hash(Math.floor((u + 60) / 7), 3) - 0.5) * 0.6);
-    if (!kerb && re < 2.4) col = dk(col, re < 1.1 ? 0.12 : 0.05);
-    if (!kerb && av < 4) col = lt(col, 0.03);
-    const sl = F.slope(u);
-    if (sl) col = sl > 0 ? lt(col, sl > 1 ? 0.15 : 0.08) : dk(col, sl < -1 ? 0.15 : 0.08);
+    // each flag its own: a few pitted, a few worn smooth and pale
+    const fh = hash(id, 19);
+    if (!kerb && fh < 0.18) col = dk(col, 0.05); else if (!kerb && fh > 0.85) col = lt(col, 0.05);
+    // wear: the middle of the road polished paler, fading out with no line
+    // (faint broken wheel marks only, never lane ruts)
+    if (!kerb) {
+      const wear = Math.max(0, Math.min(1, (20 - av) / 12));
+      if (wear > 0) col = mx(col, lt(main, 0.14), Math.round(wear * 3 + bay(i, j) - 0.5) * 0.07);
+      const re = Math.abs(av - 11.5 - (hash(Math.floor((u + 60) / 7), 3) - 0.5) * 0.6);
+      if (re < 1 && hash(Math.floor((u + 60) / 3.5), 31) < 0.55) col = dk(col, 0.05);
+    }
+    col = shadeD(col, F.slopeC(u) * 0.8, i, j, 0.05);
     const hp = hash(i * 7 + j * 13, 3);
-    if (hp < 0.05) col = dk(col, 0.05); else if (hp > 0.98) col = lt(col, 0.05);
-    if (e.joint) return dk(col, kerb ? 0.3 : 0.2);
-    if (e.lip) return lt(col, kerb ? 0.14 : 0.07);
+    if (hp < 0.025) col = dk(col, 0.08); else if (hp > 0.99) col = lt(col, 0.07);
+    // a hairline crack across some flags
+    if (!kerb && fh > 0.9) {
+      const cr = u * 0.8 + v * 0.45 + hash(id, 61) * 40;
+      if (Math.abs(cr - Math.round(cr / 9) * 9) < 0.28) col = dk(col, 0.24);
+    }
+    // grime and moss gather toward the kerbs and the parapets' feet
+    if (kerb && av > 29.6 && bay(i, j) < (av - 29.6) / 2.2) col = mx(dk(col, 0.12), moss, 0.25);
+    if (SNOWY) {
+      // drifted against the kerbs: a ragged but solid edge, a blue shade line along it
+      const edge = 26.2 + hash(Math.floor((u + 60) * 0.7), 41 + (v > 0 ? 1 : 0)) * 2.4 + Math.sin(u * 0.4) * 0.6;
+      if (av > edge + 0.5) return snowAt(e, i, j);
+      if (av > edge) return SNOW_SH;
+    }
+    if (e.joint) {
+      if (SNOWY && av > 16 && hash(i, j * 3) < (av - 16) / 12) return SNOW_SH;
+      if (av > 18 && hash(i * 3, j) < (av - 18) / 20) return mx(dk(col, 0.3), moss, 0.45);
+      return dk(col, kerb ? 0.3 : 0.22);
+    }
+    if (e.lip) return lt(col, kerb ? 0.16 : 0.09);
     return col;
   });
   const cope = rgb(P.cope);
@@ -1322,8 +1443,13 @@ const stoneDeck = (S, B, F, P, box, stoneT) => {
         if (z < l || z > l + 5) return -1;
         const row = Math.floor((z - l) / 1.7);
         return row * 64 + Math.floor((u + 60 + (row & 1) * 2.2) / 4.4);
-      }, (id, u, z, e) => {
+      }, (id, u, z, e, i, j) => {
         let col = dk(stoneT[Math.floor(hash(id, 23) * 3)], 0.14);
+        const zz = z - F.L(u);
+        // damp and moss at its foot, a lit band under the coping's lip
+        if (zz < 1.3 && bay(i, j) < (1.3 - zz) * 0.5) col = mx(dk(col, 0.1), moss, 0.4);
+        if (zz > 4.4) col = dk(col, 0.12);
+        if (SNOWY && zz < 0.9 + hash(i >> 1, 3) * 0.8) return snowAt(e, i, j);
         if (e.joint) return dk(col, 0.35);
         if (e.lip) return lt(col, 0.12);
         return col;
@@ -1336,11 +1462,18 @@ const stoneDeck = (S, B, F, P, box, stoneT) => {
     const u = o[0], v = o[1], av = Math.abs(v);
     if (u < -F.half || u > F.half || av < PAR || av > HALF) return -1;
     return (v > 0 ? 500 : 0) + Math.floor((u + F.half + (v > 0 ? 2 : 0)) / 5.6);
-  }, (id, u, v, e) => {
+  }, (id, u, v, e, i, j) => {
+    // under a cap of snow in the Rimewater, a little stone showing at the joints
+    if (SNOWY && !(e.joint && hash(i, j) < 0.5)) return e.rim && hash(i * 3, j) < 0.3 ? SNOW_SH : snowAt(e, i, j);
     let col = mx(cope, stoneC, hash(id, 3) * 0.4);
-    if (F.slope(u) < 0) col = dk(col, 0.06);
+    col = shadeD(col, F.slopeC(u) * 0.5, i, j, 0.05);
+    // weathered: pits, a lichen spot, the odd chipped arris
+    const hp = hash(i * 5 + 1, j * 7 + 2);
+    if (hp < 0.07) col = dk(col, 0.12);
+    else if (hp > 0.985) col = mx(col, [196, 190, 120], 0.45);
     if (e.joint) return dk(col, 0.34);
-    if (e.lip) return lt(col, 0.22);
+    if (e.lip) return lt(col, 0.26);
+    if (e.rim && hash(i, j * 5) < 0.12) return dk(col, 0.18);
     return col;
   });
 };
@@ -1400,10 +1533,22 @@ const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, unde
     return 1000 + row * 64 + Math.floor((u + 60 + (row & 1) * 2.5) / 5);
   }, (id, u, z, e, i, j) => {
     let col;
-    if (id === 3) return voidC;
+    if (id === 3) {
+      // the arch's underside: dark, with the water's light thrown up on it
+      // in a soft dithered band just under the ring
+      for (const a of A) {
+        const du = (u - a.uc) / a.r;
+        if (Math.abs(du) >= 1) continue;
+        const zi = -DROP + a.rise * Math.sqrt(1 - du * du), t = (z + DROP) / Math.max(1, zi + DROP);
+        const glow = Math.max(0, t - 0.45) * 0.55 * (1 - Math.abs(du) * 0.5);
+        const rip = hash(Math.floor((u + 60) * 1.4), Math.floor(z * 2)) < 0.35 ? 0.06 : 0;
+        return bay(i, j) < glow + rip ? mx(voidC, shineC, 0.2) : voidC;
+      }
+      return voidC;
+    }
     if (id === 4) return z > -DROP + 0.4 && hash(Math.floor((u + 60) * 1.2), 5) < 0.55 ? mx(underWater, shineC, 0.45) : underWater;
     const l = F.L(u);
-    if (id === 1) col = lt(rgb(P.cope), 0.08);                             // the coping's lip
+    if (id === 1) { col = lt(rgb(P.cope), 0.08); if (SNOWY) return z > l + 4.6 || bay(i, j) < 0.6 ? snowAt(e, i, j) : SNOW_SH; } // the coping's lip
     else if (id === 2) col = z < l - 0.95 ? dk(stoneT[1], 0.38) : lt(stoneT[0], 0.06); // string course, its shadow under
     else if (id >= 60 && id < 100) col = lt(stoneT[0], 0.22);             // keystone
     else if (id >= 20 && id < 60) col = lt(stoneT[1], (id & 1) ? 0.13 : 0.03); // voussoirs
@@ -1450,7 +1595,7 @@ const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope, deep, dir = null
     if (ny < 0.05) continue;                                       // turned from the camera
     const [x1] = F.at(p[0], p[1]), [x2] = F.at(q[0], q[1]);
     if (Math.abs(x2 - x1) < 0.6) continue;
-    const lit = (nx * SUN.x + ny * SUN.y) / Math.hypot(nx, ny) > -0.3;
+    const lit = (nx * SN.x + ny * SN.y) / Math.hypot(nx, ny) > -0.3;
     faces.push({ p, q, x1, x2, lit, len: Math.hypot(q[0] - p[0], q[1] - p[1]) });
   }
   const pts = [];
@@ -1647,8 +1792,8 @@ const faceEdges = (c, F, u, v, r, z0, z1, lit, dark) => {
   else pts = [F.at(u - r, v - r, z1), F.at(u - r, v + r, z1)];
   const xl = Math.min(pts[0][0], pts[1][0]), xr = Math.max(pts[0][0], pts[1][0]);
   const y = Math.max(pts[0][1], pts[1][1]), hgt = z1 - z0;
-  c.fillStyle = css(lit); c.fillRect(Math.round(xl * 2) / 2, Math.round(y * 2) / 2, 0.5, hgt);
-  c.fillStyle = css(dark); c.fillRect(Math.round(xr * 2) / 2 - 0.5, Math.round(y * 2) / 2, 0.5, hgt);
+  c.fillStyle = css(EAST ? dark : lit); c.fillRect(Math.round(xl * 2) / 2, Math.round(y * 2) / 2, 0.5, hgt);
+  c.fillStyle = css(EAST ? lit : dark); c.fillRect(Math.round(xr * 2) / 2 - 0.5, Math.round(y * 2) / 2, 0.5, hgt);
 };
 // a rail beam from ua to ub along the line v, riding the arch at height zr
 const railRun = (c, F, ua, ub, v, zr, th, top, face, sag = 0) => {
@@ -1707,8 +1852,16 @@ const pillarsStone = (S, R, F, P, posts, stoneT) => {
       const [cx1] = F.at(p.u + r, p.v + r * Math.sign(F.c || 1), l + p.h * 0.45);
       if (Math.abs(F.c) > 0.2) { c.fillStyle = css(dk(t, 0.4)); c.fillRect(Math.min(cx0, cx1), Math.round(cy0 * 2) / 2, Math.abs(cx1 - cx0), 0.5); }
       // the cap, and a small pyramid on it
-      block(c, F, p.u - r - 0.5, p.u + r + 0.5, p.v - r - 0.5, p.v + r + 0.5, l + p.h - 1.2, l + p.h, css(lt(rgb(P.cope), 0.12)), (sun) => css(sun > 0.1 ? rgb(P.cope) : dk(rgb(P.cope), 0.2)));
-      if (!p.lamp) {
+      block(c, F, p.u - r - 0.5, p.u + r + 0.5, p.v - r - 0.5, p.v + r + 0.5, l + p.h - 1.2, l + p.h, css(SNOWY ? SNOW : lt(rgb(P.cope), 0.12)), (sun) => css(sun > 0.1 ? rgb(P.cope) : dk(rgb(P.cope), 0.2)));
+      // a pale lit arris along the cap's top edge, a drip shadow under it
+      if (Math.abs(F.c) > 0.2) {
+        const sd2 = Math.sign(F.c), [ax0, ay0] = F.at(p.u - r - 0.5, p.v + (r + 0.5) * sd2, l + p.h - 1.2), [ax1] = F.at(p.u + r + 0.5, p.v + (r + 0.5) * sd2, l + p.h - 1.2);
+        c.fillStyle = css(dk(t, 0.34)); c.fillRect(Math.min(ax0, ax1), Math.round(ay0 * 2) / 2, Math.abs(ax1 - ax0), 0.5);
+      }
+      if (SNOWY && !p.lamp) {
+        // a snow cap heaped on it instead of the stone pyramid
+        block(c, F, p.u - r - 0.2, p.u + r + 0.2, p.v - r - 0.2, p.v + r + 0.2, l + p.h, l + p.h + 0.9, css(SNOW), () => css(SNOW_SH));
+      } else if (!p.lamp) {
         const [ax, ay] = F.at(p.u, p.v, l + p.h + 1.6);
         const [bx, by] = F.at(p.u - r * 0.8, p.v, l + p.h);
         const [cx2, cy2] = F.at(p.u + r * 0.8, p.v, l + p.h);
@@ -1724,12 +1877,14 @@ const pillarsStone = (S, R, F, P, posts, stoneT) => {
 // Baked spans are kept for the realm in play (a restart of the same board
 // finds them ready); baking another realm's spans lets the old ones go.
 const CACHE = new Map();
+onDay(() => { CACHE.clear(); for (const b of BRIDGES) b._spr = null; });
 const spriteOf = (b, pal) => {
-  const key = [REALM.id, PX, b.x, b.y, b.a, b.d0, b.d1, pal ? JSON.stringify(pal) : ""].join("|");
+  const key = [REALM.id, PX, b.x, b.y, b.a, b.d0, b.d1, DAY.id, pal ? JSON.stringify(pal) : ""].join("|");
   if (b._spr && b._spr.key === key) return b._spr;
   let spr = CACHE.get(key);
   if (!spr) {
     for (const k of CACHE.keys()) if (!k.startsWith(REALM.id + "|")) CACHE.delete(k);
+    setBakeSun();
     spr = bakeSpan(b, pal);
     spr.key = key;
     CACHE.set(key, spr);
@@ -1778,8 +1933,20 @@ export const bakeBridges = () => {
 };
 
 // every span's still picture, for its shadow on the water under the level's sun (sceneryday.js liftCast)
+// (the span itself only: its rails, piers and deck, not the baked shade and reflection on the water)
 export const castBridges = (ctx) => {
-  for (const b of BRIDGES) { const s = spriteOf(b); ctx.drawImage(s.cv, s.x0, s.y0, s.w, s.h); }
+  for (const b of BRIDGES) { const s = spriteOf(b); ctx.drawImage(s.body || s.cv, s.x0, s.y0, s.w, s.h); }
+};
+
+// Every span's piers, piles and corner footings that stand IN the water, in board coordinates, for
+// the river's painter (wakes and foam behind them): [{ x, y, r, kind, bridge }] where (x, y) is the
+// foot on the ground plane (the river's own coordinates, not lifted), r its half-width in units, kind
+// "pile" (timber / fen piles and bents), "pier" (a stone pier's cutwater), "wall" (a wing wall's face
+// in the water), bridge its index in BRIDGES. Bakes the spans if they are not baked yet (sun-independent).
+export const bridgePiers = () => {
+  const out = [];
+  BRIDGES.forEach((b, k) => { for (const p of spriteOf(b).piers || []) out.push({ ...p, bridge: k }); });
+  return out;
 };
 
 export { DEFAULT_BRIDGE };
