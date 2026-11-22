@@ -8,6 +8,7 @@ import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE, WALL_W } f
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { noteCrash, heartbeat, quietBeat } from "./native/crashlog.js";
 import { bakeStats } from "./render/pix/bake.js";
+import { prefs } from "./data/prefs.js";
 import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
 import { music } from "./audio/music.js";
@@ -615,11 +616,20 @@ export default function Crownguard() {
   useEffect(() => {
     initGame();
     let raf, last = performance.now();
+    // Pacing (2026-11-22, owner: the phone "got so hot"). The screen asks for a frame as often as it
+    // refreshes, 120 times a second on a ProMotion iPhone; the game answers 60 at most, 30 with the
+    // Battery saver (Settings, Display). The engine takes the real time between the frames it does
+    // run, so the game's speed never changes. And the board is only REPAINTED when it can have changed:
+    //   paused       g.time stands still, so the picture does too: 4 a second, at once on any touch
+    //   a quiet build phase (no foes, no shots, nothing touched for 1.5 s): 30 a second
+    const FRAME = 1000 / 60, SAVER = 1000 / 30, SLACK = 3, STILL = 250, CALM_MS = 1500;
+    let shown = 0, sig = "", stirred = 0;
 
     const step = (now) => {
       raf = requestAnimationFrame(step);
       const g = G.current;
       if (!g) return;
+      if (now - last < (prefs.saver ? SAVER : FRAME) - SLACK) return;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       // dev-server playtest handle: the live game object, for poking from the console
@@ -638,7 +648,15 @@ export default function Crownguard() {
       // an ability can't take aim, nor he take a post, while the hero is down
       if ((abAim || g.rallyFor === "hero") && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
       // a painter's fault must cost one frame's picture, never freeze the board for good
-      try { draw(g, canvasRef.current, bufRef); }
+      // (anything the player does to the board changes one of these: then it is painted at once, at full pace)
+      const hv = g.hover, up = g.upPreview;
+      const k2 = `${g.selectedId}|${g.buildMode}|${hv ? `${hv[0] | 0},${hv[1] | 0}` : ""}|${g.cam.x}|${g.cam.y}|${g.cam.zoom}|${g.rallyFor}|${g.towers.length}|${g.phase}|${Math.floor(g.gold)}|${up ? up.id : ""}|${g.masterBuild ? 1 : 0}|${g.skiffPick ?? ""}|${g.paused ? 1 : 0}|${g.lives}|${canvasRef.current ? 1 : 0}`;
+      if (k2 !== sig) { sig = k2; stirred = now; }
+      const calm = now - stirred > CALM_MS;
+      const wait = !calm ? 0 : g.paused ? STILL : g.phase === "build" && !g.enemies.length && !g.projectiles.length ? SAVER - SLACK : 0;
+      const paint = now - shown >= wait;
+      if (paint) shown = now;
+      try { if (paint) draw(g, canvasRef.current, bufRef); }
       catch (err) { const k = "draw:" + String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("draw failed", err); noteCrash("draw", err); } }
       // the crash recorder's heartbeat (native/crashlog.js): only while a battle is on screen
       if (screenRef.current === "game" && g.phase !== "lost") { const b = bakeStats(); heartbeat(now, { realm: REALM.id, faction: FACTION.id, wave: g.wave, phase: g.phase, bakeMB: Math.round(b.bytes / 1048576), clips: b.clips }); }
@@ -647,7 +665,7 @@ export default function Crownguard() {
       if (veilRef.current) { const v = weatherVeil(g) || "transparent"; if (veilRef.current.style.background !== v) veilRef.current.style.background = v; }
       // and fog / mist run out over it (weatherfx.js paints them wide enough)
       { const bc = boardCssRef.current, ec = edgeRef.current;
-        if (ec && bc.cw) {
+        if (paint && ec && bc.cw) {
           const dpr = Math.min(2, window.devicePixelRatio || 1);
           if (ec.width !== Math.round(bc.cw * dpr) || ec.height !== Math.round(bc.ch * dpr)) { ec.width = Math.round(bc.cw * dpr); ec.height = Math.round(bc.ch * dpr); ec._wxOn = true; }
           paintWeatherEdge(ec, { x: bc.x, y: bc.y + Math.round((bc.vh - bc.h) / 2), w: bc.w, h: bc.h }, dpr);

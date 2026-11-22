@@ -19,7 +19,9 @@
 // data-no-floats) that hud.css reads, so no component needs to know.
 
 const KEY = "crownguard.prefs.v1";
-const DEFAULTS = { shake: true, floats: true, newSprites: true, spellLight: true };
+//   saver   battery saver: the battle is drawn 30 times a second, not 60 (the
+//           main loop's pacing in CrownguardGame.jsx; the game's speed is the same)
+const DEFAULTS = { shake: true, floats: true, newSprites: true, spellLight: true, saver: false };
 
 function load() {
   try {

@@ -23,6 +23,7 @@
 //     whoever stands in it. "Spell light" in Settings turns both off.
 import { prefs } from "../../data/prefs.js";
 import { bakeFrame, rimOf } from "./bake.js";
+import { LOD } from "../lod.js";
 import { vertWalk, marchesOnFoot } from "./march.js";
 import * as knight from "./fig-knight.js";
 import * as archer from "./fig-archer.js";
@@ -331,6 +332,7 @@ export const walkByTime = (type, time, id) => frac((time * 1000) / PIX[type].fig
 // fire (a Dragonbreath jet is a few along its length), then draws the crowd.
 // A light: { x, y, r, col, k } in board units; k its strength 0..1.
 export const LIGHTS = [];
+const FAR_LIGHT = 1000;   // a key light off the board reaches further than any fire on it
 export const beginLights = () => { LIGHTS.length = 0; };
 export const addLight = (x, y, r, col, k) => { if (k > 0.02) LIGHTS.push({ x, y, r, col, k }); };
 // the strongest light reaching a point: { k (in fifths), col, dx } or null
@@ -340,7 +342,9 @@ export const lightAt = (x, y) => {
     const d = Math.hypot(L.x - x, (L.y - y) * 1.3);
     if (d >= L.r) continue;
     // full strength over the inner 40%, falling away to the rim
-    const k = L.k * Math.min(1, (1 - d / L.r) / 0.6);
+    let k = L.k * Math.min(1, (1 - d / L.r) / 0.6);
+    // a far key light (the sun's, the moon's) eases off the rank and file of a packed road (render/lod.js)
+    if (LOD.small && L.r >= FAR_LIGHT) k *= 1 - LOD.k;
     if (k > bk) { bk = k; best = L; }
   }
   if (!best) return null;

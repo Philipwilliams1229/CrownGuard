@@ -3,6 +3,7 @@
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
 import { ringFlash } from "./ringflash.js";
+import { LOD, smallFoe, shortShade } from "./lod.js";
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { ASSASSIN_PALS } from "../sprites/sprites.js";
@@ -95,8 +96,10 @@ export const drawEnemy = (ctx, e, time, tms) => {
   const airborne = !!e.flying;
   const walkRate = FOOT_RATE[skin] || 4;
   // dust first, so the shadow sits on top of it and the foot stays grounded
+  // (on a packed road the rank and file's dust, far rim light and doubled shadow ease away: render/lod.js)
+  const thin = smallFoe(e) ? LOD.k : 0;
   if (!fighting && !airborne && !e.swimming) {
-    footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
+    if (thin < 1) footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, (e.size >= 15 || e.boss ? 0.55 : 0.28) * (1 - thin), time);
     if (skin === "loosehorse") gallopDust(ctx, e.x, e.y + e.size * 0.55, e.face, time, e.id, e._mv || 0);
   }
   // riding the current: a spreading wake instead of a shadow on the road
@@ -111,7 +114,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillStyle = "rgba(180,214,228,0.55)";
     ctx.fillRect(S(e.x - 9), S(e.y + 7), 18, CELL);
   }
-  softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, airborne ? 0.22 : 0.3);
+  // (no short shadow under a long one: sunset.js says who has a long one this frame, lod.js)
+  const sk = shortShade(airborne ? LOD.longFliers : LOD.long, time);
+  if (sk > 0) softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, (airborne ? 0.22 : 0.3) * sk);
   // Fresh arrivals resolve out of the shadow of the wood over a third of a
   // second, so nothing ever simply blinks into being at the spawn point.
   const age = e.born === undefined ? 999 : tms - e.born;
@@ -170,12 +175,14 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // a walker climbing out of its grave is cut off at the ground, so it comes up OUT of the dark earth (rings.js raise)
   const climbing = rise < 1 && !airborne;
   if (climbing) { ctx.save(); ctx.beginPath(); ctx.rect(e.x - 60, e.y + e.size * 0.55 - 120, 120, 121); ctx.clip(); }
+  LOD.small = thin > 0;
   drawTurned(ctx, e.x + lunge, feet, tn.sx, () => {
     drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, variant, 1, aim);
     if (e.hitFlash > tms || ringFlash(e.x, e.y)) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "white", 0.7, aim);
     // a flier the Masons' net has dragged down: the net hugs its silhouette (rigs.js netify)
     if (e.net) drawRig(ctx, skin, e.x + lunge, feet, tn.face, ps, pf, "net", 1, aim);
   });
+  LOD.small = false;
   if (climbing) ctx.restore();
   // under a blood moon the undead's eyes glow red in their own sockets (render/bloodmoon.js; drawn over the shade)
   if (rise >= 1) noteEyes(e, skin, e.x + lunge, feet, tn.face, ps, pf, aim, time);
@@ -234,7 +241,7 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   const rig = r4 ? "assassinUnit" + r4.toUpperCase() : t.branch === "a" ? "assassinUnitA" : t.branch === "b" ? "assassinUnitB" : "assassinUnit";
   const fighting = u.state === "fighting", f = u.face < 0 ? -1 : 1;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
-  softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
+  { const sk = shortShade(LOD.longMen, time); if (sk > 0) softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24 * sk); }
   // the blade (fig-blade.js): a smooth walk, a real idle at the tent, and the cut
   // timed off his own attack clock as the soldiers' blows are
   const heading = vertOf(u), tn = turnOf(u, u.face, time * 1000);
@@ -396,7 +403,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     if (fidget === 2 && fp > 0.25 && fp < 0.75) glance = true;
   }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, giant || rider ? 0.5 : 0.3, time);
-  softShadow(ctx, u.x + 1, u.y + 9, giant ? 10 : rider ? 11 : 6, giant ? 3.5 : 2.4, 0.3);
+  { const sk = t.kind === "riverwatch" ? 1 : shortShade(LOD.longMen, time); if (sk > 0) softShadow(ctx, u.x + 1, u.y + 9, giant ? 10 : rider ? 11 : 6, giant ? 3.5 : 2.4, 0.3 * sk); }
   if (fidget === 1 && fp > 0.3) {
     // the pebble, skittering off and settling
     const roll = Math.min(1, (fp - 0.3) / 0.5);
@@ -491,7 +498,7 @@ export const drawBandUnit = (ctx, u, b, time) => {
     else { psheet = "idle"; frame = time + u.id * 1.3; }
   }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
-  softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);
+  { const sk = shortShade(LOD.long, time); if (sk > 0) softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3 * sk); }
   // the hero stands in a ring of gold so he can be found in a crowd
   if (hero) {
     ctx.strokeStyle = `rgba(232,196,90,${0.45 + 0.2 * Math.sin(time * 4)})`;
