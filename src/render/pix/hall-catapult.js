@@ -52,7 +52,7 @@ const D2R = Math.PI / 180;
 // halls/catapult.js `spec`, in art pixels (x2). Keep the two in step: the engine reads that one.
 // a lantern on a short post beside the front of the machine: a timber post, an arm, an iron cage with a lit pane
 // (the night lights it through the spec's `lights`; by day the pane is its own warm yellow)
-const LAMP = { dx: 7, dy: 10 };
+const LAMP = { dx: 12, dy: 10 };
 const lantern = (px, x, base) => {
   const top = base - 19;
   px.part(); beam(px, x, base, x, top, 2.2, TIMBER_D, 6, { grain: false }); beam(px, x, top, x - 4, top, 1.6, TIMBER_D, 6.1, { grain: false });
@@ -367,7 +367,7 @@ export const build = (o = {}) => (back, front) => {
   const fly = o.west ? -1 : 1;
   if (G.roller) live.push({ kind: "pennant", x: HW - 2, y: -16, col: FLAG_OF[F.key], pole: 29, len: 12, h: 7, dir: fly, layer: "front" });
   else if (F.level >= 2 || F.br) live.push({ kind: "pennant", x: HW + 2, y: -10, col: FLAG_OF[F.key], pole: G.treb ? 55 : 35, len: 12, h: 7, dir: fly, layer: "front" });
-  if (F.level >= 2 && F.r4 !== "ab") { const lx = HW + LAMP.dx; lantern(back, lx, LAMP.dy); lights.push({ key: "lamp", x: lx - 4, y: LAMP.dy - 16, r: 17, col: "#ffcf70", a: 0.7 }); }
+  if (F.level >= 2 && F.r4 !== "ab") { const lx = HW + LAMP.dx; lantern(fr, lx, LAMP.dy); lights.push({ key: "lamp", x: lx - 4, y: LAMP.dy - 16, r: 17, col: "#ffcf70", a: 0.7 }); }
   if (F.r4 === "ab") { live.push({ kind: "flame", x: -(HW - 4), y: -12, w: 5, h: 7 }); lights.push({ key: "torch", x: -(HW - 4), y: -18, r: 22, col: "#ffa040", a: 0.8 }); }
   return {
     live, lights,
