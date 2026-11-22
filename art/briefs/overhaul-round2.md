@@ -82,3 +82,8 @@ campaign map gets "likeminded changes" too.
   much better." (Round 2's beach is a pale band with a hard edge against deep teal water: the sand must
   be seen running on UNDER the water and fading out with depth.) The rest of round 2: "I'll get back to
   you on the rest later."
+- **The lake, after the shore pass:** "Better but there is still just a line, let's have it blend into the
+  water, the depth effect of the sand coast can be shown by a lighter shade towards the shore and darker as
+  it gets further into the water. Give it another go." (So: NO visible band edges or waterline stroke between
+  sand and water: a continuous light-to-dark blend. In pixel terms: many close steps joined by wide dither,
+  not a few bands with broken edges. The lead's earlier "never a smooth gradient" was wrong for this.)
