@@ -1043,7 +1043,15 @@ overhaul, show bold options before building.
   at giving the land HEIGHT: water A (cut below the meadow, bank faces, weirs) with B's reeds; bridges A (the
   humpback with real arches) per chapter by material; trees A (grand trees, ~1.7x) with C's ground rings and
   seasons; decor B (places, not props) at A's scale; ground A (terraces and scarps) with C's puddles.
-  **Awaiting the owner's picks; nothing is built.** Building means wider / repathed rivers, bank faces, scarps
+  **The owner's picks so far (their words in `art/briefs/overhaul-round2.md`):** water A (the near edge and the
+  lake's sand and dock need work; not every edge cut in); bridges: ALL THREE kinds with variety by area (timber
+  trestle for the Greenwood and Rime, humpback for Iron and the Hollow, today's design updated too), decks
+  matching each area's road, the up-the-screen case reworked ("have fable take a look"); trees: C's direction
+  but calmer ("chia pets"), a mix of today and C, seasons loved ("C in autumn looks awesome"), options per
+  chapter before any building, more wildlife like the deer; decor: a combination (B's village details with
+  today's houses, A's big rocks and tower re-sculpted, C's cliff edges and rock walls), Iron and the graveyard
+  need polish, a light source in every lived-in place. Ground not reviewed yet. A second concept round is running.
+  **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
   `shallowsLit`, glints capped at pale gold; water.js; coast.js): rivers shelve from pale shallows with the
