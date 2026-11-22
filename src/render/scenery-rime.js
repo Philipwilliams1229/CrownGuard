@@ -389,22 +389,60 @@ const rimeRoad = (ctx) => {
 };
 
 
+// (upgrade 2026-11-22) a spruce as boughs, not a stack of triangles: nine drooping skirts, each with a
+// ragged needle hem whose tips dip, wider on one side than the other; snow lies ON each bough in a lumpy
+// load thicker by the trunk (lit on top, its blue-violet lee under the lip), clumps hang at a few tips,
+// dark gaps between the skirts show the shade inside the tree. Footprint and height as before.
 const rmspruce = (ctx, x, y, s, o) => {
   const gy = y + 8, band = o.forest ? o.band || 0 : 0, sd = o.seed | 0, S = s * U;
   const H = (42 + (o.v % 2) * 6) * S, w0 = (11.6 + hash(sd, 1) * 2) * S, lean = (hash(sd, 2) - 0.5) * 3 * s;
   if (!o.forest) vShade(ctx, x, gy, 10 * S, 3, w0 * 1.5, 4 * S / 1.4, 0.28);
   sculpt(Math.ceil(w0 * 2.6) + 20, Math.ceil(H) + 26, 12, (ob, M) => {
-    const NEED = mat(["#15504a", "#124640", "#0e3c3a"][band], { contrast: 1.35 }), N = 6;
+    const NEED = mat(["#17544c", "#134842", "#0f3e3b"][band], { contrast: 1.4 });
+    const INNER = mat(["#0c302e", "#0a2a28", "#082422"][band], { contrast: 0.6 });
+    const N = 9;
     ob.part(); ob.capsule(0, 0, 2.6 * s, lean * 0.2, -10 * s, 2.2 * s, M.wood, 0, { round: 1 });
+    // the dark heart of the tree, seen between the skirts
+    ob.part(); ob.poly([[lean, -H + 4 * s], [lean + w0 * 0.42, -10 * s], [lean * 0.2, -6 * s], [-w0 * 0.42, -10 * s]], INNER, -1, { round: 0.6 });
     const bandH = (H - 12 * s) / N;
     for (let i = 0; i < N; i++) {
-      const f = i / N, by = -8 * s - (H - 12 * s) * f, cx = lean * f, tw = w0 * (1 - f * 0.82) * (1 + (hash(sd, i + 5) - 0.5) * 0.14), th = bandH * 1.5, z = i * 0.6;
-      ob.part(); ob.poly([[cx - tw * 0.1, by - th], [cx + tw * 0.1, by - th], [cx + tw, by - 1], [cx + tw * 0.5, by + 3.4], [cx, by + 1.6], [cx - tw * 0.5, by + 3.4], [cx - tw, by - 1]], NEED, z, { round: 0.85, ny: -0.1 });
-      const ld = 0.46 + hash(sd, i + 60) * 0.2;
-      ob.part(); ob.poly([[cx - tw * 0.1, by - th - 0.5], [cx + tw * 0.1, by - th - 0.5], [cx + tw * 0.92, by - th * 0.22], [cx + tw * 0.5, by - th * (0.1 + ld * 0.3)], [cx, by - th * 0.2 + Math.sin(i * 2.1 + sd) * 0.8], [cx - tw * 0.5, by - th * (0.12 + ld * 0.3)], [cx - tw * 0.92, by - th * 0.2]], M.snow, z + 0.3, { round: 0.8, ny: -0.35 });
+      const f = i / N, by = -7 * s - (H - 13 * s) * f, cx = lean * f, th = bandH * 1.55, z = i * 0.6;
+      const tw = w0 * (1 - f * 0.84) * (1 + (hash(sd, i + 5) - 0.5) * 0.16);
+      const wl = tw * (0.9 + hash(sd, i + 21) * 0.2), wr = tw * (0.9 + hash(sd, i + 33) * 0.2);
+      const droop = (1.6 + tw * 0.12) * (1 - f * 0.5);
+      // the skirt: apex, then down each side to a dipping tip, then a ragged hem back to the trunk
+      const pts = [[cx - tw * 0.08, by - th], [cx + tw * 0.08, by - th]];
+      pts.push([cx + wr * 0.55, by - th * 0.42], [cx + wr, by + droop]);
+      const teeth = Math.max(3, Math.round(tw / 2.2));
+      for (let k = 1; k < teeth * 2; k++) {
+        const u = 1 - k / teeth;                                   // 1 .. -1 across the hem
+        const side = u >= 0 ? wr : wl, xx = cx + u * side;
+        const sag = droop * Math.abs(u) * 0.75 + 1.2 + (k % 2 ? 1.6 + hash(sd * 3 + i, k) * 1.2 : 0);
+        pts.push([xx, by + sag - (1 - Math.abs(u)) * 0.6]);
+      }
+      pts.push([cx - wl, by + droop], [cx - wl * 0.55, by - th * 0.42]);
+      ob.part(); ob.poly(pts, NEED, z, { round: 0.9, ny: -0.05 });
+      // its snow load: thick by the trunk, thinning to the tips, a lumpy lower lip
+      const ld = 0.5 + hash(sd, i + 60) * 0.25, sp = [[cx - tw * 0.1, by - th - 0.6], [cx + tw * 0.1, by - th - 0.6]];
+      const lipN = 6;
+      sp.push([cx + wr * 0.86, by - th * 0.05 + droop * 0.5]);
+      for (let k = 0; k <= lipN * 2; k++) {
+        const u = 1 - k / lipN, side = u >= 0 ? wr : wl;
+        const yy = by - th * (0.1 + ld * 0.16) * (1 - Math.abs(u) * 0.5) + droop * Math.abs(u) * 0.45 + (k % 2 ? 0.9 : -0.2) * (0.6 + hash(sd + i, k + 90));
+        sp.push([cx + u * side * 0.9, yy]);
+      }
+      sp.push([cx - wl * 0.86, by - th * 0.05 + droop * 0.5]);
+      ob.part(); ob.poly(sp, M.snow, z + 0.3, { round: 0.85, ny: -0.4 });
+      // the lee under the lip: a band of shaded snow on the bough's east half
+      ob.part(); ob.poly([[cx + tw * 0.1, by - th * 0.35], [cx + wr * 0.8, by - th * 0.02 + droop * 0.5], [cx + wr * 0.6, by + droop * 0.4 + 0.6], [cx + tw * 0.15, by - th * 0.18]], M.snowB, z + 0.25, { round: 0.5, ny: 0.2 });
+      // a clump hanging off a tip now and then
+      if (i < N - 2 && hash(sd, i + 77) < 0.55) {
+        const lt = hash(sd, i + 88) < 0.5 ? -1 : 1, tx = cx + lt * (lt > 0 ? wr : wl) * 0.92;
+        ob.part(); ob.ellipse(tx, by + droop - 0.6, 1.5, 1.1, M.snow, z + 0.35, { round: 0.9 });
+      }
     }
-    ob.part(); ob.capsule(lean, -H + 2 * s, 0.9, lean, -H - 4, 0.5, M.woodDk, 5, {});
-    ob.part(); ob.ellipse(lean, -H + 0.5, 2.4, 1.6, M.snow, 6, { round: 0.9 });
+    ob.part(); ob.capsule(lean, -H + 2 * s, 0.9, lean, -H - 4, 0.5, M.woodDk, 6, {});
+    ob.part(); ob.ellipse(lean, -H + 0.5, 2.4, 1.7, M.snow, 7, { round: 0.9 });
   }, ctx, x, gy);
 };
 
@@ -613,6 +651,13 @@ const rmboat = (ctx, x, y, s, o) => {
     const top = (u) => prof(u), bot = () => base + 1;
     clinker(ob, (u) => top(u), bot, -L, L, [M.hull, M.hull2, M.teal], 2);
     ob.part(); ob.poly([...Array.from({ length: 17 }, (_, k) => { const u = -0.85 + k * 0.106; return [u * L, prof(u) - 1.4]; }), ...Array.from({ length: 17 }, (_, k) => { const u = 0.85 - k * 0.106; return [u * L, prof(u) + 1.6 + Math.sin(k * 1.7) * 0.4]; })], M.snow, 5, SNOW_N);
+    // (upgrade 2026-11-22) the keel lit along its spine, a pair of oars laid against the hull, icicles
+    // under the gunwale, a drift banked against the lee end
+    for (let k = 0; k < 16; k++) { const u0 = -0.78 + k * 0.1, u1 = u0 + 0.1; ob.toneLine(u0 * L, prof(u0) - 0.6, u1 * L, prof(u1) - 0.6, 1); }
+    for (const q of [0, 1]) { ob.part(); ob.capsule(-dir * L * (0.2 - q * 0.12), base + 1.5 - q, 0.8, dir * L * (0.55 + q * 0.1), base - H * 0.55 - q, 0.7, M.wood, 4.5 + q * 0.1, { round: 0.9 }); }
+    ob.part(); ob.ellipse(dir * L * 0.62, base - H * 0.5, 1.6 * s, 0.9, M.wood, 4.6, { round: 0.6 });
+    for (let k = 0; k < 6; k++) { const ix = -L * 0.7 + k * L * 0.28; ob.part(); ob.line(ix, base + 0.5, ix, base + 1.5 + (k % 2), M.iceLt, 4.4, {}); }
+    ob.part(); ob.ellipse(dir * L * 1.02, base + 0.2, 5 * s, 2.4 * s, M.snow, 5.5, { round: 0.85 });
     bank(ob, M, -L * 0.95, 8 * s, 6);
   }, ctx, x, gy);
 };
@@ -664,12 +709,24 @@ const rmrack = (ctx, x, y, s, o) => {
     }
     ob.part(); ob.capsule(-span - 5, -hh, 1.5 * s, span + 5, -hh, 1.5 * s, M.wood, 2, { round: 1 });
     ob.part(); ob.capsule(-span - 4, -hh - 2.2, 1.1, span + 4, -hh - 2.2, 1.1, M.snow, 5, { round: 0.7 });
-    // stockfish hung head-down from the pole, a hand apart
-    for (let k = 0; k < 7; k++) {
-      const fx = -span + 6 * s + k * (span * 2 - 12 * s) / 6 + (jit(sd, k + 5) - 0.5) * 2 * s, len = (6 + jit(sd, k) * 4) * S, top = -hh + 1.5;
-      ob.part(); ob.poly([[fx - 1, top], [fx + 1.4, top], [fx + 2.8 * s, top + len * 0.7], [fx + 1.8 * s, top + len], [fx - 1.2 * s, top + len], [fx - 1.8 * s, top + len * 0.6]], k % 3 === 1 ? M.boneFar : M.fish, 3, { round: 0.8 });
-      ob.part(); ob.rect(fx - 1.2 * s, top + len - 3 * s, 3.6 * s, 3 * s, M.fishDk, 3.5, { round: 0.4 });
-      ob.part(); ob.rect(fx - 1.6, top - 1, 3.2, 1.6, M.woodDk, 3.5, {});
+    // stockfish (upgrade 2026-11-22): split cod hung in PAIRS over the pole, tied at the tails, one
+    // fish in front of the pole and its mate behind; a forked tail, a split belly showing the pale
+    // flesh, a dark head at the bottom; snow caught on the pairs' shoulders
+    const fish = (fx, top, len, wd, z, back) => {
+      const m = back ? M.fishDk : (jit(fx | 0, len | 0) < 0.3 ? M.boneFar : M.fish);
+      ob.part(); ob.poly([[fx - 0.6, top + 1.6], [fx + 0.6, top + 1.6], [fx + wd, top + len * 0.45], [fx + wd * 0.8, top + len * 0.85], [fx, top + len], [fx - wd * 0.8, top + len * 0.85], [fx - wd, top + len * 0.45]], m, z, { round: 0.9 });
+      const fp = ob._pid;
+      if (!back) { ob.toneLine(fx, top + 3, fx, top + len * 0.8, 1, fp); ob.toneLine(fx + 1, top + 3, fx + 1, top + len * 0.75, -1, fp); }
+      ob.part(); ob.poly([[fx - wd * 0.8, top + len * 0.82], [fx + wd * 0.8, top + len * 0.82], [fx + wd * 0.5, top + len + 1.2], [fx - wd * 0.5, top + len + 1.2]], back ? M.dark : M.fishDk, z + 0.1, { round: 0.6 });
+      ob.part(); ob.poly([[fx - 0.5, top + 2], [fx - 2.4 * s, top - 0.6], [fx - 1.2 * s, top - 0.4], [fx, top + 0.8], [fx + 1.2 * s, top - 0.4], [fx + 2.4 * s, top - 0.6], [fx + 0.5, top + 2]], back ? M.dark : M.fishDk, z + 0.2, {});
+    };
+    for (let k = 0; k < 6; k++) {
+      const fx = -span + 6 * s + k * (span * 2 - 12 * s) / 5 + (jit(sd, k + 5) - 0.5) * 2 * s, top = -hh + 1;
+      const len = (8 + jit(sd, k) * 4) * S * 0.75, wd = 2.4 * s;
+      fish(fx + 1.6 * s, top - 1, len * 0.92, wd * 0.9, 0.5, true);
+      fish(fx - 1.4 * s, top, len, wd, 3, false);
+      ob.part(); ob.rect(fx - 2, top - 2.2, 4, 1.8, M.straw, 3.6, {});
+      if (jit(sd, k + 40) < 0.6) { ob.part(); ob.ellipse(fx - 1.4 * s, top + 1.5, 2.2 * s, 0.9, M.snow, 3.7, { round: 0.8 }); }
     }
     bank(ob, M, -span, 8 * s, 6);
   }, ctx, x, gy);
@@ -799,41 +856,62 @@ const longhouseBody = (s, v) => {
       ob.toneLine(dx - 3.4, -10, dx - 3.4, 0, 1, ob._pid); ob.toneLine(dx, -10, dx, 0, -1, ob._pid);
       ob.part(); ob.rect(dx - 6.6, -14, 13.2, 2.8, M.teal, 3, { n: [0, -0.3, 0.9] });
       ob.part(); ob.dot(dx + 1.6, -5, M.ochre, 3, {});
-      // the roof: turf under a heavy load of snow, lit on the west, blue to the east
-      const topAt = (u) => -13 - 33 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u), 3)), 0.62);
-      const eaveY = -11;
-      const roof = [];
-      for (let k = 0; k <= 36; k++) { const u = -1 + k / 18; roof.push([u * (LA + 4), topAt(u)]); }
-      roof.push([LA + 4, eaveY], [-LA - 4, eaveY]);
-      ob.part(); ob.poly(roof, M.snow, 1, { round: 0.7, ny: -0.12 });
+      // the roof (upgrade 2026-11-22): a hipped turf roof with a long ridge, read as PLANES, not a mound:
+      // the south slope facing us, a sliver of the north slope above the ridge catching the sky, a hip at
+      // each end (the west lit, the east in blue lee); snow over all of it, the turf showing where the wind
+      // scours the ridge and the hips, a lumpy cornice overhanging the eave, icicles under it.
+      const eaveY = -11, RX = LA * 0.68, ER = LA + 4;
+      const ridge = (u) => -42 + 5 * u * u;                       // the ridge sags to its ends (u -1..1 along it)
+      const south = [], north = [];
+      for (let k = 0; k <= 20; k++) { const u = -1 + k / 10; south.push([u * RX, ridge(u)]); }
+      for (let k = 20; k >= 0; k--) { const u = -1 + k / 10; north.push([u * RX * 0.97, ridge(u) - 4.5 + Math.abs(u) * 1.2]); }
+      ob.part(); ob.poly([...south, [ER, eaveY], [-ER, eaveY]], M.snow, 1, { n: [0, 0.32, 0.95] });
       const rp = ob._pid;
-      const slope = (u, f) => [u * (LA + 3), topAt(u) + (eaveY - topAt(u)) * f];
-      // wind ridges along the slope: blue lee lines under a lit lip
-      for (let f = 0.28; f < 0.9; f += 0.2) {
-        for (let u = -0.8 + jit(f, 3) * 0.2; u < 0.78; u += 0.3 + jit(u, f) * 0.2) {
+      ob.part(); ob.poly([...south.slice().reverse(), ...north.slice().reverse()].reverse(), M.snow, 1.2, { n: [0, -0.75, 0.66] });
+      const np = ob._pid;
+      for (const e of [-1, 1]) {
+        const r0 = [e * RX, ridge(e)], r1 = [e * RX * 0.97, ridge(e) - 4.5 + 1.2];
+        ob.part(); ob.poly([r1, r0, [e * ER, eaveY], [e * (ER + 1), eaveY - 6], [e * (RX + (ER - RX) * 0.55), ridge(e) - 1.5]], M.snow, 1.4, { n: [e * 0.72, -0.18, 0.67] });
+      }
+      // the ridge's crest, a lit line along it
+      for (let k = 0; k < 20; k++) { const u0 = -1 + k / 10, u1 = u0 + 0.1; ob.toneLine(u0 * RX, ridge(u0) - 0.5, u1 * RX, ridge(u1) - 0.5, 1, np); }
+      const slope = (u, f) => [u * (RX + (ER - RX) * f), ridge(u) + (eaveY - ridge(u)) * f];
+      // wind ridges along the south slope: blue lee lines under a lit lip
+      for (let f = 0.22; f < 0.86; f += 0.21) {
+        for (let u = -0.85 + jit(f, 3) * 0.2; u < 0.8; u += 0.3 + jit(u, f) * 0.2) {
           const a = slope(u, f), b = slope(u + 0.14 + jit(f, u) * 0.1, f + 0.02);
           ob.toneLine(a[0], a[1], b[0], b[1], -1, rp); ob.toneLine(a[0], a[1] - 1, b[0], b[1] - 1, 1, rp);
         }
       }
-      // turf where the wind has scoured it: at the ridge ends and in patches
-      const patches = [[-0.74, 0.3, 8], [0.74, 0.3, 8], [-0.3, 0.55, 4], [0.28, 0.6, 5], [0.55, 0.45, 3.4], [-0.55, 0.62, 3.6]];
-      patches.forEach(([u, f, rw], i) => {
+      // turf where the wind has scoured it: along the ridge and on the hips
+      const patches = [[-0.82, 0.12, 6], [0.8, 0.14, 6.5], [-0.35, 0.06, 5], [0.3, 0.08, 4], [0.58, 0.42, 3.2], [-0.6, 0.5, 3]];
+      patches.forEach(([u, f, rw]) => {
         const [px, py] = slope(u, f);
-        ob.part(); ob.ellipse(px, py, rw, rw * 0.36, M.turfDk, 1.5, { round: 0.8 });
-        ob.part(); ob.ellipse(px - 0.6, py - 0.5, rw * 0.7, rw * 0.22, M.turf, 1.7, { round: 0.8 });
+        ob.part(); ob.ellipse(px, py, rw, rw * 0.34, M.turfDk, 1.6, { round: 0.8 });
+        ob.part(); ob.ellipse(px - 0.6, py - 0.5, rw * 0.7, rw * 0.2, M.turf, 1.75, { round: 0.8 });
       });
-      // the turf eave with straw hanging from it
-      ob.part(); ob.poly([[-LA - 4, eaveY - 4], [LA + 4, eaveY - 4], [LA + 4, eaveY + 1], [-LA - 4, eaveY + 1]], M.turfDk, 2, { n: [0, 0.15, 0.95] });
+      // the turf eave with straw hanging from it, a lumpy snow cornice over its lip, icicles
+      ob.part(); ob.poly([[-ER, eaveY - 4], [ER, eaveY - 4], [ER, eaveY + 1], [-ER, eaveY + 1]], M.turfDk, 2, { n: [0, 0.15, 0.95] });
+      const tp = ob._pid;
       for (let k = 0; k < 44; k++) { const ex = -LA - 2 + k * (LA * 2 + 4) / 43 + jit(k, 2); ob.part(); ob.line(ex, eaveY + 1, ex + 0.3, eaveY + 1 + 1 + Math.floor(jit(k, 9) * 3), M.straw, 2.2, {}); }
-      ob.toneLine(-LA - 3, eaveY - 3, LA + 3, eaveY - 3, 1, ob._pid - 44);
+      ob.toneLine(-LA - 3, eaveY - 3, LA + 3, eaveY - 3, 1, tp);
+      const lip = [[-ER - 1, eaveY - 6]];
+      for (let k = 0; k <= 30; k++) { const xx = -ER + k * (2 * ER) / 30; lip.push([xx, eaveY - 3 + (k % 2 ? 1.2 + jit(k, 4) * 1.4 : 0)]); }
+      lip.push([ER + 1, eaveY - 6]);
+      ob.part(); ob.poly(lip, M.snow, 2.6, { round: 0.3, ny: -0.3 });
+      for (let k = 0; k < 9; k++) {
+        const ix = -ER + 6 + k * (2 * ER - 12) / 8 + (jit(k, 31) - 0.5) * 4, il = 2 + Math.floor(jit(k, 32) * 4);
+        if (Math.abs(ix - (-dir * LA * 0.55)) < 7) continue;            // none over the door
+        ob.part(); ob.line(ix, eaveY - 1, ix, eaveY + il, M.iceLt, 2.8, {});
+      }
       // the smoke-hole's louvred hood on the ridge, snow on it
-      const hx = dir * LA * 0.15, hy = topAt(dir * 0.15) - 1;
+      const hx = dir * RX * 0.2, hy = ridge(dir * 0.2) - 1;
       ob.part(); ob.rect(hx - 6, hy - 5, 12, 6, M.woodDk, 3, { n: [0, 0.1, 0.95] });
       ob.toneLine(hx - 4, hy - 3, hx + 4, hy - 3, -1, ob._pid); ob.toneLine(hx - 4, hy - 1, hx + 4, hy - 1, -1, ob._pid);
       ob.part(); ob.rect(hx - 7, hy - 7.2, 14, 3, M.snow, 4, SNOW_N);
       // the gables: barge boards crossed over each ridge end, carved into dragon heads
       for (const e of [-1, 1]) {
-        const gx = e * LA * 0.9, gyR = topAt(e * 0.88);
+        const gx = e * RX * 1.02, gyR = ridge(e) + 9;
         for (const sd2 of [-1, 1]) {
           ob.part(); ob.capsule(gx + sd2 * 6, gyR + 12, 1.5, gx - sd2 * 4.6, gyR - 10, 1.3, M.woodDk, 4, { round: 1 });
           const hx2 = gx - sd2 * 4.6, hy2 = gyR - 10;
@@ -842,6 +920,9 @@ const longhouseBody = (s, v) => {
           ob.part(); ob.ellipse(hx2 - sd2 * 1.5, hy2 - 3, 3, 1.1, M.snow, 6, { round: 0.8 });
         }
       }
+      // firelight in the door's crack (the hearth inside)
+      ob.part(); ob.line(dx - 3.4, -1, dx - 3.4, -7, flat("#f0a040"), 2.6, {});
+      ob.part(); ob.dot(dx - 3.4, -8, flat("#c8682c"), 2.6, {});
       // the woodpile at the far end, snow on it
       const wx = dir * (LA + 8);
       for (let r = 0; r < 3; r++) for (let k = 0; k < 3 - (r === 2 ? 1 : 0); k++) {
@@ -852,7 +933,7 @@ const longhouseBody = (s, v) => {
       bank(ob, M, -LA - 2, 10 * s, 7);
     }, c, x, gy);
   }, false);
-  sp = { cv, hw, top, bot, smoke: [hw + (v % 2 ? -1 : 1) * 23 * s * 0.15, top + 8 - 22 * s - 6 * s] };
+  sp = { cv, hw, top, bot, smoke: [hw + (v % 2 ? -1 : 1) * 46 * s * 0.68 * 0.2 / U, top + 8 - 22 * s - 6 * s] };
   BODIES.set(key, sp);
   return sp;
 };

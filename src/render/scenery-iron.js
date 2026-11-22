@@ -47,7 +47,7 @@ import {
 } from "./paint.js";
 // the shared kit — called only inside painters, never at module load
 import { leafPart } from "./scenery.js";
-import { Pix, mat, toCanvas } from "./pix/pix.js";
+import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
 import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
 // (the short painted ground shadows stand down under a long-shadow sun: sceneryday.js casts them)
 const shadow = (...a) => (longShade() ? undefined : shadow0(...a));
@@ -254,7 +254,7 @@ const brackenFan = (c, x, y, s, seed, green = false) => {
 // its place; the Iron's own cold sage and grey, never the Greenwood's saturation.
 const h3 = (a, b = 0, c = 0) => hash(Math.floor(a * 97) + Math.floor(c * 31) * 7919, Math.floor(b * 89));
 const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
-const CRAG_MAT = () => mat(mix(GRIT, "#6c7468", 0.35), { contrast: 0.4 });
+const CRAG_MAT = () => mat(mix(GRIT, "#6c7468", 0.42), { contrast: 0.6 });
 // a dappled cast shadow on the turf: rows of whole art pixels, holes letting the turf through
 const pixShade = (ctx, x, gy, cx, cy, rx, ry, a, holes, seed = 1) => {
   if (longShade()) return;
@@ -353,8 +353,46 @@ const cragBody = (obj, x, w, h, seed, MOSS) => {
   obj.part(); obj.poly([tp, pk[3], [tp[0] + w * 0.46, tp[1] + h * 0.3], [tp[0] + w * 0.12, tp[1] + h * 0.45]], GRIT_M, 0.4, { n: [-0.12, -0.5, 0.8], bias: 1 });
   obj.part(); obj.line(tp[0] + w * 0.12, tp[1] + h * 0.45, x + w * 0.02, y - 1, GRIT_M, 0.6, { bias: -1, noLine: true });
   obj.part(); obj.line(x - w * 0.3, y - h * 0.25, x - w * 0.12, y - h * 0.6, GRIT_M, 0.6, { bias: -1, noLine: true });
+  // (upgrade 2026-11-22) gritstone weathers in BEDS: broken horizontal bedding joints across both faces
+  // (a dark joint under a lit lip), a vertical joint or two, rain streaks down from the top, pale lichen
+  // on the lit face, scree and a fallen block at the foot. Same silhouette, same footprint.
+  const topAt = (xx) => { let best = y; for (let k = 0; k < pk.length - 1; k++) { const a = pk[k], b = pk[k + 1]; if ((xx - a[0]) * (xx - b[0]) <= 0 && a[0] !== b[0]) best = Math.min(best, a[1] + (b[1] - a[1]) * (xx - a[0]) / (b[0] - a[0])); } return best; };
+  const beds = Math.max(2, Math.round(h / 7));
+  for (let b = 1; b <= beds; b++) {
+    const yy = y - (h * b) / (beds + 1) + J(b + 10) * 1.5;
+    for (let xx = x - w * 0.48; xx < x + w * 0.48;) {
+      const seg = 3 + h3(xx, b, seed) * w * 0.35, gap = 1 + h3(xx, b + 3, seed) * 3;
+      const xe = Math.min(x + w * 0.48, xx + seg);
+      if (topAt(xx) < yy - 1.5 && topAt(xe) < yy - 1.5) {
+        const sl = (h3(b, seed, 2) - 0.5) * 0.08;
+        obj.toneLine(xx, yy + (xx - x) * sl, xe, yy + (xe - x) * sl, -2);
+        obj.toneLine(xx, yy - 1 + (xx - x) * sl, xe, yy - 1 + (xe - x) * sl, 1);
+      }
+      xx = xe + gap;
+    }
+  }
+  for (let k = 0; k < 2; k++) {
+    const jx = x + (h3(k, seed, 21) - 0.5) * w * 0.7, t0 = topAt(jx);
+    if (t0 < y - 3) obj.toneLine(jx, t0 + 1.5, jx + J(k + 30) * 2, y - 1 - h3(k, seed, 22) * h * 0.3, -2);
+  }
+  for (let k = 0; k < 4; k++) {
+    const sx = x + (h3(k, seed, 31) - 0.5) * w * 0.85, t0 = topAt(sx);
+    if (t0 < y - 4) obj.toneLine(sx, t0 + 1, sx, t0 + 2 + h3(k, seed, 32) * (y - t0) * 0.5, -1);
+  }
+  const LICH = flat(mix("#c8c48a", GRIT, 0.25)), LICH2 = flat("#a8a878");
+  for (let k = 0; k < 7; k++) {
+    const lx = x - w * 0.45 + h3(k, seed, 41) * w * 0.5, ly = y - h3(k, seed, 42) * h * 0.85;
+    if (topAt(lx) < ly - 1) { obj.part(); obj.dot(lx, ly, k % 3 ? LICH : LICH2, 0.9, {}); if (k % 2) { obj.part(); obj.dot(lx + 1, ly, LICH2, 0.9, {}); } }
+  }
   obj.part(); obj.ellipse(x - w * 0.2, y - h * 0.08, w * 0.18, h * 0.07, MOSS, 0.8, { round: 0.6 });
   obj.part(); obj.ellipse(x + w * 0.3, y - h * 0.02, w * 0.14, h * 0.05, MOSS, 0.8, { round: 0.6 });
+  // scree and a fallen block at the foot, the block lit on its top and west
+  for (let k = 0; k < 4; k++) {
+    const sx = x + (h3(k, seed, 51) - 0.3) * w * 0.9, r = 1 + h3(k, seed, 52) * 1.4;
+    obj.part(); obj.ellipse(sx, y + 1 + h3(k, seed, 53) * 1.5, r * 1.3, r, GRIT_M, 1, { round: 0.9 });
+  }
+  const bx = x + w * 0.48, bw = Math.max(3, w * 0.16);
+  obj.part(); obj.poly([[bx - bw, y + 1.5], [bx - bw * 0.8, y - bw * 0.9], [bx + bw * 0.6, y - bw], [bx + bw, y + 1.5]], GRIT_M, 1.1, { round: 0.5, ny: -0.25 });
 };
 const crag = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed | 0, v = o.forest ? (o.v % 2 ? 1 : 3) : o.v % 4, sc = s * 2.2;
@@ -3013,8 +3051,24 @@ const warTentX = (ctx, x, y, s, o) => {
       b.part(); b.poly([[-rl, -hh], [-L - 2 * s, 0], [-L + 10 * s, -2]], m.steelD, 0, { n: [-0.7, 0, 0.7] });
       b.part(); b.poly([[-rl, -hh], [rl, -hh], [L + 2 * s, 0], [-L - 2 * s, 0]], m.ox, 1, { n: [0, -0.45, 0.88] });
       b.part(); b.poly([[-rl, -hh], [rl, -hh], [rl, -hh + 4], [-rl, -hh + 4]], m.oxL, 1.2, { n: [0, -0.8, 0.6], noLine: true });
-      for (let k = -1; k <= 1; k++) b.toneLine(k * rl * 0.5, -hh + 3, k * L * 0.55, -1, -1);
+      // (upgrade 2026-11-22) the canvas in sewn panels that sag between their seams: a dark seam, a lit
+      // strip beside it where the cloth pulls taut, a stain of mud and wet up the hem
+      const NP = 6;
+      for (let k = 1; k < NP; k++) {
+        const u = -1 + (2 * k) / NP, ax = u * rl, bx = u * (L + 2 * s);
+        b.toneLine(ax, -hh + 4, bx, -2, -1); b.toneLine(ax + 1, -hh + 4, bx + 1, -2, 1);
+        b.toneLine(ax + (bx - ax) * 0.3 + 3, -hh + 4 + (hh - 6) * 0.3, ax + (bx - ax) * 0.7 + 3, -hh + 4 + (hh - 6) * 0.7, -1);
+      }
+      for (let xx = -L; xx < L; xx += 1) if (h3(xx, sd, 3) < 0.55) b.toneLine(xx, -4 - Math.floor(h3(xx, sd, 4) * 3), xx, -3, -1);
       b.part(); b.rect(-L - 1, -3, L * 2 + 2, 3, m.steel, 1.4, { n: [0, 0.3, 0.9] });
+      for (let k = 0; k < 9; k++) { const vx = -L + 1 + k * (L * 2) / 8; b.part(); b.ellipse(vx, -0.5, 1.6 * s + 0.6, 1.3, k < 5 ? m.steel : m.steelD, 1.45, { round: 0.9 }); }
+      // guy ropes from the ridge ends and the eave corners out to pegs
+      for (const sx of [-1, 1]) {
+        b.part(); b.line(sx * rl, -hh - 4 * s, sx * (L + 16 * s), 2, m.canvas, 1.9, { noLine: true });
+        b.part(); b.line(sx * (L * 0.5), -2, sx * (L * 0.5 + 6 * s), 5 * s, m.canvas, 1.9, { noLine: true });
+        b.part(); b.rect(sx * (L + 16 * s) - 0.5, 1, 1.5, 3, m.woodD, 1.9, {});
+        b.part(); b.rect(sx * (L * 0.5 + 6 * s) - 0.5, 5 * s - 1, 1.5, 3, m.woodD, 1.9, {});
+      }
       b.part(); b.poly([[rl, -hh], [L + 2 * s, 0], [L + 12 * s, -2]], m.steel, 0.5, { n: [0.6, 0, 0.8] });
       b.part(); b.poly([[rl + 4 * s, -hh * 0.55], [L + 3 * s, 0], [L + 9 * s, -1]], m.dark, 0.9, { n: [0, 0, 1] });
       b.part(); b.rect(rl - 1, -hh - 6 * s, 2, 6 * s, m.woodD, 1.5, {}); b.part(); b.rect(-rl - 1, -hh - 6 * s, 2, 6 * s, m.woodD, 1.5, {});
@@ -3075,8 +3129,22 @@ const towerBodyX = (b, s, v) => {
   blocksX(b, -w2, w2, 0, pt + 2, 11 + v, 0.5, SM);
   b.part(); b.poly([[-w2 - 3 * s, 0], [-w2, -12 * s], [w2, -12 * s], [w2 + 3 * s, 0]], mat(darken(ASHLAR, 0.16)), 0.8, { n: [0, 0.1, 0.98] });
   b.part(); b.ellipse(-w2 + 4, -2, 5 * s, 2.2, m.moss, 1, { round: 0.6 });
+  // (upgrade 2026-11-22) quoins down both corners (long and short stones by turns, the west lit, the
+  // east in shade), rain streaks under the parapet, and the rear parapet seen over the deck behind the
+  // front merlons, so the tower reads as a solid with a top, not a façade
+  for (let yy = 0, k = 0; yy > pt + 2; k++) {
+    const hgt = 5 + (k % 2) * 2, ln = k % 2 ? 6 : 3.5;
+    for (let q = 0; q < hgt - 1; q++) { b.toneLine(-w2, yy - 1 - q, -w2 + ln, yy - 1 - q, 1); b.toneLine(w2 - ln, yy - 1 - q, w2 - 1, yy - 1 - q, -1); }
+    b.toneLine(-w2 + ln, yy - hgt, -w2 + ln, yy - 1, -1); b.toneLine(w2 - ln - 1, yy - hgt, w2 - ln - 1, yy - 1, -1);
+    yy -= hgt;
+  }
+  for (let k = 0; k < 6; k++) { const sx = -w2 + 3 + h3(k, v, 61) * (w2 * 2 - 6); b.toneLine(sx, pt + 3, sx, pt + 6 + h3(k, v, 62) * 22 * s, -1); }
+  b.part(); b.rect(-w2 + 1, pt - 21 * s, w2 * 2 - 2, 8 * s, SM[0], 0.9, { n: [0, 0.35, 0.93] });
+  b.part(); b.rect(-w2 + 1, pt - 13.5 * s, w2 * 2 - 2, 9 * s, mat("#3c3a40", { contrast: 0.6 }), 1, { n: [0, -0.6, 0.8], noLine: true });
+  for (let k = 0; k < 4; k++) { const mx = -w2 + 1 + k * (w2 * 2 - 2) / 4 + 1, mw = (w2 * 2 - 2) / 4 - 3; b.part(); b.rect(mx, pt - 23.5 * s, mw, 3, mat(lighten(ASHLAR, 0.1)), 0.95, { n: [-0.2, -0.8, 0.55] }); }
   // the corbelled parapet, merlons along the front
   b.part(); b.rect(-w2 - 2, pt - 5 * s, w2 * 2 + 4 + 6 * s, 7 * s, mat(darken(ASHLAR, 0.25)), 1.2, { n: [0, 0.3, 0.9] });
+  for (let k = 0; k < 9; k++) b.toneLine(-w2 - 1 + k * (w2 * 2 + 2) / 8, pt - 5 * s + 1, -w2 - 1 + k * (w2 * 2 + 2) / 8, pt + 2 * s - 1, -1);
   for (let k = 0; k < 4; k++) {
     const mx = -w2 - 2 + k * (w2 * 2 + 4) / 4 + 1, mw = (w2 * 2 + 4) / 4 - 3;
     b.part(); b.rect(mx, pt - 14 * s, mw, 9 * s, SM[0], 1.5, { n: [0, 0.1, 0.98] });
@@ -3159,8 +3227,19 @@ const gibbetX = (ctx, x, y, s, o) => {
 const beaconBodyX = (b, s) => {
   const m = CM(), SM = stoneMats();
   b.part(); b.poly([[-11 * s, 0], [-11 * s, -24 * s], [11 * s, -24 * s], [11 * s, 0]], SM[0], 0, { round: 0.95, ny: 0.05 });
-  for (const yy of [-8, -16]) b.toneLine(-10 * s, yy * s, 10 * s, yy * s, -1);
-  for (const [xx, yy] of [[-4, -2], [5, -10], [-7, -18], [1, -18]]) b.toneLine(xx * s, (yy - 4) * s, xx * s, yy * s, -1);
+  // (upgrade 2026-11-22) coursed stone round the drum: six courses, staggered joints that crowd toward
+  // the drum's edges (it is round), each block its own tone, soot licked down from the fire, moss at the foot
+  const NC = 6, ch = 24 * s / NC;
+  for (let c = 1; c < NC; c++) b.toneLine(-10.5 * s, -c * ch, 10.5 * s, -c * ch, -1);
+  for (let c = 0; c < NC; c++) {
+    for (let k = 0; k < 7; k++) {
+      const a = -Math.PI / 2 + ((k + (c % 2) * 0.5) / 7) * Math.PI, jx = -Math.cos(a + Math.PI / 2) * 10.6 * s;
+      if (Math.abs(jx) < 10 * s) b.toneLine(jx, -c * ch - 1, jx, -(c + 1) * ch + 1, -1);
+      const bx = -Math.cos(a + Math.PI / 2 + Math.PI / 14) * 10.6 * s, t = h3(c, k, 7);
+      if (t > 0.62 || t < 0.2) for (let yy = -c * ch - 1.5; yy > -(c + 1) * ch + 1; yy--) b.toneLine(bx - 1.2, yy, bx + 1.2, yy, t > 0.62 ? 1 : -1);
+    }
+  }
+  for (let k = 0; k < 5; k++) { const sx = (h3(k, 3, 9) - 0.5) * 16 * s; b.toneLine(sx, -23 * s, sx + (h3(k, 4, 9) - 0.5) * 2, -23 * s + (3 + h3(k, 5, 9) * 6) * s, -1); }
   b.part(); b.ellipse(0, -24 * s, 11 * s, 3.6 * s, mat(lighten(ASHLAR, 0.15)), 0.5, { n: [-0.15, -0.75, 0.6] });
   b.part(); b.ellipse(-8 * s, -1, 3 * s, 1.4, m.moss, 1, { round: 0.6 });
   for (const dx of [-8, -3, 3, 8]) { b.part(); b.capsule(dx * 0.55 * s, -25 * s, 0.9, dx * s, -38 * s, 0.9, m.iron, 1, {}); }
