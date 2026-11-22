@@ -906,6 +906,14 @@ Bring these up with the owner; don't act on them unasked.
   the fallback for a figure with no `e._rf`), no star wheel over the head. 200 slowed foes 0.37 ->
   0.41 ms through statusSlow (the old path also blitted the star wheel); ~4-5 MB of mist bakes for 8
   types. A newly slowed type fills in over a few frames (2 bakes a frame). Pending the owner's look.
+- **The Plague Ghast's burst, Round 7** (2026-11-21, owner: "needs a rework"): brief
+  `art/briefs/fx-round7.md`, row `plague7` in `concept/fx-r7-plague.js` (true scale, two knights at
+  the 55 reach, today's pool after), `node scripts/build-fx-concepts.mjs round7`. Private Artifact
+  "Crownguard Effects Concepts, Round 7" (slug 6324774e-371d-49b1-b9ec-f5433984e833): A gut-burst,
+  B gas cloud, C bold blast ring, D swarm of flies. Weak: B's puffs read as balls, C's stain is flat
+  noise, D's flies are 1-2 px at board size, the pool's hand-over jumps. Building any option needs
+  the engine's pool (laid at the death, update.js `deathBurst`) held back or drawn under its stain.
+  Waiting on the owner's pick.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
