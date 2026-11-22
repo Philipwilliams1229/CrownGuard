@@ -905,8 +905,12 @@ owner wants it reversible and played in a preview before it reaches main.
   full width"; checked by Fable): pix/halls.js notes each hall (`noteHall`, one frame late) and stamps
   `hallRim` (a 2-px amber line + a stepped wash on the sunward quarter of each run, baked per form and
   facing in `bakeHallSun`); `drawHallShadows` lays the hall's own silhouette sheared along DIR from the
-  middle of its footing (hallfoot.js down - up), its width turned across the light (`QW`), stepped alpha
-  by height. Weak: baked scenery shadows don't stretch; fliers, crews and live pieces (catapult arm,
+  middle of its footing (hallfoot.js down - up), its widest row landing on the footing ellipse's two
+  tangent points for the light (`qw`; owner: "it juts out at the bottom"), stepped alpha by height.
+  The CASTLE (owner: "shadows and lighting effects on the castle itself"): castle.js `castleSun` (after
+  the stone, reads `SUN`): an amber overlay baked per castle bake on every WEST face (curtain, towers,
+  gate block: a line at the foot, stepped wash by height) and the decks' / parapet's west rims, masked
+  to lit stone; each tower's deck swept east along `SUN_DIR` as a shadow over the walk. Weak: baked scenery shadows don't stretch; fliers, crews and live pieces (catapult arm,
   pennants) cast none. Options A-D: `sunset-concepts.html`; a clip of the real game:
   `sunset-anim.html?opt=real` (frames are JPEG bytes in .png names: ffmpeg `-f image2 -c:v mjpeg`). Saltgrave `--endure` seed 1: sun sets at wave 13, full 14-20 (929 / 476
   castle damage); the Lichgate sets at 14 (1686 / 1252, was ~700 / ~600 with the mid-level moon and

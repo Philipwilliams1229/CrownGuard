@@ -13,6 +13,7 @@ import * as masonFig from "./pix/fig-mason.js";
 import { crew, drawCrewPix, loopFrame, shotFrame, fracFrame, markOf } from "./pix/crews.js";
 import { ballistaPix, PITCHES } from "./pix/castle-ballista.js";
 import { pixSprite, stampPix } from "./pix/halls.js";
+import { SUN, SUN_DIR, SUN_SHEAR } from "./sunset.js";
 import { wallFeet } from "../engine/muzzles.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
@@ -2109,6 +2110,69 @@ const torch = (ctx, x, y, time, k, dark) => {
   flame(ctx, x, y + 0.5, 5, 3, time, k);
 };
 
+// ---- the setting sun on the castle (render/sunset.js; owner, 2026-11-22: "we should also see shadows
+// and lighting effects on the castle itself during this period") ----
+// The sun is low in the west, over the board: every WEST face (the curtain's outer face, each tower's,
+// the gate block's) takes an amber wash with a burning line at its foot's edge, the towers' decks a line
+// on their west rim; each tower throws its shadow east across the walk and the inner strip.
+// The amber is baked once per castle bake (masked to lit stone: ink and the arch's dark stay dark).
+let SUNC = { key: "", cv: null };
+const castleSunBake = (gy) => {
+  const C = CASTLE, w = C.cv.width, h = C.cv.height, sc = w / C.w;
+  const src = C.cv.getContext("2d").getImageData(0, 0, w, h).data;
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data;
+  const geos = towersFor(gy, TOP, BOT).map(([f, gt]) => towerGeo(f, gt));
+  const LINE = [255, 168, 70], SOFT = [255, 140, 46];
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const k = (j * w + i) * 4, lum = (src[k] + src[k + 1] + src[k + 2]) / 3;
+    if (src[k + 3] < 200 || lum < 38) continue;   // ink and the arch's dark stay dark
+    const X = C.x0 + (i + 0.5) / sc, Y = C.y0 + (j + 0.5) / sc;
+    let z = -1, H0 = 0, rim = false;
+    for (const t of geos) {
+      const zz = (X - t.x0) / LEAN;
+      if (zz >= 0 && zz <= t.h && Y >= t.yN - zz && Y <= t.yS - zz) { z = zz; H0 = t.h; break; }
+      if (X >= t.x1 && X <= t.x1 + 1.5 && Y >= t.tN && Y <= t.tS) { rim = true; break; }
+    }
+    if (z < 0 && !rim) {
+      if (Math.abs(Y - gy) < GH) { const zz = (X - GATE.face0) / LEAN; if (zz >= 0 && zz <= HG) { z = zz; H0 = HG; } else if (X >= GATE.face1 && X <= GATE.face1 + 1.5) rim = true; }
+      else { const zz = (X - WALL.face0) / LEAN; if (zz >= 0 && zz <= HC) { z = zz; H0 = HC; } else if (X >= WALL.face1 && X <= WALL.face1 + 1.2) rim = true; }
+    }
+    let col = null, a = 0;
+    if (rim) { col = LINE; a = 200; }
+    else if (z >= 0) { const f = z / H0; if (z < 2) { col = LINE; a = 235; } else { col = SOFT; a = f < 0.35 ? 105 : f < 0.7 ? 70 : 45; } }
+    if (!col) continue;
+    d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = a;
+  }
+  c.putImageData(img, 0, 0);
+  return cv;
+};
+const castleSun = (ctx, time, gy) => {
+  if (SUN.t !== time || !CASTLE.cv) return;
+  const pa = ctx.globalAlpha;
+  // each tower's shadow, east and a little south over the walk (the tower's own deck left lit)
+  if (SUN.shadow > 0.01) {
+    const L = SUN_SHEAR * SUN.len * 16, vx = SUN_DIR[0] * L, vy = SUN_DIR[1] * L;
+    ctx.save();
+    ctx.globalAlpha = pa * SUN.shadow * 0.55;
+    ctx.fillStyle = "rgb(22,10,26)";
+    for (const [f, gt] of towersFor(gy, TOP, BOT)) {
+      const t = towerGeo(f, gt), x0 = t.x1, x1 = WALL.par2, y0 = t.tN, y1 = t.tS;
+      if (y1 + vy < -20 || y0 > H + 20) continue;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1 + vx, y0 + vy); ctx.lineTo(x1 + vx, y1 + vy); ctx.lineTo(x0 + vx, y1 + vy); ctx.lineTo(x0, y1); ctx.closePath();
+      ctx.rect(x0, y0, x1 - x0, y1 - y0);
+      ctx.fill("evenodd");
+    }
+    ctx.restore();
+  }
+  if (SUN.amber > 0.02) {
+    if (SUNC.key !== CASTLE.key) SUNC = { key: CASTLE.key, cv: castleSunBake(gy) };
+    ctx.globalAlpha = pa * Math.min(1, SUN.amber * 1.1);
+    ctx.drawImage(SUNC.cv, CASTLE.x0, CASTLE.y0, CASTLE.w, CASTLE.h);
+  }
+  ctx.globalAlpha = pa;
+};
 export const drawCastle = (ctx, time, hpPct) => {
   const [gx, gy] = PTS[PTS.length - 1];
   const tier = tierOf(hpPct);
@@ -2142,6 +2206,7 @@ export const drawCastle = (ctx, time, hpPct) => {
   if (CASTLE.floor) ctx.drawImage(CASTLE.floor, CASTLE.mouth.x0, CASTLE.mouth.y0, CASTLE.mouth.w, CASTLE.mouth.h);
   ctx.drawImage(CASTLE.cv, CASTLE.x0, CASTLE.y0, CASTLE.w, CASTLE.h);
   if (G) ctx.drawImage(G.over, G.x0, G.y0, G.w, G.h);
+  castleSun(ctx, time, gy);
   const dark = (REALM.light?.amount ?? 0) >= 0.15;
   // the banners down the keep, stirring
   CASTLE.banners.forEach(([x, y, w, len, seed]) => {

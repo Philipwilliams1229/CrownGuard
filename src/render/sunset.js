@@ -33,6 +33,7 @@ export const SUN_RIM = 1.8;      // k > 1: past 1 the OUTER LINE alone is stampe
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const SHS = new Map();
 const DIR = [0.93, 0.37], PERP = [-0.37, 0.93];          // down-right, away from a sun low at the left
+export const SUN_DIR = DIR;
 const shadowSprite = (L, wd) => {
   const key = L + "|" + wd;
   let s = SHS.get(key);
@@ -134,7 +135,12 @@ const bakeHallSun = (H, dir) => {
     }
   }
   for (const L of [back, front, sil]) L.c.putImageData(L.img, 0, 0);
-  return (per[dir] = { back: back.cv, front: front.cv, sil: sil.cv, drop });
+  // the width across the light: the base's widest row (half-width rx) lands on the footing ellipse's two
+  // tangent points for this light (where its outline turns away from the sun), so the shadow leaves the
+  // base cleanly instead of jutting past its front (owner: "it juts out at the bottom")
+  const ry = (ft.up + ft.down) / 2, rx = ft.rx || 16, ta = Math.atan(-(ry * DIR[0]) / (rx * DIR[1]));
+  const qw = [Math.cos(ta), (ry / rx) * Math.sin(ta)];
+  return (per[dir] = { back: back.cv, front: front.cv, sil: sil.cv, drop, qw });
 };
 const layBox = (ctx, cv, H, x, y, dir) => {
   const B = H.box;
@@ -150,8 +156,8 @@ export const hallRim = (ctx, H, x, y, dir, side, time) => {
   ctx.globalAlpha = pa;
 };
 // the ground pass: last frame's halls, each its own shape, sheared down-right from its base line
-const SHEAR = 0.75;      // shadow length per unit of height, x len (2.5 at sunset)
-const QW = [0.63, -0.78]; // a tower's width on the ground, across the light: DIR's perpendicular on the ground (y seen at 0.7)
+export const SHEAR = 0.75;      // shadow length per unit of height, x len (2.5 at sunset)
+export const SUN_SHEAR = SHEAR;
 export const drawHallShadows = (ctx, len, a) => {
   const list = SUN.list;
   SUN.list = [];
@@ -165,7 +171,7 @@ export const drawHallShadows = (ctx, len, a) => {
     // a point h above the base falls h*L along DIR; the tower's WIDTH lies across the light (QW, the
     // ground's perpendicular to DIR as the camera sees it), so the shadow is as wide as the tower
     // (owner: "make sure the shadows take the full width of the towers")
-    ctx.transform(QW[0], QW[1], -L * DIR[0], -L * DIR[1], 0, 0);
+    ctx.transform(s.qw[0], s.qw[1], -L * DIR[0], -L * DIR[1], 0, 0);
     if (q.dir < 0) ctx.scale(-1, 1);
     ctx.drawImage(s.sil, -B.ox / 2, -(B.oy + s.drop) / 2, B.w / 2, B.h / 2);
     ctx.restore();
