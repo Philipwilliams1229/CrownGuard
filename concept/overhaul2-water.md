@@ -97,3 +97,16 @@ plank gaps show sand, shallows or deep water beneath. PNGs: `ovh2_water_fox_lake
 `fox_beach_zoom` (2.5x), `fox_before_after` (round 2 | this pass, board size), `strip_beach` (6 frames).
 Weak: the wrack and the grassy waterline still read a little like dashed lines up close; a faint contour where the
 islet's shelf meets the lake's on its east side; the walk's planks read ladder-like at board size.
+
+## Blend pass (owner: "still just a line ... lighter shade towards the shore and darker as it gets further")
+The stepped bands are gone. `lakeShore()` now drives ONE ramp from a continuous depth d (0 where the dry sand ends,
+1 where the open water takes over): 16 close steps sand -> wet sand -> sand under pale water -> pale aqua (WA[6]),
+each step dissolved by an 8x8 ordered dither as wide as the step, slow noise in d so the contours wander. The open
+lake carries on from WA[6] to WA[0] in 20 dithered steps (RAMP_DEEP), so there is no seam where the shore hands
+over. No wet line, no continuous waterline (only sparse 2-4 px foam glints that move), no outline between shallows
+and deep. The beach's width is a smooth bell over the shore's angle (widest at its middle, ~34 units of run), so
+its ends fade instead of stopping on a line. Grassy, reed and rocky shores get a narrow lighter-near ramp over
+silt or pebbles; the cut shores keep their face with dark water at its foot. PNGs: `ovh2_water_fox_lake3`,
+`fox_lake3_golden`, `fox_beach_zoom3`, `fox_before_after3` (shore pass | blend pass, board size).
+Weak: faint fan-shaped seams either side of the islet where its pale north shallows meet the dark water under its
+cut south face; the bay's reeds side shows a slight light rim; the walk's planks still read ladder-like.

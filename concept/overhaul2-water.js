@@ -132,6 +132,9 @@ SCENES.fox_lake2 = { ...SCENES.fox_lake, label: "THE LAKE, shore pass: the sand 
 SCENES.fox_lake2_golden = { ...SCENES.fox_lake2, sun: "golden", label: "THE LAKE, shore pass, at golden hour" };
 SCENES.fox_beach_zoom = { ...SCENES.fox_lake2, crop: [352, 196, 168, 112], label: "THE BEACH, 2.5x: dry sand + wrack, damp sand, the lapping edge, ankle-deep, knee-deep, the drop-off" };
 SCENES.strip_beach = { ...SCENES.fox_lake2, frames: [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6], strip: [418, 222, 68, 50], label: "THE BEACH, 6 frames: the waterline laps, caustics move over the shallow sand" };
+SCENES.fox_lake3 = { ...SCENES.fox_lake, label: "THE LAKE, blend pass: the sand runs into the water with no edge, lighter near the shore, darker as it deepens" };
+SCENES.fox_lake3_golden = { ...SCENES.fox_lake3, sun: "golden", label: "THE LAKE, blend pass, at golden hour" };
+SCENES.fox_beach_zoom3 = { ...SCENES.fox_lake3, crop: [352, 196, 168, 112], label: "THE BEACH, 2.5x, blend pass" };
 SCENES.fox_golden = { ...SCENES.fox_lake, sun: "golden", label: "THE LAKE at golden hour" };
 SCENES.fox_dusk = { ...SCENES.fox_lake, sun: "golden", dusk: true, label: "THE LAKE at dusk: the jetty's lanterns and the hall's lit door, a lantern's light broken on the water" };
 
@@ -140,7 +143,7 @@ const LAKES = {
   fox: {
     cx: 426, cy: 213, rx: 104, ry: 40, lobes: [[3, 0.06, 1.1], [5, 0.035, 0.3], [2, 0.05, 2.6]],
     bays: [[-30, 0.16, 24], [100, 0.1, 30]], // a reed bay pushed out at -30 deg
-    zones: [[-160, -95, "cut"], [-95, -50, "cut"], [-50, -8, "reeds"], [-8, 22, "rock"], [22, 62, "lip"], [62, 128, "sand"], [128, 172, "lip"], [172, 200, "reeds"]],
+    zones: [[-160, -95, "cut"], [-95, -50, "cut"], [-50, -8, "reeds"], [-8, 22, "rock"], [22, 40, "lip"], [40, 150, "sand"], [150, 172, "lip"], [172, 200, "reeds"]],
     islands: [{ cx: 466, cy: 200, rx: 16, ry: 8, zones: [[0, 180, "cut"], [180, 360, "lip"]] }],
     jetty: { x: 404, y: 262, len: 40, side: 1 }, rocks: [[528, 218, 4.5], [536, 211, 3.5], [533, 226, 3], [521, 228, 2.2]],
     birds: [["duck", 488, 182], ["duck", 496, 186], ["duck", 482, 189], ["swan", 360, 204], ["heron", 506, 178]],
@@ -226,7 +229,7 @@ function buildField(sc, rivers, bridges, X0, Y0, w, h) {
           const zs = isl >= 0 ? L.islands[isl].zones : L.zones;
           const dj = deg + (vn(deg / 7, isl + 2, 12) - 0.5) * 8;
           let kind = "lip", kw = 1;
-          for (const [a0, a1, kd] of zs) { const dd = isl >= 0 ? (dj + 360) % 360 : dj; if (dd >= a0 && dd < a1) { kind = kd; kw = clamp(Math.min(dd - a0 + 1, a1 - dd + 1) / (isl >= 0 ? 13 : 26), 0, 1); } }
+          for (const [a0, a1, kd] of zs) { const dd = isl >= 0 ? (dj + 360) % 360 : dj; if (dd >= a0 && dd < a1) { kind = kd; kw = clamp(Math.min(dd - a0 + 1, a1 - dd + 1) / (isl >= 0 ? 30 : 34), 0, 1); } }
           if (isl < 0 && dj < -160) { kind = "lip"; kw = 1; }
           KIND[k] = kind; NEAR[k] = "overhang"; BANK[k] = isl >= 0 ? "I" : "L"; KW[k] = kw;
         }
@@ -300,12 +303,12 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
       if (near === "strip") ew -= 7;
     }
     const bodyHW = HWv[k];
-    let edge = kind; let wl = ew;            // wl: distance from where the water meets the land
+    let edge = kind; let wl = ew, ramped = false, q0 = 0;            // wl: distance from where the water meets the land
     if (B.type === "lake" && (kind !== "cut" || isNear) && kind !== "quay") {
       // a lake's shelving shore: the bed runs on under the water and fades out as it deepens (lakeShore below)
       const r = lakeShore(kind, ew, X, Y, t, kwt, s, F.BANK[k] === "I", golden);
       if (r.c) { put(k, r.c); continue; }
-      wl = r.wl;
+      wl = r.wl; ramped = true; q0 = r.q0;
     } else if (kind === "beach" || kind === "sand") {
       const bk = (B.type === "river" ? 1.7 : 1.9) * (0.15 + 0.85 * kwt), dry = (kind === "sand" ? 7 : 5) * bk, wet = (kind === "sand" ? 11 : 8) * bk, shelf = (kind === "sand" ? 22 : 18) * bk;
       const lap = Math.sin(t * Math.PI * 2 + s / 23) * 0.9;                                                                 // the lap of the water
@@ -341,6 +344,18 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     const qc = B.type === "river" ? clamp((1 - Math.abs(LAT[k])) * 1.55, 0, 1) : clamp((wl + (vn(X / 30, Y / 14, 43) - 0.5) * 10) / 54, 0, 1);
     const qe = B.type !== "river" || kind === "cut" || kind === "rock" || kind === "quay" ? 1 : clamp(wl / 14, 0, 1);
     const q = Math.min(qc, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18;
+    if (B.type === "lake" && !ramped) { ramped = true; q0 = 0.45 * kwt; }   // a cut shore: deep at once
+    if (ramped) {   // the lake: one continuous ramp, dithered, contours wandering
+      const qq = clamp(q0 + (1 - q0) * (wl / 52) + (vn(X / 20, Y / 12, 276) - 0.5) * 0.08, 0, 1), fi = qq * (RAMP_DEEP.length - 1), i0 = Math.floor(fi);
+      let c = RAMP_DEEP[Math.min(RAMP_DEEP.length - 1, fi - i0 > BAYER8[(Y & 7) * 8 + (X & 7)] ? i0 + 1 : i0)];
+      const rip = vn(X / 26 + t * 0.6, Y / 1.7, 70);
+      if (rip > 0.74 && wl > 10 && (Y & 1)) c = lerp(c, WA[6], 0.22);
+      const cl = vn(X / 90 + t * 0.15, Y / 9, 71);
+      if (cl > 0.66 + bay(X, Y) * 0.1 && wl > 20 && (Y % 3)) c = lerp(c, hex("#b8d4cc"), 0.12);
+      if (golden) { c = lerp(c, hex("#7a6a62"), 0.1); const g2 = vn(X / 8 + t * 2, Y / 1.4, 80), band = vn(X / 160, Y / 46, 81); if (!sc.dusk && g2 > 0.92 - band * 0.2 && band > 0.56 && (Y % 2 === 0) && wl > 8) c = lerp(c, hex("#ffc870"), 0.55); }
+      if ((kind === "cut" || kind === "rock") && !isNear && wl < 6) c = wl < 1.2 ? lerp(c, FOAM2, 0.45) : mul(c, 0.74);   // the face's lap and its shade
+      put(k, c); continue;
+    }
     let idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9;
     let c = WA[clamp(Math.round(idx), 0, 6)];
     // the bank's shade on the water at its foot, and the low sun's long shadow
@@ -348,9 +363,10 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     const Hs = HFACE[kind] || (kind === "lip" || kind === "reeds" ? 3 : 1.5);
     const shadeLen = (isNear ? 0 : Math.max(0, -ny) * Hs * 0.45) + Math.max(0, fdot) * Hs * (0.3 + slen * 0.55) + (isNear ? 3.2 : 0);
     let shade = 0;
-    if (wl < shadeLen) shade = wl < shadeLen - 1.5 ? 0.62 : 0.78;
+    if (wl < shadeLen && !ramped) shade = wl < shadeLen - 1.5 ? 0.62 : 0.78;
     // the edge itself
-    if (kind === "lip" && wl < 1.2) c = hex("#22361e");
+    if (ramped) {}
+    else if (kind === "lip" && wl < 1.2) c = hex("#22361e");
     else if (kind === "lip" && wl < 6) c = lerp(c, hex("#4c7a3c"), 0.32 * (1 - wl / 6));                                       // the grass in the water
     else if (kind === "reeds" && wl < 12) c = lerp(c, hex("#3e5636"), 0.42 * (1 - wl / 12));                                  // still, brown-green slack
     else if ((kind === "cut" || kind === "rock") && !isNear && wl < 1.3) c = lerp(c, FOAM2, 0.55);                              // the water laps the face
@@ -411,73 +427,50 @@ const caustic = (X, Y, t) => {
   return Math.abs(a - b) < 0.045;
 };
 function lakeShore(kind, ew, X, Y, t, kwt, s, islet, golden) {
-  // a sand beach's widths blend into its neighbours' (a grassy bank's) at its ends, so the shallows taper, never stop
-  const W0 = islet && kind !== "cut" ? SHELF_ISLET : kind === "sand" ? SHELF.sand.map((v, i) => SHELF.lip[i] + (v - SHELF.lip[i]) * kwt) : SHELF[kind] || SHELF.lip;
-  const k = 1, sandy = kind === "sand" || islet, grassy = !sandy;
-  const wob = (i, a) => (vn(X / 11 + i * 7.3, Y / 9 + i * 3.1, 200 + i) - 0.5) * a + (hs(X, Y, 210 + i) > 0.975 ? (hs(X, Y, 220 + i) - 0.5) * 3 : 0);
-  // the band edges (cumulative), each wandering
-  const e1 = W0[0] * k + wob(1, 4 * k), e2 = e1 + W0[1] * k + wob(2, 3 * k);
-  const lap = Math.sin(t * Math.PI * 2 + s / 17 + vn(X / 20, 0, 230) * 3) * 1.4 * Math.min(1, k * 1.5);
-  const eW = e2 + lap;                                                       // the waterline, moving
-  const e3 = e2 + W0[2] * k + wob(3, 5 * k), e4 = e3 + W0[3] * k + wob(4, 5 * k), e5 = e4 + W0[4] * k + wob(5, 4 * k);
-  const edgeDither = (edge, inside, outside) => (Math.abs(ew - edge) < 1 ? (bay(X, Y) < 0.5 ? inside : outside) : null);
-  // the bed: sand (or mud / pebbles by grass and rock), with ripple marks following the shore
-  const bedOf = () => {
-    let c;
-    if (sandy) c = vn(X / 7, Y / 4, 240) > 0.5 ? SAND[3] : SAND[2];
-    else if (kind === "rock") c = hs(Math.floor(X / 3), Math.floor(Y / 2), 241) > 0.5 ? GRAVEL[2] : GRAVEL[1];
-    else c = lerp(hex("#7a6a44"), hex("#5e6a3a"), vn(X / 6, Y / 4, 242));   // silt and weed under a grassy bank
-    const rip = Math.sin(ew * 0.95 + vn(X / 24, Y / 18, 243) * 5);
-    return { c, rip };
-  };
-  const warm = (c) => (golden ? lerp(c, hex("#ffc880"), 0.12) : c);
-  function shelfWater() {
-  if (ew < e3) {                                                              // ankle-deep: the bed almost unchanged
-      const { c: bc, rip } = bedOf();
-      let c = lerp(bc, hex("#a6dccc"), 0.26);
-    if (rip > 0.72) c = lerp(c, mul(c, 0.86), 0.9);
-    { const cx = Math.floor(X / 4), cy = Math.floor(Y / 3); if (sandy && hs(cx, cy, 244) > 0.95 && X % 4 < 2 && Y % 3 === 1) c = lerp(c, X % 4 === 0 ? GRAVEL[3] : GRAVEL[1], 0.8); }   // a pebble
-    if (caustic(X, Y, t)) c = lerp(c, hex("#fbfae4"), 0.5);
-      return { c: warm(edgeDither(e3, null, null) || c) };
-  }
-    if (ew < e4) {                                                              // knee-deep: greener, dimmer
-      const { c: bc, rip } = bedOf();
-      let c = lerp(bc, hex("#58a898"), 0.5);
-    if (rip > 0.82) c = mul(c, 0.92);
-    if (caustic(X, Y, t)) c = lerp(c, hex("#e8f4dc"), 0.28);
-    if (Math.abs(ew - e3) < 1 && bay(X, Y) < 0.5) c = lerp(bedOf().c, hex("#a6dccc"), 0.26);
-      return { c: warm(c) };
-  }
-    if (ew < e5) {                                                              // the drop-off: the bed goes into teal
-      let c = lerp(lerp(bedOf().c, hex("#58a898"), 0.5), WA[4], 0.72);
-    if (Math.abs(ew - e4) < 1 && bay(X, Y) < 0.5) c = lerp(bedOf().c, hex("#58a898"), 0.5);
-    if (ew > e5 - 1.2 && bay(X, Y) < 0.5) c = lerp(c, WA[3], 0.5);
-      return { c };
-  }
-    return null;
-  }
-  if (grassy && ew < 1.2 + lap * 0.4) return { c: ew < 0.6 ? hex("#3a5432") : lerp(FOAM2, hex("#5e6a3a"), 0.45) };   // a grassy bank's thin waterline
-  if (grassy) { const r = shelfWater(); if (r) return r; return { wl: ew - e5 }; }
-  if (ew < e1) {                                                              // dry sand
+  // ROUND 3 (owner: "let's have it blend into the water"): no bands, no lines. A continuous depth d (0 where the dry
+  // sand ends, 1 where the open water takes over) picks ONE ramp of many close steps, each boundary dissolved by an
+  // 8x8 ordered dither as wide as the step, with slow noise in d so the contours wander. The open water then carries
+  // on darkening from the ramp's last colour.
+  const sandy = kind === "sand" || islet;
+  // the beach is widest at its middle and narrows smoothly (a bell over the angle, not the zone weight, so no fan edges)
+  const kb = kind === "sand" && !islet ? Math.exp(-((((s / 3 - 180) - 95) / 30) ** 2)) : 0;
+  const dryW = (sandy ? 3 + 9 * kb : 0), runW = sandy ? 16 + 52 * kb : (kind === "rock" ? 14 : 12);
+  const nd = (vn(X / 18, Y / 13, 270) - 0.5) * 0.14 + (vn(X / 6, Y / 5, 271) - 0.5) * 0.05;
+  const d = (ew - dryW) / runW + nd;
+  if (d >= 1) return { wl: ew - dryW - runW, q0: 0 };
+  const RAMP = sandy ? RAMP_SAND : kind === "rock" ? RAMP_PEB : RAMP_SILT;
+  if (d < 0) {                                                                // dry sand (only on a beach)
     let c = vn(X / 6, Y / 3, 33) > 0.55 ? SAND[4] : SAND[3];
     if (hs(X, Y, 31) > 0.97) c = hex("#f4ecd8");
-    const wr = e1 - 2.5 + (vn(X / 13, 0, 36) - 0.5) * 3;                       // the wrack: weed and twigs
-    if (Math.abs(ew - wr) < 0.6 + vn(X / 5, 0, 37) * 1.4 && vn(X / 6, 0, 34) > 0.42 && hs(X, Y, 35) > 0.25) c = hs(X, Y, 36) > 0.5 ? hex("#4a5630") : hex("#6e5a3a");   // clumps of weed
-    if (Math.abs(ew - wr) < 0.6 && hs(Math.floor(X / 5), 1, 38) > 0.86) c = hex("#7a5a36");
-    return { c: warm(c) };
+    // the wrack: a few separate bits of weed and twig near the water
+    const cx = Math.floor(X / 9), cy = Math.floor(Y / 7);
+    if (d > -0.12 && hs(cx, cy, 272) > 0.82 && Math.hypot((X % 9) - 4, ((Y % 7) - 3) * 1.6) < 1.6) c = lerp(c, hs(cx, cy, 273) > 0.5 ? hex("#5a6238") : hex("#7a6244"), 0.65);
+    return { c: golden ? lerp(c, hex("#ffc880"), 0.12) : c };
   }
-  if (ew < eW) {                                                              // damp sand: darker, cooler
-    let c = lerp(SAND[2], SAND[1], vn(X / 5, Y / 3, 36));
-    c = lerp(c, hex("#8a948a"), 0.14);
-    if (ew - e1 < 1 && hs(X, 3, 39) > 0.4) c = lerp(c, SAND[0], 0.28);        // the wandering wet line
-    if (hs(X, Y, 37) > 0.95) c = lerp(c, hex("#d8e4e0"), 0.45);               // the sky caught in the wet
-    const dd = edgeDither(e1, null, null);
-    return { c: warm(c) };
+  const fi = d * (RAMP.length - 1), i0 = Math.floor(fi), f = fi - i0;
+  let c = RAMP[Math.min(RAMP.length - 1, f > BAYER8[(Y & 7) * 8 + (X & 7)] ? i0 + 1 : i0)];
+  // what lies on the bed and the light on it: faint
+  if (d > 0.1 && d < 0.8) {
+    const rip = Math.sin(ew * 0.9 + vn(X / 24, Y / 18, 243) * 5);
+    if (sandy && rip > 0.8 && (X + Y) % 2) c = mul(c, 0.95);
+    if (caustic(X, Y, t)) c = lerp(c, hex("#f6f8e6"), 0.18 * (1 - d));
+    if (sandy && d < 0.5) { const px = Math.floor(X / 4), py = Math.floor(Y / 3); if (hs(px, py, 244) > 0.96 && X % 4 < 2 && Y % 3 === 1) c = lerp(c, X % 4 === 0 ? GRAVEL[3] : GRAVEL[1], 0.45 * (1 - d * 2)); }
   }
-  if (ew < eW + 1.4) return { c: ew < eW + 0.7 ? FOAM : lerp(FOAM2, SAND[3], 0.3) };    // the lapping edge
-  { const r = shelfWater(); if (r) return r; }
-  return { wl: ew - e5 };
+  // sparse broken glints of foam where the water first covers the sand: 2-4 px, well apart, moving
+  if (sandy && Math.abs(d - 0.1) < 0.025) { const cell = Math.floor((X + t * 18) / 13), fr = Math.floor(t * 6); if (hs(cell, fr, 274) > 0.62 && ((X + t * 18) % 13) < 2 + hs(cell, 1, 275) * 2) c = lerp(c, FOAM, 0.55); }
+  if (golden) c = lerp(c, hex("#ffc880"), 0.1 * (1 - d));
+  return { c };
 }
+// 8x8 ordered dither
+const BAYER8 = (() => { const m = [0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28, 52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21]; return m.map((v) => (v + 0.5) / 64); })();
+// the ramps: many close steps from the bed at the water's edge to the open water's first colour (WA[6])
+const ramp = (stops, n) => { const out = []; for (let i = 0; i < n; i++) { const u = (i / (n - 1)) * (stops.length - 1), a = Math.floor(u), f = u - a; out.push(lerp(stops[a], stops[Math.min(a + 1, stops.length - 1)], f).map(Math.round)); } return out; };
+const RAMP_SAND = ramp(pal("#ccb486", "#b8a47e", "#a9a080", "#a4b096", "#a8c6b0", "#9ccab4", "#96c6ac"), 16);
+// the open lake beyond the shore ramp: WA's light end to its deep end in close steps
+const RAMP_DEEP = ramp([WA[6], WA[5], WA[4], WA[3], WA[2], WA[1], WA[0]], 20);
+const SILT_Q0 = 7 / 19;   // a grassy or rocky bank's ramp hands over this far down the deep ramp (it starts darker)
+const RAMP_SILT = ramp([hex("#7a8656"), hex("#86a07a"), hex("#90b49a"), WA[6]], 10);
+const RAMP_PEB = ramp([hex("#8a8470"), hex("#8ca290"), hex("#92b8a2"), WA[6]], 10);
 
 // a pixel of an earth face / quay wall. hf: 0 top .. 1 bottom; fw its height; (fnx, fny): the face's outward normal
 function facePixel(kind, hf, fw, e, X, Y, s, fnx, fny) {
@@ -602,14 +595,14 @@ function jetty(Pp, J, t, dusk, lights, ewAt = () => 99) {
   const rect = (xa, ya, w2, h2, fn) => { for (let y = ya; y < ya + h2; y++) for (let x = xa; x < xa + w2; x++) fn(x, y); };
   // its shadow on the water (the sun's way)
   // on the dry and damp sand a sand-brown shade, through the shallows a soft dark on the bed, out deep a dark on the water
-  const shadeAt = (x, y) => { const e = ewAt(x, y); return e < 18 ? [hex("#6a5236"), 0.32] : e < 56 ? [hex("#2a5a52"), 0.34] : [hex("#0e2028"), 0.4]; };
+  const shadeAt = (x, y) => { const e = ewAt(x, y); return e < 10 ? [hex("#6a5236"), 0.32] : e < 60 ? [hex("#2a5a52"), 0.34] : [hex("#0e2028"), 0.4]; };
   rect(x0 + sx, yEnd + hH + sy, Wd, L - hH, (x, y) => { const [c, a] = shadeAt(x, y); Pp.set(x, y, c, a); });
   rect(hx0 + sx, yEnd + sy, hW, hH, (x, y) => Pp.set(x, y, hex("#0e2028"), 0.4));
   // the skiff tied alongside the head
   skiff(Pp, hx0 + hW + 9, yEnd + 12, t);
   // a post: its foot in the water (seen below the deck's edge), its top above the deck
   const post = (px, py, tall = 4) => {
-    const e = ewAt(px, py + lift + 1), dry = e < 18, shallow = e < 56;
+    const e = ewAt(px, py + lift + 1), dry = e < 10, shallow = e < 60;
     if (dry) { Pp.set(px + 2, py + lift + 1, hex("#8a7050"), 0.6); Pp.set(px + 3, py + lift + 1, hex("#8a7050"), 0.35); }       // a foot in the sand, its little shadow
     else {
       if (shallow) { Pp.set(px + 2, py + lift + 2, hex("#3a6a5e"), 0.45); Pp.set(px + 3, py + lift + 3, hex("#3a6a5e"), 0.3); }  // its shadow on the bed, seen through
@@ -622,7 +615,7 @@ function jetty(Pp, J, t, dusk, lights, ewAt = () => 99) {
   const planks = (xa, ya, w2, h2, across) => {
     for (let y = ya; y < ya + h2; y++) for (let x = xa; x < xa + w2; x++) {
       const u = across ? y - ya : x - xa, pr = Math.floor(u / 3), gap = u % 3 === 2;
-      const ge = gap ? ewAt(x, y + lift) : 0; let c = gap ? (ge < 18 ? hex("#7a6040") : ge < 56 ? hex("#3e7a6c") : hex("#16303a")) : WOOD[3 + (hs(pr, 7, 3) > 0.55 ? 1 : 0)];
+      const ge = gap ? ewAt(x, y + lift) : 0; let c = gap ? (ge < 10 ? hex("#7a6040") : ge < 60 ? hex("#3e7a6c") : hex("#16303a")) : WOOD[3 + (hs(pr, 7, 3) > 0.55 ? 1 : 0)];
       if (!gap && hs(x, y, 4) > 0.95) c = WOOD[2];
       if (!gap && (across ? (x === xa || x === xa + w2 - 1) : (y === ya || y === ya + h2 - 1))) c = across && x === xa ? WOOD[5] : WOOD[2];   // the stringers' ends
       if (!gap && across && (x === xa + 2 || x === xa + w2 - 3) && u % 3 === 0) c = hex("#2a2a2e");                          // nail heads
