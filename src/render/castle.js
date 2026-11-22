@@ -14,6 +14,7 @@ import { crew, drawCrewPix, loopFrame, shotFrame, fracFrame, markOf } from "./pi
 import { ballistaPix, PITCHES } from "./pix/castle-ballista.js";
 import { pixSprite, stampPix } from "./pix/halls.js";
 import { SUN, SUN_DIR, SUN_SHEAR } from "./sunset.js";
+import { DAY } from "../data/sun.js";
 import { wallFeet } from "../engine/muzzles.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
@@ -1143,9 +1144,14 @@ export const bakeCastleRun = (ya, yb) => {
   const layer = (fn, ink = false) => bakeSprite(w, h, (c) => { c.translate(-x0, -ya); fn(c); }, ink);
   let info = null;
   const stone = finishStone(layer((c) => { info = paintCastleStone(c, gx, gy, 0, ya, yb); }, false), () => info, x0, ya);
+  // the time of day (castleDay): the same overlay and ground shadow as the board's stretch
+  const sun = DAY.on ? dayStoneBake(stone, x0, ya, gy, ya, yb) : null;
+  const gsh = DAY.on && DAY.side > 0 ? dayGroundShadow(gy, ya, yb) : null;
   const cv = layer((c) => {
     footRows(c, P, ya, yb, gy, towers);
+    if (gsh) c.drawImage(gsh.cv, gsh.x0, gsh.y0, gsh.w, gsh.h);
     c.drawImage(stone, x0, ya, w, h);
+    if (sun) c.drawImage(sun, x0, ya, w, h);
     footOver(c, P, gy, towers, ya, yb);
     info.flags.forEach(([x, y, g], i) => { if (g !== 2) pennant(c, x, y - 1.5, 0, i * 1.7, BANNER); });
   });
@@ -1998,6 +2004,7 @@ export const drawCastleGround = (ctx, time, hpPct) => {
   const G = groundBakes(gx, gy, tierOf(hpPct));
   if (!G) return;
   ctx.drawImage(G.under, G.x0, G.y0, G.w, G.h);
+  castleDayGround(ctx, gy);
   G.fresh = true;
 };
 
@@ -2173,6 +2180,183 @@ const castleSun = (ctx, time, gy) => {
   }
   ctx.globalAlpha = pa;
 };
+
+// ---- the time of day on the castle (data/sun.js DAY; owner, 2026-11-22) ----
+// A level's ONE fixed sun, baked once per sun (keyed on DAY.v) and laid with a drawImage or two.
+// Noon (DAY.on false) draws nothing new. The Hollowfen's moving sunset keeps castleSun above.
+// WEST suns (afternoon .. golden): the west faces we look at are sunlit: a stepped wash in DAY.col
+//   (faint at afternoon, glowing at golden), a hot line down each face's west edge and along its top,
+//   each tower's shadow thrown east across the walks along DAY.fall.
+// EAST suns (sunrise .. morning): the sun stands behind the castle: every west face in a cool, stepped
+//   shade (DAY.shade), the east rims of the tops catch a lit line in DAY.col, the inner wall shades the
+//   outer walk and the keep the gate deck, and the castle throws its shadow WEST onto the ground in
+//   front of it (dayGroundShadow, laid in drawCastleGround: under everything that walks).
+const DAY_SHEAR = 0.75;                 // shadow length per unit of height, x DAY.len (sunset.js SHEAR)
+// does P + t*V (t in 0..1) touch the rect [ax..bx] x [ay..by]?
+const segHits = (px, py, vx, vy, ax, ay, bx, by) => {
+  let t0 = 0, t1 = 1;
+  if (Math.abs(vx) < 1e-9) { if (px < ax || px > bx) return false; }
+  else { let a = (ax - px) / vx, b = (bx - px) / vx; if (a > b) [a, b] = [b, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return false; }
+  if (Math.abs(vy) < 1e-9) { if (py < ay || py > by) return false; }
+  else { let a = (ay - py) / vy, b = (by - py) / vy; if (a > b) [a, b] = [b, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return false; }
+  return true;
+};
+const BAY4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+// the overlay for a bake of the castle's stone (src, its top-left x0, y0 in board units), ya..yb the
+// stretch of wall it shows. Masked to the stone: ink and the arch's dark keep their own values.
+const dayStoneBake = (src, x0, y0, gy, ya, yb) => {
+  const w = src.width, h = src.height, sc = PX;
+  const s = src.getContext("2d").getImageData(0, 0, w, h).data;
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data;
+  const geos = towersFor(gy, ya, yb).map(([f, gt]) => towerGeo(f, gt));
+  const K = keepGeo(gy);
+  const east = DAY.side > 0, col = RGB(DAY.col), hot = mixC(col, [255, 255, 255], 0.3);
+  const sh = [DAY.shade[0], DAY.shade[1], DAY.shade[2]];
+  const rk = 0.25 + 0.75 * DAY.rim, wk = 0.45 + 0.55 * DAY.warm, sk = 0.3 + 0.7 * DAY.rim;
+  const lum = (i, j) => { if (i < 0 || j < 0 || i >= w || j >= h) return -1; const k = (j * w + i) * 4; return s[k + 3] < 200 ? -1 : (s[k] + s[k + 1] + s[k + 2]) / 3; };
+  const INK = 80;
+  const put = (k, rgb, a) => { a = Math.round(Math.min(255, a)); if (a <= d[k + 3]) return; d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2]; d[k + 3] = a; };
+  // the west suns' tower shadows: each tower's deck swept along DAY.fall (as the blood moon's, castleSun)
+  const L = DAY_SHEAR * DAY.len * 16, vx = DAY.fall[0] * L, vy = DAY.fall[1] * L;
+  // the east suns' shadows on the tops: the inner wall's over the outer walk, the keep's over the gate deck
+  const Dw = (HI - HC) * DAY_SHEAR * DAY.len * Math.abs(DAY.fall[0]);
+  const Dk = (HK - HG) * DAY_SHEAR * DAY.len * Math.abs(DAY.fall[0]);
+  const gateTop = [gy - GH - HG - 2, gy + GH];
+  let row = geos, rowJ = -1;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    if (rowJ !== j) { rowJ = j; const Yr = y0 + (j + 0.5) / sc; row = geos.filter((t) => Yr >= t.tN - 3 && Yr <= Math.max(t.yS, t.tS + (TOWER.h - HC), t.tS + Math.abs(vy)) + 3); }
+    const k = (j * w + i) * 4, l = lum(i, j);
+    if (l < 38) continue;
+    const X = x0 + (i + 0.5) / sc, Y = y0 + (j + 0.5) / sc, bay = BAY4[(j & 3) * 4 + (i & 3)];
+    // which west face (z up it, of H0), or the lit rim along a face's top
+    let z = -1, H0 = 0, rim = false, deck = null, inner = false;
+    for (const t of row) {
+      const zz = (X - t.x0) / LEAN;
+      if (zz >= 0 && zz <= t.h && Y >= t.yN - zz && Y <= t.yS - zz) { z = zz; H0 = t.h; break; }
+      if (X >= t.x1 && X <= t.x1 + 1.5 && Y >= t.tN && Y <= t.tS) { rim = true; break; }
+      if (Y >= t.tN && Y <= t.tS + (TOWER.h - HC) && X >= t.x1 && X <= WALL.par2) deck = t;
+    }
+    if (z < 0 && !rim) {
+      const kz = (X - K.b) / LEAN;
+      if (kz >= 0 && kz <= HK - HG && Y >= K.fN - kz && Y <= K.fS - kz) { z = kz; H0 = HK - HG; }
+      else if (X >= K.x1 && X <= K.x1 + 1.5 && Y >= K.tN && Y <= K.tS) rim = true;
+      else if (Math.abs(Y - gy) < GH) { const zz = (X - GATE.face0) / LEAN; if (zz >= 0 && zz <= HG) { z = zz; H0 = HG; } else if (X >= GATE.face1 && X <= GATE.face1 + 1.5) rim = true; }
+      else {
+        const zz = (X - WALL.face0) / LEAN;
+        if (zz >= 0 && zz <= HC) { z = zz; H0 = HC; }
+        else if (X >= WALL.face1 && X <= WALL.face1 + 1.2) rim = true;
+        else if (!deck && (Y < gateTop[0] || Y > gateTop[1])) {
+          // the inner wall's west face, rising from the outer walk
+          const iz = (X - WALL.walk1) / LEAN;
+          if (iz >= 0 && iz <= HI - HC) { z = iz; H0 = HI - HC; inner = true; }
+          else if (X >= WALL.face2 && X <= WALL.face2 + 1.2) rim = true;
+        }
+      }
+    }
+    if (!east) {
+      // in a tower's shadow? (not on its own deck, nor on a west face)
+      if (z < 0 && !rim && L > 1) {
+        let inSh = false, tip = false;
+        for (const t of row) {
+          if (Y < t.tN - 2 || Y > t.tS + vy + 2 || X < t.x1) continue;
+          if (X <= WALL.par2 && Y >= t.tN && Y <= t.tS) { inSh = false; tip = false; break; }
+          if (segHits(X, Y, -vx * 0.8, -vy * 0.8, t.x1, t.tN, WALL.par2, t.tS)) { inSh = true; break; }
+          if (segHits(X, Y, -vx, -vy, t.x1, t.tN, WALL.par2, t.tS)) tip = true;
+        }
+        if (inSh || (tip && bay < 8)) { put(k, sh, 255 * Math.min(0.5, DAY.shade[3] * 1.05)); continue; }
+      }
+      if (rim) put(k, hot, 200 * rk);
+      else if (z >= 0) {
+        const f = z / H0;
+        if (z < 2 && !inner) put(k, hot, 230 * rk);   // the silhouette's west edge (the inner face's foot is not one)
+        else put(k, col, (f < 0.35 ? 100 : f < 0.7 ? 68 : 44) * wk);
+      }
+    } else {
+      if (z >= 0) {
+        // the face in the shade: two steps, the foot a notch darker (no sky bounce there)
+        const f = z / H0;
+        put(k, sh, 255 * DAY.shade[3] * sk * (f < 0.4 ? 0.95 : 0.78));
+        continue;
+      }
+      if (rim) continue;
+      // a top in the shadow of a taller one behind it (east)
+      let shd = 0;
+      if (!deck && Dw > 0.5 && X >= WALL.face1 && X < WALL.walk1 && (Y < gateTop[0] || Y > gateTop[1])) {
+        const e = WALL.walk1 - X;
+        shd = e < Dw - 1.5 ? 1 : e < Dw ? (bay < 8 ? 1 : 0) : 0;
+      }
+      if (!shd && Dk > 0.5 && X >= GATE.face1 && X < K.b && Y >= K.fN && Y <= K.fS + 0.25 * (K.b - X)) {
+        const e = K.b - X;
+        shd = e < Dk - 1.5 ? 1 : e < Dk ? (bay < 8 ? 1 : 0) : 0;
+      }
+      if (shd) { put(k, sh, 255 * DAY.shade[3] * sk * 0.85); continue; }
+      if (l < INK) continue;
+      // the east rim of a top catches the low sun: the stone just west of an ink line on its east
+      const e1 = lum(i + 1, j), e2 = lum(i + 2, j);
+      if (e1 >= 0 && e1 < INK) put(k, hot, 230 * sk);
+      else if (e2 >= 0 && e2 < INK) put(k, col, 120 * sk);
+      else put(k, col, 22 * DAY.warm);
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return cv;
+};
+// the castle's shadow on the ground in front of it, for an east sun: each block of it (the curtain,
+// the inner wall, the towers, the gate block, the keep) a box of its height, swept toward the board
+// along DAY.fall; art-pixel stepped, its far edge dithered. Only west of the stone's foot.
+const dayGroundShadow = (gy, ya, yb) => {
+  const reach = DAY_SHEAR * DAY.len * HK + 6;
+  const x0 = Math.floor(TOWER.x0 - 4 - reach * Math.abs(DAY.fall[0])), x1 = WALL.face0 + 2;
+  const y0 = Math.floor(ya - 2), y1 = Math.ceil(yb + 2 + reach * Math.abs(DAY.fall[1]));
+  const w = (x1 - x0) * 2, h = (y1 - y0) * 2;
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c = cv.getContext("2d"), img = c.createImageData(w, h), d = img.data;
+  const towers = towersFor(gy, y0 - 40, y1 + 40), K = keepGeo(gy);
+  const FAR = 4000;
+  const boxes = [
+    [WALL.face0, -FAR, FAR, FAR, HC],
+    [WALL.walk1 - HC * LEAN, -FAR, FAR, FAR, HI],
+    [GATE.face0, gy - GH, FAR, gy + GH, HG],
+    [K.X, K.yN, K.X + 30, K.yS, HK],
+    ...towers.map(([f, gt]) => { const t = towerGeo(f, gt); return [t.x0, t.yN, FAR, t.yS, t.h]; }),
+  ];
+  const [fx, fy] = DAY.fall, sh = DAY.shade, a = Math.round(255 * Math.min(0.55, sh[3] * 1.15));
+  for (const B of boxes) { const Lb = DAY_SHEAR * DAY.len * B[4]; B.push(-fx * Lb, -fy * Lb); }
+  for (let j = 0; j < h; j++) {
+    const Y = y0 + (j + 0.5) / 2, foot = footAt(Y, gy, towers) + 0.5;
+    const row = boxes.filter(([, ay, , by, , , vy]) => Y >= ay - Math.abs(vy) - 1 && Y <= by + Math.abs(vy) + 1);
+    for (let i = 0; i < w; i++) {
+      const X = x0 + (i + 0.5) / 2;
+      if (X >= foot) break;
+      let core = false, tip = false;
+      for (const [ax, ay, bx, by, , vx, vy] of row) {
+        if (X + Math.max(0, vx) < ax) continue;
+        if (segHits(X, Y, vx * 0.9, vy * 0.9, ax, ay, bx, by)) { core = true; break; }
+        if (!tip && segHits(X, Y, vx, vy, ax, ay, bx, by)) tip = true;
+      }
+      if (!core && !(tip && BAY4[(j & 3) * 4 + (i & 3)] < 8)) continue;
+      const k = (j * w + i) * 4;
+      d[k] = sh[0]; d[k + 1] = sh[1]; d[k + 2] = sh[2]; d[k + 3] = core ? a : Math.round(a * 0.8);
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return { cv, x0, y0, w: w / 2, h: h / 2 };
+};
+let DAYC = { key: "", cv: null }, DAYG = { key: "", s: null };
+const castleDay = (ctx, time, gy) => {
+  if (!DAY.on || SUN.t === time || !CASTLE.cv || typeof document === "undefined") return;
+  const key = CASTLE.key + "|" + DAY.v;
+  if (DAYC.key !== key) DAYC = { key, cv: dayStoneBake(CASTLE.cv, CASTLE.x0, CASTLE.y0, gy, TOP, BOT) };
+  ctx.drawImage(DAYC.cv, CASTLE.x0, CASTLE.y0, CASTLE.w, CASTLE.h);
+};
+const castleDayGround = (ctx, gy) => {
+  if (!DAY.on || DAY.side <= 0 || typeof document === "undefined") return;
+  const key = `${gy}|${W}|${H}|${REALM.id}|${DAY.v}`;
+  if (DAYG.key !== key) DAYG = { key, s: dayGroundShadow(gy, TOP, BOT) };
+  const s = DAYG.s;
+  ctx.drawImage(s.cv, s.x0, s.y0, s.w, s.h);
+};
 export const drawCastle = (ctx, time, hpPct) => {
   const [gx, gy] = PTS[PTS.length - 1];
   const tier = tierOf(hpPct);
@@ -2205,6 +2389,7 @@ export const drawCastle = (ctx, time, hpPct) => {
   if (!CASTLE.cv) return;
   if (CASTLE.floor) ctx.drawImage(CASTLE.floor, CASTLE.mouth.x0, CASTLE.mouth.y0, CASTLE.mouth.w, CASTLE.mouth.h);
   ctx.drawImage(CASTLE.cv, CASTLE.x0, CASTLE.y0, CASTLE.w, CASTLE.h);
+  castleDay(ctx, time, gy);
   if (G) ctx.drawImage(G.over, G.x0, G.y0, G.w, G.h);
   castleSun(ctx, time, gy);
   const dark = (REALM.light?.amount ?? 0) >= 0.15;
@@ -2488,7 +2673,7 @@ export const drawCastleWorks = (ctx, g) => {
 };
 export const resetWorksBakes = () => WORKS.clear();
 
-export const resetCastleBakes = () => { CASTLE.key = ""; GROUND.key = ""; GROUND.tier = -1; WORKS.clear(); BANNERS.clear(); };
+export const resetCastleBakes = () => { DAYC.key = ""; DAYG.key = ""; CASTLE.key = ""; GROUND.key = ""; GROUND.tier = -1; WORKS.clear(); BANNERS.clear(); };
 
 
 // ======================================================================
