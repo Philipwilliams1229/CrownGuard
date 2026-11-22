@@ -2095,7 +2095,7 @@ Fable's audit: most likely iOS killed the page for memory. Fixed the same day (n
   pixrigs.js `clipFrame` now falls back to the walk for a missing idle (or attack) clip. Settings'
   Copy crash report shows a "Copied!" tag.
 
-## A cooler phone (2026-11-22, owner request; branch `worktree-perf-cooler-phone`, NOT on main)
+## A cooler phone (2026-11-22, owner request; on main the same day)
 
 "I was playing on my iphone 18 pro last night and it got so hot. I was in the hallowfen." The
 research: the ENGINE is cheap (`sim.mjs --perf`: 0.2-0.5 ms a tick with 270 foes); the heat is the
@@ -2103,7 +2103,8 @@ drawing, and the loop redrew the whole board on every screen refresh (120 a seco
 phone), paused or not. Measured in desktop Chromium on a frozen Bellmarsh fight under a full Blood
 Moon (6 halls, 50 raise effects up), old -> new: 290 foes 7.3 -> 4.0 ms a frame and 1948 -> 1685
 sprite stamps; 145 foes 5.7 -> 2.5 ms; pixels painted a frame ~22 -> ~17.6 million (the board is
-1.9 million). Not yet measured or seen on a phone. Pending the owner's look and a merge to main.
+1.9 million). Not yet measured or seen on a phone. Pending the owner's playtest on their iPhone. (It was built
+in a worktree and pushed straight to origin/main, so the Desktop folder's own main was left behind.)
 - **Pacing** (CrownguardGame.jsx, the main loop's header): 60 frames a second at most, 30 with
   **Battery saver** (Settings, Display; `prefs.saver`). The engine takes the real time between
   the frames it runs, so the game's speed is the same (checked: 1.6 game s per 2 s at every rate).
