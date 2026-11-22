@@ -15,8 +15,8 @@ import { tintRing, mirrorsFor } from "./scenery-gwpix.js";
 import { DAY } from "../data/sun.js";
 import { paintCastShadows } from "./sceneryday.js";
 import { decorShadowItems, decorShadowItem } from "./scenery.js";
-import { PTS, nearestOnPath } from "../engine/path.js";
-import { TUFTS, FLOWERS, SPECKS, PONDS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, inSea, decorFootprint } from "../data/terrain.js";
+import { PTS, nearestOnPath, TOTAL_LEN, posAt, angleAt } from "../engine/path.js";
+import { TUFTS, FLOWERS, SPECKS, PONDS, RIVERS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, inSea, decorFootprint } from "../data/terrain.js";
 import { lighten, darken, mix, rgb, hash, ball, bakeSprite, part, PX } from "./paint.js";
 import { IRON_ART } from "./scenery-iron.js";
 import { paintShore, drawShoreLive, coastTones, coastPixel } from "./coast.js";
@@ -25,7 +25,7 @@ import { bakeWater } from "./water.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { groundKind, pixelTuft, strawOf } from "./groundblend.js";
-import { punchRamp, punchCols, toneOf, LOOK_C } from "./look-c.js";
+import { punchRamp, punchCols, toneOf, LOOK_C, rich } from "./look-c.js";
 export { punchCols, toneOf };
 // a chapter's own ground art, keyed by REALM.groundArt (looked up when the
 // ground is painted, never at load — see the import cycle note in scenery.js)
@@ -152,6 +152,22 @@ export const turfTones = (R = REALM) => {
   return { look, meadow: withTemps(meadowRamp(R), look), floor: withTemps(floorRamp(R), look), dith: look.wind ? DITH_WIND : DITH };
 };
 
+// ---- the land's gentle height (2026-11-22 upgrade) ----
+// The swells are lit from the level's sun (from the upper left at noon, the upper right under an
+// eastern sun; a low sun rakes them harder), and a slope turned well toward it steps a tone up its
+// ramp, one turned away a tone down, broken in the turf's own dither, so the meadow reads as rolling
+// ground and not a flat carpet. apron.js runs the very same numbers, so the seam never shows.
+export const HILL_CELL = 150, HILL_AMP = 1.1;
+export const reliefOf = (look) => {
+  const low = DAY.on ? 1 - DAY.elev : 0;
+  return { ax: 0.42 * -DAY.side, ay: 0.58, gain: 34 * look.relief * (1 + 0.45 * low), warmth: look.relief * 0.05, top: 5, cut: 0.62 };
+};
+// the step a slope takes (sn: the sun on it, -1..1; dt: the dither)
+export const hillTone = (tn, sn, dt, rl) => {
+  const v = sn * 2.4 + dt * 0.45;
+  return v > rl.cut ? (tn < rl.top ? tn + 1 : tn) : v < -rl.cut ? (tn > 1 ? tn - 1 : tn) : tn;
+};
+
 // Where the grass sits in shade: under lone trees (thrown down-right), along
 // the wood's edge, a little along the road, and less toward the sun.
 function shadeField() {
@@ -198,6 +214,8 @@ function paintToneMap(ctx, look) {
   const Wa = lattice(seed + 41, 110), Wb = lattice(seed + 53, 110);
   // pools of sun through the canopy: coarse, warped, frayed at the edge
   const Ld = lattice(seed + 67, 12), Le = lattice(seed + 71, 5);
+  // (2026-11-22) the land's long rise and fall: lights the swells only (reliefOf), never the tones
+  const Lh = lattice(seed + 89, HILL_CELL);
   const shade = shadeField();
   // the fields are sampled every FS world units and eased between (the
   // finest noise is 9 units across, so nothing is lost)
@@ -211,7 +229,7 @@ function paintToneMap(ctx, look) {
       const x = i * FS;
       const wx = (noise(Wa, x, y) - 0.5) * 44, wy = (noise(Wb, x, y) - 0.5) * 44;
       const s = noise(L1, x + wx, y + wy) * 0.56 + noise(L2, x + wx * 0.5, y + wy * 0.5) * 0.3;
-      swell[j * FW + i] = s;
+      swell[j * FW + i] = s + noise(Lh, x, y) * HILL_AMP;
       field[j * FW + i] = s + noise(L3, x, y) * 0.14 + shade(x, y);
       if (pools) pools[j * FW + i] = noise(Ld, x + wx * 0.35 + y * 0.3, y + wy * 0.35) * 0.8 + noise(Le, x, y) * 0.2;
     }
@@ -219,13 +237,13 @@ function paintToneMap(ctx, look) {
   // the sun on the swells: a slope facing up-left (the ground rising toward
   // the lower right) is lit, one facing down-right is in its own shade
   const sun = new Float32Array(FW * FH);
-  const gain = 34 * look.relief;
+  const RL = reliefOf(look), gain = RL.gain;
   for (let j = 0; j < FH; j++) {
     const ya = Math.max(0, j - 2) * FW, yb = Math.min(FH - 1, j + 2) * FW;
     for (let i = 0; i < FW; i++) {
       const xa = Math.max(0, i - 2), xb = Math.min(FW - 1, i + 2);
       const gx = (swell[j * FW + xb] - swell[j * FW + xa]) / (4 * FS), gy = (swell[yb + i] - swell[ya + i]) / (4 * FS);
-      const v = (gx * 0.42 + gy * 0.58) * gain;
+      const v = (gx * RL.ax + gy * RL.ay) * gain;
       sun[j * FW + i] = v < -1 ? -1 : v > 1 ? 1 : v;
     }
   }
@@ -244,7 +262,7 @@ function paintToneMap(ctx, look) {
   const sandW = COAST ? COAST.sand : 0;
   const tones = COAST ? coastTones(R) : null;
   if (bound) for (let i = 0; i < bound.length; i++) bound[i] = FOREST.edge === "left" ? forestDepthAt(0, i / RES) : forestDepthAt(i / RES, 0);
-  const warmth = look.relief * 0.035;
+  const warmth = RL.warmth;
   // per column: where it falls on the field grid (the loop below is the
   // bake's hot spot — 1.9M pixels — so it keeps to lookups and a little sum)
   const colX0 = new Int32Array(PW), colU = new Float32Array(PW);
@@ -285,7 +303,7 @@ function paintToneMap(ctx, look) {
           r = 1;
         } else {
           const tt = t + sn * warmth + dz * 0.07;
-          tn = toneOf(tt, look.patch);
+          tn = hillTone(toneOf(tt, look.patch), sn, dt, RL);
         }
         const wv = sn + (t - 0.47) * 1.3 + dt * 0.22;
         const tp = (lee ? sn + dt * 0.3 < -0.45 : wv < -0.42) ? 0 : wv > 0.42 ? 2 : 1;
@@ -973,6 +991,58 @@ function paintDetail(G, look, kind, rng) {
     if (!FOREST || forestDepthAt(f.x, f.y) < -4) flowerHead(G, f.x, f.y, f.c, i < 3 ? 2 : 1, stemC, centre, i);
   });
 
+  // ---- lush margins (2026-11-22 upgrade): taller grass gathers where it would grow, just past the
+  // road's trampled verge and along the water's edge, in clumps of two or three with a lit side, the
+  // odd flower among them, in runs with gaps (a noise field picks the runs). Its own seeded draw, so
+  // every older piece keeps its place.
+  // (the Greenwood's own meadows only: a chapter with its own turf art keeps its approved look)
+  if (feats && !dry && kind !== "snow") {
+    const rr = mulberry32((seed ^ 0x51ab1e) >>> 0), nz = lattice(seed + 83, 34);
+    const sites = [];
+    for (let dd = 3; dd < TOTAL_LEN; dd += 8) {
+      const [rx, ry] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
+      for (const sg of [1, -1]) {
+        const off = PATH_HALF + 8.5 + rr() * 5, x = rx + Math.cos(a) * off * sg, y = ry + Math.sin(a) * off * sg;
+        if (noise(nz, x, y) > 0.6 && rr() < 0.45) sites.push([x, y, 0]);
+      }
+    }
+    const shore = (x, y) => (inRiver(x, y, 13) || inPond(x, y, 9)) && !inRiver(x, y, 4) && !inPond(x, y, 1);
+    for (const rv of RIVERS) {
+      const pts = rv.pts || [];
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[i + 1], L = Math.hypot(bx - ax, by - ay) || 1, hw = (rv.ws ? rv.ws[i] : rv.w) / 2;
+        for (let u = 0; u < L; u += 9) {
+          const cx = ax + (bx - ax) * u / L, cy = ay + (by - ay) * u / L, nx = -(by - ay) / L, ny = (bx - ax) / L;
+          for (const sg of [1, -1]) {
+            const off = hw + 7 + rr() * 4, x = cx + nx * off * sg, y = cy + ny * off * sg;
+            if (noise(nz, x + 300, y) > 0.55 && rr() < 0.45 && shore(x, y)) sites.push([x, y, 1]);
+          }
+        }
+      }
+    }
+    for (const p of PONDS) {
+      const n = Math.round((p.w + p.h) * 0.22);
+      for (let k = 0; k < n; k++) {
+        const t = (k / n) * Math.PI * 2, x = p.x + Math.cos(t) * (p.w / 2 + 6 + rr() * 3), y = p.y + Math.sin(t) * (p.h / 2 + 5 + rr() * 3);
+        if (noise(nz, x, y + 300) > 0.42 && rr() < 0.6 && shore(x, y)) sites.push([x, y, 1]);
+      }
+    }
+    const flowerC = kind === "grass" && !burnt ? ["#f4ecd8", "#e8c040", "#c89ad8", "#f09a8a"] : null;
+    sites.sort((a, b) => a[1] - b[1]);
+    sites.forEach(([x, y, wet], i) => {
+      if (x < 6 || y < 6 || x > SW - 6 || y > H - 4 || !clear(x, y, 3)) return;
+      if (DECOR.some((d) => !d.forest && Math.hypot(d.x - x, (d.y - y) * 1.4) < decorFootprint(d) + 2)) return;
+      const n = 1 + (rr() < 0.45 ? 1 : 0);
+      for (let q = 0; q < n; q++) {
+        const tx = x + (q ? (rr() - 0.5) * 6 : 0), ty = y + (q ? (rr() - 0.3) * 3 : 0);
+        if (!clear(tx, ty, 3)) continue;
+        const big = q === 0;
+        pixTuft(G, tx, ty, big ? 1.25 + rr() * 0.4 : 0.85 + rr() * 0.3, i * 5 + q, big && i % 3 === 0 ? tuftLt : q === 1 ? tuftDk : tuftCols, { n: big ? 6 + (i % 2) : 4 + (i % 2), wind: wet ? 0.12 : 0.22 });
+      }
+      if (flowerC && !wet && rr() < 0.16) flowerHead(G, x + (rr() - 0.5) * 5, y - 1, flowerC[i % flowerC.length], false, stemC, "#f2c744");
+    });
+  }
+
   // ---- the last glints: sparkle on the snow, embers in the ash
   if (kind === "snow") {
     const white = C("#ffffff");
@@ -1035,12 +1105,15 @@ const bushSprite = (leaf, v, size) => {
   const key = `${leaf}|${v}|${size}`;
   if (BUSHES.has(key)) return BUSHES.get(key);
   const w = BUSH_W[size], h = Math.round(w * 0.74);
-  const T = [lighten(leaf, 0.4), lighten(leaf, 0.2), leaf, darken(leaf, 0.2), darken(leaf, 0.4)];
+  // (2026-11-22 upgrade: the trees' standard — warm, sunny tops, cool blue-green depths, a lit rim
+  // on the sun side of each clump, dappled pockets of shade low down)
+  const T = [mix(lighten(leaf, 0.5), "#f4ee9a", 0.3), mix(lighten(leaf, 0.24), "#d6e46c", 0.16), leaf, mix(darken(leaf, 0.24), "#1c4c58", 0.24), mix(darken(leaf, 0.5), "#16283a", 0.3)];
   const cv = bakeSprite(w, h, (c) => {
     const AW = w * PX, AH = h * PX, base = AH - 7;
     pixelsOn(c, (put) => pixShadow(put, Math.round(AW * 0.56), base + 2, Math.round(AW * 0.4), 4));
     const cl = [[0.5, 0.36, 0.3, 0.3], [0.27, 0.54, 0.22, 0.26], [0.73, 0.54, 0.22, 0.25]];
     if (size > 0) cl.push([0.52, 0.66, 0.19, 0.19]);
+    if (size > 1) cl.splice(1, 0, [0.4, 0.24, 0.17, 0.17]);
     cl.forEach(([fx, fy, frx, fry], i) => part(c, (cc) => pixelsOn(cc, (put) => {
       const sd = v * 31 + i * 7 + size;
       const cx = Math.round(AW * fx + (hash(sd, 1) - 0.5) * 4), cy = Math.round(AH * fy), rx = AW * frx, ry = AH * fry;
@@ -1050,9 +1123,18 @@ const bushSprite = (leaf, v, size) => {
         const rim = 1 + 0.09 * Math.sin(ang * 5 + lob) + (hash(cx + i2, cy + j2 + sd) - 0.5) * 0.2;
         return a * a + b * b <= rim * rim;
       };
-      const tone = (i2, j2) => { const lt = -((i2 / rx) * 0.55 + (j2 / ry) * 0.85); return lt > 0.62 ? 1 : lt > 0.02 ? 2 : lt > -0.55 ? 3 : 4; };
+      const tone = (i2, j2) => {
+        const a = i2 / rx, b = j2 / ry, lt = -(a * 0.55 + b * 0.85) + (1 - a * a - b * b) * 0.25;   // (a dome: the middle catches more)
+        const dz = (hash(cx + i2 * 3, cy + j2 * 7 + sd) - 0.5) * 0.22;
+        return lt + dz > 0.68 ? 1 : lt + dz > 0.06 ? 2 : lt + dz > -0.5 ? 3 : 4;
+      };
       for (let j = -Math.ceil(ry) - 1; j <= Math.ceil(ry) + 1; j++) for (let i = -Math.ceil(rx) - 1; i <= Math.ceil(rx) + 1; i++) {
-        if (inside(i, j)) put(cx + i, cy + j, T[tone(i, j)]);
+        if (!inside(i, j)) continue;
+        let t = tone(i, j);
+        // the sun-side rim: the first pixel in from the edge, up and to the left
+        if (t <= 2 && (!inside(i - 1, j - 1) || !inside(i, j - 1)) && i + j < 0) t = 0;
+        else if (t === 1 && !inside(i - 1, j)) t = 0;
+        put(cx + i, cy + j, T[t]);
       }
       // leaf-scales: a lit pixel over a small darker cup, the scale's tone
       // set by where it sits on the clump
@@ -1159,7 +1241,7 @@ function paintTurf(ctx) {
   // and out, in ones, pairs and trios, with gaps, never three ferns in a row
   if (FOREST && REALM.wood?.hem !== false) {
     const edgeLeft = FOREST.edge === "left", span = edgeLeft ? H : W;
-    const leaf = mix(R.GRASS_DK, "#3f7a40", 0.5), fern = mix(R.GRASS_DK, "#3f8a3c", 0.35);
+    const leaf = rich(mix(R.GRASS_DK, "#3f7a40", 0.5), 1.22), fern = rich(mix(R.GRASS_DK, "#3f8a3c", 0.35), 1.15);
     const at = (u, out) => (edgeLeft ? [forestDepthAt(0, u) + out, u] : [u, forestDepthAt(u, 0) + out]);
     const items = [];
     let run = 0, out = 1;
@@ -1218,6 +1300,8 @@ const layHem = (ctx, list) => {
 // the apron's pieces just past the board's edges (apron.js reports them once it has painted): their
 // shadows reach onto the board, so the edge is no line where shadows start
 let EDGE = { key: "", items: [] };
+// how long the last ground bake took, part by part (ms; the labs read it)
+export const GROUND_PROF = {};
 export const setEdgeCasters = (key, items) => { if (key !== EDGE.key) EDGE = { key, items }; };
 
 // The cached ground for the realm currently loaded. Rebuilt whenever the
@@ -1232,14 +1316,19 @@ export function groundLayer() {
   ctx.scale(RES, RES);
   const long = DAY.on && DAY.len > 0;
   HEM = long ? [] : null;
+  let T0 = performance.now();
   paintTurf(ctx);
+  GROUND_PROF.turf = performance.now() - T0; T0 = performance.now();
   const hem = HEM;
   HEM = null;
   const art = REALM.groundArt, kit = () => ({ clear, rng: mulberry32((REALM.seed ^ 0x6a7d) >>> 0), SW });
   if (artFor("turf", art)) artFor("turf", art)(ctx, kit());
+  GROUND_PROF.turfArt = performance.now() - T0; T0 = performance.now();
   paintRoad(ctx);
+  GROUND_PROF.road = performance.now() - T0; T0 = performance.now();
   if (artFor("road", art)) artFor("road", art)(ctx, kit());
   bakeWater(ctx);
+  GROUND_PROF.water = performance.now() - T0; T0 = performance.now();
   // the time of day: every piece of scenery's cast shadow along the level's sun (sceneryday.js), baked
   // into the ground once per sun (nothing at noon)
   if (long) {
@@ -1251,6 +1340,7 @@ export function groundLayer() {
     paintCastShadows(ctx, items, 0, 0, W, H);
     layHem(ctx, hem);
   }
+  GROUND_PROF.shadows = performance.now() - T0;
   layerKey = key;
   return layer;
 }

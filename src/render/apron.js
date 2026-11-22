@@ -47,7 +47,7 @@ import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { bakeCastleRun } from "./castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
-import { turfTones, setEdgeCasters } from "./world.js";
+import { turfTones, setEdgeCasters, reliefOf, hillTone, HILL_CELL, HILL_AMP } from "./world.js";
 import { punchCols, toneOf as meadowTone } from "./look-c.js";
 import { groundKind, pixelTuft } from "./groundblend.js";
 import { paintRoadStrip } from "./road.js";
@@ -459,7 +459,7 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
       const od = outside(x, y), wf = smooth((od - 3) / 26), k = j * UW + i;
       const wx = (fieldNoise(Wa, 110, x, y, wf) - 0.5) * 44, wy = (fieldNoise(Wb, 110, x, y, wf) - 0.5) * 44;
       const sw = fieldNoise(L1, 70, x + wx, y + wy, wf) * 0.56 + fieldNoise(L2, 26, x + wx * 0.5, y + wy * 0.5, wf) * 0.3;
-      swell[k] = sw;
+      swell[k] = sw + fieldNoise(seed + 89, HILL_CELL, x, y, wf) * HILL_AMP;   // (world.js: the long rise and fall)
       // the board's sun gradient, held at its edge values out here
       const cx = Math.min(W, Math.max(0, x)), cy = Math.min(H, Math.max(0, y));
       let t = sw + fieldNoise(L3, 9, x, y, wf) * 0.14 + 0.05 - 0.1 * (cx / W * 0.55 + cy / H * 0.45);
@@ -481,13 +481,13 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
     }
   }
   PROF.grid += performance.now() - T0; T0 = performance.now();
-  // the sun on the swells (world.js: a slope facing up-left is lit)
-  const gain = 34 * look.relief;
+  // the sun on the swells (world.js reliefOf: a slope facing the sun is lit)
+  const RL = reliefOf(look), gain = RL.gain;
   for (let j = 0; j < UH; j++) {
     const ya = Math.max(0, j - HS) * UW, yb = Math.min(UH - 1, j + HS) * UW;
     for (let i = 0; i < UW; i++) {
       const xa = Math.max(0, i - HS), xb = Math.min(UW - 1, i + HS);
-      const v = ((swell[j * UW + xb] - swell[j * UW + xa]) * 0.42 + (swell[yb + i] - swell[ya + i]) * 0.58) / (2 * HS * G) * gain;
+      const v = ((swell[j * UW + xb] - swell[j * UW + xa]) * RL.ax + (swell[yb + i] - swell[ya + i]) * RL.ay) / (2 * HS * G) * gain;
       sun[j * UW + i] = v < -1 ? -1 : v > 1 ? 1 : v;
     }
   }
@@ -497,7 +497,7 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
   const tn8 = new Uint8Array(NP), tp8 = new Uint8Array(NP), reg = new Uint8Array(NP);   // reg: 0 meadow, 1 floor, 2 sea/sand/crag, 3 the board
   const pal = [TT.meadow, TT.floor];
   const CT = COAST ? { ...coastTones(R), px: 1 / r } : null, sandW = COAST ? COAST.sand : 0;
-  const warmth = look.relief * 0.035;
+  const warmth = RL.warmth;
   const inv = 1 / r, iG = 1 / G;
   // the board's pixel grid under each column and row, for the dither
   const colD = new Int32Array(gw), colT = new Int32Array(gw);
@@ -541,7 +541,7 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
         tn = t + dz * 0.1 < 0.0 ? 1 : 2; rg = 1;
       } else {
         const tt = t + sn * warmth + dz * 0.07;
-        tn = meadowTone(tt, look.patch);   // the board's own bands (world.js)
+        tn = hillTone(meadowTone(tt, look.patch), sn, dt, RL);   // the board's own bands (world.js)
       }
       const wv = sn + (t - 0.47) * 1.3 + dt * 0.22;
       tn8[i] = tn; reg[i] = rg;

@@ -190,7 +190,7 @@ const lookOf = (R) => {
     tones: [sat(mix(dk, edge, 0.3), 0.14), sat(mix(main, dk, 0.5), 0.16), sat(main, 0.16), sat(lighten(main, 0.12), 0.14), sat(lighten(main, 0.24), 0.1)],
     bankDk: sat(darken(mix(dk, edge, 0.6), 0.1), 0.12), bankMid: sat(mix(dk, edge, 0.3), 0.12), bankLt: lighten(mix(main, R.GRASS_LT, 0.25), 0.34),
     worn: mix(mix(R.GRASS_DK, R.GRASS, 0.5), dk, 0.42), wornT: 0.62,
-    crown: 0.1, drift: 1.25, bias: 0, grain: 1,
+    crown: 0.1, drift: 1.25, bias: 0, grain: 1, dish: 0.08, clod: 0.09,
     // ruts: how much of the road they run along (1 = about half), and
     // whether the groove's floor sinks a tone (the fen's pale dust: walls only)
     ruts: 0.55, rutFloor: 1,
@@ -213,6 +213,7 @@ const lookOf = (R) => {
     L.crown = 0.08; L.ruts = 0; L.grassCrown = false; L.puddles = 3; L.prints = 9; L.roots = false; L.pebbles = 0.3;
     L.stone = mix(edge, "#6a7280", 0.5); L.pebble = mix(R.PEBBLE, edge, 0.35);
     L.tuft = null; L.lumps = [mix(edge, main, 0.35), snow, "#fbfdff"]; L.grain = 0.45; L.drift = 0.5; L.bias = 0.1;
+    L.clod = 0.03;
   } else if (style === "ash") {
     // cinders, warmed a touch in the light so the road isn't flat concrete
     const warm = "#c8a080";
@@ -262,7 +263,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
   const paved = L.style === "paved";
   const T = L.tonesC, ap = 1 / k, ik = ap;
   const BIAS = L.bias - L.crown * 0.45 + 0.5, CROWN = L.crown, GR0 = 0.045 * L.grain, GR1 = 1 - 0.022 * L.grain, WATER = !!o.water;
-  const RUT_T = 0.49 + (1 - L.ruts) * 0.25, RUT_F = L.rutFloor;
+  const RUT_T = 0.49 + (1 - L.ruts) * 0.25, RUT_F = L.rutFloor, CLOD = L.clod || 0;
   // what changes along the road, sampled every STEP at the centreline: its
   // wander, where the cart ran (its gauge, how far it strayed from the
   // middle, cutting in toward the inside of a bend), whether each rut runs
@@ -452,6 +453,9 @@ export function paintRoadStrip(ctx, pts, o = {}) {
           v += (A + (B - A) * u) * (1 - w) + (C + (D - C) * u) * w;
         }
         if (WATER) v -= (wet[ia] + (wet[ia + 1] - wet[ia]) * ua) * 0.14;
+        // (2026-11-22 upgrade) the road lies sunk between its banks: the half under the sunward bank
+        // a little in its lee, the far half rising into the light, so the track has a cross-section
+        { const q = a / HALF; v -= s * L.dish * (q < 1 ? q : 1); }
         // the bank's shadow thrown into the road along the sunward edge
         const inside = -e;
         if (s > 0.2 && inside < (0.6 + 2.6 * (s - 0.2)) + dz * 1.1) v -= 0.17;
@@ -478,6 +482,13 @@ export function paintRoadStrip(ctx, pts, o = {}) {
         // the road's own rim: one pixel a step darker where it meets the bank
         if (inside < ap && s > -0.3) idx -= 1;
         else if (inside < ap) idx += 1;
+        // (2026-11-22 upgrade) clods: a pixel of packed earth standing proud, lit, with a step of
+        // shade at its lower right, gathered in clumps (none in the deep-rutted floors)
+        if (CLOD) {
+          const pc = CLOD * (dz > 0.3 ? 1 : dz > -0.1 ? 0.55 : 0.18);
+          if (RT[((((ay - 1) & 255) << 8) | ((ax - 1) & 255)) ^ 0x1717] < pc) idx -= 1;
+          else if (RT[rn ^ 0x1717] < pc) idx += 1;
+        }
         // grain: single pixels a step off
         const h = RT[rn];
         if (h < GR0) idx -= 1;
