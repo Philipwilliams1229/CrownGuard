@@ -14,6 +14,33 @@
   const q = new URLSearchParams(location.search), st = document.getElementById("status");
   try {
     const { runScene } = await import("/concept/overhaul2-bridges.js?v=" + Date.now());
+    if (q.get("anim")) {   // an animated loop: ?anim=<loop>[&fps=10&F=32&cols=4] -> .shots/ovh3_anim_bridges_<loop>_c<cols>r<rows>_fps<fps>.png
+      const { runAnim } = await import("/concept/overhaul2-bridges.js?v=" + Date.now());
+      const nm = q.get("anim"), fps = Number(q.get("fps") || 10), F = Number(q.get("F") || 32), cols = Number(q.get("cols") || 4), rows = F / cols;
+      const { frames, log } = await runAnim(nm, { fps, F });
+      const fw = frames[0].width, fh = frames[0].height;
+      const sh = document.createElement("canvas"); sh.width = fw * cols; sh.height = fh * rows;
+      const sc = sh.getContext("2d"); frames.forEach((c, k) => sc.drawImage(c, (k % cols) * fw, Math.floor(k / cols) * fh));
+      const base = `ovh3_anim_bridges_${nm}`;
+      const post = (n, c) => fetch(`/__shot?name=${n}`, { method: "POST", body: c.toDataURL("image/png").slice(22) });
+      // the checks: quarter frames side by side; step sizes 0->1 and F-1->0; shimmer (same in 0,2,4, different in 1,3)
+      const qs = document.createElement("canvas"); qs.width = fw * 4 + 24; qs.height = fh; const qc = qs.getContext("2d");
+      [0, F / 4, F / 2, (3 * F) / 4].forEach((k, i) => qc.drawImage(frames[k], i * (fw + 8), 0));
+      const px = frames.map((c) => c.getContext("2d").getImageData(0, 0, fw, fh).data);
+      const diff = (a, b) => { let n = 0; for (let o = 0; o < a.length; o += 4) if (a[o] !== b[o] || a[o + 1] !== b[o + 1] || a[o + 2] !== b[o + 2]) n++; return n; };
+      const same = (a, b, o) => a[o] === b[o] && a[o + 1] === b[o + 1] && a[o + 2] === b[o + 2];
+      let shim = 0; const [p0, p1, p2, p3, p4] = px; for (let o = 0; o < p0.length; o += 4) if (same(p0, p2, o) && same(p0, p4, o) && !same(p0, p1, o) && !same(p0, p3, o)) shim++;
+      const steps = []; for (let k = 0; k < F; k++) steps.push(diff(px[k], px[(k + 1) % F]));
+      const msg = `${nm}: ${fw}x${fh} F ${F} | step 0->1 ${steps[0]}, F-1->0 ${steps[F - 1]}, mean ${Math.round(steps.reduce((a, b) => a + b) / F)}, min ${Math.min(...steps)}, max ${Math.max(...steps)} | shimmer ${shim} (${(shim / (fw * fh) * 100).toFixed(2)}%) | ${log.join("; ")}`;
+      if (q.get("save") !== "0") { await post(`${base}_c${cols}r${rows}_fps${fps}`, sh); await post(`${base}_still`, frames[0]); await post(`ovh3chk_bridges_${nm}_quarters`, qs); }
+      if (q.get("zoom")) {   // a region of frames F-1, 0, 1, 2 at 3x, side by side (the loop point and two steps)
+        const [zx, zy, zw, zh, zk = 3] = q.get("zoom").split("_").map(Number), zs = document.createElement("canvas");
+        zs.width = (zw * zk + 6) * 4; zs.height = zh * zk; const zc = zs.getContext("2d"); zc.imageSmoothingEnabled = false;
+        (q.get("zf") ? q.get("zf").split(",").map(Number) : [F - 1, 0, 1, 2]).forEach((k, i) => zc.drawImage(frames[k], zx, zy, zw, zh, i * (zw * zk + 6), 0, zw * zk, zh * zk));
+        await post(`ovh3chk_bridges_${nm}_zoom`, zs);
+      }
+      document.body.appendChild(qs); st.textContent = msg; document.title = "DONE"; throw new Error("anim saved");
+    }
     const names = (q.get("scene") || "up.trestle.toll").split(",");
     const outs = (q.get("out") || "").split(",");
     if (q.get("strip")) {   // the water through the piles: N frames side by side (ph 0..1)
@@ -38,5 +65,5 @@
       st.textContent += ` | ${nm}: ${log.join("; ")}`;
     }
     document.title = "DONE";
-  } catch (e) { if (e.message === "strip saved") { st.textContent = "strip saved"; } else { st.textContent = "FAIL " + e.message + " " + e.stack; document.title = "FAIL"; console.error(e); } }
+  } catch (e) { if (e.message === "strip saved" || e.message === "anim saved") { if (e.message === "strip saved") st.textContent = "strip saved"; } else { st.textContent = "FAIL " + e.message + " " + e.stack; document.title = "FAIL"; console.error(e); } }
 </script></body></html>

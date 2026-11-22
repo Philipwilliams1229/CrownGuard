@@ -88,3 +88,31 @@ run, cause not found), so the golden / sunrise board is my own simple warm grade
 - The water strip is weak: the wakes are 1-2 px dashes that hardly move; the water artist's flow should own it.
 - Diagonal river crossings (Millrace's up span) break the rule's assumptions (sluice and wings placed by the centre
   line); not drawn.
+
+## Round 3: ANIMATED loops (art/briefs/overhaul-animation.md)
+Lab: `overhaul2-bridges.html?anim=<loop>[&fps=10&F=32&cols=4&zoom=x_y_w_h_k&zf=a,b,c,d]` -> `.shots/ovh3_anim_bridges_<loop>_c4r8_fps10.png`
+(+ `_still.png`); the page prints the three checks (step 0->1 vs F-1->0, shimmer). Painter: `LOOPS`, `runAnim`, `liveLoop`.
+All loops: 32 frames, 10 fps (3.2 s), 480 x 340 px (240 x 170 board units at 2x), 4 cols x 8 rows.
+While a loop is built the painters RECORD wakes, banners, lanterns, sluice falls and still water instead of baking them;
+each frame paints them live over the static bake. Every clock is a whole number of cycles a loop.
+- Water (all): 1-px light dashes in 3-px lanes along the river's own centre line, 4 px/frame mid-stream (20 units/s),
+  3 and 2 nearer the banks; pattern period = speed x F, so it wraps. Game cost: a scrolling/offset dash layer per river
+  (or ~8 baked phases), cheap. Over the river artist's water this is a stand-in.
+- Wakes: upstream cushion (4-frame flicker), dark eddy, V tongue whose foam ribbons run downstream 4 px/frame on a 16-px
+  period, 7 flecks drifting on and dithering out. Game: per pile ~60 px drawn a frame, or 4 baked phases per pile.
+- trestle_across (Millrace): water, 3 wakes, 4 banners stirring (2 sway cycles a loop), 4 lantern flames (4-frame cycle),
+  goblins east on the engine's road (path.js lanePos, speed 82) rising onto the deck, behind the near truss, and down;
+  garrison knights west on the far lanes. Walkers' z from the new profile (the engine's bridgeLift knows only old spans).
+- trestle_up (Wolfrun, right span): the same, plus a River Watch skiff pair (36 units/s): one slips in under the west strip
+  as the loop ends while its twin comes out from under the east strip as it begins (seam hidden under the deck).
+- flat_updated (Thornbrook): water and 3 wakes through the piles, walkers over the cos arch.
+- mill_trestle (Millrace north): three sluice sheets pouring 6 px/frame (12-px period) from under the gates; the millpond
+  above nearly still (slow glints, one breath a loop; its overlay's top edge dithered); walkers.
+- trestle_golden (Wolfrun): the thrown shadow is cast from the span's members (deck slab, crib ramps, piles, knee braces,
+  X braces, rails, posts, banners), rim stepped and dithered in two rings; it is an alpha layer over the moving water, so
+  the streaks dim inside it. Walkers' long shadows laid along the sun's fall on the deck (clipped by nothing: a shadow
+  that runs off the deck edge stays at deck height). Game: the shadow bakes with the span (per sun), free a frame.
+- trestle_dusk (Millrace): night grade, lamp pools/bloom breathing (+-7%), flames flickering, a broken column of glints
+  under each lamp swaying 2 cycles a loop. No sun shadows after sundown.
+Faked: walkers are placed on the engine's road at engine speed, not stepped through updateGame (no combat, no blocking);
+both goblin variants walk at 82 (the hooded one's x1.15 dropped so the loop wraps); knights walk at goblin pace.

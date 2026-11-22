@@ -25,7 +25,9 @@ const loadGame = async () => {
   ({ placeTower, upgradeTower, buildableAt } = Ac); ({ draw } = Dr); ({ setLevelWeather } = Wx); ({ setDay, SUN_POS } = Sn); DAYR = Sn.DAY;
   ({ PIX } = Px); ({ bakeFrame } = Bk); ({ noteLamp, drawLampPools, drawLampBloom, swapLamps, clearLamps } = Nl);
   TR = await import("/src/data/terrain.js");
+  PATH = await import("/src/engine/path.js");
 };
+let PATH = null;
 
 const CW = 1680, CH = 1120;     // the board canvas, art px
 
@@ -73,6 +75,12 @@ const IRON = "#4c4e58";
 const BANNER = ["#1e3050", "#2e4a74", "#4a6c9c", "#d8b34a"];
 const LAMP = "#ffd27a";
 let S = null;   // the sun of the panel in hand
+// ANIMATED loops (art/briefs/overhaul-animation.md): while AN.rec the painters RECORD what moves (wakes, banners,
+// lanterns, the sluice's falls, still water) instead of painting it into the static bake; AN.f / AN.F is the frame
+// in hand when the live layers are drawn. Every clock is a whole number of cycles a loop, so it is seamless.
+let AN = null;
+const TAU = Math.PI * 2;
+const md = (a, m) => ((a % m) + m) % m;
 const sunOf = (id) => {
   const s = SUN_POS[id] || SUN_POS.noon, gold = !!s.len && s.warm > 0.5;
   const sh = s.len ? [s.fall[0] * s.len, s.fall[1] * s.len] : [0.56, 0.44];
@@ -189,7 +197,14 @@ const bentsOf = (pr, uN, uS) => {
 
 // ---------------------------------------------------------------- shared pieces
 const lantern = (L, x, y, lit = true) => {   // (x, y) the lantern's foot
+  if (AN && AN.rec) { AN.lanterns.push([L, x, y, lit]); return; }
   L.r(x - 2, y - 7, 5, 7, INK); L.r(x - 1, y - 6, 3, 5, lit ? LAMP : "#6a5a3a"); if (lit) L.p(x, y - 5, "#fff6d8");
+  if (AN && lit) {   // the flame flickers: a 4-frame cycle (each lamp on its own phase), the tip licking up a pixel
+    const k = md(AN.f + Math.round(x * 0.37), 4);
+    if (k === 1) { L.p(x - 1, y - 6, "#ffb048"); L.p(x, y - 4, "#fff6d8"); }
+    else if (k === 2) { L.p(x, y - 7, LAMP); L.p(x + 1, y - 6, "#ffe6a8"); L.p(x, y - 5, LAMP); L.p(x, y - 4, "#fff6d8"); }
+    else if (k === 3) { L.p(x + 1, y - 2, "#ffb048"); L.p(x - 1, y - 5, "#ffe6a8"); }
+  }
   L.r(x - 3, y - 8, 7, 1, IRON); L.p(x, y - 9, IRON);
 };
 const postV = (L, x, yFoot, h, w = 4, cap = true) => {   // a squared post in elevation, lit on the sun's side
@@ -201,11 +216,16 @@ const postV = (L, x, yFoot, h, w = 4, cap = true) => {   // a squared post in el
   if (cap) { L.r(x - 1, yFoot - h - 1, w + 2, 2, F(WOOD[5])); L.r(x - 1, yFoot - h - 2, w + 2, 1, INK); }
 };
 const banner = (L, x, y, h = 16, flip = 1) => {   // hanging from an arm at (x, y)
+  if (AN && AN.rec) { AN.banners.push([L, x, y, h, flip]); return; }
   line(L, x, y, x + 7 * flip, y, IRON);
+  // stirring in the breeze (live loops): two sway cycles a loop, the hem moving most, a fold travelling down the cloth
+  const ph = AN ? (AN.f / AN.F) * TAU * 2 + x * 0.11 : 0;
   for (let j = 0; j < h; j++) for (let i = 0; i < 6; i++) {
-    const xx = x + (flip > 0 ? 1 + i : -6 + i), tail = j > h - 4 && Math.abs(i - 2.5) < (j - (h - 4)) * 0.9;
+    const sw = AN ? Math.round(Math.sin(ph - j * 0.32) * 1.6 * (j / h)) : 0;
+    const xx = x + (flip > 0 ? 1 + i : -6 + i) + sw, tail = j > h - 4 && Math.abs(i - 2.5) < (j - (h - 4)) * 0.9;
     if (tail) continue;
-    let c = i === 0 || i === 5 ? BANNER[0] : j % 7 === 3 && i > 1 && i < 4 ? BANNER[3] : vn(i, j / 3 + x, 3) > 0.6 ? BANNER[2] : BANNER[1];
+    const fold = AN ? Math.sin(ph * 1 - j * 0.5 + i * 0.6) > 0.55 : vn(i, j / 3 + x, 3) > 0.6;
+    let c = i === 0 || i === 5 ? BANNER[0] : j % 7 === 3 && i > 1 && i < 4 ? BANNER[3] : fold ? BANNER[2] : BANNER[1];
     L.p(xx, y + 1 + j, F(c, i < 2 ? "lit" : "top"));
   }
 };
@@ -237,6 +257,7 @@ const pileV = (L, x, yTop, yFoot, w = 3, wetAt = 1e9) => {
 };
 // the white water at a foot standing in the stream: a tongue downstream (fx, fy) and a lip upstream; ph 0..1 slides it
 const wake = (L, x, y, fx, fy, len, ph = 0, wid = 3) => {
+  if (AN) { AN.wakes.push([x, y, fx, fy, len, wid]); return; }   // the live loop paints its own (liveWake)
   for (let k = 0; k < len; k++) {
     const f = k / len, wd = Math.max(1, Math.round(wid * (1 - f * 0.6))), on = ((k + ph * 6) % 6) < 3.4;
     if (!on && f > 0.25) continue;
@@ -285,6 +306,90 @@ const ramp = (sp, u, v, wide, gx, gy) => {
   return c;
 };
 
+// ================================================================ the thrown shadow, from the span's OWN outline
+// Every member is cast as a point cloud (u, v, z) -> the ground under it shifted by the sun (S.sh x z): the deck slab,
+// the earth / crib ramps, the piles and braces, the rails and their posts, the bridgehead posts and banners. Light
+// passes between the members, so a low sun throws the trestle's lacework on the water, not a box. Returns a Map
+// key -> caster height; shadeAt() dithers its rim (Bayer: two stepped rings) so the far edge breaks up.
+const castShadow = (sp, view) => {
+  const { cx, cy, hw } = sp, pr = sp.pr, z = pr.z, ba = pr.batter, M = new Map();
+  const up = view === "up";
+  const put = (u, v, zz) => {
+    const gx = up ? cx + v : cx + u, gy = up ? cy + u : cy + v;
+    const X = Math.round(gx + S.sh[0] * zz), Y = Math.round(gy + S.sh[1] * zz), k = Y * CW + X;
+    if (!(M.get(k) >= zz)) M.set(k, zz);
+  };
+  const seg = (u0, v0, z0, u1, v1, z1, w = 1) => {
+    const n = Math.ceil(Math.max(Math.abs(u1 - u0), Math.abs(v1 - v0), Math.abs(z1 - z0)) * 2) + 1;
+    for (let i = 0; i <= n; i++) { const f = i / n; for (let k = 0; k < w; k++) put(u0 + (u1 - u0) * f + (up ? 0 : k * 0.7), v0 + (v1 - v0) * f + (up ? k * 0.7 : 0), z0 + (z1 - z0) * f); }
+  };
+  for (let u = pr.lo; u <= pr.hi; u += 0.5) { const zz = z(u); if (zz <= 0.2) continue; for (let v = -hw; v <= hw; v += 0.5) put(u, v, zz); }
+  const bents = sp.kind === "trestle" ? bentsOf(pr, sp.uN, sp.uS) : [];
+  for (const s of [-1, 1]) {
+    if (sp.kind === "trestle" || sp.kind === "hump") {
+      for (let u = pr.lo; u <= pr.hi; u += 0.5) {   // the solid flanks: earth / crib ramps; the humpback's spandrel bar its arches
+        const zz = z(u); if (zz < 1) continue;
+        if (sp.kind === "trestle" && u >= pr.A && u <= pr.B) continue;
+        for (let t = 0; t <= 1; t += 0.5 / (zz + 1)) {
+          const zv = zz * (1 - t);
+          if (sp.kind === "hump" && sp.arches.some((A2) => ((u - A2.c) / A2.a) ** 2 + (zv / A2.h) ** 2 < 1)) continue;
+          put(u, s * (hw + ba * zz * t), zv);
+        }
+      }
+      for (const b of bents) {   // piles (3 px), knee braces, cap ends
+        const zz = z(b);
+        seg(b, s * (hw + ba * zz), 0, b, s * hw, zz, 3);
+        seg(b, s * (hw + ba * zz * 0.45), zz * 0.55, b, s * hw, zz + 8);
+        seg(b, s * hw, zz, b, s * (hw + 7), zz, 2);
+      }
+      const ends = [pr.A, ...bents, pr.B];   // X braces (none over the navigation bay) and the waling
+      if (sp.kind === "trestle") {
+        for (let i = 0; i < ends.length - 1; i++) {
+          const a = ends[i], b = ends[i + 1]; if (b - a > 30) continue;
+          const pt = (u, t) => [u, s * (hw + ba * z(u) * t), z(u) * (1 - t)];
+          seg(...pt(a, 0.12), ...pt(b, 0.86)); seg(...pt(a, 0.86), ...pt(b, 0.12));
+        }
+        seg(pr.A, s * (hw + ba * z(pr.A) * 0.22), z(pr.A) * 0.78, pr.B, s * (hw + ba * z(pr.B) * 0.22), z(pr.B) * 0.78, 2);
+      }
+    }
+    if (sp.kind === "flat") for (let u = pr.A + 10; u < pr.B - 6; u += 22) seg(u, s * (hw + 3), 0, u, s * (hw + 3), z(u), 3);
+    // the rails
+    const RH = up ? (sp.kind === "hump" ? 8 : sp.variant === "farm" ? 8 : 10) : (sp.variant === "farm" ? 12 : 22);
+    const uA = sp.kind === "trestle" ? pr.A - 6 : pr.lo + 2, uB = sp.kind === "trestle" ? pr.B + 6 : pr.hi - 2;
+    const vr = s * (hw - 1), mid = (uA + uB) / 2;
+    const topH = (u) => { const e0 = Math.min(u - uA, uB - u); return !up && sp.variant !== "farm" && e0 < 18 ? 6 + (RH - 6) * e0 / 18 : RH; };
+    for (let u = uA; u <= uB; u += 0.5) { put(u, vr, z(u) + topH(u)); put(u, vr, z(u) + topH(u) - 1); put(u, vr, z(u) + 1); }
+    if (sp.variant === "farm") for (let u = uA; u <= uB; u += 0.5) put(u, vr, z(u) + 6);
+    const posts = up ? (sp.kind === "trestle" ? [pr.A - 4, ...bents, pr.B + 4] : []) : [];
+    if (!up) for (let u = uA; u <= uB; u += sp.variant === "farm" ? 22 : 18) posts.push(u);
+    if (up && sp.kind === "flat") for (let u = uA; u <= uB; u += 22) posts.push(u);
+    for (const pu of posts) seg(pu, vr, z(pu), pu, vr, z(pu) + topH(pu), 2);
+    if (!up && sp.variant !== "farm") for (let u = uA + 18; u < uB - 18; u += 18) {   // the Howe diagonals, sloping to the middle
+      const u1 = u + 18 * (u < mid ? 1 : -1);
+      seg(u, vr, z(u) + topH(u) - 2, u1, vr, z(u1) + 2);
+    }
+    // the bridgehead posts and their banners
+    const tall = sp.kind === "hump" ? 22 : sp.variant === "toll" ? 34 : sp.variant === "farm" ? 18 : 26;
+    for (const u of up ? [pr.lo - 2, pr.hi + 6] : [pr.lo - 4, pr.hi + 4]) {
+      const v = s * (hw + (up ? 5 : 6));
+      seg(u, v, 0, u, v, tall, 3);
+      if (sp.variant === "toll") for (let j = 4; j < 18; j++) seg(u + (up ? 0 : 1), v + (up ? s : 0), tall - j, u + (up ? 0 : 6), v + (up ? s * 6 : 0), tall - j);
+    }
+  }
+  return M;
+};
+// the shadow's strength at a pixel: full inside, the rim stepped and dithered (two rings, 1/2 then 3/4 dropped)
+const shadeAt = (M, X, Y) => {
+  if (!M.has(Y * CW + X)) return 0;
+  const A = S.gold ? 0.5 : 0.34;
+  let ring = 0;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!M.has((Y + dy) * CW + X + dx)) ring = 1;
+  if (!ring && S.gold) for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if (!M.has((Y + dy) * CW + X + dx)) ring = 2;
+  if (ring === 1) return bay(X, Y) < 0.5 ? A * 0.85 : 0;
+  if (ring === 2) return bay(X, Y) < 0.75 ? A : A * 0.6;
+  return A;
+};
+
 // ================================================================ THE SPAN, UP THE SCREEN
 // sp: { cx, cy (art px), uN, uS (water's ends along u), kind, variant, flow (+1 east / -1 west), hw }
 const spanUp = (sp, U, Fr, road, ph = 0) => {
@@ -293,21 +398,12 @@ const spanUp = (sp, U, Fr, road, ph = 0) => {
   const wet = sp.wet;
   const sideFace = (s) => ((s < 0) === (S.side < 0) ? "lit" : "sh");
   // --- gloom on the water hugging the strips, and the thrown shadow (both on the water / ground only)
-  const shade = new Uint8Array(CW * CH);
-  for (let u = pr.lo; u <= pr.hi; u += 0.5) {
-    const zz = z(u); if (zz <= 0.2) continue;
-    const ext = hw + ba * zz + 2;
-    for (let v = -ext; v <= ext; v += 0.5) {
-      const X = Math.round(cx + v + S.sh[0] * zz), Y = Math.round(cy + u + S.sh[1] * zz);
-      if (X >= 0 && Y >= 0 && X < CW && Y < CH) shade[Y * CW + X] = 1;
-    }
-  }
+  const shade = castShadow(sp, "up");
   const T = S.shade;
-  for (let Y = Math.round(cy + pr.lo - 50); Y < cy + pr.hi + 60; Y++) for (let X = Math.round(cx - hw - 120); X < cx + hw + 120; X++) {
+  for (let Y = Math.round(cy + pr.lo - 50); Y < cy + pr.hi + 60; Y++) for (let X = Math.round(cx - hw - 160); X < cx + hw + 160; X++) {
     if (X < 0 || Y < 0 || X >= CW || Y >= CH) continue;
     const u = Y - cy, v = Math.abs(X - cx);
-    let a = 0;
-    if (shade[Y * CW + X]) a = (S.gold ? 0.5 : 0.34) * (wet(X, Y) ? 1 : 0.7);
+    let a = shadeAt(shade, X, Y) * (wet(X, Y) ? 1 : 0.7);
     if (wet(X, Y) && u > pr.A && u < pr.B) { const zz = z(u), g = hw + ba * zz + 10 - v; if (g > 0) a = Math.max(a, Math.min(0.5, 0.22 + g * 0.03)); }
     if (a > 0) U.p(X, Y, [T[0] * 0.6, T[1] * 0.6, T[2] * 0.8], a);
   }
@@ -490,14 +586,16 @@ const spanUp = (sp, U, Fr, road, ph = 0) => {
 const spanAcross = (sp, U, Fr, road, ph = 0) => {
   const { cx, cy, uN, uS, hw } = sp, pr = sp.pr, z = pr.z, ba = pr.batter, wet = sp.wet;
   const bents = sp.kind === "trestle" ? bentsOf(pr, uN, uS) : [];
-  const shade = new Uint8Array(CW * CH);
-  for (let u = pr.lo; u <= pr.hi; u += 0.5) { const zz = z(u); if (zz <= 0.2) continue; for (let v = -hw - 4; v <= hw + ba * zz + 2; v += 0.5) { const X = Math.round(cx + u + S.sh[0] * zz), Y = Math.round(cy + v + S.sh[1] * zz); if (X >= 0 && Y >= 0 && X < CW && Y < CH) shade[Y * CW + X] = 1; } }
+  const shade = castShadow(sp, "across");
   const T = S.shade;
-  for (let Y = Math.round(cy - hw - 60); Y < cy + hw + 90; Y++) for (let X = Math.round(cx + pr.lo - 40); X < cx + pr.hi + 120; X++) {
+  for (let Y = Math.round(cy - hw - 60); Y < cy + hw + 90; Y++) for (let X = Math.round(cx + pr.lo - 40); X < cx + pr.hi + 160; X++) {
     if (X < 0 || Y < 0 || X >= CW || Y >= CH) continue;
-    let a = shade[Y * CW + X] ? (S.gold ? 0.5 : 0.34) : 0;
+    let a = shadeAt(shade, X, Y);
     const u = X - cx;
-    if (wet(X, Y) && u > pr.A && u < pr.B && Y > cy - hw - 2 && Y < cy + hw + ba * z(u) + 8) a = Math.max(a, 0.5);
+    if (wet(X, Y) && u > pr.A && u < pr.B && Y > cy - hw - 2) {   // the gloom under the deck, dithering out past the feet
+      const past = Y - (cy + hw + ba * z(u) + 1);
+      if (past < 0) a = Math.max(a, 0.5); else if (past < 4 && bay(X, Y) > past / 4) a = Math.max(a, 0.4);
+    }
     if (a > 0) U.p(X, Y, [T[0] * 0.6, T[1] * 0.6, T[2] * 0.8], a);
   }
   const RH = sp.variant === "farm" ? 12 : 22;
@@ -604,7 +702,8 @@ const spanAcross = (sp, U, Fr, road, ph = 0) => {
 // ================================================================ the mill's sluice (the "mill" variant, up the screen)
 const sluiceAcross = (sp, U, ph) => {   // the river runs down the screen: the gates stand in a row north of the deck, south faces in elevation
   const { cx, cy, uN, uS, hw } = sp, Yg = cy - hw - 64, hgt = 22, gates = 3, gw = (uS - uN + 4) / gates;
-  for (let Y = Yg - 70; Y < Yg; Y++) for (let X = cx + uN - 6; X <= cx + uS + 6; X++) if (sp.wet(X, Y)) U.p(X, Y, "#284a5c", 0.4 + 0.12 * (vn(X / 8, Y / 3, 3) > 0.6));   // the millpond, still
+  for (let Y = Yg - 70; Y < Yg; Y++) for (let X = cx + uN - 6; X <= cx + uS + 6; X++) if (sp.wet(X, Y) && (Y - (Yg - 70) > 18 || bay(X, Y) < (Y - (Yg - 70)) / 18)) U.p(X, Y, "#284a5c", 0.4 + 0.12 * (vn(X / 8, Y / 3, 3) > 0.6));   // the millpond, still (its upper edge dithered out)
+  if (AN) AN.still.push([cx + uN - 40, 0, cx + uS + 40, Yg + 2]);
   for (let gi = 0; gi < gates; gi++) {
     const xa = Math.round(cx + uN - 2 + gi * gw), xb = Math.round(xa + gw);
     for (let X = xa; X <= xb; X++) for (let j = 0; j < hgt; j++) {   // the gate leaf: planks, iron bands
@@ -620,7 +719,8 @@ const sluiceAcross = (sp, U, ph) => {   // the river runs down the screen: the g
     for (let a = 0; a < 36; a++) { const t = (a / 36) * Math.PI * 2; U.p(mx + Math.cos(t) * 5, Yg - hgt - 10 + Math.sin(t) * 5, F(WOOD[1])); }
     U.p(mx, Yg - hgt - 10, F(WOOD[5]));
     // the fall under the gate and the white water running down to the deck
-    for (let k = 0; k < 30; k++) for (let X = xa + 3; X < xb - 2; X++) if (((k + ph * 6 + X * 0.3) % 5) < 3 && hash(X, k, Math.floor(ph * 6)) < 0.85 - k * 0.025) U.p(X, Yg + 5 + k, k < 4 ? "#ffffff" : "#d8ecf0", 0.9 - k * 0.025);
+    if (AN) AN.falls.push((L, f) => fallSheet(L, f, xa + 3, xb - 3, Yg + 5, 0, 1, gi));
+    else for (let k = 0; k < 30; k++) for (let X = xa + 3; X < xb - 2; X++) if (((k + ph * 6 + X * 0.3) % 5) < 3 && hash(X, k, Math.floor(ph * 6)) < 0.85 - k * 0.025) U.p(X, Yg + 5 + k, k < 4 ? "#ffffff" : "#d8ecf0", 0.9 - k * 0.025);
   }
   // the walk plank along the top
   for (let X = Math.round(cx + uN - 8); X <= cx + uS + 8; X++) for (let j = 0; j < 4; j++) U.p(X, Yg - hgt - 1 + j, F(j === 0 ? WOOD[5] : j === 3 ? WOOD[1] : WOOD[3], j === 0 ? "top" : "lit"));
@@ -630,6 +730,7 @@ const sluice = (sp, U, ph) => {
   const X0 = cx + up * (hw + 26), y0 = cy + uN - 2, y1 = cy + uS + 2, hgt = 18;
   // still water above the gates: a calmer, darker sheet; white water falling below each gate
   for (let Y = Math.round(y0); Y <= y1; Y++) for (let k = 0; k < 70; k++) { const X = X0 + up * (3 + k); if (sp.wet(X, Y)) U.p(X, Y, "#284a5c", 0.35 + 0.15 * (vn(X / 10, Y / 4, 3) > 0.6)); }
+  if (AN) AN.still.push(up > 0 ? [X0 + 1, y0 - 40, X0 + 200, y1 + 40] : [X0 - 200, y0 - 40, X0 - 1, y1 + 40]);
   const gates = 3, gh = (y1 - y0) / gates;
   for (let gi = 0; gi < gates; gi++) {
     const ga = y0 + gi * gh;
@@ -640,7 +741,8 @@ const sluice = (sp, U, ph) => {
     for (let a = 0; a < 24; a++) { const t = (a / 24) * Math.PI * 2; U.p(X0 + Math.cos(t) * 2, wy + Math.sin(t) * 5, F(IRON)); }
     U.p(X0, wy, F(WOOD[5]));
     // the fall below the gate
-    for (let k = 0; k < 18; k++) for (let j = 2; j < gh - 2; j++) if (((k + ph * 6 + j) % 5) < 3 && hash(k, j, Math.floor(ph * 6)) < 0.8 - k * 0.035) U.p(X0 - up * (2 + k), ga + j, k < 3 ? "#ffffff" : "#d8ecf0", 0.9 - k * 0.04);
+    if (AN) AN.falls.push((L, f) => fallSheet(L, f, ga + 2, ga + gh - 3, X0 - up * 2, 1, -up, gi));
+    else for (let k = 0; k < 18; k++) for (let j = 2; j < gh - 2; j++) if (((k + ph * 6 + j) % 5) < 3 && hash(k, j, Math.floor(ph * 6)) < 0.8 - k * 0.035) U.p(X0 - up * (2 + k), ga + j, k < 3 ? "#ffffff" : "#d8ecf0", 0.9 - k * 0.04);
   }
   // the walk plank along the top of the gates
   for (let Y = Math.round(y0); Y <= y1; Y++) for (let i = -3; i <= 3; i++) U.p(X0 + i, Y - hgt - 1, F(Math.abs(i) === 3 ? WOOD[1] : WOOD[4], "top"));
@@ -653,8 +755,17 @@ const drawFig = (ctx, f) => {
   const rec = bakeFrame(m, clip, (f.f || 0) % n, { flip: !f.view && !!f.left });
   const x = Math.round(f.x), y = Math.round(f.y - (f.z || 0));
   ctx.fillStyle = `rgba(${S.shade[0]},${S.shade[1]},${S.shade[2]},${S.gold ? 0.4 : 0.3})`;
-  const len = S.gold ? 8 : 0, dir = S.sh[0] > 0 ? 1 : -1;
-  for (let j = -2; j <= 2; j++) { const w = Math.round(7 * Math.sqrt(1 - (j * j) / 6.5)); ctx.fillRect(x - w + (S.gold ? dir * len : 0), y + j, w * 2, 1); }
+  if (!f.noShadow && S.gold && !f.night) {   // a low sun: the walker's long shadow laid out on the deck along the sun's fall (body, then head)
+    const L = Math.min(40, Math.round((m.H || 24) * 0.75 * Math.hypot(S.sh[0], S.sh[1]) * 0.7)), dx = S.sh[0] / Math.hypot(S.sh[0], S.sh[1]), dy = S.sh[1] / Math.hypot(S.sh[0], S.sh[1]);
+    const px = new Set();
+    for (let k = 0; k <= L; k++) {
+      const w = k < 3 ? 3 : k > L - 7 ? (k > L - 2 ? 2 : 3) : k > L - 9 ? 1.5 : k < L * 0.45 ? 2.5 : 3.5;   // feet, legs, body, the neck, the head
+      for (let j = -w; j <= w; j += 0.5) px.add(Math.round(x + dx * k - dy * j) + "," + Math.round(y + dy * k + dx * j * 0.8));
+    }
+    for (const k of px) { const [X, Y] = k.split(","); ctx.fillRect(+X, +Y, 1, 1); }
+  } else if (!f.noShadow) {
+    for (let j = -2; j <= 2; j++) { const w = Math.round(7 * Math.sqrt(1 - (j * j) / 6.5)); ctx.fillRect(x - w, y + j, w * 2, 1); }
+  }
   ctx.save(); ctx.translate(x, y); if (!f.view && f.left) ctx.scale(-1, 1); ctx.drawImage(rec.cv, -rec.ox, -rec.oy); ctx.restore();
 };
 
@@ -671,7 +782,7 @@ export const SCENES = {
   mill: { realm: "millrace", widen: { 0: 40, 1: 34 }, crop: [130, 0, 400, 250], view: "across", towers: [["archer", 250, 230, 2]], flow: 1 },
 };
 
-export const runScene = async (name, q) => {
+export const runScene = async (name, q, anim = null) => {
   await loadGame();
   const log = [];
   const [scn, kind = "trestle", variant = "toll"] = name.split(".");
@@ -681,6 +792,7 @@ export const runScene = async (name, q) => {
   const { cv, spans, g } = baseBoard({ ...sc, keepOld: kind === "today", widen: kind === "today" ? null : sc.widen }, log);
   const ctx = cv.getContext("2d");
   const [bx0, by0, bw, bh] = q.get("crop") ? q.get("crop").split(/[,_]/).map(Number) : sc.crop;
+  AN = null;
   if (kind !== "today") {
     const img = ctx.getImageData(0, 0, CW, CH);
     // a low sun: the board warmed (amber at golden hour, rose at sunrise), as the game's grade does
@@ -717,6 +829,7 @@ export const runScene = async (name, q) => {
     ctx.putImageData(img, 0, 0);
     const U = new Layer(), Fr = new Layer(), Hut = new Layer();
     const lamps = [];
+    if (anim) AN = { rec: true, f: 0, F: anim.F, wakes: [], banners: [], lanterns: [], falls: [], still: [] };
     for (const sp of SP) {
       if (sp.variant === "mill") (sc.view === "up" ? sluice : sluiceAcross)(sp, U, ph);
       (sc.view === "up" ? spanUp : spanAcross)(sp, U, Fr, road, ph);
@@ -732,6 +845,7 @@ export const runScene = async (name, q) => {
       postV(Hut, bx - 2, by, 10, 4);
       line(Hut, bx, by - 8, bx + (sc.view === "up" ? -14 : 18), by - 34, F(WOOD[5]), 2); line(Hut, bx + 1, by - 9, bx + (sc.view === "up" ? -13 : 19), by - 35, "#c84a3a", 1);
     }
+    if (anim) { AN.rec = false; return liveLoop({ anim, cv, ctx, U, Fr, Hut, SP, wet, lamps, g, sc, dusk, log }); }
     // a River Watch skiff slipping out from under the strip through the navigation bay (drawn first: the strip covers its bow)
     if (sc.view === "up" && SP[1] && q.get("skiff") !== "0") { const sp = SP[1], c = (sp.uN + sp.uS) / 2; try { const m = PIX.skiff.fig, cl = m.CLIPS.idle ? "idle" : Object.keys(m.CLIPS)[0]; drawFig(ctx, { type: "skiff", x: sp.cx + sp.hw + 4, y: sp.cy + c + 10, z: 0, clip: cl }); } catch (e) { log.push("skiff: " + e.message); } }
     ctx.drawImage(U.canvas(), 0, 0);
@@ -775,4 +889,213 @@ export const runScene = async (name, q) => {
   const label = q.get("label");
   if (label) { oc.font = "bold 24px monospace"; const w = oc.measureText(label).width; oc.fillStyle = "rgba(20,16,24,0.82)"; oc.fillRect(10, 10, w + 20, 36); oc.fillStyle = "#fff3d2"; oc.fillText(label, 20, 36); }
   return { canvas: out, log };
+};
+
+// ================================================================ ANIMATED LOOPS (art/briefs/overhaul-animation.md)
+// One loop = F frames at fps, T = F / fps seconds. Every motion is periodic in F: the water's dashes move k whole
+// px a frame on a pattern k x F px long; wakes, falls and flecks on periods that divide k x F; flames and banners on
+// whole cycles; walkers march the ENGINE's road (path.js lanePos, the engine's lanes) at the roster's speed in a
+// window 2 x speed x T long, so the walker in slot i at the loop's end stands exactly where slot i + n/2 stood at
+// its start (seamless, nobody pops). Their height comes from the new span's own profile (the engine's
+// bridgeLift knows only today's spans).
+export const LOOPS = {
+  trestle_across: { scene: "across", kind: "trestle", variant: "toll", span: 0, size: [240, 170], off: [-18, 6] },
+  trestle_up: { scene: "up", kind: "trestle", variant: "toll", span: 1, size: [240, 170], off: [-14, 4], skiff: true },
+  flat_updated: { scene: "brook", kind: "flat", variant: "flat", span: 0, size: [240, 170], off: [0, 4] },
+  mill_trestle: { scene: "mill", kind: "trestle", variant: "mill", span: 0, size: [240, 170], off: [0, -30], walkers: "few" },
+  trestle_golden: { scene: "up", kind: "trestle", variant: "toll", span: 1, size: [240, 170], off: [6, 4], sun: "golden", skiff: true },
+  trestle_dusk: { scene: "across", kind: "trestle", variant: "toll", span: 0, size: [240, 170], off: [-18, 6], dusk: true },
+};
+export const runAnim = async (name, opts = {}) => {
+  const L = LOOPS[name], fps = opts.fps || 10, F = opts.F || 32;
+  const q = new URLSearchParams();
+  if (L.sun) q.set("sun", L.sun);
+  if (L.dusk) q.set("dusk", "1");
+  return runScene(`${L.scene}.${L.kind}.${L.variant}`, q, { ...L, name, F, fps, T: F / fps });
+};
+
+const LIGHT_W = [214, 238, 242], DARK_W = [14, 34, 54];
+// the river's own frame at every wet pixel of the crop: s along the flow (art px, increasing downstream), n across
+const flowField = (box, wet, flowDir) => {
+  const [x0, y0, w, h] = box, out = [];
+  const rivers = TR.RIVERS.map((rv) => { let acc = 0; const segs = rv.segs.map((sg) => { const o = { ...sg, s0: acc }; acc += sg.len; return o; }); return { rv, segs }; });
+  // the flow's sign per river: downstream must agree with the scene's flow direction near the crop's middle
+  const sign = rivers.map(({ segs }) => {
+    let best = null, bd = 1e9; const mx = (x0 + w / 2) / 2, my = (y0 + h / 2) / 2;
+    for (const sg of segs) { const d = Math.hypot((sg.x1 + sg.x2) / 2 - mx, (sg.y1 + sg.y2) / 2 - my); if (d < bd) { bd = d; best = sg; } }
+    return best && ((best.x2 - best.x1) * flowDir[0] + (best.y2 - best.y1) * flowDir[1]) < 0 ? -1 : 1;
+  });
+  for (let Y = y0; Y < y0 + h; Y++) for (let X = x0; X < x0 + w; X++) {
+    if (!wet(X, Y)) continue;
+    const bx = X / 2, by = Y / 2;
+    let bd = 1e9, bs = 0, bn = 0, hw = 20, ri = 0;
+    rivers.forEach(({ rv, segs }, i) => {
+      for (const sg of segs) {
+        const vx = sg.x2 - sg.x1, vy = sg.y2 - sg.y1, t = Math.max(0, Math.min(1, ((bx - sg.x1) * vx + (by - sg.y1) * vy) / (sg.len * sg.len)));
+        const px = sg.x1 + vx * t, py = sg.y1 + vy * t, d = Math.hypot(bx - px, by - py);
+        if (d < bd) { bd = d; bs = sg.s0 + t * sg.len; bn = ((bx - px) * -vy + (by - py) * vx) / sg.len; hw = rv.w / 2; ri = i; }
+      }
+    });
+    out.push({ X, Y, s: bs * 2 * sign[ri], n: bn * 2 * sign[ri], rel: Math.min(1, bd / hw) });
+  }
+  return out;
+};
+const inRect = (r, X, Y) => X >= r[0] && X <= r[2] && Y >= r[1] && Y <= r[3];
+// the moving water: dashes of light (and a few dark troughs) in 3-px lanes drifting downstream, fastest mid-stream
+const paintFlow = (W, field, f, F, still) => {
+  const lightC = S.gold ? [255, 210, 150] : LIGHT_W;
+  for (const p of field) {
+    if (still.some((r) => inRect(r, p.X, p.Y))) {   // the millpond: near still, a slow breath of glints
+      const g = hash(p.X >> 1, p.Y, 21);
+      if (g > 0.982 && Math.sin(TAU * (f / F) + g * 977) > 0.35) W.p(p.X, p.Y, lightC, 0.4);
+      continue;
+    }
+    const k = p.rel < 0.45 ? 4 : p.rel < 0.78 ? 3 : 2, P = k * F, cell = P / 8;
+    const sp0 = p.s - k * f;
+    const nn = p.n + 999 + Math.round(Math.sin(sp0 / 29) * 1.4), band = Math.floor(nn / 3);
+    if (md(Math.round(nn), 3) !== 1) continue;   // one line a lane: a 1-px streak, never a block
+    const sp = md(sp0 + hash(band, 0, 7) * P, P), ci = Math.floor(sp / cell), cp = sp - ci * cell;
+    const h = hash(band, ci, 11), len = cell * (0.28 + 0.4 * hash(band, ci, 12));
+    if (cp >= len) continue;
+    if (h < 0.32) W.p(p.X, p.Y, lightC, (cp > len - 1.5 ? 0.7 : 0.36) * (1 - p.rel * 0.4));   // the bright head leads downstream
+    else if (h > 0.88) W.p(p.X, p.Y, DARK_W, 0.3);
+  }
+};
+// the white water at a pile in the stream, live: an upstream cushion, a dark eddy in its lee, a V-shaped tongue whose
+// foam ribbons run downstream at the current's pace, and flecks that drift on and fade out
+const liveWake = (W, [x, y, fx, fy, len, wid], f, F, kf = 4) => {
+  const m = Math.hypot(fx, fy) || 1, dx = fx / m, dy = fy / m, px = -dy, py = dx;
+  const at = (k, s, c, a) => W.p(Math.round(x + dx * k + px * s), Math.round(y + dy * k + py * s), c, a);
+  const Lt = Math.max(20, Math.round(len * 1.8)), sh = S.gold ? [255, 236, 200] : [244, 250, 248];
+  for (let s = -(wid + 1); s <= wid + 1; s++) if (hash(s, md(f, 4), 31) > 0.22) { at(-2, s, sh, 0.85); if (Math.abs(s) < wid) at(-3, s, "#cfe4ea", 0.5); }
+  for (let k = 1; k <= 4; k++) for (let s = -wid + 1; s <= wid - 1; s++) at(k, s, DARK_W, 0.45);
+  for (let k = 0; k <= Lt; k++) {
+    const w = wid + Math.round(k * 0.2), fade = Math.pow(1 - k / Lt, 0.8);
+    for (let s = -w; s <= w; s++) {
+      const edge = Math.abs(s) >= w - 1, mv = md(k - kf * f + Math.round(hash(Math.abs(s), s > 0 ? 1 : 2, 3) * 3), 16);   // 4 states a cycle: never a 2-frame flicker
+      if (edge && mv < 9) { at(k, s, sh, 0.95 * fade); if (k < Lt * 0.5) at(k, s + Math.sign(s), "#a8d0dc", 0.5 * fade); }
+      else if (!edge && (mv < 3 || (mv > 8 && mv < 10)) && k > 4) at(k, s, "#e4f2f2", 0.6 * fade);
+    }
+  }
+  const P2 = (kf * F) / 2;
+  for (let j = 0; j < 7; j++) {
+    const along = md(j * 19 + kf * f, P2), K = Lt * 0.7 + along, lat = (hash(j, Math.round(x), 41) - 0.5) * (2 * wid + 4 + along * 0.3);
+    const a = 0.85 * (1 - along / P2);
+    const X = Math.round(x + dx * K + px * lat), Y = Math.round(y + dy * K + py * lat);
+    if (bay(X, Y) > a + 0.15) continue;
+    W.p(X, Y, sh, a); W.p(X + Math.round(dx), Y + Math.round(dy), "#cfe4ea", a * 0.7);
+  }
+};
+// a sheet of white water pouring out under a sluice gate: columns c from c0..c1, falling from `base` along `dir`
+// (axis 0: down the screen, c = X; axis 1: across, c = Y), 6 px a frame on a 12-px period
+const fallSheet = (W, f, c0, c1, base, axis, dir, gi) => {
+  const put = (c, k, col, a) => (axis === 0 ? W.p(c, base + dir * k, col, a) : W.p(base + dir * k, c, col, a));
+  for (let c = c0; c <= c1; c++) {
+    const ph = Math.floor(hash(c, gi, 3) * 12);
+    for (let k = 0; k < 44; k++) {
+      if (k < 3) { put(c, k, "#ffffff", 0.95); continue; }
+      const mv = md(k - 6 * f + ph, 12);
+      if (k < 32) { if (mv < 7) put(c, k, k < 9 ? "#ffffff" : "#d8ecf0", 0.92 - k * 0.022); else put(c, k, "#9cc8d4", 0.35); }
+      else if (mv < 2 && hash(c, gi, 5) > 0.45) put(c, k, "#e8f4f4", 0.7 - (k - 32) * 0.05);
+    }
+  }
+};
+
+const liveLoop = ({ anim, cv, ctx, U, Fr, Hut, SP, wet, lamps, g, sc, dusk, log }) => {
+  const { F, fps, T } = anim, up = sc.view === "up";
+  const sp = SP[anim.span] || SP[0];
+  const [cwU, chU] = anim.size;
+  const bcx = sp.cx / 2 + anim.off[0], bcy = sp.cy / 2 + anim.off[1] - (up ? 0 : 0);
+  const box = [Math.round((bcx - cwU / 2) * 2), Math.round((bcy - chU / 2) * 2), cwU * 2, chU * 2];
+  box[0] = Math.max(0, Math.min(CW - box[2], box[0])); box[1] = Math.max(0, Math.min(CH - box[3], box[1]));   // inside the board
+  const base = document.createElement("canvas"); base.width = CW; base.height = CH; base.getContext("2d").drawImage(cv, 0, 0);
+  const Ucv = U.canvas(), Fcv = Fr.canvas(), Hcv = Hut.canvas();
+  const flowDir = up ? [sc.flow || 1, 0] : [0, sc.flow || 1];
+  const field = flowField([box[0] - 2, box[1] - 2, box[2] + 4, box[3] + 4], wet, flowDir);
+  const Wat = new Layer(), Bk = new Layer(), Fd = new Layer();
+  // the walkers: the engine's road through this span
+  const center = [sp.cx / 2, sp.cy / 2];
+  let Dc = 0, bd = 1e9;
+  for (let d = 0; d < PATH.TOTAL_LEN; d += 1) { const [x, y] = PATH.posAt(d); const e = Math.hypot(x - center[0], y - center[1]); if (e < bd) { bd = e; Dc = d; } }
+  const has = (t) => !!PIX[t];
+  const gob = has("goblinBare") ? ["goblin", "goblinBare"] : ["goblin"];
+  const streams = anim.walkers === "few"
+    ? [{ types: gob, speed: 82, n: 6, dir: 1, lanes: [4, 16, 10] }, { types: ["knight"], speed: 82, n: 4, dir: -1, lanes: [-17, -17] }]
+    : [{ types: [gob[0], gob[1] || gob[0], gob[0], has("orc") ? gob[1] || gob[0] : gob[0]], speed: 82, n: 8, dir: 1, lanes: [5, 17, 0, 12] },
+      { types: ["knight"], speed: 82, n: 4, dir: -1, lanes: [-17, -20] }];
+  const zAt = (X, Y) => {
+    for (const s of SP) {
+      const u = up ? Y - s.cy : X - s.cx, v = up ? X - s.cx : Y - s.cy;
+      if (u >= s.pr.lo && u <= s.pr.hi && Math.abs(v) <= s.hw + 8) return s.pr.z(u);
+    }
+    return 0;
+  };
+  const walkers = (f) => {
+    const t = f / fps, out = [];
+    for (const st of streams) {
+      const Wd = 2 * st.speed * T, half = st.n / 2;
+      for (let i = 0; i < st.n; i++) {
+        const d = Dc - Wd / 2 + md((i * Wd) / st.n + st.dir * st.speed * t, Wd);
+        if (d < 2 || d > PATH.TOTAL_LEN - 2) continue;
+        const slot = i % half, type = st.types[slot % st.types.length], lane = st.lanes[slot % st.lanes.length];
+        const [x, y, a] = PATH.lanePos(d, lane);
+        const hx = Math.cos(a) * st.dir, hy = Math.sin(a) * st.dir;
+        const X = x * 2, Y = y * 2, m = PIX[type];
+        const view = Math.abs(hy) > 0.62 ? (hy > 0 ? "front" : "back") : null;
+        const clip = figOf(type, view).CLIPS.walk, per = (m.per || 2.5) * 14;
+        const fr = Math.floor(md(st.dir * d / per + slot * 0.37, 1) * clip.n);
+        out.push({ type, x: X, y: Y, z: zAt(X, Y), f: fr, view, left: !view && hx < 0 });
+      }
+    }
+    return out;
+  };
+  // the skiff (and its twin): one rows in from the left and slips under the near strip as the loop ends, the other
+  // comes out from under the far strip as it begins: so a boat is seen to pass through the navigation bay
+  const skiffs = (f) => {
+    if (!anim.skiff || !up || !PIX.skiff) return [];
+    const c = (sp.uN + sp.uS) / 2, vS = 72, t = f / fps, y = sp.cy + c + 6;
+    return [{ x: sp.cx - 26 - vS * (T - t), y }, { x: sp.cx + 26 + vS * t, y }];
+  };
+  const frames = [];
+  const out = document.createElement("canvas"); out.width = CW; out.height = CH;
+  const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+  for (let f = 0; f < F; f++) {
+    AN.f = f;
+    Wat.d.fill(0); Bk.d.fill(0); Fd.d.fill(0);
+    paintFlow(Wat, field, f, F, AN.still);
+    for (const w of AN.wakes) liveWake(Wat, w, f, F);
+    for (const fl of AN.falls) fl(Wat, f);
+    const sk = skiffs(f);
+    for (const b of sk) liveWake(Wat, [b.x - (sc.flow || 1) * 16, b.y + 2, -(sc.flow || 1), 0.02, 10, 2], f, F, 0);
+    for (const [Lr, x, y, h, flip] of AN.banners) banner(Lr === Fr ? Fd : Bk, x, y, h, flip);
+    for (const [Lr, x, y, lit] of AN.lanterns) lantern(Lr === Fr ? Fd : Bk, x, y, lit);
+    oc.clearRect(0, 0, CW, CH);
+    oc.drawImage(base, 0, 0);
+    oc.drawImage(Wat.canvas(), 0, 0);
+    for (const b of sk) { try { const m = PIX.skiff.fig, cl = m.CLIPS.row ? "row" : m.CLIPS.idle ? "idle" : Object.keys(m.CLIPS)[0]; drawFig(oc, { type: "skiff", x: b.x, y: b.y, z: 0, clip: cl, f: Math.floor(f / 2), noShadow: true, left: (sc.flow || 1) < 0 }); } catch (e) { if (f === 0) log.push("skiff: " + e.message); } }
+    oc.drawImage(Ucv, 0, 0); oc.drawImage(Hcv, 0, 0); oc.drawImage(Bk.canvas(), 0, 0);
+    const ws = walkers(f).sort((a, b) => a.y - b.y);
+    for (const w of ws) drawFig(oc, dusk ? { ...w, night: true } : w);   // after sundown: no sun shadow, only the round foot shade
+    oc.drawImage(Fcv, 0, 0); oc.drawImage(Fd.canvas(), 0, 0);
+    if (dusk) {
+      const im = oc.getImageData(box[0], box[1], box[2], box[3]), d = im.data;
+      for (let o = 0; o < d.length; o += 4) { const l = (d[o] + d[o + 1] + d[o + 2]) / 3; d[o] = d[o] * 0.34 + l * 0.06 + 8; d[o + 1] = d[o + 1] * 0.36 + l * 0.06 + 10; d[o + 2] = d[o + 2] * 0.52 + l * 0.08 + 30; }
+      oc.putImageData(im, box[0], box[1]);
+      const fl = (x) => 1 + 0.07 * Math.sin(TAU * (f / F) * 4 + x * 0.37) + 0.03 * Math.sin(TAU * (f / F) * 7 + x);
+      const note = () => { for (const [x, y, , win] of lamps) noteLamp(x / 2, y / 2, win ? 4 : 7 * fl(x), LAMP, (win ? 0.45 : 0.6) * fl(x + 3), win ? 6 : 16 * fl(x)); for (const t of g.towers) noteLamp(t.x, t.y - 26, 7, "#ffb050", 0.5, 14); };
+      clearLamps(); note(); swapLamps(); note();
+      oc.save(); oc.scale(2, 2); drawLampPools(oc, 0.4); drawLampBloom(oc, 0.4); oc.restore();
+      // the lamps on the water: a broken column of glints that sways and breaks with the ripples
+      for (const [x, y] of lamps) for (let k = 0; k < 40; k++) {
+        const Y = y + 18 + k * 2, X = x + Math.round((hash(k, x, 4) - 0.5) * 6 + Math.sin(TAU * (f / F) * 2 + k * 0.8) * 1.5);
+        if (wet(X, Y) && hash(k, y, 5) + 0.18 * Math.sin(TAU * (f / F) * 3 + k * 1.3) < 0.6 - k * 0.012) { oc.fillStyle = `rgba(255,200,120,${0.55 - k * 0.012})`; oc.fillRect(X - 1, Y, 3, 1); }
+      }
+    }
+    const fr = document.createElement("canvas"); fr.width = box[2]; fr.height = box[3];
+    fr.getContext("2d").drawImage(out, box[0], box[1], box[2], box[3], 0, 0, box[2], box[3]);
+    frames.push(fr);
+  }
+  log.push(`box ${box.join(",")} Dc ${Dc | 0} wakes ${AN.wakes.length} banners ${AN.banners.length} lanterns ${AN.lanterns.length} falls ${AN.falls.length} still ${AN.still.length} field ${field.length}`);
+  AN = null;
+  return { frames, log };
 };
