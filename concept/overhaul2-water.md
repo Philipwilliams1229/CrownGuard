@@ -110,3 +110,37 @@ silt or pebbles; the cut shores keep their face with dark water at its foot. PNG
 `fox_lake3_golden`, `fox_beach_zoom3`, `fox_before_after3` (shore pass | blend pass, board size).
 Weak: faint fan-shaped seams either side of the islet where its pale north shallows meet the dark water under its
 cut south face; the bay's reeds side shows a slight light rim; the walk's planks still read ladder-like.
+
+## ROUND 3: LOOPS (art/briefs/overhaul-animation.md, 2026-11-22)
+Lab: `/overhaul2-water.html?scene=anim_<name>[,...]&save=1` saves `.shots/ovh3_anim_<name>_c6r5_fps10.png` (30 frames,
+10 fps, 3 s, each frame the real board at 1 px an art px = 2x board), `_still.png`, and `ovh3w_quarters_<name>.png`
+(frames 0 / 7 / 15 / 22 side by side), and prints the three checks (mean step, the wrap step F-1 -> 0, shimmer pixels).
+Loops drop the wave (no frozen foes, coins or corpses). Every clock is periodic in the loop: phases are whole turns a
+loop; scrolling strips move a whole number of art px a frame and their noise repeats once a loop (`scroll` + `vnp`);
+slow drifts (clouds, caustics) are two copies of the field a loop apart cross-faded (`vl`, contrast held mid-loop).
+Checks at the last render: wrap step within the frame-to-frame range on all seven; shimmer 0 (weir 17 px in the fall,
+quay 3 px, both in moving foam).
+- **river_cut** (Wolfrun, cut far bank, grassy lip near): current dashes per lane, 5 px/frame mid-channel down to 2 at the
+  edges (25 -> 10 board units/s); foam working at the face's foot (3 px/frame); lip tussocks stir, 1.5 s period, <=1 px.
+  Game: the dashes are a scrolling strip per lane in the water mask (cheap), or 30 baked water frames (~4 MB a board).
+- **river_reeds** (Millrace's Foxwater as a slack reach, reeds both banks): flow x0.45 (2 -> 1 px/frame); reeds sway on a
+  3 s period, tips up to ~2 px, a gust running across; lily pads bob 1 px; three rings open and fade; a duck paddles
+  against the current holding its place (surges 1-2 px, V ripples off its tail). FAKED: the duck can't cross a 3 s loop,
+  so it holds station. Game: reed clumps as 6-8 frame sprites, rings as a 6-frame sprite.
+- **river_quay** (the mill race from its bend past the road bridge to the Foxwater): race flow x1.25; quick streaks hug the
+  walls (3-4 px/frame); broken wake lines curve out off the bend and below the bridge, travelling downstream. The mill is
+  left out of frame: its wheel is a live painter on clocks that don't fit a 3 s loop.
+- **weir** (Thornbrook): the fall cycles every 0.5 s, the churn runs off at 3 px/frame (15 u/s) and fades over ~20 units.
+- **lake_beach** (Foxmere): the lap: the water's edge runs ~4 art px up the sand and back once a loop, its phase running
+  along the shore; uncovered swash stays damp, a thin film and broken foam at the front; caustic netting drifts ~2 cells a
+  loop; swell lines roll south one 15-px wavelength a loop (5 px/s); the skiff bobs 1 px. FAKED: the swan turns a slow
+  ellipse (14 x 5 px) instead of gliding across.
+- **lake_far**: swell lines, cloud sheen drifting ~13 px a loop, two fish rings with a splash, the islet oak's reflection
+  wobbling (rows shifted 1-2 px, broken by ripple rows), ducks idling in small ellipses.
+- **pond** (Oakmere): still (no swell), cloud sheen drifting, three drop / insect rings, rushes swaying, ducks idling;
+  puddles: drifting cloud and a drip ring. No walker splashing through (the figures would need A re-rendered per frame).
+Costs in the game: everything here is either a strip scroll in the water mask or a few small sprite strips; the lap is
+the costliest (a per-pixel test along the beach band, bake ~6-8 frames of it).
+Weak: the quay crop is mostly road and grass (the race is narrow); Wolfrun's reach in river_cut is short (bridge + forest);
+the river's dash contrast is low at board size, so the flow reads best on the zoomed sheet; the pond's cloud sheen is
+in row stripes (the earlier look) and its radial fan seam is still there; the lap's damp/dry edge is a visible step.

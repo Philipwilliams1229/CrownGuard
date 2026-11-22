@@ -44,7 +44,24 @@
           const { runScene } = await import("/concept/overhaul2-water.js?v=" + Date.now());
           const names = (q.get("scene") || "").split(",");
           for (const n of names) {
-            const { canvas, log } = await runScene(n, q);
+            const { canvas, log, anim, still, outs } = await runScene(n, q);
+            if (anim) {
+              // a LOOP (art/briefs/overhaul-animation.md): save the sheet + its first frame, and run the three checks
+              const nm = n.replace(/^anim_/, ""), shot = (name, cv) => fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+              const D = outs.map((c) => c.getContext("2d").getImageData(0, 0, c.width, c.height).data), Fn = D.length, N = D[0].length / 4;
+              const diff = (a, b) => { let m = 0; for (let k = 0; k < N; k++) if (a[k * 4] !== b[k * 4] || a[k * 4 + 1] !== b[k * 4 + 1] || a[k * 4 + 2] !== b[k * 4 + 2]) m++; return m; };
+              const steps = D.map((d, i) => diff(d, D[(i + 1) % Fn])), wrap = steps[Fn - 1], mean = steps.slice(0, -1).reduce((a, b) => a + b, 0) / (Fn - 1);
+              const same = (a, b, k) => a[k * 4] === b[k * 4] && a[k * 4 + 1] === b[k * 4 + 1] && a[k * 4 + 2] === b[k * 4 + 2];
+              let shim = 0; for (let k = 0; k < N; k++) if (same(D[0], D[2], k) && same(D[0], D[4], k) && !same(D[0], D[1], k) && same(D[1], D[3], k)) shim++;
+              let changing = 0; for (let k = 0; k < N; k++) { for (let f = 1; f < Fn; f++) if (!same(D[0], D[f], k)) { changing++; break; } }
+              // a quarter-loop contact strip, for looking
+              const qs = document.createElement("canvas"), W1 = outs[0].width, H1 = outs[0].height; qs.width = W1 * 4 + 12; qs.height = H1;
+              [0, 1, 2, 3].forEach((i) => qs.getContext("2d").drawImage(outs[Math.round(i * Fn / 4)], i * (W1 + 4), 0));
+              if (q.get("save") === "1") { await shot(`ovh3_anim_${nm}_c${anim.cols}r${anim.rows}_fps${anim.fps}`, canvas); await shot(`ovh3_anim_${nm}_still`, still); await shot(`ovh3w_quarters_${nm}`, qs); }
+              document.body.appendChild(qs);
+              st.textContent += ` | ${n}: ${outs[0].width}x${outs[0].height} F${Fn}; step mean ${Math.round(mean)} wrap ${wrap} min ${Math.min(...steps)} max ${Math.max(...steps)}; shimmer ${shim}; moving px ${changing}/${N}; ${log.join("; ")}`;
+              continue;
+            }
             document.body.appendChild(canvas);
             if (q.get("save") === "1") await fetch(`/__shot?name=ovh2_water_${n}${q.get("suffix") || ""}`, { method: "POST", body: canvas.toDataURL("image/png").slice(22) });
             st.textContent += ` | ${n}: ${log.join("; ")}`;

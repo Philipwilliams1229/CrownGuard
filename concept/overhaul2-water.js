@@ -42,6 +42,25 @@ const vn = (x, y, s = 0) => {
 };
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const bay = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
+// ---- LOOPS (round 3, art/briefs/overhaul-animation.md): t is 0..1 over one seamless loop of LF frames ----
+const TAU = Math.PI * 2;
+let LF = 30;                     // frames in the loop being drawn (whole-pixel steps are px a frame x LF)
+// a noise field drifting (ka, kb) noise cells over one loop, seamless at t = 1: two copies a loop apart
+// cross-faded, the contrast held up mid-loop so thresholds keep their coverage
+const vl = (a, b, s, ka, kb, t) => {
+  const n1 = vn(a + t * ka, b + t * kb, s), n2 = vn(a + (t - 1) * ka, b + (t - 1) * kb, s);
+  const w1 = 1 - t, w2 = t; return 0.5 + (n1 * w1 + n2 * w2 - 0.5) / Math.sqrt(w1 * w1 + w2 * w2);
+};
+// value noise that repeats every P cells along x (for strips that scroll a whole period a loop)
+const vnp = (x, y, s, P) => {
+  const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  const x0 = ((xi % P) + P) % P, x1 = (x0 + 1) % P;
+  const a = hs(x0, yi, s), b = hs(x1, yi, s), c = hs(x0, yi + 1, s), d = hs(x1, yi + 1, s);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+};
+// a strip scrolled `step` whole art px a frame: its period is step x LF px; returns the coordinate in cells
+// (cell ~ `cell` px) and the period in cells, for vnp
+const scroll = (s, t, step, cell) => { const P = Math.max(1, step) * LF, n = Math.max(2, Math.round(P / cell)); return [(s - Math.round(t * LF) * Math.max(1, step)) / (P / n), n]; };
 
 // ---------------- palettes (A's water, which the owner chose, kept) ----------------
 const WA = pal("#18384a", "#1f4a5a", "#28606c", "#33787c", "#46908a", "#68aa98", "#96c6ac");
@@ -135,6 +154,29 @@ SCENES.strip_beach = { ...SCENES.fox_lake2, frames: [0, 1 / 6, 2 / 6, 3 / 6, 4 /
 SCENES.fox_lake3 = { ...SCENES.fox_lake, label: "THE LAKE, blend pass: the sand runs into the water with no edge, lighter near the shore, darker as it deepens" };
 SCENES.fox_lake3_golden = { ...SCENES.fox_lake3, sun: "golden", label: "THE LAKE, blend pass, at golden hour" };
 SCENES.fox_beach_zoom3 = { ...SCENES.fox_lake3, crop: [352, 196, 168, 112], label: "THE BEACH, 2.5x, blend pass" };
+// ---- ROUND 3: LOOPS (art/briefs/overhaul-animation.md): 30 frames, 10 fps, 3 s; crops ~225 x 150 board units at 2x ----
+const ANIM = { F: 30, fps: 10, cols: 6 };
+SCENES.anim_river_cut = { realm: "wolfrun", crop: [92, 258, 224, 146], towers: [ARCHERS(150, 286)], at: 22, anim: ANIM,
+  rivers: [{ widen: 1.6, def: "lip", zones: [{ bank: "N", from: 0, to: 900, kind: "cut" }] }] };
+SCENES.anim_river_reeds = { realm: "millrace", crop: [400, 240, 224, 146], towers: [ARCHERS(452, 300)], at: 20, anim: ANIM,
+  rivers: [{ widen: 1.45, def: "reeds", flow: 0.45 }, { widen: 1.15, def: "lip", flow: 0.6 }], paddlers: [[511, 298, false]],
+  rings: [[508, 270, 0.1, 8, 1], [520, 330, 0.55, 6, 0], [506, 352, 0.8, 5, 0]] };
+SCENES.anim_river_quay = { realm: "millrace", crop: [290, 290, 224, 146], towers: [ARCHERS(452, 300)], at: 20, anim: ANIM,
+  rivers: [
+    { widen: 1.3, def: "lip", zones: [{ bank: "E", from: 0, to: 330, kind: "cut" }, { bank: "W", from: 330, to: 470, kind: "cut" }, { bank: "E", from: 330, to: 470, kind: "reeds" }, { bank: "*", from: 470, to: 999, kind: "quay" }] },
+    { widen: 1.15, def: "quay", flow: 1.25, weir: 215, wakes: [[300, 1], [300, -1], [444, 1], [444, -1]] },
+  ] };
+SCENES.anim_weir = { realm: "thornbrook", crop: [300, 185, 230, 150], towers: [ARCHERS(300, 300)], at: 20, anim: ANIM,
+  rivers: [{ widen: 1.35, def: "lip", zones: [
+    { bank: "E", from: 0, to: 300, kind: "cut" }, { bank: "W", from: 0, to: 225, kind: "cut" },
+    { bank: "E", from: 300, to: 400, kind: "lip" }, { bank: "W", from: 330, to: 405, kind: "reeds" }, { bank: "*", from: 405, to: 999, kind: "quay" },
+  ], weir: 268 }] };
+SCENES.anim_lake_beach = { ...SCENES.fox_lake, label: null, crop: [318, 162, 230, 150], anim: ANIM, puddles: [[480, 306, 16, 6, 2, "road"]] };
+SCENES.anim_lake_far = { ...SCENES.fox_lake, label: null, crop: [365, 150, 230, 150], anim: ANIM, puddles: [],
+  reflect: [463, 204, 210, 40], rings: [[402, 188, 0.2, 9, 1], [508, 214, 0.62, 7, 1]] };
+SCENES.anim_pond = { ...SCENES.oak_pond, label: null, crop: [52, 322, 230, 152], anim: ANIM, calm: true,
+  puddles: [[252, 436, 14, 6, 2, "road"], [92, 446, 13, 5, 4, "grass"]],
+  rings: [[140, 372, 0.05, 6, 0], [170, 364, 0.45, 5, 0], [124, 381, 0.75, 7, 1]] };
 SCENES.fox_golden = { ...SCENES.fox_lake, sun: "golden", label: "THE LAKE at golden hour" };
 SCENES.fox_dusk = { ...SCENES.fox_lake, sun: "golden", dusk: true, label: "THE LAKE at dusk: the jetty's lanterns and the hall's lit door, a lantern's light broken on the water" };
 
@@ -332,7 +374,7 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
         const a = clamp(wl / (shelf - wet), 0, 1);
         const bed = kind === "sand" ? lerp(SAND[2], SAND[1], vn(X / 7, Y / 4, 38)) : (hs(Math.floor(X / 3), Math.floor(Y / 2), 39) > 0.5 ? GRAVEL[2] : GRAVEL[1]);
         let c = lerp(bed, WA[5], 0.25 + a * 0.6);
-        const q = Math.abs(Math.sin(vn(X / 6 + t * 2, Y / 4, 40) * 9));
+        const q = Math.abs(Math.sin(vl(X / 6, Y / 4, 40, 2, 0, t) * 9));
         if (q < 0.13 && a < 0.7) c = lerp(c, hex("#f4f0d0"), 0.45 * (1 - a));                                                // caustics
         put(k, c); continue;
       }
@@ -348,9 +390,11 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     if (ramped) {   // the lake: one continuous ramp, dithered, contours wandering
       const qq = clamp(q0 + (1 - q0) * (wl / 52) + (vn(X / 20, Y / 12, 276) - 0.5) * 0.08, 0, 1), fi = qq * (RAMP_DEEP.length - 1), i0 = Math.floor(fi);
       let c = RAMP_DEEP[Math.min(RAMP_DEEP.length - 1, fi - i0 > BAYER8[(Y & 7) * 8 + (X & 7)] ? i0 + 1 : i0)];
-      const rip = vn(X / 26 + t * 0.6, Y / 1.7, 70);
-      if (rip > 0.74 && wl > 10 && (Y & 1)) c = lerp(c, WA[6], 0.22);
-      const cl = vn(X / 90 + t * 0.15, Y / 9, 71);
+      // slow swell lines rolling toward the south shore: one wavelength (15 art px) a loop, broken by noise
+      const sw = Math.sin(TAU * (Y / 15 - t) + vn(X / 34, Y / 22, 69) * 5), brk = vn(X / 14, Y / 7, 70);
+      if (!sc.calm && sw > 0.93 && brk > 0.5 && wl > 10) c = lerp(c, WA[6], 0.24);
+      else if (!sc.calm && sw < -0.96 && brk > 0.6 && wl > 14) c = mul(c, 0.94);
+      const cl = vl(X / 90, Y / 9, 71, 0.15, 0, t);
       if (cl > 0.66 + bay(X, Y) * 0.1 && wl > 20 && (Y % 3)) c = lerp(c, hex("#b8d4cc"), 0.12);
       if (golden) { c = lerp(c, hex("#7a6a62"), 0.1); const g2 = vn(X / 8 + t * 2, Y / 1.4, 80), band = vn(X / 160, Y / 46, 81); if (!sc.dusk && g2 > 0.92 - band * 0.2 && band > 0.56 && (Y % 2 === 0) && wl > 8) c = lerp(c, hex("#ffc870"), 0.55); }
       if ((kind === "cut" || kind === "rock") && !isNear && wl < 6) c = wl < 1.2 ? lerp(c, FOAM2, 0.45) : mul(c, 0.74);   // the face's lap and its shade
@@ -371,18 +415,37 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
     else if (kind === "reeds" && wl < 12) c = lerp(c, hex("#3e5636"), 0.42 * (1 - wl / 12));                                  // still, brown-green slack
     else if ((kind === "cut" || kind === "rock") && !isNear && wl < 1.3) c = lerp(c, FOAM2, 0.55);                              // the water laps the face
     else if (kind === "quay" && !isNear && wl < 2.2) c = wl < 1.1 ? hex("#3a5a34") : lerp(c, FOAM2, 0.35);
-    // the current: long light dashes that travel with the flow
+    // the current: long light dashes that travel with the flow. Each lane is a strip scrolled a whole number of
+    // art px a frame (fastest mid-channel), its noise repeating once a loop, so the loop is seamless
     if (B.type === "river") {
       const lat = LAT[k];
-      const u = s / 26 - t * 3, v = lat * 4.2;
-      const n1 = vn(u, v, 50 + BODY[k]);
+      const v = lat * 4.2, Ln = Math.round(v), flow = (B.spec.flow ?? sc.flow ?? 1);
+      const step = Math.round((5 - Math.min(4, Math.abs(Ln)) * 0.75) * flow);
+      const [u, nP] = scroll(s, t, step, 26);
+      const n1 = vnp(u, v, 50 + BODY[k] + Ln * 7, nP);
       const strong = 1 - Math.abs(lat) * 0.8;
-      const lane = Math.abs(v - Math.round(v));
+      const lane = Math.abs(v - Ln);
       if (n1 > 0.64 - strong * 0.06 && lane < 0.26 && wl > 3) c = lerp(c, WA[Math.min(6, Math.round(idx) + 1)], 0.75);
       if (n1 > 0.76 && lane < 0.2 && wl > 3) c = lerp(c, WA[Math.min(6, Math.round(idx) + 2)], 0.8);
       if (n1 > 0.88 && lane < 0.14 && wl > 4) c = lerp(c, FOAM2, 0.6);
-      const cl = vn(X / 60 - t * 0.4, Y / 22, 72 + BODY[k]);
+      const cl = vn(X / 60, Y / 22, 72 + BODY[k]);                                                                       // the sky: still
       if (cl > 0.66 + bay(X, Y) * 0.08 && wl > 8) c = lerp(c, hex("#a8ccc4"), 0.16);                                    // the sky lying on it
+      // water running along a wall or under a cut face: quick streaks hugging the stone, foam working at the foot
+      if ((kind === "quay" || kind === "cut" || kind === "rock") && !isNear && wl < 7 && sc.anim) {
+        const [u2, n2] = scroll(s, t, Math.max(2, Math.round(3 * flow)), 9), f2 = vnp(u2, wl / 2.2, 79 + BODY[k], n2);
+        if (kind === "quay" && wl > 1.4 && f2 > 0.7) c = lerp(c, WA[Math.min(6, Math.round(idx) + 2)], 0.6);
+        if (kind !== "quay" && wl < 3.6 && f2 > 0.56 - (wl < 1.6 ? 0.08 : 0)) c = lerp(c, FOAM, wl < 1.6 ? 0.75 : 0.45);
+      }
+      // a wake off a wall's corner: two broken lines slanting out into the stream, travelling down it
+      for (const [ws, wside] of B.spec.wakes || []) {
+        const ds = s - ws * 2; if (ds < 0 || ds > 110 || Math.sign(lat) !== wside) continue;
+        const off = bodyHW * Math.abs(lat), lineAt = bodyHW - 2.5 - 2.6 * Math.sqrt(ds);   // curving out into the stream
+        for (const [o, al] of [[0, 0.75], [-5, 0.4]]) {
+          if (Math.abs(off - (lineAt + o)) > 0.75) continue;
+          const [u3, n3] = scroll(ds, t, Math.round(4 * flow), 4);
+          if (vnp(u3, o, 81, n3) > 0.52 + ds / 300) c = lerp(c, FOAM, al * (1 - ds / 120));
+        }
+      }
       // the weir: still above, a white fall, churn below
       const wr = weirs[BODY[k]];
       if (wr != null) {
@@ -391,15 +454,17 @@ function paintWater(P, F, sc, t, X0, Y0, MOD) {
         if (dw >= -5 && dw < 0) { c = hs(Math.floor(X / 4), 0, 60) > 0.5 ? STONE[3] : STONE[2]; if (dw >= -1.2) c = STONE[4]; if (dw < -4) c = STONE[1]; }   // the sill's stones
         else if (dw >= 0 && dw < 5) { c = lerp(FOAM, FOAM2, ((Math.floor(X / 2 + t * 6 + hs(X, 0, 61) * 3)) % 3) / 3); if (dw > 3.6 && hs(X, Math.floor(t * 6), 62) > 0.5) c = WA[5]; }
         else if (dw >= 5 && dw < 46) {
-          const fo = vn(X / 5, (dw - t * 16) / 3.2, 63) * (1 - (dw - 5) / 41) * 1.5 + vn(X / 2.5, (dw - t * 16) / 1.6, 64) * 0.35;
+          // the churn runs off downstream at the current's mid speed (a strip scrolled 3 px a frame), fading out
+          const [ua, na] = scroll(dw, t, 3, 3.2), [ub, nb] = scroll(dw, t, 3, 1.6);
+          const fo = vnp(ua, X / 5, 63, na) * (1 - (dw - 5) / 41) * 1.5 + vnp(ub, X / 2.5, 64, nb) * 0.35;
           if (fo > 0.82) c = FOAM; else if (fo > 0.62) c = lerp(c, FOAM2, 0.7); else if (fo > 0.5) c = lerp(c, WA[5], 0.6);
         }
       }
     } else {
       // a lake: wind lanes, slow ripples, the sky lying on it
-      const rip = vn(X / 26 + t * 0.6, Y / 1.7, 70);
-      if (rip > 0.72 && wl > 6 && (Y & 1)) c = lerp(c, WA[Math.min(6, Math.round(idx) + 2)], 0.55);
-      const cl = vn(X / 90 + t * 0.15, Y / 9, 71);
+      const sw = Math.sin(TAU * (Y / 15 - t) + vn(X / 34, Y / 22, 69) * 5), brk = vn(X / 14, Y / 7, 70);
+      if (sw > 0.93 && brk > 0.5 && wl > 6) c = lerp(c, WA[Math.min(6, Math.round(idx) + 2)], 0.5);
+      const cl = vl(X / 90, Y / 9, 71, 0.15, 0, t);
       if (cl > 0.64 + bay(X, Y) * 0.1 && wl > 14 && (Y % 3)) c = lerp(c, hex("#b8d4cc"), cl > 0.72 ? 0.24 : 0.13);
     }
     if (golden) {
@@ -422,8 +487,8 @@ const SHELF = {           // art px: [dry, damp, ankle, knee, drop]
   sand: [10, 8, 20, 18, 12], lip: [0, 0, 4, 5, 5], reeds: [0, 0, 4, 6, 5], rock: [0, 0, 5, 6, 6], beach: [6, 5, 12, 10, 8], cut: [0, 0, 4, 5, 5],
 };
 const SHELF_ISLET = [0, 2, 8, 8, 6];
-const caustic = (X, Y, t) => {
-  const a = vn(X / 6.5 + t * 1.3, Y / 4.2 + t * 0.4, 260), b = vn(X / 5.2 - t * 1.0, Y / 3.6 + t * 0.7, 261);
+const caustic = (X, Y, t) => {   // the netting drifts ~2 cells a loop (two fields crossing), seamless
+  const a = vl(X / 6.5, Y / 4.2, 260, 2.0, 0.6, t), b = vl(X / 5.2, Y / 3.6, 261, -1.5, 1.0, t);
   return Math.abs(a - b) < 0.045;
 };
 function lakeShore(kind, ew, X, Y, t, kwt, s, islet, golden) {
@@ -439,6 +504,25 @@ function lakeShore(kind, ew, X, Y, t, kwt, s, islet, golden) {
   const d = (ew - dryW) / runW + nd;
   if (d >= 1) return { wl: ew - dryW - runW, q0: 0 };
   const RAMP = sandy ? RAMP_SAND : kind === "rock" ? RAMP_PEB : RAMP_SILT;
+  // the lap (loops): the water's edge runs up the sand and back once a loop, by up to ~4 art px at the beach's middle,
+  // the swell arriving along the shore (its phase runs with s). Uncovered swash stays damp and dark; a thin film
+  // covers the sand above the resting edge when it runs up. No line: the film is the ramp's first steps.
+  if (sandy && !islet && kb > 0.04) {
+    const lapA = 0.8 + 3.4 * kb, e2 = d * runW;                               // e2: art px past the resting edge
+    const Lp = lapA * Math.sin(TAU * t - s / 36);                             // + : the water has drawn back
+    if (e2 > -lapA - 0.5 && e2 < Lp) {                                         // the swash, uncovered: damp sand
+      const rec = clamp((Lp - e2) / (2 * lapA), 0, 1);                        // how long since the water left it
+      let c = lerp(RAMP_SAND[2], SAND[1], 0.55 * (1 - rec * 0.7));
+      if (e2 < -lapA + 1.2) c = lerp(c, SAND[3], 0.5);                         // the top of the swash, nearly dry
+      if (hs(X, Y, 277) > 0.95) c = lerp(c, hex("#e8eee4"), 0.35);             // a glint in the wet
+      return { c: golden ? lerp(c, hex("#ffc880"), 0.1) : c };
+    }
+    if (e2 >= Lp && e2 < 0) {                                                 // run up over the resting edge: a thin film
+      let c = lerp(RAMP_SAND[1], RAMP_SAND[3], clamp((e2 - Lp) / lapA, 0, 1));
+      if (e2 - Lp < 0.9 && hs(Math.floor(X / 3), Math.floor(t * LF / 2), 278) > 0.55) c = lerp(c, FOAM, 0.55);   // the edge's broken foam
+      return { c: golden ? lerp(c, hex("#ffc880"), 0.1) : c };
+    }
+  }
   if (d < 0) {                                                                // dry sand (only on a beach)
     let c = vn(X / 6, Y / 3, 33) > 0.55 ? SAND[4] : SAND[3];
     if (hs(X, Y, 31) > 0.97) c = hex("#f4ecd8");
@@ -457,7 +541,7 @@ function lakeShore(kind, ew, X, Y, t, kwt, s, islet, golden) {
     if (sandy && d < 0.5) { const px = Math.floor(X / 4), py = Math.floor(Y / 3); if (hs(px, py, 244) > 0.96 && X % 4 < 2 && Y % 3 === 1) c = lerp(c, X % 4 === 0 ? GRAVEL[3] : GRAVEL[1], 0.45 * (1 - d * 2)); }
   }
   // sparse broken glints of foam where the water first covers the sand: 2-4 px, well apart, moving
-  if (sandy && Math.abs(d - 0.1) < 0.025) { const cell = Math.floor((X + t * 18) / 13), fr = Math.floor(t * 6); if (hs(cell, fr, 274) > 0.62 && ((X + t * 18) % 13) < 2 + hs(cell, 1, 275) * 2) c = lerp(c, FOAM, 0.55); }
+  if (sandy && Math.abs(d - 0.1) < 0.025) { const cell = Math.floor((X + Math.round(t * 26)) / 13), fr = Math.floor(t * 6); if (hs(cell, fr, 274) > 0.62 && ((X + Math.round(t * 26)) % 13) < 2 + hs(cell, 1, 275) * 2) c = lerp(c, FOAM, 0.55); }
   if (golden) c = lerp(c, hex("#ffc880"), 0.1 * (1 - d));
   return { c };
 }
@@ -520,6 +604,7 @@ function canvasPainter(P, w, h, X0, Y0, MOD) {
 }
 
 let NOW = 0;
+let SWAY = { reeds: 0, grass: 0, lily: 0 };   // sway amplitudes (art px); 0 in stills
 // a reed / rush clump standing at (X, Y) (its foot at the water)
 function reedClump(Pp, X, Y, size, seed, cattails = true) {
   const n = 7 + Math.floor(hs(seed, 1) * 6);
@@ -530,28 +615,33 @@ function reedClump(Pp, X, Y, size, seed, cattails = true) {
     stems.push({ dx, hgt, lean, q });
   }
   stems.sort((a, b) => a.dx - b.dx);
+  const swA = SWAY.reeds, ph0 = TAU * NOW - X / 70;
   for (const { dx, hgt, lean, q } of stems) {
+    const sw = swA * (Math.sin(ph0 + q * 0.35) + 0.35 * Math.sin(2 * ph0 + q));            // the stem's sway at its tip
+    const at = (y) => X + dx + lean * y * (y / hgt) + sw * (y / hgt) * (y / hgt);
     for (let y = 0; y < hgt; y++) {
-      const x = X + dx + lean * y * (y / hgt);
+      const x = at(y);
       const c = y < 2 ? REED[0] : y < hgt * 0.35 ? REED[1] : dx < 0 ? REED[3 + (y > hgt * 0.7 ? 1 : 0)] : REED[2 + (y > hgt * 0.75 ? 1 : 0)];
       Pp.set(x, Y - y, c);
       if (q % 2 === 0 && y < hgt * 0.75) Pp.set(x + 1, Y - y, y < hgt * 0.35 ? REED[0] : REED[1]);           // a broad leaf: its shaded side
     }
-    if (cattails && hs(seed, q, 5) > 0.82) { const x = X + dx + lean * hgt; for (let y = 0; y < 3; y++) { Pp.set(x, Y - hgt + 1 - y, y === 2 ? hex("#8a5a32") : hex("#5e3a20")); Pp.set(x + 1, Y - hgt + 1 - y, hex("#3e2614")); } Pp.set(x, Y - hgt - 2, REED[3]); }
-    else if (hs(seed, q, 6) > 0.5) { const x = X + dx + lean * hgt; Pp.set(x + (lean > 0 ? 1 : -1), Y - hgt + 1, REED[4]); Pp.set(x + (lean > 0 ? 2 : -2), Y - hgt + 2, REED[3]); }  // a blade bending over
+    if (cattails && hs(seed, q, 5) > 0.82) { const x = at(hgt); for (let y = 0; y < 3; y++) { Pp.set(x, Y - hgt + 1 - y, y === 2 ? hex("#8a5a32") : hex("#5e3a20")); Pp.set(x + 1, Y - hgt + 1 - y, hex("#3e2614")); } Pp.set(x, Y - hgt - 2, REED[3]); }
+    else if (hs(seed, q, 6) > 0.5) { const x = at(hgt); Pp.set(x + (lean > 0 ? 1 : -1), Y - hgt + 1, REED[4]); Pp.set(x + (lean > 0 ? 2 : -2), Y - hgt + 2, REED[3]); }  // a blade bending over
   }
 }
 // a tussock overhanging the water's edge
 function tussock(Pp, X, Y, seed, dir = 1) {
   for (let q = 0; q < 9; q++) {
     const a = -Math.PI / 2 + (hs(seed, q, 1) - 0.5) * 2.2, L = 3 + hs(seed, q, 2) * 4;
-    for (let r = 0; r < L; r++) { const x = X + Math.cos(a) * r * 1.2, y = Y + Math.sin(a) * r * 0.8 + (r > L * 0.6 ? (r - L * 0.6) * 0.8 : 0); Pp.set(x, y, r < 1.5 ? TURF[1] : Math.cos(a) < 0 ? TURF[4] : TURF[3]); }
+    const st = SWAY.grass * Math.sin(TAU * 2 * NOW - X / 23 + q * 0.7);                     // stirring, twice a loop
+    for (let r = 0; r < L; r++) { const x = X + Math.cos(a) * r * 1.2 + st * (r / L) * (r / L), y = Y + Math.sin(a) * r * 0.8 + (r > L * 0.6 ? (r - L * 0.6) * 0.8 : 0); Pp.set(x, y, r < 1.5 ? TURF[1] : Math.cos(a) < 0 ? TURF[4] : TURF[3]); }
   }
   Pp.set(X, Y + 1, TURF[0]); Pp.set(X - 1, Y + 1, TURF[0]); Pp.set(X + 1, Y + 1, TURF[0]);
 }
 // a lily pad (and sometimes its flower)
 function lily(Pp, X, Y, r, seed) {
   const notch = hs(seed, 1) * 6.28;
+  if (SWAY.lily) Y += Math.sin(TAU * NOW + seed * 0.61) > 0.35 ? 1 : 0;                      // a pad bobbing a pixel as a ripple passes
   for (let y = -r; y <= r; y++) for (let x = -r * 1.4; x <= r * 1.4; x++) {
     const u = x / (r * 1.4), v = y / r, rr = u * u + v * v; if (rr > 1) continue;
     const a = Math.atan2(v, u); let da = Math.abs(((a - notch + 9.42) % 6.28) - 3.14); if (da > 2.85 && rr > 0.05) continue;
@@ -579,7 +669,7 @@ function bird(Pp, kind, X, Y, t, flip) {
   const map = kind === "duck" ? DUCK : kind === "swan" ? SWAN : HERON;
   const C = { g: hex("#1e6a3e"), G: hex("#3aa060"), k: hex("#101010"), e: hex("#f0c040"), b: hex("#b08458"), B: hex("#6a4428"), w: hex("#f2f0e8"), W: hex("#ffffff"), o: hex("#e8803a"), s: hex("#9ab0b0"), y: hex("#d8b048"), l: hex("#6a6a5a") };
   if (kind === "heron") { C.g = hex("#8a9098"); C.G = hex("#b4bcc4"); }
-  const bob = kind === "heron" ? 0 : Math.round(Math.sin(t * 6.28 + X) * 0.5);
+  const bob = kind === "heron" ? 0 : (Math.sin(TAU * t + X * 0.3) > 0.4 ? 1 : 0);
   map.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== ".") Pp.set(X + (flip ? row.length - 1 - i : i), Y + j + bob, C[ch]); }));
   if (kind !== "heron") { const L = map.length, W2 = map[0].length; for (let r = 1; r < 9; r++) { Pp.set(X + (flip ? -r : W2 + r), Y + L - 2 + Math.round(r * 0.35), FOAM2, 0.55 - r * 0.05); Pp.set(X + (flip ? -r : W2 + r), Y + L - 2 - Math.round(r * 0.35), FOAM2, 0.4 - r * 0.04); } }
   else for (let x = -3; x <= 4; x++) Pp.set(X + 3 + x, Y + map.length, FOAM2, 0.5);
@@ -652,7 +742,7 @@ function jetty(Pp, J, t, dusk, lights, ewAt = () => 99) {
   lights.push({ X: bx, Y: by - 16, r: 46, col: [255, 180, 80] });
 }
 function skiff(Pp, X, Y, t) {
-  const L = 34, bob = Math.sin(t * 6.28) * 0.6;
+  const L = 34, bob = Math.sin(TAU * t) > 0.3 ? 1 : Math.sin(TAU * t) < -0.3 ? -1 : 0, roll = Math.sin(TAU * t + 1.4);
   for (let y = -L / 2; y <= L / 2; y++) {
     const u = y / (L / 2), half = Math.round(7 * Math.sqrt(Math.max(0, 1 - u * u * (u < 0 ? 1.05 : 0.8))));
     for (let x = -half; x <= half; x++) {
@@ -694,10 +784,10 @@ function puddle(Pp, F, pd, t, golden) {
     const v = (j / (ry * 2) + 1) / 2;
     let c = lerp(hex("#a4bcc4"), hex("#566e7c"), v);
     if (golden) c = lerp(hex("#f0c890"), hex("#8a84a4"), v);
-    if (vn(X / 9 + t * 0.4, Y / 4, seed + 5) > 0.66) c = lerp(c, hex("#dce8ec"), 0.35);                                         // a cloud
+    if (vl(X / 9, Y / 4, seed + 5, 0.4, 0, t) > 0.66) c = lerp(c, hex("#dce8ec"), 0.35);                                         // a cloud
     if (r > 0.86 && j < 0) c = lerp(c, on === "road" ? hex("#3e2e1e") : hex("#263e22"), 0.65);                                  // its north lip shades it
     if (r > 0.92 && j > 0) c = lerp(c, hex("#d8e4e4"), 0.3);                                                                     // the wet edge catches light
-    if (Math.abs(Math.sin((r - t) * 18)) < 0.08 && r < 0.75 && hs(seed, 9) > 0.4) c = lerp(c, hex("#ffffff"), 0.2);             // a ring from a drip
+    if (Math.abs(Math.sin((r - t) * 6 * Math.PI)) < 0.08 && r < 0.75 && hs(seed, 9) > 0.4) c = lerp(c, hex("#ffffff"), 0.2);             // a ring from a drip
     Pp.set(X, Y, c);
   }
   if (on === "grass") { tussock(Pp, X0 - rx * 2 + 1, Y0 - ry + 1, seed + 3); reedClump(Pp, X0 + rx * 2 - 2, Y0 + ry * 0.5, 9, seed + 4, false); }
@@ -758,7 +848,8 @@ export async function runScene(name, q) {
   }
   for (let i = 0; i < 30; i++) updateGame(g, DT);
   startWave(g);
-  for (let el = 0; el < sc.at; el += DT) { updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+  for (let el = 0; el < (sc.anim ? 0 : sc.at); el += DT) { updateGame(g, DT); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+  if (sc.anim) { g.enemies = []; g.projectiles = []; g.effects = []; }   // a loop shows the water, not a frozen wave
   const [cx0, cy0, cw, ch] = sc.crop;
   const X0 = cx0 * 2, Y0 = cy0 * 2, w = cw * 2, h = ch * 2;
   const crop = (cv) => { const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(cv, X0, Y0, w, h, 0, 0, w, h); return c; };
@@ -797,7 +888,8 @@ export async function runScene(name, q) {
   DECOR.push(...decorKeep); BRIDGES.push(...brKeep); Object.assign(g, keep);
   const bimg = crop(cvB).getContext("2d").getImageData(0, 0, w, h);
   const Bd = bimg.data;
-  const frames = sc.frames || [t];
+  if (sc.anim) { LF = sc.anim.F; SWAY = { reeds: 1.6, grass: 0.9, lily: 1 }; } else { LF = 30; SWAY = { reeds: 0, grass: 0, lily: 0 }; }
+  const frames = sc.anim ? Array.from({ length: LF }, (_, i) => i / LF) : sc.frames || [t];
   const F = buildField(sc, rivers, bridges, X0, Y0, w, h);
   log.push(`field ${F.bodies.length} bodies`);
   const SHADE = DAY.shade || [42, 28, 44];
@@ -812,11 +904,18 @@ export async function runScene(name, q) {
     const items = dressShores(Pp, F, sc, ft, X0, Y0);
     if (L) {
       for (const [x, y, r] of L.rocks) items.push({ y: y * 2, fn: () => boulder(Pp, x * 2, y * 2, r * 2, x + y, ft) });
-      for (const [kd, x, y] of L.birds) items.push({ y: y * 2 + 8, fn: () => bird(Pp, kd, x * 2 + (kd === "heron" ? 0 : (x > L.cx ? -1 : 1) * ft * 8), y * 2, ft, x > L.cx) });
+      for (const [kd, x, y] of L.birds) items.push({ y: y * 2 + 8, fn: () => {
+        if (!sc.anim || kd === "heron") return bird(Pp, kd, x * 2 + (kd === "heron" ? 0 : (x > L.cx ? -1 : 1) * ft * 8), y * 2, ft, x > L.cx);
+        // loops: a bird can't cross the frame in 3 s, so the swan turns a slow circle and the ducks idle about a spot
+        const ph = TAU * ft + x * 0.7, rx = kd === "swan" ? 7 : 2.5, ry = kd === "swan" ? 2.5 : 1;
+        bird(Pp, kd, x * 2 + Math.round(rx * Math.cos(ph)), y * 2 + Math.round(ry * Math.sin(ph)), ft, Math.sin(ph) < 0);
+      } });
       for (const [px, py, dx, dy, n] of L.prints || []) items.push({ y: -1e4 + 1, fn: () => { for (let i = 0; i < n; i++) { const fx = px * 2 + dx * i * 5, fy = py * 2 + dy * i * 5 + (i & 1 ? 2 : -1) + Math.sin(i * 0.7) * 2; const e = -F.D[(Math.round(fy) - Y0) * w + Math.round(fx) - X0]; if (!(e > -14 && e < 9)) continue; Pp.set(fx, fy, SAND[1]); Pp.set(fx + 1, fy, SAND[1]); Pp.set(fx, fy + 1, SAND[2]); } } });
       if (L.jetty) items.push({ y: L.jetty.y * 2, fn: () => jetty(Pp, L.jetty, ft, sc.dusk, lights, (X, Y) => { const i = Math.round(X) - X0, j = Math.round(Y) - Y0; return i < 0 || j < 0 || i >= w || j >= h ? 99 : -F.D[j * w + i]; }) });
     }
     for (const pd of sc.puddles || []) items.push({ y: -2e4, fn: () => puddle(Pp, F, pd, ft, DAY.id === "golden") });
+    for (const rg of sc.rings || []) items.push({ y: -1.5e4, fn: () => ring(Pp, F, X0, Y0, rg, ft) });
+    for (const [x, y, flip] of sc.paddlers || []) items.push({ y: y * 2 + 8, fn: () => paddler(Pp, x * 2, y * 2, ft, flip) });
     items.sort((a, b) => a.y - b.y); for (const it of items) it.fn();
     // lay the game's halls, figures, trees and bridge back on top
     for (let k = 0; k < w * h; k++) {
@@ -830,9 +929,15 @@ export async function runScene(name, q) {
       }
       P[k * 4] = a0; P[k * 4 + 1] = a1; P[k * 4 + 2] = a2;
     }
+    if (sc.reflect) reflectTree(P, A, Bd, F, w, h, X0, Y0, sc.reflect, ft);
     if (sc.dusk) { for (const tw of g.towers) lights.push({ X: Math.round(tw.x * 2 + 7), Y: Math.round(tw.y * 2 - 12), r: 30, col: [255, 170, 80] }); duskPass(P, w, h, X0, Y0, lights, F, ft); }
     const img = new ImageData(P, w, h); const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").putImageData(img, 0, 0);
     outs.push(c);
+  }
+  if (sc.anim) {   // the sprite sheet: frames left to right, top to bottom, no gaps
+    const cols = sc.anim.cols, rows = LF / cols, sheet = document.createElement("canvas"); sheet.width = w * cols; sheet.height = h * rows;
+    const sx2 = sheet.getContext("2d"); outs.forEach((c, f) => sx2.drawImage(c, (f % cols) * w, Math.floor(f / cols) * h));
+    return { canvas: sheet, still: outs[0], anim: { cols, rows, fps: sc.anim.fps }, outs, log };
   }
   if (sc.frames) {
     const [sx, sy, sw, sh] = sc.strip; // board units inside the crop
@@ -843,6 +948,54 @@ export async function runScene(name, q) {
     return { canvas: out, log };
   }
   return { canvas: finish(outs[0]), log };
+}
+
+// ---------------- loop extras ----------------
+// a ring on still water (a rising fish, a drop, an insect): [x, y, phase, R (art px), splash]; it opens and fades
+// inside one loop, so the wrap is seamless (u = 0 and u = 1 both show nothing)
+function ring(Pp, F, X0, Y0, [x, y, ph, R, splash], t) {
+  const u = (((t + ph) % 1) + 1) % 1, life = 0.75; if (u >= life) return;
+  const k = u / life, r = 1.5 + k * R, al = 0.55 * (1 - k) * (k < 0.08 ? k / 0.08 : 1), X = x * 2, Y = y * 2;
+  const n = Math.max(12, Math.round(r * 5));
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, px = Math.round(X + Math.cos(a) * r), py = Math.round(Y + Math.sin(a) * r * 0.5);
+    const kk = (py - Y0) * F.w + (px - X0); if (kk < 0 || kk >= F.D.length || F.D[kk] > -1) continue;
+    Pp.set(px, py, Math.sin(a) > 0 ? FOAM2 : FOAM, Math.sin(a) > 0 ? al : al * 0.7);
+  }
+  if (k < 0.5 && r > 5) { const r2 = r * 0.55; for (let i = 0; i < n; i++) { const a = (i / n) * TAU; if (i % 2) continue; Pp.set(X + Math.cos(a) * r2, Y + Math.sin(a) * r2 * 0.5, FOAM2, al * 0.6); } }
+  if (splash && u < 0.06) { Pp.set(X, Y - 1, FOAM); Pp.set(X - 1, Y, FOAM2); Pp.set(X + 1, Y, FOAM2); if (u < 0.03) Pp.set(X, Y - 2, FOAM); }
+}
+// a duck paddling against the current, holding its place: it surges a pixel or two and drops back; ripples run
+// off its tail in a V and go downstream (flip: facing right = upstream is to the right)
+function paddler(Pp, X, Y, t, flip) {
+  const dx = Math.round(1.5 * Math.sin(TAU * t)), x = X + (flip ? dx : -dx);
+  for (let r = 1; r < 16; r++) {
+    const pulse = 0.5 + 0.5 * Math.cos(TAU * (r / 5 - 2 * t)); if (pulse < 0.45) continue;   // ripples leaving the tail, 2 a loop
+    const tx = flip ? x - r : x + 8 + r, spread = Math.round(r * 0.38), al = (0.6 - r * 0.035) * pulse;
+    Pp.set(tx, Y + 4 + spread, FOAM2, al); Pp.set(tx, Y + 4 - spread, FOAM2, al * 0.7);
+  }
+  const map = DUCK, C = { g: hex("#1e6a3e"), G: hex("#3aa060"), k: hex("#101010"), e: hex("#f0c040"), b: hex("#b08458"), B: hex("#6a4428"), w: hex("#f2f0e8") };
+  const bob = Math.sin(TAU * 2 * t) > 0.5 ? 1 : 0;
+  map.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== ".") Pp.set(x + (flip ? row.length - 1 - i : i), Y + j - 2 + bob, C[ch]); }));
+  for (let i = -1; i <= 8; i++) Pp.set(x + i, Y + 5, FOAM2, (i + Math.round(t * 6)) % 3 === 0 ? 0.6 : 0.25);   // paddling feet stir the water
+}
+// a tree's reflection on the water below it, wobbling: [baseX, baseY (board), height (art px)]
+function reflectTree(P, A, Bd, F, w, h, X0, Y0, [bx, by, wy, H], t) {
+  // mirrored about the tree's foot, laid from the islet's waterline (wy) down
+  const Yb = Math.round(by * 2) - Y0, Yw = Math.round(wy * 2) - Y0;
+  for (let j = Yw; j < Math.min(h, Yw + H); j++) {
+    const wob = Math.round(Math.sin(TAU * (2 * t) + j * 0.55) * (0.6 + (j - Yw) / 14));
+    const js = Yb - (j - Yw) - 2; if (js < 0) continue;
+    for (let i = 0; i < w; i++) {
+      const k = j * w + i; if (F.D[k] > -2 || F.BODY[k] < 0) continue;
+      const is = i + wob; if (is < 0 || is >= w) continue; const ks = js * w + is;
+      if (Math.abs(A[ks * 4] - Bd[ks * 4]) + Math.abs(A[ks * 4 + 1] - Bd[ks * 4 + 1]) + Math.abs(A[ks * 4 + 2] - Bd[ks * 4 + 2]) < 12) continue;
+      if (Math.abs(bx * 2 - X0 - i) > 34) continue;
+      if (((j - Yb) % 5 === 2) && Math.sin(TAU * t + i * 0.3) > 0.2) continue;                                       // ripples break it up
+      const fa = 0.55 * (1 - (j - Yw) / H);
+      for (let c = 0; c < 3; c++) P[k * 4 + c] = P[k * 4 + c] + (A[ks * 4 + c] * 0.7 - P[k * 4 + c]) * fa;
+    }
+  }
 }
 
 // ---------------- dusk: the board sinks into blue, lamps add light (stepped, dithered, as nightlight.js does) ----------------
