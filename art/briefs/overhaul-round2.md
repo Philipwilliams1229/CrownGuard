@@ -92,3 +92,10 @@ campaign map gets "likeminded changes" too.
   is fine. Looks really good!" (So: cut bank, grassy lip, reeds and lilies, stone quay are in; no shingle;
   a river keeps ONE main edge kind for long stretches with an occasional change, e.g. a quay at a bridge or
   reeds in one slack bay, not a new edge every bend.)
+- **Bridges: the team's suggestion APPROVED** (a comment on the round-2 page, on "the toll trestle for across
+  spans and Millrace; today's bridge, updated, for short or tight crossings"): "Yes, sounds good. I love the new
+  designs. On the humpback, make sure the lighting makes sense for where the sun is. The darker side should be
+  towards us no?" (Yes: the sun stands in the upper left / north-west at noon, so the deck's top is the lit
+  plane and the SOUTH face toward the viewer, with its arches, is a step darker: the castle's three values. Under
+  a low western sun the west-facing ends and cutwaters catch the light; under an eastern sun the east ones. The
+  round-1 humpback drew its near face about as light as the deck: fix when it is built.)
