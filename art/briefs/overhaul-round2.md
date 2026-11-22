@@ -131,3 +131,8 @@ GROUND
   look great rn."
 - Full patchwork: "This one, but let's include some variation. No two maps should have the same pattern of
   fields."
+- **The lake: START OVER** (a comment on the animated lake beach, 2026-11-22 evening): "man these lakes do
+  not look good. we gotta start over i think, create 3 or 4 fresh looks. keep the water like the river water,
+  that looks good." (Three passes on one design failed. Fresh designs: 3-4 clearly different lake looks whose
+  WATER is the approved river water: the same colours, depth bands, streaks / glints and edges; not the
+  dithered teal-to-navy lake water. Lesson: after two failed passes on one design, offer new options.)
