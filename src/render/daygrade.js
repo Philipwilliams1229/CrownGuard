@@ -46,7 +46,7 @@ export const GRADE = {
   warm: 0.28,      // the lit side's warm multiply
   cool: 0.62,      // the far side's cool multiply (a pale cool: more hue than darkening)
   glow: 0.1,       // added light right at the sun's edge
-  sheen: 0.1, glint: 0.5,    // water
+  sheen: 0.1, glint: 0.16,   // water (glint was 0.5: on the new, darker water the static dashes read as bricks, and the water's own glints now follow the sun)
   snowWarm: 2.1,   // snow boards: more of the warm multiply (soft-light barely moves near-white)
   ACTORS: 0.4,     // how much of the ground's soft and multiply goes over what stands
   off: false,      // labs: skip every layer (to time it)
