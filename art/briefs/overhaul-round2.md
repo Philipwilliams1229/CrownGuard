@@ -152,3 +152,7 @@ GROUND
   tree, make sure they are closer. Like green and yellow, yellow and orange, orange and red. but not jumping
   from green to orange." (Within ONE tree the leaf masses must be NEIGHBOURS on the autumn ramp green -> yellow
   -> orange -> red: a tree may mix two adjacent colours, never two apart.)
+- **The mere's shore** (a comment on its close-up): "I still feel like this could use a little work, the
+  triangle jut on the left side just doesnt read right. make that top edge more continuous I think." (Where the
+  cut bank ends at the lake's west end it stops in a pointed wedge and the shore kinks; the bank's top edge
+  should run on as one smooth curve round the end, its face tapering out gradually.)
