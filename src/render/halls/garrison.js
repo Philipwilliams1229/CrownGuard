@@ -30,6 +30,8 @@
 // runes and the rally flag are live.
 
 import { pennant, rgba, soft, shadow } from "../buildkit.js";
+import { nightOn, noteLamp } from "../nightlight.js";
+import { prefs } from "../../data/prefs.js";
 import * as knightHall from "../pix/hall-knight.js";
 import { hallPix, drawHallBack } from "../pix/halls.js";
 
@@ -92,5 +94,21 @@ export const drawGarrison = (ctx, t, time) => {
     const rx = t.rally.x, ry = t.rally.y;
     shadow(ctx, rx + 1, ry + 4, 4, 1.5, 0.25);
     pennant(ctx, rx, ry - 10, 14, flagOf(t), time, t.id + 3, 1);
+    // a lantern hung from the pole on an iron arm (owner, 2026-11-22): art-pixel rects, its pane flickering;
+    // a warm pool at night (nightlight.js), like the halls' own torches
+    {
+      const lx = rx - 3.5, ly = ry - 3.5, fl = [1, 0.84, 0.94, 0.78, 1, 0.9, 0.74, 0.96][Math.floor(time * 12 + t.id) % 8];
+      ctx.fillStyle = "#2c2a30";
+      ctx.fillRect(rx - 3.5, ry - 5, 3.5, 0.5);            // the arm
+      ctx.fillRect(lx + 0.5, ly - 1.5, 0.5, 1);            // the ring it hangs by
+      ctx.fillRect(lx - 0.5, ly - 0.5, 2.5, 0.5);          // cap
+      ctx.fillRect(lx - 0.5, ly + 2.5, 2.5, 0.5);          // foot
+      ctx.fillRect(lx - 0.5, ly, 0.5, 2.5); ctx.fillRect(lx + 1.5, ly, 0.5, 2.5);   // the frame's bars
+      ctx.fillStyle = fl > 0.85 ? "#ffd66a" : "#ffb84a";
+      ctx.fillRect(lx, ly, 1.5, 2.5);                      // the lit pane
+      ctx.fillStyle = "#fff4c8";
+      ctx.fillRect(lx + 0.5, ly + 1, 0.5, 1);              // the flame's heart
+      if (nightOn(time) && prefs.spellLight !== false) noteLamp(lx + 0.75, ly + 1.25, 11, "#ffb84a", 0.7 * fl, 5);
+    }
   }
 };
