@@ -360,14 +360,14 @@ export const build = (o = {}) => (back) => {
   if (ber && !r4) [-24.5, -17.5, -10.5].forEach((sx, i) => kite(back, sx, wt + 8, 7, 13, 1.5, i + seed));   // three kites left of the door
   if (r4 === "ba") {
     kite(back, 16.5, wt + 8, 8, 13, 1.5, seed + 1);
-    torch(back, -11, -10, 1.6); live.push({ kind: "flame", x: -11, y: -10, w: 4, h: 7 });     // a door torch for the Lancers' hall
-    lights.push({ key: "torch", x: -11, y: -13, r: 15, col: "#ffa040", a: 0.55 });
+    torch(back, -11, -10, 1.6); live.push({ kind: "flame", x: -11, y: -10, w: 5, h: 8 });     // a door torch for the Lancers' hall
+    lights.push({ key: "torch", x: -11, y: -13, r: 19, col: "#ffa040", a: 0.85 });   // brighter (owner, 2026-11-22)
   }
   if (r4 === "bb") {
     wallBanner(back, -16.5, wt + 8, 9, 14, GREEN, BRASS, 1.5, { device: BOLT, deviceY: 3, tail: "point" });
     crossbowRack(back, 10, wt + 8, 17, 14, 1.5);
-    for (const s of [-1, 1]) { torch(back, s * 9.5, -18, 1.6); live.push({ kind: "flame", x: s * 9.5, y: -18, w: 4, h: 7 }); }
-    lights.push({ key: "torch", x: 0, y: -17, r: 14, col: "#ffa040", a: 0.45 });
+    // two door torches, each its own light (owner, 2026-11-22: "the two torches on the last one should look brighter")
+    for (const s of [-1, 1]) { torch(back, s * 9.5, -18, 1.6); live.push({ kind: "flame", x: s * 9.5, y: -18, w: 5, h: 8 }); lights.push({ key: "torch", x: s * 9.5, y: -21, r: 18, col: "#ffa040", a: 0.85 }); }
   }
   if (pal) for (const s of [-1, 1]) wallBanner(back, Math.round(s * hw * 1.24), wt + 8, 9, 16, r4 === "aa" ? PALE_W : BLUE, GOLD, 1.5, { device: SUN, deviceY: 4, tail: "point" });
 
@@ -406,7 +406,7 @@ export const build = (o = {}) => (back) => {
   if (r4 === "ba") stable(back, -23, 12, 8, seed);
 
   // ---- the yard: everything stands on open ground in front of the footing
-  if (fire) { campfire(back, FIRE[0], FIRE[1], 12, seed); live.push({ kind: "flame", x: FIRE[0], y: FIRE[1] - 1, w: 6, h: 9 }); lights.push({ key: "torch", x: FIRE[0], y: FIRE[1] - 5, r: 20, col: "#ffa040", a: 0.7 }); }
+  if (fire) { campfire(back, FIRE[0], FIRE[1], 12, seed); live.push({ kind: "flame", x: FIRE[0], y: FIRE[1] - 1, w: 6, h: 9 }); lights.push({ key: "torch", x: FIRE[0], y: FIRE[1] - 5, r: ber ? 22 : 20, col: "#ffa040", a: ber ? 0.9 : 0.7 }); }   // the green path's campfire a touch brighter
   if (r4 === "ba") { trough(back, -24.5, 22.5, 11); hayBale(back, -11, 20.5, 9, 6.5, 10.5); quintain(back, KIT[0], KIT[1], 12); }
   else if (r4 === "bb") { [-18.5, -11, -3.5].forEach((x, i) => pavise(back, x, PAV[1], 12 + i * 0.1, i)); butt(back, KIT[0], KIT[1], 12); }
   else if (ber) rack(back, KIT[0], KIT[1], GREEN, 12);
