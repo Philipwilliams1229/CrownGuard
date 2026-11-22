@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Overhaul concept ROUND 3: LAKES, started over (painter concept/overhaul3-lakes.js, notes concept/overhaul3-lakes.md).
+    /overhaul3-lakes.html?scene=l1_noon,l1_golden,l1_zoom,l1_pond,anim_lake1&save=1   (n = 1..4)
+    /overhaul3-lakes.html?sheet=1&save=1     the contact sheet of the four at board size beside the approved river
+  Saves .shots/ovh3_lakes_<n>_<noon|golden|zoom|pond>.png, .shots/ovh3_anim_lake<n>_c6r5_fps10.png + _still, .shots/ovh3_lakes_sheet.png
+  Resumable: each scene saves on its own; re-run only the missing ones.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul3 lakes</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; image-rendering: pixelated; display:block; margin: 6px 0 }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      const q = new URLSearchParams(location.search);
+      const st = document.getElementById("status");
+      const shot = (name, cv) => fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      const load = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src + "?" + Date.now(); });
+      try {
+        if (q.get("grid")) {
+          // for looking: ?grid=a,b,c&cols=2&w=840 -> .shots/ovh3l_look.png
+          const names = q.get("grid").split(","), cols = +(q.get("cols") || 2), cw = +(q.get("w") || 840);
+          const ims = (await Promise.all(names.map((n) => load(`/.shots/${n}.png`)))).filter(Boolean), ch = Math.round(cw * ims[0].height / ims[0].width);
+          const cv = document.createElement("canvas"); cv.width = cw * cols; cv.height = ch * Math.ceil(ims.length / cols);
+          const c = cv.getContext("2d"); c.imageSmoothingEnabled = q.get("smooth") !== "0";
+          ims.forEach((im, i) => c.drawImage(im, (i % cols) * cw, Math.floor(i / cols) * ch, cw - 2, ch - 2));
+          await shot(q.get("out") || "ovh3l_look", cv); document.title = "DONE";
+        } else if (q.get("sheet")) {
+          // the four lakes at board size (a 420-unit patch at 2 px a unit), and the approved river reaches at the same scale
+          const cv = document.createElement("canvas"); cv.width = 840 * 3 + 16; cv.height = 560 * 2 + 8 + 30;
+          const c = cv.getContext("2d"); c.imageSmoothingEnabled = true; c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height);
+          c.font = "bold 16px monospace"; c.fillStyle = "#f4ead0";
+          const cells = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]];
+          for (let n = 1; n <= 4; n++) {
+            const im = await load(`/.shots/ovh3_lakes_${n}_noon.png`); if (!im) continue; const [cx, cy] = cells[n - 1];
+            c.drawImage(im, cx * 848, 30 + cy * 568, 840, 560);
+          }
+          const rv = [["ovh2_water_wolf_a_cut", 0, 0], ["ovh2_water_wolf_d_reeds", 1, 0], ["ovh2_water_wolf_b_lip", 0, 1], ["ovh2_water_wolf_e_quay", 1, 1]];
+          for (const [nm, i, j] of rv) { const im = await load(`/.shots/${nm}.png`); if (im) c.drawImage(im, 2 * 848 + i * 420, 30 + 568 + j * 280, 420, 280); }
+          for (let n = 1; n <= 4; n++) { const im = await load(`/.shots/ovh3_lakes_${n}_pond.png`); if (im) c.drawImage(im, 848 + ((n - 1) % 2) * 420, 30 + 568 + Math.floor((n - 1) / 2) * 280, 418, 278); }
+          c.fillText("1 the mere  |  2 the tarn  |  3 the millpond          (row 2)  4 the reed fen  |  the same four on a pond board  |  the APPROVED river (cut, reeds, lip, quay), same scale", 8, 20);
+          document.body.appendChild(cv);
+          if (q.get("save") === "1") await shot("ovh3_lakes_sheet", cv);
+          st.textContent = "sheet"; document.title = "DONE";
+        } else {
+          const { runScene } = await import("/concept/overhaul3-lakes.js?v=" + Date.now());
+          for (const n of (q.get("scene") || "").split(",")) {
+            const { canvas, log, anim, still, outs } = await runScene(n, q);
+            if (anim) {
+              const nm = n.replace(/^anim_/, "");
+              const D = outs.map((c) => c.getContext("2d").getImageData(0, 0, c.width, c.height).data), Fn = D.length, N = D[0].length / 4;
+              const same = (a, b, k) => a[k * 4] === b[k * 4] && a[k * 4 + 1] === b[k * 4 + 1] && a[k * 4 + 2] === b[k * 4 + 2];
+              const diff = (a, b) => { let m = 0; for (let k = 0; k < N; k++) if (!same(a, b, k)) m++; return m; };
+              const steps = D.map((d, i) => diff(d, D[(i + 1) % Fn])), wrap = steps[Fn - 1], mean = steps.slice(0, -1).reduce((a, b) => a + b, 0) / (Fn - 1);
+              let shim = 0; for (let k = 0; k < N; k++) if (same(D[0], D[2], k) && same(D[0], D[4], k) && !same(D[0], D[1], k) && same(D[1], D[3], k)) shim++;
+              let changing = 0; for (let k = 0; k < N; k++) { for (let f = 1; f < Fn; f++) if (!same(D[0], D[f], k)) { changing++; break; } }
+              const qs = document.createElement("canvas"), W1 = outs[0].width, H1 = outs[0].height; qs.width = W1 * 4 + 12; qs.height = H1;
+              [0, 1, 2, 3].forEach((i) => qs.getContext("2d").drawImage(outs[Math.round(i * Fn / 4)], i * (W1 + 4), 0));
+              if (q.get("save") === "1") { await shot(`ovh3_anim_${nm}_c${anim.cols}r${anim.rows}_fps${anim.fps}`, canvas); await shot(`ovh3_anim_${nm}_still`, still); await shot(`ovh3l_quarters_${nm}`, qs); }
+              document.body.appendChild(qs);
+              st.textContent += ` | ${n}: ${W1}x${H1} F${Fn}; step mean ${Math.round(mean)} wrap ${wrap} min ${Math.min(...steps)} max ${Math.max(...steps)}; shimmer ${shim}; moving px ${changing}/${N}; ${log.join("; ")}`;
+              continue;
+            }
+            document.body.appendChild(canvas);
+            const m = /^l(\d)_(\w+)$/.exec(n);
+            if (q.get("save") === "1") await shot(`ovh3_lakes_${m[1]}_${m[2]}`, canvas);
+            st.textContent += ` | ${n}: ${log.join("; ")}`;
+          }
+          document.title = "DONE";
+        }
+      } catch (e) { st.textContent = "FAIL " + e.message + " " + e.stack; document.title = "FAIL"; console.error(e); }
+    </script>
+  </body>
+</html>
