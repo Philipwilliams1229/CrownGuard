@@ -36,7 +36,7 @@ const M = () => {
     ochre: mat("#8a4a34"), door: mat("#3e6a66"), doorB: mat("#6a5a3e"),
     moss: mat(mix("#5d8f3a", REALM.GRASS_DK, 0.35), { contrast: 0.8 }), mossL: mat(lighten(mix("#5d8f3a", REALM.GRASS_DK, 0.35), 0.18), { contrast: 0.6 }),
     lichen: ["#b8c494", "#d4bc52", "#c47e46", "#dcdcc0"].map((c) => mat(c, { contrast: 0.5 })),
-    buoy: flat("#e0d8c8"),
+    buoy: flat("#e0d8c8"), lamp: flat("#e2b462"), lampD: flat("#b07a44"), thatchM: mat(mix("#9aa456", REALM.GRASS_DK, 0.3), { contrast: 0.7 }), peat: mat("#5a3e2c", { contrast: 1.1 }), quern: mat("#a29c90", { contrast: 1 }),
   };
   return M_;
 };
@@ -322,6 +322,14 @@ export const millBodyPix = (c, x, y, s, v) => {
     const bx = Math.round(near - side * 0.5 * k - (side < 0 ? 0 : 5 * k));
     beam(b, bx, Math.round(wyr - 3 * k), Math.round(5 * k), Math.round(5 * k), 0.9, m.woodD);
     b.part(); b.rect(bx, Math.round(wyr - 1 * k), Math.round(5 * k), 2, m.iron, 1, { n: [0, 0, 1], noLine: true, cast: 0 });
+    // a spare millstone leant on the wall, its furrows dressed, its eye dark
+    {
+      const qx = side * hw * 0.02, qr = 2.6 * k;
+      b.part(); b.ellipse(qx, -qr * 0.95, qr * 0.92, qr, m.quern, 0.95, { round: 0.95 });
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3; b.toneLine(qx + Math.cos(a) * qr * 0.3, -qr * 0.95 + Math.sin(a) * qr * 0.3, qx + Math.cos(a + 0.4) * qr * 0.8, -qr * 0.95 + Math.sin(a + 0.4) * qr * 0.85, -1); }
+      b.part(); b.ellipse(qx, -qr * 0.95, 1.3, 1.4, m.hole, 1, { round: 0.3, noLine: true, cast: 0 });
+      for (let i = 0; i < 5; i++) b.dot(qx - qr * 0.7 + i, -1 - (i % 2), m.moss, 1.02, { noLine: true, cast: 0 });
+    }
     // the tiled roof: west slope lit, east in shade, courses and staggered joints, ridge, bargeboards
     const rf = gable(b, hw, eave, apex, Dp, m.tile, m.tileE, { over: 3 });
     for (let d = 3; d < Dp; d += 4) {
@@ -333,6 +341,13 @@ export const millBodyPix = (c, x, y, s, v) => {
         const yy = jx < 0 ? rf.lE[1] + (rf.apex[1] - rf.lE[1]) * t - d : rf.apex[1] + (rf.rE[1] - rf.apex[1]) * (jx / (rf.rE[0])) - d;
         b.toneLine(jx, yy + 1, jx, yy + 3, -1);
       }
+    }
+    // moss and lichen low on the tiles, a slipped tile or two
+    for (let i = 0; i < 5; i++) {
+      const lit = i % 2 === 0, [a, e] = lit ? [rf.lE, rf.apex] : [rf.apex, rf.rE], t = lit ? 0.04 + hash(i, 61) * 0.3 : 0.66 + hash(i, 61) * 0.3, d = 1 + Math.floor(hash(i, 67) * Dp * 0.7);
+      const X = a[0] + (e[0] - a[0]) * t, Y = a[1] + (e[1] - a[1]) * t - d;
+      for (let j = 0; j < 6; j++) b.dot(X + Math.round((hash(i, j + 70) - 0.5) * 6), Y + Math.round((hash(i, j + 80) - 0.5) * 2), j < 1 ? m.lichen[1] : j < 3 ? m.mossL : m.moss, 1.35, { noLine: true, cast: 0 });
+      if (i === 1 || i === 4) { b.tone(X + 3, Y - 3, -1); b.tone(X + 4, Y - 3, -1); b.tone(X + 3, Y - 2, -1); }
     }
     spar(b, 0, apex - 2, 0, apex - 2 - Dp, 1.3, 1.4, m.tileD);
     b.toneLine(-1, apex - 3, -1, apex - 2 - Dp, 1);
@@ -385,8 +400,18 @@ export const cottageBodyPix = (c, x, y, s, v) => {
     }
     for (let xx = -hw; xx < hw; xx++) if (hash(xx, 77) < 0.55) b.dot(xx, -1, m.moss, 0.3, { noLine: true, cast: 0 });
     doorPix(b, Math.round(flip * 3.5 * k - 2.5 * k), Math.round(-7.5 * k), Math.round(5 * k), Math.round(7.5 * k), 0.5, m.door);
-    windowPix(b, Math.round(-flip * 5 * k - 1.75 * k), Math.round(-6.5 * k), 7, 6, 0.5, m.door);
+    const wx0 = Math.round(-flip * 5 * k - 1.75 * k), wy0 = Math.round(-6.5 * k);
+    windowPix(b, wx0, wy0, 7, 6, 0.5, m.door);
+    // the hearth's glow in the lower panes (someone is home)
+    for (let yy = wy0 + 4; yy < wy0 + 6; yy++) for (let xx = wx0; xx < wx0 + 7; xx++) if (xx !== wx0 + 3) b.dot(xx, yy, yy === wy0 + 4 ? m.lampD : m.lamp, 0.65, { noLine: true, cast: 0 });
     windowPix(b, -3, Math.round(apex + 3.5 * k), 5, 5, 0.5);
+    // a stack of cut peats against the wall's corner, drying, in staggered courses
+    {
+      const pa = -flip * (hw - 1 * k), pb = -flip * (hw - 5.5 * k), x0 = Math.round(Math.min(pa, pb)), pw = Math.round(Math.abs(pa - pb)), ph = Math.round(3.4 * k);
+      b.part(); b.poly([[x0, 1], [x0 + pw, 1], [x0 + pw - 1, -ph], [x0 + 1, -ph - 1]], m.peat, 0.65, { n: [0, 0.1, 1], round: 0.5 });
+      for (let r = 0, yy = 0; yy > -ph; r++, yy -= 3) { b.toneLine(x0, yy, x0 + pw - 1, yy, -1); for (let xx = x0 + (r % 2 ? 2 : 4); xx < x0 + pw - 1; xx += 4) b.toneLine(xx, yy - 2, xx, yy - 1, -1); b.toneLine(x0 + 1, yy - 2, x0 + pw - 2, yy - 2, 1); }
+      b.part(); b.poly([[x0 - 1, -ph], [x0 + pw + 1, -ph], [x0 + pw - 2, -ph - 2], [x0 + 2, -ph - 3]], m.peat, 0.7, { n: [0, -0.8, 0.6] });
+    }
     // a fish basket by the door
     const bxk = Math.round(flip * (hw / U - 1.5 * s) * U);
     b.part(); b.poly([[bxk - 2.5 * k, -4 * k], [bxk + 2.5 * k, -4 * k], [bxk + 2 * k, 1], [bxk - 2 * k, 1]], m.wicker, 0.6, { round: 0.8 });
@@ -418,6 +443,13 @@ export const cottageBodyPix = (c, x, y, s, v) => {
       for (let yy = ry; yy > ry - D; yy -= 1) if (Math.round(yy) % 3 !== 0) b.dot(ex, yy, m.rope, 1.5, { noLine: true, cast: 0 });
       b.part(); b.ellipse(ex, eave + 4, 1.7, 1.8, m.mason, 1.6, { round: 0.95, cast: 0 });
     }
+    // moss and a few dark wet patches in the old thatch, low on both slopes where it stays damp
+    for (let i = 0; i < 4; i++) {
+      const [a, e] = i % 2 ? [rf.apex, rf.rE] : [rf.lE, rf.apex], t = i % 2 ? 0.55 + hash(sd, i) * 0.35 : 0.1 + hash(sd, i) * 0.35, d = 2 + Math.floor(hash(sd, i + 9) * (D - 6));
+      const X = a[0] + (e[0] - a[0]) * t, Y = a[1] + (e[1] - a[1]) * t - d;
+      b.part(); b.ellipse(X, Y, 2.6, 1.6, m.thatchM, 1.35, { round: 0.9, noLine: true, cast: 0 });
+      b.dot(X - 1, Y - 1, m.mossL, 1.36, { noLine: true, cast: 0 });
+    }
     // a string of cork floats along the eave
     for (let i = 0; i < 5; i++) {
       const u = -0.8 + i * 0.4, fx = u * hw * 0.85, fy = eave + 6 + (1 - u * u) * 2;
@@ -434,19 +466,43 @@ const BOAT_COLS = [
 export const boatPix = (ctx, x, y, s, o) => {
   const m = M(), v = o.v % 4, gy = y + 8 + 6 * s, sd = o.seed, k = U * s;
   if (v === 1) {
-    // a rowboat turned keel-up on two small stones: a tarred dome, lapped strakes, the keel a lit ridge
-    const L = 13.5 * k, H = 5.8 * k, base = -1.2 * k, prof = (u) => base - H * (1 - u * u) * (1 + 0.15 * (1 - u * u));
+    // a clinker rowboat turned keel-up on two stones for the winter: we look down on her tarred bottom (strakes
+    // running fore and aft, closing to the stems), the keel a lit ridge down the middle with a pale new plank
+    // let in, her near side's painted top strake and white rubbing strake low down, the dark gap under her
+    // gunwale where she sits on the stones, and her oars laid on the sand beside her
+    const L = 13.5 * k, H = 2.6 * k, Dp = 5.2 * k, gl = -1.6 * k;
     dapple(ctx, x + 4 * s, gy + 0.6, L / U * 1.3, 2.6 * s, 0.32, sd);
-    const BT = mat("#4a4044", { contrast: 1.15 }), BL = mat("#7a6e72", { contrast: 1.1 });
-    sculpt(ctx, x, gy, Math.ceil(L * 2) + 40, Math.ceil(H * 2) + 40, 14, (b) => {
-      for (const sx of [-0.6, 0.55]) { b.part(); b.ellipse(sx * L, -1, 2.2 * k, 1.3 * k, m.mason, 0, { round: 0.95 }); }
-      const pts = [[-L, base]]; for (let i = 0; i <= 24; i++) { const u = -1 + i / 12; pts.push([u * L, prof(u)]); } pts.push([L, base]);
-      b.part(); b.poly(pts, BT, 0.4, { round: 0.9, ny: -0.25 });
-      for (let q = 1; q <= 3; q++) {
-        for (let i = -23; i <= 23; i++) { const u = i / 24, top = prof(u), yy = top + (base - top) * (q / 4); b.tone(u * L, yy, -1); b.tone(u * L, yy - 1, 1); }
-      }
-      for (let i = -23; i <= 23; i++) { const u = i / 24; b.dot(u * L, prof(u) + 1, BL, 0.8, { wrap: true }); b.dot(u * L, prof(u) + 2, BL, 0.8, { wrap: true }); }
-      for (let i = -22; i <= 22; i++) b.dot(i * L / 24, base - 1, m.ochre, 0.5, { wrap: true });
+    const BT = mat("#4a4246", { contrast: 1.25 }), PNT = mat(hash(sd, 7) < 0.5 ? "#3a6488" : "#4a7a6c", { contrast: 1.05 }), CRM = mat("#e6dcc4", { contrast: 0.8 });
+    const NEW = mat("#b08a5a", { contrast: 0.9 });
+    sculpt(ctx, x, gy, Math.ceil(L * 2) + 50, Math.ceil((H + Dp) * 2) + 44, 16, (b) => {
+      const g = (u) => gl + 2.2 * k * (1 - u * u);                               // her near gunwale on the ground, bulging to us midships
+      const sh = (u) => g(u) - H * (1 - Math.pow(Math.abs(u), 3));             // the near chine, where side meets bottom
+      const kl = (u) => gl - 3.4 * k * Math.pow(1 - u * u, 0.85);               // the keel line, seen from above
+      // the dark gap beneath her and the two stones
+      b.part(); b.ellipse(0, gl + 1, L * 0.8, 0.8 * k, m.hole, 0, { round: 0.2 });
+      for (const sx of [-0.62, 0.58]) { b.part(); b.ellipse(sx * L, gl + 0.6 * k, 2.4 * k, 1.4 * k, m.mason, 0.1, { round: 0.95 }); }
+      const N = 26, U_ = (i) => -1 + (2 * i) / N;
+      // the bottom: the almond between the near chine and the far (beyond the keel)
+      const far = (u) => gl - 5.2 * k * Math.pow(1 - u * u, 0.75);
+      const top = []; for (let i = 0; i <= N; i++) top.push([U_(i) * L, sh(U_(i))]); for (let i = N; i >= 0; i--) top.push([U_(i) * L, far(U_(i))]);
+      b.part(); b.poly(top, BT, 0.5, { n: [-0.1, -0.85, 0.5] });
+      // strake laps on the bottom, closing to the stems; the keel ridge lit, its far side dark; the far half in shade
+      for (const f of [0.3, 0.62, 1.38, 1.7]) for (let i = 1; i < N - 1; i++) { const u = U_(i), u2 = U_(i + 1); b.toneLine(u * L, sh(u) + (kl(u) - sh(u)) * f, u2 * L, sh(u2) + (kl(u2) - sh(u2)) * f, -1); }
+      for (let i = 1; i < N - 1; i++) { const u = U_(i), u2 = U_(i + 1); b.toneLine(u * L, kl(u) + 1, u2 * L, kl(u2) + 1, 1); b.toneLine(u * L, kl(u), u2 * L, kl(u2), 1); b.toneLine(u * L, kl(u) - 1, u2 * L, kl(u2) - 1, -1); b.toneLine(u * L, kl(u) - 2, u2 * L, kl(u2) - 2, -1); }
+      // a new plank let in, still raw
+      const pu0 = 0.05 + hash(sd, 3) * 0.2, pu1 = pu0 + 0.32;
+      for (let i = 0; i <= 8; i++) { const u = pu0 + (pu1 - pu0) * i / 8; b.dot(u * L, sh(u) + (kl(u) - sh(u)) * 0.42, NEW, 0.6, { noLine: true, cast: 0 }); b.dot(u * L, sh(u) + (kl(u) - sh(u)) * 0.42 - 1, NEW, 0.6, { noLine: true, cast: 0 }); }
+      // the near side: the tarred strake, then the painted top strake and the cream rubbing strake at her gunwale
+      const side = (f0, f1, mt, z) => { const pts = []; for (let i = 0; i <= N; i++) { const u = U_(i); pts.push([u * L, sh(u) + (g(u) - sh(u)) * f0]); } for (let i = N; i >= 0; i--) { const u = U_(i); pts.push([u * L, sh(u) + (g(u) - sh(u)) * f1]); } b.part(); b.poly(pts, mt, z, { n: [0, 0.25, 0.97] }); };
+      side(0, 0.45, BT, 0.7); side(0.45, 0.82, PNT, 0.72); side(0.82, 1.0, CRM, 0.74);
+      for (let i = 1; i < N - 1; i++) { const u = U_(i), u2 = U_(i + 1), y0 = sh(u) + 1, y1 = sh(u2) + 1; b.toneLine(u * L, y0, u2 * L, y1, 1); }
+      // the stems: a dark post at bow and stern
+      for (const e of [-1, 1]) { b.part(); b.capsule(e * L, g(e) - 0.5, 1, e * (L - 1.5 * k), kl(e * 0.88) + 1, 1, m.woodD, 0.9, { limb: false, round: 0.7 }); }
+      // an oar laid on the sand at her side
+      spar(b, -L * 0.95, 2.2 * k, L * 0.45, 1.2 * k, 0.8, 1.2, m.woodL);
+      b.part(); b.poly([[L * 0.42, 0.5 * k], [L * 0.78, 0.4 * k], [L * 0.8, 1.9 * k], [L * 0.42, 2.0 * k]], m.woodL, 1.25, { round: 0.6 });
+      // weed and wet sand along her lee
+      for (let i = 0; i < 9; i++) b.dot((hash(sd, 60 + i) - 0.3) * L * 1.4, gl + 1.6 * k + hash(sd, 70 + i) * 2, i % 3 ? m.moss : m.ochre, 0.05, { noLine: true, cast: 0 });
     });
     return;
   }
@@ -594,16 +650,26 @@ export const skepsPix = (ctx, x, y, s, o) => {
 export const haywainPix = (ctx, x, y, s, o) => {
   const m = M(), gy = y + 8, L = 13 * s * U, flip = o.v % 2 ? -1 : 1, k = U * s, sd = o.seed;
   dapple(ctx, x + 5 * s, gy + 0.2, 22 * s, 3 * s, 0.28, sd);
+  // a cart wheel: an iron tyre on an oak felloe (a ring, so what lies behind shows between the spokes), ten
+  // turned spokes, a fat nave with an iron band and the axle's linch-pin; the far pair a tone down
   const wheel = (b, wx, wy, r, z, far) => {
-    b.part(); b.ellipse(wx, wy, r, r, far ? m.wood : m.woodL, z, { round: 0.5 });
-    b.part(); b.ellipse(wx, wy, r - 1.6, r - 1.6, far ? m.wellD : m.wood, z + 0.1, { round: 0.1, noLine: true, cast: 0 });
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.5; b.part(); b.line(wx, wy, wx + Math.cos(a) * (r - 1.5), wy + Math.sin(a) * (r - 1.5), m.woodL, z + 0.2, { noLine: true, cast: 0 }); }
-    b.part(); b.ellipse(wx, wy, 1.6, 1.6, m.woodL, z + 0.3, { round: 0.9, noLine: true, cast: 0 });
-    if (!far) b.toneLine(wx - r + 1, wy - 2, wx - 2, wy - r + 1, 1);
+    const ry = r * 0.94, felloe = far ? m.woodD : m.woodL, tyre = m.iron, N = 30;
+    const P = (a, f) => [wx + Math.cos(a) * r * f, wy + Math.sin(a) * ry * f];
+    b.part();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + 0.2, [ex, ey] = P(a, 0.86); b.capsule(wx, wy, 0.8, ex, ey, 0.55, far ? m.woodD : m.woodL, z, { limb: false, round: 0.7, cast: 0 }); }
+    b.part();
+    for (let i = 0; i < N; i++) { const [ax, ay] = P(i * 2 * Math.PI / N, 0.9), [bx, by] = P((i + 1) * 2 * Math.PI / N, 0.9); b.capsule(ax, ay, 1.1, bx, by, 1.1, felloe, z + 0.1, { limb: false, round: 0.8 }); }
+    b.part();
+    for (let i = 0; i < N; i++) { const [ax, ay] = P(i * 2 * Math.PI / N, 1.02), [bx, by] = P((i + 1) * 2 * Math.PI / N, 1.02); b.capsule(ax, ay, 0.7, bx, by, 0.7, tyre, z + 0.15, { limb: false, round: 0.8 }); }
+    b.part(); b.ellipse(wx, wy, 2.4, 2.3, far ? m.wood : m.woodL, z + 0.3, { round: 0.95 });
+    b.part(); b.ellipse(wx, wy, 1.2, 1.2, tyre, z + 0.4, { round: 0.95, noLine: true, cast: 0 });
+    if (!far) for (let i = 0; i < 5; i++) { const [lx, ly] = P(Math.PI * (1.05 + i * 0.09), 0.9); b.tone(lx, ly, 1); }
   };
   sculpt(ctx, x, gy, Math.ceil(L * 2 + 70 * k * 0.5) + 100, Math.ceil(30 * k) + 40, 12, (b) => {
     const wxL = -L + 4 * k, wxR = L - 4 * k;
-    wheel(b, wxL, -4.5 * k, 4.4 * k, 0.1, true); wheel(b, wxR, -4.5 * k, 4.4 * k, 0.1, true);
+    b.part(); b.rect(-L + 2, -6 * k, L * 2 - 4, 3 * k, m.hole, 0.02, { n: [0, 0, 1], cast: 0 });       // the shade under her bed
+    wheel(b, wxL + 0.6 * k, -6.2 * k, 4.6 * k, 0.1, true); wheel(b, wxR + 0.6 * k, -6.2 * k, 4.6 * k, 0.1, true);
+    beam(b, -L + 3, -5 * k - 1, L * 2 - 6, 3, 0.4, m.woodD);                                         // the axle-tree
     spar(b, flip * (L - 2), -6 * k, flip * (L + 11 * k), -1, 1.3 * k * 0.8, 0.5, m.wood);        // the shaft
     // the bed's side: planks and staves
     b.part(); b.rect(-L, -10 * k, L * 2, 6 * k, m.wood, 0.6, { n: [0, 0, 1] });
@@ -625,7 +691,7 @@ export const haywainPix = (ctx, x, y, s, o) => {
     spar(b, fx, -18.5 * k, fx + flip * 1, -25 * k, 0.9, 1.5, m.woodL);
     for (const dx of [-2, 0, 2]) b.dot(fx + dx, -18 * k + 1, m.iron, 1.6, { noLine: true, cast: 0 });
     b.part(); b.rect(fx - 2, -18.5 * k, 5, 1, m.iron, 1.6, { n: [0, 0, 1], noLine: true, cast: 0 });
-    wheel(b, wxL, -4 * k, 5 * k, 2, false); wheel(b, wxR, -4 * k, 5 * k, 2, false);
+    wheel(b, wxL, -4.6 * k, 5.2 * k, 2, false); wheel(b, wxR, -4.6 * k, 5.2 * k, 2, false);
   });
 };
 

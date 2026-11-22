@@ -30,6 +30,10 @@ import {
   lighten, darken, mix, rgba, soft, shadow as softShadow, blobPath, ball, hash, ellipse, bakeSprite, part as plainPart, PX,
 } from "./paint.js";
 import { REALM } from "../data/maps.js";
+import { RES } from "../data/constants.js";
+import { onDay } from "../data/sun.js";
+import { Pix, mat, toCanvas } from "./pix/pix.js";
+import { decorSun, sunKey } from "./scenery-gwpix.js";
 import { tintRing, tintedPart, baking } from "./scenery-gwpix.js";
 import {
   menhirPix, stonefallPix, trilithonPix, millBodyPix, cottageBodyPix, boatPix, netrackPix, creelsPix, skepsPix, haywainPix, marramPix, thistlePix, pixBody, stampPixBody,
@@ -63,59 +67,79 @@ const sluiceAt = (wx, wy, s, side) => {
   const cx = wx + side * 3.5 * s, cy = wy - 17 * s, nx = -side * 7.5 * s, ny = -1.2 * s;
   return { cx, cy, a: [cx + nx, cy + ny], b: [cx - nx, cy - ny] };
 };
-// The wheel, live: an oak rim seen slanting (its face turned to the race),
-// twelve paddles, spokes to an iron-bound hub on the axle that runs into the
-// mill's bearing block. Below the race's surface nothing of it is drawn (the
-// race's own water shows there); along the surface the paddles churn foam,
-// and a white wake runs off downstream with the current.
+// The wheel: an oak rim seen slanting (its face turned to the race), twelve paddles between a near and a
+// far rim, six spokes to an iron-bound hub on the axle that runs into the mill's bearing block. SCULPTED
+// (pix) and baked as WHEEL_N frames of one sixth of a turn (six spokes: the picture repeats), cut along
+// the race's surface (nothing of it shows below the water). A frame blits one canvas; only the churn,
+// drips, spray and wake are live specks.
 const FOAM = ["#f4f8f4", "#d8ecee", "#b0d0dc"];
+const WHEEL_N = 12;
+const WHEELS = new Map();
+onDay(() => WHEELS.clear());
+const wheelFrames = (s, v) => {
+  const k = `${s}|${v}${sunKey()}`;
+  let F = WHEELS.get(k);
+  if (F) return F;
+  const t0 = performance.now(), U = RES, side = v % 2 ? 1 : -1, m = wheelMats();
+  const R = MILL.R * s * U, rx = R * MILL.rx, Wd = side * 2.6 * s * U, wl = Math.round(R * 0.46);
+  const w = Math.ceil((rx + Math.abs(Wd) + 12) * 2) + 2 * Math.ceil(rx + 4 * s * U), h = Math.ceil(R * 2 + 16);
+  F = [];
+  for (let f = 0; f < WHEEL_N; f++) {
+    const turn = side * f * (Math.PI / 3) / WHEEL_N;
+    const b = new Pix(w, h, w >> 1, h >> 1);
+    const P = (a, r, dx = 0) => [dx + Math.cos(a) * rx * r, Math.sin(a) * R * r];
+    // the axle: from the hub into the bearing block in the wall
+    b.part(); b.rect(-side > 0 ? 0 : -(rx + 4 * s * U), -2, rx + 4 * s * U, 4, m.axle, 0.1, { n: [0, -0.5, 0.86] });
+    // the far rim
+    b.part();
+    for (let i = 0; i < 36; i++) { const [ax, ay] = P(i * Math.PI / 18, 1, Wd), [bx, by] = P((i + 1) * Math.PI / 18, 1, Wd); b.capsule(ax, ay, 1.3, bx, by, 1.3, m.rimD, 0.2, { limb: false, round: 0.7 }); }
+    // the far spokes (a tone down) and the near ones
+    for (let q = 0; q < 6; q++) {
+      const a = turn + q * Math.PI / 3, [ex, ey] = P(a, 0.93, Wd), [nx, ny] = P(a, 0.93);
+      b.part(); b.capsule(Wd * 0.6, 0, 1, ex, ey, 0.8, m.rimD, 0.3, { limb: false, round: 0.6 });
+      b.part(); b.capsule(0, 0, 1.3, nx, ny, 1, m.spoke, 0.7, { limb: false, round: 0.8 });
+    }
+    // the paddles: boards from the near rim to the far, standing out past both
+    for (let q = 0; q < 12; q++) {
+      const a = turn + q * Math.PI / 6, c = Math.cos(a), sn = Math.sin(a);
+      const pts = [P(a, 0.9), P(a, 1.16), P(a, 1.16, Wd), P(a, 0.9, Wd)];
+      b.part(); b.poly(pts, q % 4 === 1 ? m.padW : m.pad, 0.5 + (side * c > 0 ? 0 : 0.1), { n: [c * 0.75, sn * 0.75, 0.6] });
+    }
+    // the near rim: an oak felloe with an iron hoop, and the iron-bound hub
+    b.part();
+    for (let i = 0; i < 36; i++) { const [ax, ay] = P(i * Math.PI / 18, 1), [bx, by] = P((i + 1) * Math.PI / 18, 1); b.capsule(ax, ay, 1.6, bx, by, 1.6, m.rim, 0.9, { limb: false, round: 0.8 }); }
+    for (let i = 0; i < 36; i += 2) { const [ax, ay] = P(i * Math.PI / 18, 1.04); b.dot(ax, ay, m.hoop, 0.95, { noLine: true, cast: 0 }); }
+    b.part(); b.ellipse(0, 0, 2.6 * s * U * 0.6, 2.6 * s * U, m.rim, 1, { round: 0.95 });
+    b.part(); b.ellipse(0, 0, 1.4 * s * U * 0.6, 1.4 * s * U, m.hoop, 1.1, { round: 0.95 });
+    const img = b.resolve({ line: "tint", sun: decorSun() }), cv = toCanvas(img), c = cv.getContext("2d");
+    // cut along the race's surface (a few pixels ragged; the live churn hides the line)
+    for (let x = 0; x < img.w; x++) { const cy = img.oy + wl - (hash(x, 5) < 0.35 ? 1 : 0); c.clearRect(x, cy, 1, img.h); }
+    F.push({ cv, ox: img.ox, oy: img.oy, w: img.w, h: img.h });
+  }
+  F.ms = performance.now() - t0;
+  WHEELS.set(k, F);
+  return F;
+};
+let WM = null;
+const wheelMats = () => WM || (WM = {
+  rim: mat(OAK, { contrast: 1.1 }), rimD: mat(WOOD_DK, { contrast: 0.9 }), spoke: mat(WOOD, { contrast: 1.05 }), axle: mat(WOOD_DK),
+  pad: mat("#7c5a3a", { contrast: 1.15 }), padW: mat("#6a5a48", { contrast: 1.1 }), hoop: mat("#4a4e5a", { contrast: 0.9 }),
+});
 const millWheel = (ctx, x, y, s, v, time) => {
   const side = v % 2 ? 1 : -1;
   const [wx, wy] = wheelAt(x, y, s, v);
   const R = MILL.R * s, rx = R * MILL.rx, ry = R, wl = waterAt(y, s);
-  const turn = time * 0.9 * side;
-  const pt = (a, r = 1) => [wx + Math.cos(a) * rx * r, wy + Math.sin(a) * ry * r];
-  ctx.save();
-  // (cut along a moving, broken surface, never a ruled line)
-  ctx.beginPath(); ctx.moveTo(wx - rx - 8, wy - ry - 8); ctx.lineTo(wx + rx + 8, wy - ry - 8);
-  for (let px = wx + rx + 8; px >= wx - rx - 8; px -= 0.5) ctx.lineTo(px, wl + Math.sin(px * 1.7 + time * 5) * 0.5 + Math.sin(px * 0.6 - time * 3) * 0.5);
-  ctx.closePath(); ctx.clip();
-  // its shadow on the footing and the wall behind it, thrown down-right
-  ctx.fillStyle = "rgba(28,20,30,0.22)"; ellipse(ctx, wx + 2.5, wy + 1.5, rx + 1, ry); ctx.fill();
-  // the axle: from the hub into the bearing block in the wall
-  ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(Math.min(wx, wx - side * (rx + 3))), ap(wy - 1.25), rx + 3, 2.5);
-  ctx.fillStyle = WOOD; ctx.fillRect(ap(Math.min(wx, wx - side * (rx + 3))), ap(wy - 1.25), rx + 3, 0.5);
-  // the far rim, then the spokes, then the paddles and the near rim
-  ctx.lineCap = "round";
-  ctx.strokeStyle = WOOD_DK; ctx.lineWidth = 1.5;
-  ellipse(ctx, wx + side * 1.6, wy, rx, ry); ctx.stroke();
-  for (let k = 0; k < 6; k++) {
-    const a = turn + k * Math.PI / 3, [ex, ey] = pt(a, 0.92);
-    ctx.strokeStyle = Math.sin(a) < 0 ? OAK : WOOD; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(ap(wx), ap(wy)); ctx.lineTo(ap(ex), ap(ey)); ctx.stroke();
+  const F = wheelFrames(s, v), q = 1 / RES;
+  const fr = F[Math.floor((((time * 0.9) % (Math.PI / 3)) + Math.PI / 3) % (Math.PI / 3) / (Math.PI / 3) * WHEEL_N) % WHEEL_N];
+  ctx.drawImage(fr.cv, wx - fr.ox * q, wy - fr.oy * q, fr.w * q, fr.h * q);
+  // water pouring off the paddles as they climb out of the race: short broken streams
+  for (let k = 0; k < 5; k++) {
+    const ph = (time * 1.6 + k / 5) % 1, u = 0.35 + 0.13 * k;
+    const dx = wx - side * rx * u * 1.05 + (k % 2) * 0.5, top = wy + ry * (0.15 + 0.12 * k) - 4;
+    const dy = top + ph * (wl - top);
+    ctx.fillStyle = rgba(k % 2 ? "#e4f0f2" : "#b8d4e0", 0.85 - ph * 0.45); ctx.fillRect(ap(dx), ap(dy), 0.5, 1.5);
+    if (ph > 0.6) { ctx.fillStyle = rgba("#f4f8f4", 0.7); ctx.fillRect(ap(dx - 0.5), ap(wl - 0.5), 1.5, 0.5); }
   }
-  for (let k = 0; k < 12; k++) {
-    const a = turn + k * Math.PI / 6, [ex, ey] = pt(a, 1);
-    const lit = Math.cos(a) * -side > -0.2 && Math.sin(a) < 0.3;
-    ctx.fillStyle = lit ? WOOD_LT : WOOD;
-    ctx.fillRect(ap(ex + (side < 0 ? 0 : -1.5)), ap(ey - 1), 2, 2);
-    ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(ex + side * 1.5 + (side < 0 ? 0 : -1.5)), ap(ey - 0.5), 1, 1.5);
-  }
-  ctx.strokeStyle = OAK; ctx.lineWidth = 1.5;
-  ellipse(ctx, wx, wy, rx, ry); ctx.stroke();
-  ctx.strokeStyle = lighten(OAK, 0.3); ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.ellipse(wx, wy, rx - 0.5, ry - 0.5, 0, Math.PI * 0.95, Math.PI * 1.6); ctx.stroke();
-  ctx.strokeStyle = "#241a26"; ctx.lineWidth = 0.5;
-  ellipse(ctx, wx, wy, rx + 1, ry + 1); ctx.stroke();
-  ball(ctx, wx, wy, 2, 2.3, WOOD, { hi: 0.4, lo: 0.4 });
-  ctx.fillStyle = IRON; ctx.fillRect(ap(wx - 0.5), ap(wy - 0.5), 1, 1);
-  // drips off the paddles rising out of the water
-  for (let k = 0; k < 4; k++) {
-    const ph = (time * 1.4 + k / 4) % 1;
-    const dx = wx + side * -(rx * (0.55 + 0.1 * k)), dy = wy + ry * 0.1 + ph * (wl - wy - ry * 0.1);
-    ctx.fillStyle = rgba("#dcecf0", 0.8 - ph * 0.5); ctx.fillRect(ap(dx), ap(dy), 0.5, 1);
-  }
-  ctx.restore();
   // the churn along the surface where the paddles bite: soft broken foam in
   // the water's own light tones, thickest on the downstream side
   for (let i = 0; i < 22; i++) {
@@ -158,14 +182,40 @@ const watermill = (ctx, x, y, s, o) => {
 // A fisher's cottage: low limewashed walls, a deep thatch held down by ropes
 // weighted with stones, a chimney at the back with peat smoke (live).
 const COT = { hw: 12.5, wall: 9, apex: 8.5, D: 13 };
-// peat smoke: a few soft puffs climbing from the chimney, drifting east and thinning
-const smoke = (ctx, x, y, time, k = 1) => {
-  for (let i = 0; i < 4; i++) {
-    const ph = (time * 0.22 + i / 4 + x * 0.013) % 1;
-    const px = x + ph * 9 + Math.sin(time * 0.9 + i * 2) * 1.2, py = y - ph * 16;
-    ctx.fillStyle = rgba(ph < 0.3 ? "#9a948c" : "#c8c4bc", (1 - ph) * 0.42 * k);
-    ellipse(ctx, ap(px), ap(py), 1.4 + ph * 2.6, 1.1 + ph * 1.8); ctx.fill();
+// peat smoke: puffs climbing from the chimney, drifting east, swelling and thinning. Each puff is a baked
+// pixel cluster (lit top-left, a shaded underside, a ragged rim: never a soft disc) in five sizes.
+const PUFFS = [];
+onDay(() => { PUFFS.length = 0; });
+const puff = (i) => {
+  if (PUFFS[i]) return PUFFS[i];
+  const r = 3 + i * 1.6, n = Math.ceil(r * 2 + 4), cv = document.createElement("canvas");
+  cv.width = n; cv.height = n;
+  const c = cv.getContext("2d"), o = n / 2;
+  const cols = ["#ece8e0", "#d2cec6", "#aaa49c", "#8c8680"];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dx = x + 0.5 - o, dy = (y + 0.5 - o) * 1.15, d = Math.hypot(dx, dy) / r;
+    // three lobes make a billow, not a ball
+    const l2 = Math.hypot(dx + r * 0.45, dy + r * 0.2) / (r * 0.7), l3 = Math.hypot(dx - r * 0.4, dy + r * 0.3) / (r * 0.65);
+    const e = Math.min(d, l2, l3) + (hash(x + i * 17, y) - 0.5) * 0.22;
+    if (e > 1) continue;
+    const lit = (-dx * 0.55 - dy * 0.8) / r;                // the sun's side of the billow
+    let t = lit > 0.35 ? 0 : lit > -0.15 ? 1 : lit > -0.55 ? 2 : 3;
+    if (e > 0.82 && t < 2 && (x + y) % 2) t++;             // a dithered rim
+    c.fillStyle = cols[t]; c.fillRect(x, y, 1, 1);
   }
+  PUFFS[i] = cv;
+  return cv;
+};
+const smoke = (ctx, x, y, time, k = 1) => {
+  const q = 1 / RES, was = ctx.globalAlpha;
+  for (let i = 0; i < 5; i++) {
+    const ph = (time * 0.2 + i / 5 + x * 0.013) % 1;
+    const px = x + ph * ph * 11 + Math.sin(time * 0.8 + i * 2.1) * 1.1 * ph, py = y - ph * 17;
+    const cv = puff(Math.min(4, Math.floor(ph * 5)));
+    ctx.globalAlpha = was * k * (ph < 0.12 ? ph / 0.12 : 1) * (1 - ph) * 0.9;
+    ctx.drawImage(cv, ap(px - cv.width * q / 2), ap(py - cv.height * q / 2), cv.width * q, cv.height * q);
+  }
+  ctx.globalAlpha = was;
 };
 const cottage = (ctx, x, y, s, o) => {
   const v = o.v % 2;
