@@ -1078,6 +1078,11 @@ overhaul, show bold options before building.
   river painter itself so lake water IS river water): the mere, the tarn and the reed fen are APPROVED, to be varied across
   the maps; the millpond is rejected. Farmland: bigger, calmer plots on Bramblewick and Millrace and a minimum size for any
   cultivated field (in progress). Terraces are parked (wishlist).
+  **The CURRENT concept page is round 3** (owner: round 2 "is getting very full"): private Artifact "Crownguard Overhaul
+  Concepts, Round 3: the Greenwood" (slug e7d2c8a3-8ec4-457b-82a0-47b329aa8a92; `scratchpad/overhaul-page3/`): only the
+  current version of each thing, a status table, the four questions waiting on the owner (willow reading, tree-mix reading,
+  farmland calm, chapel / wall redraws), stills and playing loops together. Over ~64 MB a publish must be split in two
+  calls (stills first, then the loop sheets with slug + base_version). New owner comments go there.
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
