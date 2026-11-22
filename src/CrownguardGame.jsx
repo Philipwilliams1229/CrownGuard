@@ -617,11 +617,10 @@ export default function Crownguard() {
     initGame();
     let raf, last = performance.now();
     // Pacing (2026-11-22, owner: the phone "got so hot"). The screen asks for a frame as often as it
-    // refreshes, 120 times a second on a ProMotion iPhone; the game answers `prefs.fps` times (24, 30
-    // or 60: Settings, Display, "Frames a second"). The engine takes the real time between the frames
+    // refreshes, 120 times a second on a ProMotion iPhone; the game answers `prefs.fps` times (60, or
+    // 30 with Power saver: Settings, Display). The engine takes the real time between the frames
     // it does run, so the game's speed never changes. A frame is DUE every 1000 / fps ms on a clock of
-    // its own (`due`), so a rate the screen can't divide evenly (24 on a 60 Hz screen) still averages
-    // true, alternating two and three refreshes. And the board is only REPAINTED when it can have changed:
+    // its own (`due`), so a rate the screen can't divide evenly still averages true. And the board is only REPAINTED when it can have changed:
     //   paused       g.time stands still, so the picture does too: 4 a second, at once on any touch
     //   a quiet build phase (no foes, no shots, nothing touched for 1.5 s): 30 a second at most
     const SAVER = 1000 / 30, SLACK = 3, STILL = 250, CALM_MS = 1500;

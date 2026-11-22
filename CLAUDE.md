@@ -2142,11 +2142,11 @@ sprite stamps; 145 foes 5.7 -> 2.5 ms; pixels painted a frame ~22 -> ~17.6 milli
 1.9 million). Not yet measured or seen on a phone. Pending the owner's playtest on their iPhone. (It was built
 in a worktree and pushed straight to origin/main, so the Desktop folder's own main was left behind.)
 - **Pacing** (CrownguardGame.jsx, the main loop's header): the battle is drawn `prefs.fps` times a
-  second, **24, 30 or 60** (owner, same day: "do we even need to be drawing at 60fps? ... let me
-  see an option for 24"; Settings, Display, "Frames a second"; `FPS_CHOICES` in prefs.js; default
-  60 until the owner picks; it replaced a Battery saver switch, whose saved `saver: true` loads
-  as 30). Frames come due on a clock of their own, so 24 on a 60 Hz screen averages true (two and
-  three refreshes in turn). **The frame counter** (`prefs.showFps`, default ON while the owner
+  second: **60 normally, 30 with Power saver** (Settings, Display; owner, same day, after trying a
+  24 / 30 / 60 selector: "drop the 24 option. 60 normal and 30 on power saver", and no jump to 60
+  while a hall is dragged at 30: "i dont think its that big of a deal"; `FPS_CHOICES` in prefs.js;
+  a saved 24 or an old `saver: true` loads as 30). Frames come due on a clock of their own, so any
+  rate a screen can't divide evenly still averages true. **The frame counter** (`prefs.showFps`, default ON while the owner
   tests; turn the default off before publishing to the App Store): a small bright green number in
   the screen's upper right corner in a battle, frames painted in the last second (it reads 4 when
   paused and 30 in a quiet build phase: that is the saving, not a fault). The engine takes the real
