@@ -85,9 +85,16 @@ and REPORT it; otherwise ask the lead in your report.
 
 ## STATUS (the lead keeps this current)
 
-- DONE: the sun's core (`data/sun.js`), the sculptor reading it, the lab page, the seam and stubs,
-  the first level plan (`SUN_PLAN`).
-- RUNNING (2026-11-22, night): the four agents above.
-- LEFT: review each agent's shots; Free Play choice of sun; the level card naming the hour;
-  a preview page of all seven for the owner; guides (CLAUDE.md, STYLE-GUIDE.md); commit.
+- DONE and committed: the sun's core (`data/sun.js`), the sculptor reading it, the lab page, the seam,
+  the first level plan (`SUN_PLAN`), the level card's hour, Free Play's "Time of day" chips; the
+  SHADOWS agent (dayshadows.js, sunset.js generalised); the CASTLE agent's first pass (castle.js);
+  the COLOUR agent (daygrade.js; `GRADE` holds its dials).
+- RUNNING (2026-11-22, night): the SCENERY agent (trees, rocks, props, apron; uncommitted edits in
+  scenery*.js, world.js, sceneryday.js, pix/vale-pix.js, pix/iron-works.js); the castle agent's
+  polish pass (the sunrise ground shadow's skyline, a stronger golden glow).
+- LEFT: commit those two when they report (node --check, look at the shots); apron hooks
+  (`dayGradeRect` in apron.js paintApron + `DAY.v` in its key; clear apron `RUNS` on `onDay`) if the
+  scenery agent did not do them; a full build check (`npx vite build --outDir <scratch dir>`); the
+  sims still run (`node scripts/sim.mjs --level gw1`); a preview for the owner of all seven suns;
+  guides (CLAUDE.md, STYLE-GUIDE.md); final commit.
 - Pushing to GitHub: NOT approved yet (the owner has not seen it). Commit locally only.
