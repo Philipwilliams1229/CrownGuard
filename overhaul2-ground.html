@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+  Overhaul ROUND 2: the Greenwood ground (art/briefs/overhaul-round2.md; painter concept/overhaul2-ground.js).
+  The REAL board through draw(): the engine bakes its ground, the painter repaints the land and the lane in
+  that very layer (keeping the water, banks, wood, castle and the road's surface), then draw() lays the
+  game's own trees, halls, bridges and figures on top. Saves .shots/ovh2_ground_<scene>_<option>.png
+  (1680 x 1120 = the whole board, one art pixel to a pixel).
+    /overhaul2-ground.html               every panel
+    /overhaul2-ground.html?only=meadow_2,sheet
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul2 ground</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; display: block; margin: 6px 0; } h3 { margin: 14px 0 2px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR } from "/src/data/terrain.js";
+      import { repaint, farmPlan } from "/concept/overhaul2-ground.js";
+      const q = new URLSearchParams(location.search), only = q.get("only")?.split(",");
+      const want = (n) => !only || only.includes(n);
+      const st = document.getElementById("status"), LOG = [];
+      const save = async (name, cv) => { await fetch(`/__shot?name=ovh2_ground_${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) }); };
+      const show = (title, cv) => { const h = document.createElement("h3"); h.textContent = title; document.body.append(h, cv); };
+
+      // halls by road fraction (a spot found beside the road), or at a fixed [x, y]
+      const SCENES = {
+        thornbrook: { towers: [["archer", 0.22, 3], ["wizard", 0.62, 2], ["knight", 0.38, 2]] },
+        greenwood: { towers: [["archer", 0.25, 3], ["wizard", 0.6, 2]] },
+        gullwick: { towers: [["archer", 0.3, 3], ["knight", 0.55, 2]] },
+        millrace: { towers: [["archer", 0.28, 3], ["wizard", 0.6, 2]] },
+        thistlecrag: { towers: [["archer", 0.3, 3], ["wizard", [372, 322], 2]] },
+        kingstones: { towers: [["archer", 0.3, 3], ["wizard", 0.6, 2]] },
+      };
+      const board = (realm, sun, plan) => {
+        // flush the cached ground (another realm), so this board bakes fresh
+        setDay("noon"); selectRealm(realm === "ironford" ? "thornbrook" : "ironford"); groundLayer();
+        selectRealm(realm); selectFaction("greenwood"); setWaveWindow(null); setLevelWeather(null);
+        const g = { run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 5, phase: "build", towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false, selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true };
+        for (const [kd, at, lv] of SCENES[realm].towers) {
+          let spot = null;
+          if (Array.isArray(at)) { for (let r = 0; r < 40 && !spot; r += 2) for (let a = 0; a < 6.3 && !spot; a += 0.4) { const x = at[0] + Math.cos(a) * r, y = at[1] + Math.sin(a) * r * 0.6; if (buildableAt(g, x, y, kd)) spot = [x, y]; } } else {
+            const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+            for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) { const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s; if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; } }
+          }
+          if (!spot) continue;
+          placeTower(g, kd, spot[0], spot[1]); const t = g.towers[g.towers.length - 1]; for (let l = 1; l < lv; l++) upgradeTower(g, t); t.readyAt = 0; t.raised = null;
+        }
+        if (plan) for (const tr of plan(g)) DECOR.push(tr);
+        for (let i = 0; i < 30; i++) updateGame(g, 1 / 60);
+        startWave(g);
+        for (let el = 0; el < 11; el += 1 / 60) { updateGame(g, 1 / 60); g.lives = 9999; if (g.phase !== "combat") startWave(g); }
+        return g;
+      };
+      const panel = async (name, realm, look, o = {}, sun = "noon") => {
+        const g = board(realm, sun, look === "farm" ? (g) => { if (o.cropAtHall != null && g.towers[o.cropAtHall]) { const t = g.towers[o.cropAtHall]; o = { ...o, fields: [["crop", t.x, t.y - 24], ...(o.fields || [])] }; } return farmPlan(o, g); } : null);
+        const L0 = groundLayer();
+        const noon = L0.getContext("2d").getImageData(0, 0, L0.width, L0.height);
+        let gold = null;
+        if (sun !== "noon") { setDay(sun); const L1 = groundLayer(); gold = L1.getContext("2d").getImageData(0, 0, L1.width, L1.height); }
+        let info = "";
+        if (look !== "today") { const r = repaint(groundLayer(), noon, gold, look, o, g); info = `${r.ms} ms (board masks ${r.boardMs}) ${r.log.join(", ")}`; }
+        const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+        draw(g, cv, { current: null }); draw(g, cv, { current: null });
+        await save(name, cv);
+        sessionStorage.setItem("ovh2log", (sessionStorage.getItem("ovh2log") || "") + `\n${name}: ${info}`);
+        LOG.push(`${name}: ${info} | halls ${g.towers.map((t) => t.kind + "@" + Math.round(t.x) + "," + Math.round(t.y)).join(" ")}`);
+        show(name + "  " + info, cv);
+        return cv;
+      };
+      const FARM_P = { v: "patch", cropAtHall: 0, trackAt: [92, 296], fields: [["orchard", 140, 215], ["crop", 520, 60], ["pasture", 640, 300]] };
+      const FARM_Q = { v: "quiet", trackAt: [92, 296], fields: [["orchard", 140, 215], ["hay", 520, 60], ["pasture", 640, 300]] };
+      const P = [
+        ["meadow_today", "thornbrook", "today"],
+        ["meadow_1", "thornbrook", "meadow", { k: 1 }],
+        ["meadow_2", "thornbrook", "meadow", { k: 2, standAtHall: 1 }],
+        ["meadow_3", "thornbrook", "meadow", { k: 3, standAtHall: 1 }],
+        ["meadow_2autumn", "thornbrook", "meadow", { k: 2, standAtHall: 1, season: "autumn" }],
+        ["terrace_today", "thistlecrag", "today"],
+        ["terrace_banks", "thistlecrag", "terrace", { v: "banks" }],
+        ["terrace_steps", "thistlecrag", "terrace", { v: "steps" }],
+        ["terrace_stepsgold", "thistlecrag", "terrace", { v: "steps" }, "golden"],
+        ["farm_today", "millrace", "today"],
+        ["farm_quiet", "millrace", "farm", FARM_Q],
+        ["farm_patch", "millrace", "farm", FARM_P],
+        ["farm_patchgold", "millrace", "farm", FARM_P, "golden"],
+        ["farm_autumn", "millrace", "farm", { ...FARM_P, season: "autumn" }],
+        ["sheet_greenwood", "greenwood", "meadow", { k: 2 }],
+        ["sheet_gullwick", "gullwick", "farm", { v: "quiet", seed: 3 }],
+        ["sheet_kingstones", "kingstones", "downs", {}],
+      ];
+      // the contact sheet: five Greenwood boards at board size (840 wide), dealt out as the chapter would
+      const PLAN = [
+        "1  The Vale Road (gw1) .......... everyday meadow, middle",
+        "2  Thornbrook Ford (gw2) ........ everyday meadow, middle, by the brook",
+        "3  Gullwick Sands ............... farmed strand: quiet pasture and hay to the sand",
+        "4  Millrace ..................... worked countryside, full patchwork round the mill",
+        "5  Foxmere ...................... everyday meadow, richer: damp hollows by the mere",
+        "6  Oakmere Hollow (gw3) ......... gentle rolling banks round the hollow",
+        "7  Bramblewick .................. quiet countryside: hamlet hedges and an orchard",
+        "8  The Barrowfields (gw4) ....... open downland, the barrows on the rises",
+        "9  Wolfrun Ford ................. everyday meadow, calm: wild, bracken at the wood's edge",
+        "10 Thistlecrag .................. bold stepped terraces among the crags",
+        "11 The Kingstones ............... open downland with the standing stones",
+        "12 Ravenscar .................... stepped terraces and scarps",
+        "13 Blackbriar ................... everyday meadow, richer: overgrown, briar and tall grass",
+        "14 Cinderholt ................... countryside in autumn: plough and stubble, burnt edges",
+        "15 The Goblin Warrens (gw5) ..... rolling banks, trampled, at golden hour",
+      ];
+      const img = (n) => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = `/.shots/ovh2_ground_${n}.png?t=${Date.now()}`; });
+      const tile = (c, im, x, y, label) => {
+        c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+        c.drawImage(im, x, y, 840, 560);
+        c.fillStyle = "rgba(20,24,32,0.82)"; c.fillRect(x, y, 840, 26);
+        c.fillStyle = "#f0e6c8"; c.font = "bold 15px monospace"; c.fillText(label, x + 10, y + 18);
+      };
+      const sheet = async () => {
+        const A = [["sheet_greenwood", "1 The Vale Road: everyday meadow"], ["sheet_gullwick", "3 Gullwick Sands: farmed strand (quiet)"], ["farm_patch", "4 Millrace: worked countryside (patchwork)"], ["terrace_steps", "10 Thistlecrag: stepped terraces"]];
+        const c1 = document.createElement("canvas"); c1.width = 1680; c1.height = 1120; const x1 = c1.getContext("2d");
+        for (let k = 0; k < 4; k++) tile(x1, await img(A[k][0]), (k % 2) * 840, Math.floor(k / 2) * 560, A[k][1]);
+        await save("sheet_1", c1); show("sheet_1", c1);
+        const c2 = document.createElement("canvas"); c2.width = 1680; c2.height = 1120; const x2 = c2.getContext("2d");
+        x2.fillStyle = "#20242c"; x2.fillRect(0, 0, 1680, 1120);
+        tile(x2, await img("sheet_kingstones"), 0, 0, "11 The Kingstones: open downland");
+        tile(x2, await img("terrace_banks"), 0, 560, "6 Oakmere / 15 Warrens: rolling banks (shown on Thistlecrag)");
+        x2.fillStyle = "#f0e6c8"; x2.font = "bold 20px monospace"; x2.fillText("The Greenwood's fifteen levels: the family dealt out", 870, 44);
+        x2.font = "15px monospace";
+        PLAN.forEach((l, i) => x2.fillText(l, 870, 92 + i * 30));
+        x2.fillStyle = "#b8b098"; x2.font = "14px monospace";
+        ["Meadow 5, countryside 4, terraces / banks 4, downland 2 (Barrowfields, Kingstones)", "Never two neighbours alike; the seasons (the trees artist's spring /", "summer / autumn / winter) ride on top (autumn panels: meadow_2autumn, farm_autumn)."].forEach((l, i) => x2.fillText(l, 870, 580 + i * 24));
+        await save("sheet_2", c2); show("sheet_2", c2);
+      };
+      try {
+        // a page reload (another session's edit makes the dev server reload every page) resumes where it stopped
+        const KEY = "ovh2g:" + location.search, done = JSON.parse(sessionStorage.getItem(KEY) || "[]");
+        if (q.get("fresh")) done.length = 0;
+        for (const [n, realm, look, o, sun] of P) if (want(n) && !done.includes(n)) { st.textContent = n; await panel(n, realm, look, o, sun); done.push(n); sessionStorage.setItem(KEY, JSON.stringify(done)); }
+        if (want("sheet")) await sheet();
+        st.textContent = "DONE\n" + sessionStorage.getItem("ovh2log"); document.title = "DONE";
+      } catch (e) { st.textContent = "ERROR " + e.stack + "\n" + LOG.join("\n"); document.title = "ERR"; }
+    </script>
+  </body>
+</html>

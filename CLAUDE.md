@@ -1054,6 +1054,17 @@ overhaul, show bold options before building.
   Ground (later): terraces and the worked countryside each on SOME Greenwood levels, not all ("some variety would be
   nice"), C (lush) liked but "way too detailed": a dialled-back C; A "looks cool on rimewater". **Scope: the
   Greenwood only for now** ("just focusing on the first area of the map"); the other areas and the campaign map follow.
+  **Round 2 (Greenwood only) is published:** private Artifact "Crownguard Overhaul Concepts, Round 2: the
+  Greenwood" (slug ec5587d2-4984-4608-afb3-9fde8967f39f; page in `scratchpad/overhaul-page2/`; painters
+  `concept/overhaul2-<feature>.js` + `.md`, labs `overhaul2-<feature>.html`, PNGs `.shots/ovh2_*`), every panel on
+  the real board: water A as five edge kinds (cut bank, grassy lip, shingle, reeds, quay) and a redone lake with
+  a jetty; bridges by the advisor's up-the-screen rule (`art/briefs/bridges-upscreen-rule.md`: a battered solid,
+  strips on both sides, never the castle's slant): toll / farm / mill trestles, today's bridge updated, one
+  humpback; trees: five crown treatments between today and C, four seasons, wildlife; decor: croft / farm /
+  hamlet in today's house style, the rock rule (stacked loaves: lit top, mid south face, shaded east shoulder,
+  nothing pointing at the camera), ruins, night lights; ground: meadow strengths 1-3, terraces (painted steps
+  recommended), quiet / patchwork countryside, a 15-level plan. Awaiting the owner's picks. Labs note: with many
+  sessions editing, the dev server reloads lab pages every 20-60 s (artists used resumable queues / iframes).
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,

@@ -1,0 +1,42 @@
+<!doctype html>
+<!--
+  Overhaul concept ROUND 2: BRIDGES, the Greenwood (art/briefs/overhaul-round2.md, art/briefs/bridges-upscreen-rule.md;
+  painter concept/overhaul2-bridges.js, notes concept/overhaul2-bridges.md).
+    /overhaul2-bridges.html?scene=<scene>.<kind>.<variant>[,...]&sun=noon|golden|sunrise&dusk=1&ph=0..1&hump=k&v0=farm&label=..&save=1&out=<name>
+      scene: across (Thornbrook), up (Wolfrun, two spans), mill (Millrace)
+      kind:  today | trestle | flat | hump;   variant (trestle): toll | farm | mill;  v<k>=variant per span
+  Saves .shots/ovh2_bridges_<out or scene_kind_variant>.png.
+-->
+<html><head><meta charset="utf-8" /><title>overhaul2 bridges</title>
+<style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; image-rendering: pixelated; display:block; margin: 6px 0 }</style></head>
+<body><div id="status">running…</div>
+<script type="module">
+  const q = new URLSearchParams(location.search), st = document.getElementById("status");
+  try {
+    const { runScene } = await import("/concept/overhaul2-bridges.js?v=" + Date.now());
+    const names = (q.get("scene") || "up.trestle.toll").split(",");
+    const outs = (q.get("out") || "").split(",");
+    if (q.get("strip")) {   // the water through the piles: N frames side by side (ph 0..1)
+      const n = Number(q.get("strip")), cells = [];
+      for (let k = 0; k < n; k++) { const qq = new URLSearchParams(q); qq.set("ph", String(k / n)); qq.set("figs", "0"); cells.push((await runScene(names[0], qq)).canvas); }
+      const o = document.createElement("canvas"); o.width = Math.min(1680, cells[0].width * n + 8 * (n - 1)); o.height = cells[0].height;
+      const oc = o.getContext("2d"); oc.fillStyle = "#20242c"; oc.fillRect(0, 0, o.width, o.height);
+      cells.forEach((c, k) => { oc.drawImage(c, k * (c.width + 8), 0); oc.fillStyle = "#fff3d2"; oc.font = "bold 16px monospace"; oc.fillText("frame " + (k + 1), k * (c.width + 8) + 6, 18); });
+      document.body.appendChild(o);
+      await fetch(`/__shot?name=ovh2_bridges_${q.get("out") || "water_strip"}`, { method: "POST", body: o.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; throw new Error("strip saved");
+    }
+    const labels = (q.get("labels") || "").split("|");
+    for (let i = 0; i < names.length; i++) {
+      const qq = new URLSearchParams(q); if (labels[i]) qq.set("label", labels[i]);
+      const [nm0, extra] = names[i].split("@");   // per-panel params: scene@sun=golden;dusk=1
+      for (const kv of (extra || "").split(";").filter(Boolean)) { const [k, v] = kv.split("="); qq.set(k, v); }
+      const { canvas, log } = await runScene(nm0, qq);
+      document.body.appendChild(canvas);
+      const nm = "ovh2_bridges_" + (outs[i] || nm0.replace(/\./g, "_"));
+      if (q.get("save") === "1") await fetch(`/__shot?name=${nm}`, { method: "POST", body: canvas.toDataURL("image/png").slice(22) });
+      st.textContent += ` | ${nm}: ${log.join("; ")}`;
+    }
+    document.title = "DONE";
+  } catch (e) { if (e.message === "strip saved") { st.textContent = "strip saved"; } else { st.textContent = "FAIL " + e.message + " " + e.stack; document.title = "FAIL"; console.error(e); } }
+</script></body></html>

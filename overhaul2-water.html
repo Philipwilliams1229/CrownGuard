@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  Overhaul concept ROUND 2: WATER (art/briefs/overhaul-round2.md; painter concept/overhaul2-water.js, notes concept/overhaul2-water.md).
+  The REAL board through draw() with its old water taken out; the new water (option A "cut into the land", polished) painted
+  in its place, the game's halls / figures / trees / bridge laid back on top (a diff of two renders).
+    /overhaul2-water.html?scene=<name>&save=1      (scene names: see SCENES in the painter)   ?probe=<realm> dumps geometry
+  Saves .shots/ovh2_water_<scene>.png (1680 x 1120: a 420 x 280 board patch at 4 px a unit).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul2 water</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { width: 840px; image-rendering: pixelated; display:block; margin: 6px 0 }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { PTS } from "/src/engine/path.js";
+      import { RIVERS, PONDS, BRIDGES, DECOR } from "/src/data/terrain.js";
+      const q = new URLSearchParams(location.search);
+      const st = document.getElementById("status");
+      try {
+        if (q.get("sheet")) {
+          // a contact sheet of saved panels, for looking: ?sheet=a,b,c&cols=2&w=840
+          const names = q.get("sheet").split(","), cols = +(q.get("cols") || 2), cw = +(q.get("w") || 840);
+          const ims = await Promise.all(names.map((n) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = `/.shots/ovh2_water_${n}.png?` + Date.now(); })));
+          const ok = ims.filter(Boolean), ch = Math.round(cw * ok[0].height / ok[0].width), rows = Math.ceil(ok.length / cols);
+          const cv = document.createElement("canvas"); cv.width = cw * cols; cv.height = ch * rows;
+          const c = cv.getContext("2d"); c.imageSmoothingEnabled = true; c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height);
+          ok.forEach((im, i) => c.drawImage(im, (i % cols) * cw, Math.floor(i / cols) * ch, cw - 4, ch - 4));
+          await fetch(`/__shot?name=ovh2w_sheet`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+          st.textContent = "sheet " + ok.length; document.title = "DONE";
+        } else if (q.get("probe")) {
+          selectRealm(q.get("probe")); selectFaction("greenwood"); setWaveWindow(null);
+          const r2 = (a) => Math.round(a * 10) / 10;
+          st.textContent = JSON.stringify({
+            path: PTS.map((p) => p.map(r2)),
+            rivers: RIVERS.map((r) => ({ w: r.w, ws: !!r.ws, pts: r.pts.map((p) => p.map(r2)), seg0: Object.keys(r.segs[0]), nseg: r.segs.length })),
+            ponds: PONDS, bridges: BRIDGES.map((b) => Object.fromEntries(Object.entries(b).filter(([k, v]) => typeof v === "number").map(([k, v]) => [k, r2(v)]))),
+            decor: DECOR.filter((d) => /tree|willow|pine|mill|reed/.test(d.t)).length,
+          });
+          document.title = "DONE";
+        } else {
+          const { runScene } = await import("/concept/overhaul2-water.js?v=" + Date.now());
+          const names = (q.get("scene") || "").split(",");
+          for (const n of names) {
+            const { canvas, log } = await runScene(n, q);
+            document.body.appendChild(canvas);
+            if (q.get("save") === "1") await fetch(`/__shot?name=ovh2_water_${n}${q.get("suffix") || ""}`, { method: "POST", body: canvas.toDataURL("image/png").slice(22) });
+            st.textContent += ` | ${n}: ${log.join("; ")}`;
+          }
+          document.title = "DONE";
+        }
+      } catch (e) { st.textContent = "FAIL " + e.message + " " + e.stack; document.title = "FAIL"; console.error(e); }
+    </script>
+  </body>
+</html>

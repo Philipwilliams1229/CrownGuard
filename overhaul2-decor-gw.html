@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Overhaul concept ROUND 2: GREENWOOD rocks, walls, ruins, buildings and props (concept/overhaul2-decor-gw.js,
+  notes and THE ROCK RULE in concept/overhaul2-decor-gw.md). The REAL engine and draw() on a board; the
+  board's own decor in the patch (not its trees, not the mill) is lifted and the variation painted over it.
+    /overhaul2-decor-gw.html?scene=gw|mr&opt=today|1|2|3&sun=noon|golden|night&save=1
+    &strip=1       also saves a 4-frame life strip of the yard (ovh2_decorgw_strip_<scene>_<opt>.png)
+    ?sheet=rocks|build|ruins[&sun=night]   a close-up sheet on the board's grass (210 x 140 board units at 4x)
+  Saves .shots/ovh2_decorgw_<scene>_<opt>[_<sun>].png: a 420 x 280 board patch at 4x (1680 x 1120).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>overhaul2 decor gw</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { max-width: 100%; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR } from "/src/data/terrain.js";
+      import { SCENES2, paintDecor2, KEEP2, nightOnly, paintSheet, label } from "/concept/overhaul2-decor-gw.js";
+      const q = new URLSearchParams(location.search);
+      const SHEET = q.get("sheet"), SCN = q.get("scene") || "gw", SC = SCENES2[SCN], OPT = q.get("opt") || "today", SUN = q.get("sun") || "noon";
+      const DT = 1 / 60;
+      setDay(SUN === "night" ? "noon" : SUN);
+      selectRealm(SHEET ? "gullwick" : SC.realm);
+      selectFaction(SHEET ? "greenwood" : SC.faction);
+      setWaveWindow(null);
+      setLevelWeather(null);
+      const crop = SC.crop, inCrop = (x, y) => x > crop[0] - 30 && x < crop[0] + 450 && y > crop[1] - 30 && y < crop[1] + 310;
+      if (SHEET) { DECOR.length = 0; }
+      else if (OPT !== "today") { const keep = DECOR.filter((d) => d.forest || KEEP2.test(d.t) || !inCrop(d.x, d.y)); DECOR.length = 0; DECOR.push(...keep); }
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (SC.wave || 6) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, freeplay: true,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      if (!SHEET) for (const [kd, x, y, lv] of SC.halls) {
+        let spot = null;
+        for (let r = 0; r < 40 && !spot; r += 2) for (let a = 0; a < 6.28 && !spot; a += 0.5) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (buildableAt(g, px, py, kd)) spot = [px, py]; }
+        if (!spot) { console.warn("no spot", kd, x, y); continue; }
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const hold = () => { g.lives = 9999; g.shake = 0; if (g.phase === "build") g.buildUntil = null; };
+      if (!SHEET) { startWave(g); let el = 0; while (el < (SC.at || 10)) { updateGame(g, DT); el += DT; hold(); if (g.phase !== "combat") startWave(g); } }
+      g.shake = 0; g.effects = g.effects.filter((e) => e.type !== "dust");
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      const base = document.createElement("canvas"); base.width = cv.width; base.height = cv.height; base.getContext("2d").drawImage(cv, 0, 0);
+      const ctx = cv.getContext("2d");
+      const out = document.createElement("canvas"); out.width = 1680; out.height = 1120;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+      let name;
+      if (SHEET) {
+        // the board's own grass, a clean field patch tiled with flips, then the pieces
+        const sh = document.createElement("canvas"); sh.width = 420; sh.height = 280; const sc = sh.getContext("2d"); sc.imageSmoothingEnabled = false;
+        const [px0, py0, pw, ph] = [700, 500, 150, 130];
+        for (let j = 0; j * ph < 280; j++) for (let i = 0; i * pw < 420; i++) { sc.save(); sc.translate(i * pw + (i % 2 ? pw : 0), j * ph + (j % 2 ? ph : 0)); sc.scale(i % 2 ? -1 : 1, j % 2 ? -1 : 1); sc.drawImage(base, px0, py0, pw, ph, 0, 0, pw, ph); sc.restore(); }
+        const labels = paintSheet(sc, SHEET, { mode: SUN === "night" ? "night" : SUN === "golden" ? "golden" : "noon" });
+        o.drawImage(sh, 0, 0, 1680, 1120);
+        o.save(); o.scale(4, 4); for (const [x, y, s] of labels) label(o, x * 2, y * 2, s); o.restore();
+        name = `ovh2_decorgw_sheet_${SHEET}${SUN !== "noon" ? "_" + SUN : ""}`;
+      } else {
+        if (OPT !== "today") paintDecor2(ctx, SC, OPT, { mode: SUN, frame: 0 });
+        else if (SUN === "night") nightOnly(ctx);
+        const [bx, by] = SC.crop;
+        o.drawImage(cv, bx * 2, by * 2, 840, 560, 0, 0, 1680, 1120);
+        name = `ovh2_decorgw_${SCN}_${OPT}${SUN !== "noon" ? "_" + SUN : ""}`;
+      }
+      document.body.appendChild(out);
+      if (q.get("save")) await fetch(`/__shot?name=${name}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      const ST = q.get("strip");
+      if (ST && !SHEET && OPT !== "today") {
+        const [sx, sy, sw, sh2] = ST.split(",").map(Number), N = 4, st = document.createElement("canvas");
+        st.width = sw * 4 * N + (N - 1) * 8; st.height = sh2 * 4;
+        const s2 = st.getContext("2d"); s2.imageSmoothingEnabled = false; s2.fillStyle = "#20242c"; s2.fillRect(0, 0, st.width, st.height);
+        for (let f = 0; f < N; f++) {
+          const fc = document.createElement("canvas"); fc.width = cv.width; fc.height = cv.height;
+          const fx = fc.getContext("2d"); fx.drawImage(base, 0, 0);
+          paintDecor2(fx, SC, OPT, { mode: SUN, frame: f, time: f * 0.13 });
+          s2.drawImage(fc, (SC.crop[0] + sx) * 2, (SC.crop[1] + sy) * 2, sw * 2, sh2 * 2, f * (sw * 4 + 8), 0, sw * 4, sh2 * 4);
+        }
+        await fetch(`/__shot?name=ovh2_decorgw_strip_${SCN}_${OPT}${SUN !== "noon" ? "_" + SUN : ""}`, { method: "POST", body: st.toDataURL("image/png").slice(22) });
+      }
+      window.__g = g;
+      document.title = "DONE"; document.getElementById("status").textContent = `saved ${name}`;
+    </script>
+  </body>
+</html>
