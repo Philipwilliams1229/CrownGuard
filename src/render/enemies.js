@@ -3,7 +3,7 @@
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
 import { ringFlash } from "./ringflash.js";
-import { LOD, smallFoe } from "./lod.js";
+import { LOD, smallFoe, shortShade } from "./lod.js";
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { ASSASSIN_PALS } from "../sprites/sprites.js";
@@ -114,9 +114,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillStyle = "rgba(180,214,228,0.55)";
     ctx.fillRect(S(e.x - 9), S(e.y + 7), 18, CELL);
   }
-  // (the short shadow under a long one, sunset.js: a small foe in a crowd lets it go)
-  const shadeK = thin > 0 && !airborne && LOD.long === time ? 1 - thin : 1;
-  if (shadeK > 0) softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, (airborne ? 0.22 : 0.3) * shadeK);
+  // (no short shadow under a long one: sunset.js says who has a long one this frame, lod.js)
+  const sk = shortShade(airborne ? LOD.longFliers : LOD.long, time);
+  if (sk > 0) softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, (airborne ? 0.22 : 0.3) * sk);
   // Fresh arrivals resolve out of the shadow of the wood over a third of a
   // second, so nothing ever simply blinks into being at the spawn point.
   const age = e.born === undefined ? 999 : tms - e.born;
@@ -241,7 +241,7 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   const rig = r4 ? "assassinUnit" + r4.toUpperCase() : t.branch === "a" ? "assassinUnitA" : t.branch === "b" ? "assassinUnitB" : "assassinUnit";
   const fighting = u.state === "fighting", f = u.face < 0 ? -1 : 1;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
-  softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
+  { const sk = shortShade(LOD.longMen, time); if (sk > 0) softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24 * sk); }
   // the blade (fig-blade.js): a smooth walk, a real idle at the tent, and the cut
   // timed off his own attack clock as the soldiers' blows are
   const heading = vertOf(u), tn = turnOf(u, u.face, time * 1000);
@@ -403,7 +403,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     if (fidget === 2 && fp > 0.25 && fp < 0.75) glance = true;
   }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, giant || rider ? 0.5 : 0.3, time);
-  softShadow(ctx, u.x + 1, u.y + 9, giant ? 10 : rider ? 11 : 6, giant ? 3.5 : 2.4, 0.3);
+  { const sk = t.kind === "riverwatch" ? 1 : shortShade(LOD.longMen, time); if (sk > 0) softShadow(ctx, u.x + 1, u.y + 9, giant ? 10 : rider ? 11 : 6, giant ? 3.5 : 2.4, 0.3 * sk); }
   if (fidget === 1 && fp > 0.3) {
     // the pebble, skittering off and settling
     const roll = Math.min(1, (fp - 0.3) / 0.5);
@@ -498,7 +498,7 @@ export const drawBandUnit = (ctx, u, b, time) => {
     else { psheet = "idle"; frame = time + u.id * 1.3; }
   }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
-  softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);
+  { const sk = shortShade(LOD.long, time); if (sk > 0) softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3 * sk); }
   // the hero stands in a ring of gold so he can be found in a crowd
   if (hero) {
     ctx.strokeStyle = `rgba(232,196,90,${0.45 + 0.2 * Math.sin(time * 4)})`;

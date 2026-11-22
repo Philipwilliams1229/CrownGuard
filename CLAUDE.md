@@ -2113,10 +2113,16 @@ sprite stamps; 145 foes 5.7 -> 2.5 ms; pixels painted a frame ~22 -> ~17.6 milli
   thing the player can change on the board without any of those fields changing must join `k2`.
 - **Crowd detail** (`src/render/lod.js`, a leaf): `LOD.k` slides 0 -> 1 between 100 and 140 live
   foes over about a second. For the rank and file (`smallFoe`: not a boss, size under 20) it
-  fades out: foot dust, the far key light's rim (the sun's / moon's, `FAR_LIGHT` in pixrigs.js;
-  nearby fire and spell light always stays), the short shadow under a long one (sunset.js stamps
-  `LOD.long`). Raise-dead: the first `RAISE_FULL` 12 standing get the ring and ribbons, the rest
+  fades out: foot dust and the far key light's rim (the sun's / moon's, `FAR_LIGHT` in pixrigs.js;
+  nearby fire and spell light always stays). Raise-dead: the first `RAISE_FULL` 12 standing get the ring and ribbons, the rest
   only the turned earth and mist (`fx._lite`, decided once each; rings.js). The eyes stay.
+- **No short shadow under a long one** (owner, same day: "remove the small shadow when the long
+  shadow is present"; crowd or not): at noon a figure has only its small foot shadow; under any
+  other sun and under the Blood Moon it had BOTH. Now sunset.js `drawLongShadows` stamps who has
+  a long one this frame (`LOD.long` foes and bands, `LOD.longMen` the halls' men: the time of day
+  only, `LOD.longFliers`) and enemies.js draws the short one through `shortShade` (gone once the
+  long one is a third in, so the moon's sunset hands over smoothly). Kept: River Watch skiffs, the
+  war-eagle, and under the Blood Moon the halls' men and fliers (it throws them no long shadow).
 - **Straight to the screen canvas** (draw.js): no hidden copy of the board copied across each
   frame. `bufRef` is unused (labs may still pass it). A painter's fault now leaves a half-painted
   frame for one frame instead of the last good one.

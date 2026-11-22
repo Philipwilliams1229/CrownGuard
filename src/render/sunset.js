@@ -69,7 +69,8 @@ const shadowSprite = (L, wd, F = DIR, rgb = BM_RGB) => {
 // on the ground below them, along the fall). Without o: the blood moon's sunset, unchanged.
 export const drawLongShadows = (ctx, g, len, a, o = null) => {
   if (a < 0.01) return;
-  LOD.long = g.time;   // enemies.js: a small foe in a crowd drops its short shadow under this one
+  // enemies.js draws no short foot shadow under a long one (owner, 2026-11-22): who gets a long one this frame
+  LOD.long = g.time; LOD.longA = a; if (o) { LOD.longMen = g.time; if (o.fliers) LOD.longFliers = g.time; }
   const pa = ctx.globalAlpha, op = ctx.globalCompositeOperation;
   ctx.globalAlpha = a; ctx.globalCompositeOperation = "source-over";
   const F = o ? o.fall : DIR, rgb = o ? o.rgb : BM_RGB, sxo = F[0] < 0 ? -1 : 1;

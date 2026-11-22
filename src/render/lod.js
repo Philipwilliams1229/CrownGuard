@@ -8,15 +8,21 @@
 //   LOD.small      enemies.js sets it round a rank-and-file foe's figure (not a boss, not a big body):
 //                  pixrigs.js lightAt then fades the far key lights (the sun's, the moon's) by k for it.
 //                  Nearby fire and spell light is never dropped.
-//   LOD.long       the frame clock (g.time) of the last long-shadow pass (sunset.js): a small foe's
-//                  short contact shadow is then drawn under a long one, and eases away with k
+//   LOD.long       the frame clock (g.time) of the last long-shadow pass (sunset.js) for ground foes and
+//                  the bands (hero, militia, retinue); longMen the same for the halls' own men (the time
+//                  of day only: the blood moon throws none for them), longFliers for fliers. Whoever has
+//                  a long shadow this frame draws NO short foot shadow under it (owner, 2026-11-22:
+//                  "remove the small shadow when the long shadow is present"), crowd or not.
 //   LOD.raiseFull  how many full raise-dead effects stand this frame (rings.js): past RAISE_FULL a new
 //                  one is the short version (the turned earth and its mist, no ring or ribbons)
 //
-// What eases away for a small foe on a packed road: foot dust, the far key light's rim, the short
-// shadow under a long one. Bosses, big bodies (size 20+), soldiers, heroes and halls keep everything.
+// What eases away for a small foe on a packed road: foot dust and the far key light's rim. Bosses, big bodies (size 20+), soldiers, heroes and halls keep everything.
 export const CROWD_FROM = 100, CROWD_FULL = 140, RAISE_FULL = 12;
-export const LOD = { n: 0, k: 0, small: false, long: -1, raiseFull: 0, at: 0 };
+export const LOD = { n: 0, k: 0, small: false, long: -1, longMen: -1, longFliers: -1, longA: 0, raiseFull: 0, at: 0 };
+// How much of a short foot shadow is left under a long one: all of it with no long shadow this frame
+// (`stamp` is LOD.long, longMen or longFliers), none once the long one is a third of the way in, so
+// it hands over smoothly while the blood moon's sunset brings the long shadows up.
+export const shortShade = (stamp, time) => (stamp !== time ? 1 : Math.max(0, 1 - LOD.longA * 3));
 
 export const lodFrame = (g, now) => {
   let n = 0;
