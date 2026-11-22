@@ -98,6 +98,10 @@
         ["farm_gullwick", "gullwick", "farm", {}],
         ["farm_bramblewick", "bramblewick", "farm", {}],
         ["farm_cinderholt", "cinderholt", "farm", {}],
+        ["farm_millrace2", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296], busy: 0.25 }],
+        ["farm_bramblewick2", "bramblewick", "farm", { busy: 0.25 }],
+        ["farm_gullwick2", "gullwick", "farm", { busy: 1 }],
+        ["farm_cinderholt2", "cinderholt", "farm", { busy: 1 }],
         ["tmp_farm_millrace_g", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296] }, "golden"],
         ["tmp_farm_gullwick_g", "gullwick", "farm", {}, "golden"],
         ["tmp_farm_bramblewick_g", "bramblewick", "farm", {}, "golden"],
@@ -187,6 +191,37 @@
           x.drawImage(b0, 0, 0, 840, 560); x.drawImage(a1, 840, 0, 840, 560);
           label(x, 0, 0, 840, "BEFORE (round 2): steps by noise, stubs at the road", true); label(x, 840, 0, 840, "AFTER (round 3): six laid steps, ramps and cuttings", true);
           await save("terrace_before_after", c); show("terrace_before_after", c);
+        }
+        // the calm pass: before / after at board size; the four boards again; the worst roadside sliver close up
+        if (want("farm_calm_before_after")) {
+          const c = document.createElement("canvas"); c.width = 1680; c.height = 1120; const x = c.getContext("2d");
+          const R2 = [["millrace", "Millrace"], ["bramblewick", "Bramblewick"]];
+          for (let k = 0; k < 2; k++) { tile(x, await img(`farm_${R2[k][0]}`), 0, k * 560, `${R2[k][1]} BEFORE (busy 1)`); tile(x, await img(`farm_${R2[k][0]}2`), 840, k * 560, `${R2[k][1]} AFTER (busy 0.25, sliver rule)`); }
+          await save("farm_calm_before_after", c); show("farm_calm_before_after", c);
+        }
+        if (want("farm_variety2")) {
+          const c = document.createElement("canvas"); c.width = 1680; c.height = 1120; const x = c.getContext("2d");
+          const B4 = [["millrace", "Millrace: pasture and hay, two wheat, one plough (busy 0.25)"], ["gullwick", "Gullwick Sands: pastoral closes (busy 1)"], ["bramblewick", "Bramblewick: pasture, one orchard, a garden (busy 0.25)"], ["cinderholt", "Cinderholt: ridge and furrow, the common (busy 1)"]];
+          for (let k = 0; k < 4; k++) tile(x, await img(`farm_${B4[k][0]}2`), (k % 2) * 840, Math.floor(k / 2) * 560, B4[k][1]);
+          await save("farm_variety2", c); show("farm_variety2", c);
+        }
+        if (want("farm_slivers_before_after")) {
+          // the biggest patch the rule turned plain, from the four boards' logs
+          const lg = sessionStorage.getItem("ovh2log") || ""; let best = null;
+          for (const r of ["millrace", "gullwick", "bramblewick", "cinderholt"]) {
+            const ln = lg.split("\n").filter((l) => l.startsWith(`farm_${r}2:`)).pop() || "", m = ln.match(/biggest (\d+) sq units at (\d+),(\d+)/);
+            if (m && (!best || +m[1] > best.a)) best = { r, a: +m[1], x: +m[2], y: +m[3] };
+          }
+          if (best) {
+            const sp = q.get("spot")?.split(","); if (sp) Object.assign(best, { r: sp[0], x: +sp[1], y: +sp[2] });
+            const c = document.createElement("canvas"); c.width = 1680; c.height = 600; const x = c.getContext("2d");
+            x.fillStyle = "#20242c"; x.fillRect(0, 0, 1680, 600); x.imageSmoothingEnabled = false;
+            const cx = Math.max(100, Math.min(740 - 100, best.x)), cy = Math.max(70, Math.min(560 - 70, best.y));
+            const b0 = await img(`farm_${best.r}`), a1 = await img(`farm_${best.r}2`);
+            x.drawImage(b0, (cx - 100) * 2, (cy - 70) * 2, 400, 280, 20, 36, 800, 560); x.drawImage(a1, (cx - 100) * 2, (cy - 70) * 2, 400, 280, 860, 36, 800, 560);
+            label(x, 20, 0, 800, `${best.r} BEFORE: rows hugging the road`, true); label(x, 860, 0, 800, `AFTER: min 45 units wide, 3500 sq units, 12-unit verge`, true);
+            await save("farm_slivers_before_after", c); show("farm_slivers_before_after", c);
+          }
         }
         for (const [nm, suf, cap] of [["farm_variety", "", "noon"], ["farm_variety_gold", "_g", "golden hour"]]) {
           if (!want(nm)) continue;

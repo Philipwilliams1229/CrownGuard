@@ -588,6 +588,11 @@ const CHARS = {
   downfarm: { u: [120, 180], v: [88, 140], wander: 28, bend: 60, jit: 0.32, hedge: 0.62, merge: 0.22, trees: 12,
     mix: [["ridge", 0.4], ["pasture", 0.26], ["hay", 0.16], ["meadow", 0.1], ["crop", 0.08]], orchard: [1, "wood"], common: 1 },
 };
+// the calm mixes (busy < 0.5): one dominant kind, at most three, the rest placed by hand-made rules
+const CALM = {
+  arable: { mix: [["pasture", 0.52], ["hay", 0.36], ["crop", 0.12]], orchard: [0, "water"], plough: 1, maxCrop: 2 },
+  orchard: { mix: [["pasture", 0.8], ["hay", 0.2]], orchard: [1, "pond"], garden: 1, maxCrop: 0 },
+};
 const rngOf = (seed) => { let s = (seed * 2654435761) | 0; return () => (s = (Math.imul(s, 1664525) + 1013904223) | 0, (s >>> 0) / 4294967296); };
 export function recipeOf(o) {
   const ch = o.char || (PONDS.length ? "orchard" : RIVERS.length >= 2 ? "arable" : COAST ? "pastoral" : "downfarm");
@@ -598,9 +603,14 @@ export function recipeOf(o) {
   let best = 0; for (let k = 1; k < 18; k++) if (hist[k] > hist[best]) best = k;
   let dom = (best + 0.5) * Math.PI / 36; if (dom > Math.PI / 4) dom -= Math.PI / 2;
   const span = (r) => r[0] + R() * (r[1] - r[0]);
-  return { ch, angle: dom * 0.6 + (R() - 0.5) * 2 * C0.jit, u: [C0.u[0] * (0.85 + R() * 0.3), C0.u[1] * (0.85 + R() * 0.3)], v: [C0.v[0] * (0.85 + R() * 0.3), C0.v[1] * (0.85 + R() * 0.3)],
-    wander: C0.wander * (0.7 + R() * 0.6), bend: C0.bend * (0.6 + R() * 0.8), hedge: Math.min(0.95, C0.hedge * (0.85 + R() * 0.3)), merge: C0.merge, trees: Math.round(C0.trees * (0.7 + R() * 0.6)),
-    mix: C0.mix, orchard: C0.orchard, hops: C0.hops || 0, veg: C0.veg || 0, common: C0.common || 0, oneWheat: !!C0.oneWheat, slopeK: span([0.04, 0.2]) };
+  // BUSY (o.busy, 0..1; 1 = round 3's numbers): lower is calmer: bigger fields (each side up to x1.45), more
+  // neighbours merged, fewer hedges and hedgerow trees, a calmer crop mix (CALM), softer field textures and a
+  // wider plain green margin along the road and the water
+  const busy = clamp(o.busy ?? 1, 0, 1), calm = 1 - busy, big = 1 + 0.45 * calm, CM = busy < 0.5 ? CALM[ch] : null;
+  return { ch, busy, angle: dom * 0.6 + (R() - 0.5) * 2 * C0.jit, u: [C0.u[0] * (0.85 + R() * 0.3) * big, C0.u[1] * (0.85 + R() * 0.3) * big], v: [C0.v[0] * (0.85 + R() * 0.3) * big * (CM ? 1.3 : 1), C0.v[1] * (0.85 + R() * 0.3) * big * (CM ? 1.3 : 1)],
+    wander: C0.wander * (0.7 + R() * 0.6), bend: C0.bend * (0.6 + R() * 0.8), hedge: Math.min(0.95, C0.hedge * (0.85 + R() * 0.3)) * (1 - 0.45 * calm), merge: C0.merge + 0.3 * calm, trees: Math.round(C0.trees * (0.7 + R() * 0.6) * (0.3 + 0.7 * busy)),
+    mix: CM ? CM.mix : C0.mix, orchard: CM ? CM.orchard : C0.orchard, hops: CM ? 0 : C0.hops || 0, veg: CM ? 0 : C0.veg || 0, garden: CM?.garden || 0, plough: CM?.plough || 0, maxCrop: CM?.maxCrop ?? 99,
+    common: C0.common || 0, oneWheat: !!C0.oneWheat, slopeK: span([0.04, 0.2]) * busy, margin: 50 * calm, soft: calm };
 }
 function fieldGrid(o, rec) {
   const seed = o.seed || 7, R = rngOf(seed * 31 + 5), th = rec.angle, cs = Math.cos(th), sn = Math.sin(th);
@@ -619,8 +629,12 @@ const cellAt = (F, xu, yu) => {
 };
 // the layout: which field is what, decided once from the board's masks (road, water, wood), never the decor
 const LAYOUTS = new Map();
+// the sliver rule's numbers (board units): narrowest width, area, plain verge from the road's edge
+export const FIELD_MIN = { width: 45, area: 3500, verge: 12 };
+const CULT = new Set(["plough", "crop", "stubble", "hay", "orchard", "garden", "hops", "veg", "ridge"]);
+let L0garden = { homes: [] };
 function layoutOf(o, B) {
-  const rec = recipeOf(o), key = `${o.seed}|${rec.ch}|${TOTAL_LEN.toFixed(1)}|${JSON.stringify(o.fields || [])}`;
+  const rec = recipeOf(o), key = `${o.seed}|${rec.ch}|${rec.busy}|${TOTAL_LEN.toFixed(1)}|${JSON.stringify(o.fields || [])}`;
   if (LAYOUTS.has(key)) return LAYOUTS.get(key);
   const F = fieldGrid(o, rec), cells = new Map();
   const gx = (W - WALL_W) - 20;
@@ -640,6 +654,11 @@ function layoutOf(o, B) {
   const near = { water: (s) => s.water, castle: (s) => s.castle, wood: (s) => s.wood, road: (s) => s.road, pond: (s) => (PONDS.length ? Math.min(...PONDS.map((p) => Math.hypot(p.x - s.cx, p.y - s.cy))) : s.road) };
   // where the orchard sits: by the water, the castle, the wood or the pond, as the recipe says (a little dice)
   pick(rec.orchard[0], "orchard", (s) => near[rec.orchard[1]](s) + R() * 40, 40);
+  // calm: ONE ploughed field by the mill (the water), one small garden plot by a building
+  if (rec.plough) pick(rec.plough, "plough", (s) => s.cWater - Math.min(s.n, 600) * 0.15 + R() * 20, 220);
+  const homes = DECOR.filter((d) => /cottage|mill|house|hut|barn|farm/.test(d.t || ""));
+  const homeD = (s) => (homes.length ? Math.min(...homes.map((d) => Math.hypot(d.x - s.cx, d.y - s.cy))) : s.castle);
+  if (rec.garden) pick(rec.garden, "garden", (s) => homeD(s) + R() * 10, 30);
   if (rec.hops) pick(rec.hops, "hops", (s) => s.road + R() * 60, 40);
   if (rec.veg) pick(rec.veg, "veg", (s) => s.n * 0.5 + s.castle * 0.3 + R() * 30, 60);
   if (rec.common) pick(rec.common, "common", (s) => -Math.min(s.n, 400) + Math.abs(s.cx - 360) * 0.4 + (s.cy < 90 || s.cy > H - 90 || s.cWood < 50 || s.cRoad < 70 || s.cWater < 50 ? 1e4 : 0) + R() * 40, 120);
@@ -654,11 +673,17 @@ function layoutOf(o, B) {
     const big = list.filter((s) => ["pasture", "hay", "meadow"].includes(kinds.get(`${s.ci},${s.cj}`))).sort((a, b) => b.n - a.n)[0];
     if (big) kinds.set(`${big.ci},${big.cj}`, "crop");
   }
+  if (rec.maxCrop < 99) { // at most maxCrop wheat fields, the biggest; the rest go to hay
+    const cr = list.filter((s) => kinds.get(`${s.ci},${s.cj}`) === "crop").sort((a, b) => b.n - a.n);
+    cr.slice(rec.maxCrop).forEach((s) => kinds.set(`${s.ci},${s.cj}`, "hay"));
+  }
+  L0garden = { homes };
+  L0garden.picks = [...kinds].filter(([, v]) => ["plough", "garden", "orchard"].includes(v)).map(([k, v]) => v + "@" + k).join(" ");
   // some neighbours were never hedged apart: one field across two cells
   const open = new Set();
   for (const s of list) if (h32(s.ci, s.cj, (o.seed || 7) + 1290) < rec.merge && cells.get(`${s.ci},${s.cj - 1}`)) {
     const up = kinds.get(`${s.ci},${s.cj - 1}`), me = kinds.get(`${s.ci},${s.cj}`);
-    if (!["orchard", "common", "hops"].includes(up) && !["orchard", "common", "hops"].includes(me)) { kinds.set(`${s.ci},${s.cj}`, up); open.add(`${s.ci},${s.cj}`); }
+    if (!["orchard", "common", "hops", "garden", "plough"].includes(up) && !["orchard", "common", "hops", "garden", "plough"].includes(me)) { kinds.set(`${s.ci},${s.cj}`, up); open.add(`${s.ci},${s.cj}`); }
   }
   for (const [kd, x, y] of o.fields || []) { const c = cellAt(F, x, y); kinds.set(`${c.ci},${c.cj}`, kd); }
   const L = { rec, F, kinds, open, list };
@@ -673,13 +698,14 @@ export function farmPlan(o, g) {
   for (let y = 16; y < H - 12; y += row) for (let x = 16; x < W - WALL_W - 14; x += col) {
     const xx = x + (Math.round(y / row) & 1) * col * 0.5, c = cellAt(F, xx, y);
     if (kindOf(L, c.ci, c.cj) !== "orchard" || c.du < 9 || c.dv0 < 9 || c.dv1 < 6) continue;
-    if (!freeAt(B, halls, xx, y, 4)) continue;
+    if (!freeAt(B, halls, xx, y, 4 + L.rec.margin / 3)) continue;
+    if (B.roadD[Math.round(y * 2) * AW + Math.round(xx * 2)] < RH + (FIELD_MIN.verge + 8) * 2 + L.rec.margin) continue;
     trees.push({ x: xx, y, t: "tree", s: 0.5 + h32(xx, y, 5) * 0.1 });
   }
   for (let t = 0, n = 0; t < 6000 && n < L.rec.trees; t++) {
     const x = 20 + h32(t, 1, (o.seed || 7) + 1750) * (W - WALL_W - 50), y = 16 + h32(t, 2, 1751) * (H - 30), c = cellAt(F, x, y);
     if (Math.min(c.du, c.dv0) > 1.2) continue;
-    if (!freeAt(B, halls, x, y, 10)) continue;
+    if (!freeAt(B, halls, x, y, 10 + L.rec.margin / 3)) continue;
     if (trees.some((q) => Math.hypot(q.x - x, q.y - y) < 50)) continue;
     trees.push({ x, y, t: "tree", s: 0.68 + h32(t, 3, 1752) * 0.2 }); n++;
   }
@@ -688,7 +714,7 @@ export function farmPlan(o, g) {
 
 function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
   const L = layoutOf(o, B), F = L.F, rec = L.rec;
-  const WHEAT = (aut ? ["#a89050", "#c4ac68", "#d8c488", "#8a7444"] : ["#9c9048", "#b2a658", "#c8bc74", "#746a36"]).map(hex);
+  const WHEAT = (aut ? ["#a89050", "#c4ac68", "#d8c488", "#8a7444"] : ["#9c9048", "#b2a658", "#c8bc74", "#746a36"]).map(hex).map((c, k) => (rec.soft > 0.3 ? mix(c, k === 2 ? hex("#b4ac66") : hex("#8e8c4c"), 0.35) : c));
   const SOIL = ["#4a3628", "#614a38", "#7a6450", "#33261c"].map(hex);
   const HEDGE = (aut ? ["#3e3a1e", "#5e5226", "#7e6430", "#a07838"] : ["#1e4022", "#28562a", "#367034", "#4e8c3c"]).map(hex);
   const HAY = ["#b4b06a", "#c6be7c", "#a4a462"].map(hex);
@@ -708,13 +734,40 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
   const HM = new Uint8Array(N), crops = new Map(), HOPS = new Uint8Array(N), GORSE = new Uint8Array(N), counts = {};
   // the common's pond: painted here (the engine would add it to PONDS)
   const commons = L.list.filter((s) => kindOf(L, s.ci, s.cj) === "common").map((s) => ({ x: s.cx * 2, y: s.cy * 2, rx: 30 + h32(s.ci, s.cj, 1800) * 14, ry: 14 + h32(s.ci, s.cj, 1801) * 6 }));
+  // THE SLIVER RULE: a patch may be CULTIVATED (rows or crop texture) only if, as clipped by the road, the
+  // water, the wood, the castle and its headland, it is at least FIELD_MIN.width units across at its narrowest
+  // (something survives eroding it by half that) and FIELD_MIN.area square units; a patch that fails is plain
+  // grass, no rows, no hedge of its own. Cultivated ground also keeps FIELD_MIN.verge units of plain verge from
+  // the road's edge.
+  const rootOf = (ci, cj) => { while (L.open.has(`${ci},${cj}`)) cj--; return `${ci},${cj}`; };
+  const LBL = new Int32Array(N).fill(-1), ids = new Map(), keys = [];
+  const cultOK = (i, x, y, f) => !KEEP[i] && !TM[i] && feature(x, y) && B.roadD[i] >= RH + FIELD_MIN.verge * 2 + rec.margin && B.wD[i] >= 24 + rec.margin
+    && Math.min(f.du, f.dv0 + (L.open.has(`${f.ci},${f.cj}`) ? 99 : 0), f.dv1) >= 4.5;
+  for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
+    const i = y * AW + x; if (KEEP[i] || TM[i]) continue;
+    const f = field(x, y); if (!CULT.has(f.kind) || f.kind === "garden" || !cultOK(i, x, y, f)) continue; // the garden plot is its own small walled thing
+    const rk = rootOf(f.ci, f.cj); let id = ids.get(rk); if (id == null) { id = keys.length; ids.set(rk, id); keys.push(rk); }
+    LBL[i] = id;
+  }
+  const edge = new Uint8Array(N);
+  for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { const i = y * AW + x, l = LBL[i]; edge[i] = l < 0 || x === 0 || y === 0 || x === AW - 1 || y === AH - 1 || LBL[i - 1] !== l || LBL[i + 1] !== l || LBL[i - AW] !== l || LBL[i + AW] !== l ? 1 : 0; }
+  const DI = distField(edge), area = new Float64Array(keys.length), core = new Float32Array(keys.length), sx = new Float64Array(keys.length), sy = new Float64Array(keys.length);
+  for (let i = 0; i < N; i++) { const l = LBL[i]; if (l < 0) continue; area[l]++; core[l] = Math.max(core[l], DI[i]); sx[l] += i % AW; sy[l] += Math.floor(i / AW); }
+  const failed = new Set(); let worst = null;
+  keys.forEach((k, l) => {
+    const au = area[l] / 4, wu = core[l]; // px -> square units; core in art px = half-width in units x 2, so width in units = core
+    if (au < FIELD_MIN.area || wu < FIELD_MIN.width) { failed.add(k); if (!worst || au > worst.au) worst = { au, x: Math.round(sx[l] / area[l] / 2), y: Math.round(sy[l] / area[l] / 2) }; }
+  });
+  log.push(`picks ${L0garden.picks || "-"}; failed ${[...failed].join(" ")}`);
+  log.push(`slivers: ${failed.size} of ${keys.length} cultivated patches made plain${worst ? ` (biggest ${Math.round(worst.au)} sq units at ${worst.x},${worst.y})` : ""}`);
   for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
     const i = y * AW + x;
     if (KEEP[i]) continue;
     if (TM[i]) { const tm = TM[i] === 2; if (tm || B.roadD[i] < RH + 6) set(i, mix(hex("#a48a5c"), G(3, 1), tm ? 0.12 : 0.55)); else set(i, mix(G(3, 1), hex("#a48a5c"), 0.25)); continue; }
     const f = field(x, y);
-    const nearEdge = f.du < 1.6 || (f.dv0 < 1.6 && !L.open.has(`${f.ci},${f.cj}`));
-    const hedgeOK = B.roadD[i] > RH + 26 && B.wD[i] > 30 && FD(B, x, y) < -22 && hallE(halls, x, y) > 1.3 && x < (W - WALL_W) * 2 - 40;
+    if (failed.has(rootOf(f.ci, f.cj))) { f.kind = "plain"; } // a sliver: plain grass, no rows, no hedge of its own
+    const nearEdge = f.kind !== "plain" && (f.du < 1.6 || (f.dv0 < 1.6 && !L.open.has(`${f.ci},${f.cj}`)));
+    const hedgeOK = B.roadD[i] > RH + 26 + rec.margin * 0.7 && B.wD[i] > 30 + rec.margin * 0.7 && FD(B, x, y) < -22 && hallE(halls, x, y) > 1.3 && x < (W - WALL_W) * 2 - 40;
     const edgeHedge = f.du < 1.6 ? h32(f.ci, f.cj >> 1, (o.seed || 7) + 1310) < rec.hedge : h32(f.ci, f.cj, (o.seed || 7) + 1311) < rec.hedge * 0.85;
     if (nearEdge && hedgeOK && edgeHedge) {
       let gate = false;
@@ -723,13 +776,17 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
       continue;
     }
     if (!feature(x, y)) continue;
+    if (B.roadD[i] < RH + 14 + rec.margin || B.wD[i] < 24 + rec.margin) continue; // the plain green margin
     const hd = Math.min(f.du, f.dv0 + (L.open.has(`${f.ci},${f.cj}`) ? 99 : 0), f.dv1); // headland: grass round every field
     if (hd < 4.5) continue;
+    if (f.kind === "plain" || (CULT.has(f.kind) && B.roadD[i] < RH + FIELD_MIN.verge * 2 + rec.margin)) continue;
     counts[f.kind] = (counts[f.kind] || 0) + 1;
     const ax = f.u * 2, av = f.v * 2;
     if (f.kind === "plough" || (aut && f.kind === "crop" && h32(f.ci, f.cj, 1320) < 0.5)) {
       // deep furrows: a lit ridge, its body, the shaded furrow (darker than the road at any hour)
-      const fu = ((Math.floor(av) % 5) + 5) % 5, c = fu === 0 ? SOIL[2] : fu === 1 ? SOIL[1] : fu >= 3 ? SOIL[3] : SOIL[0];
+      const fu = ((Math.floor(av) % 5) + 5) % 5;
+      let c = fu === 0 ? SOIL[2] : fu === 1 ? SOIL[1] : fu >= 3 ? SOIL[3] : SOIL[0];
+      if (rec.soft > 0.3) { c = mix(((Math.floor(av / 2) & 1) ? SOIL[1] : SOIL[2]), hex("#9a8462"), 0.4 * rec.soft); if (h32(x, y, 1322) < 0.04) c = SOIL[0]; } // harrowed: lighter, finer
       set(i, (hd < 7 && BAY[y & 3][x & 3] < 0.5) ? mix(c, G(2, 1), 0.5) : mul(c, 0.94 + vn(x / 40, y / 30, 1321) * 0.1));
     } else if (f.kind === "stubble") {
       const r = ((Math.floor(av / 2) % 2) + 2) % 2;
@@ -741,13 +798,14 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
       if (aut || f.dv1 < 14) set(i, ((Math.floor(ax / 3) & 1) ? hex(aut ? "#c4b47e" : "#c0b272") : hex(aut ? "#a49660" : "#a49858")));
       else { const key = `${f.ci},${f.cj}`; if (!crops.has(key)) crops.set(key, new Uint8Array(N)); crops.get(key)[i] = 1; set(i, WHEAT[0]); }
     } else if (f.kind === "hay") {
-      const sw = ((Math.floor(av / 8) % 2) + 2) % 2;
+      const sw = rec.soft > 0.3 ? (h32(x >> 1, y, 1328) < 0.5 ? 1 : 0) : ((Math.floor(av / 8) % 2) + 2) % 2;
       set(i, aut ? (sw ? hex("#aca262") : hex("#989056")) : (sw ? HAY[0] : HAY[2]));
-      if (((Math.floor(av) % 16) + 16) % 16 === 0 && !aut) set(i, hex("#9a9450"));
+      if (((Math.floor(av) % 16) + 16) % 16 === 0 && !aut && rec.soft <= 0.3) set(i, hex("#9a9450"));
     } else if (f.kind === "pasture") {
       // each pasture its own green: grazed short and pale, or lush and dark, so the closes read as a patchwork
       const tv = h32(f.ci, f.cj, (o.seed || 7) + 1329);
-      if (tv < 0.34) set(i, mix(get(i), mix(G(4, 2), hex("#c8c07a"), 0.35), 0.62)); else if (tv > 0.67) set(i, mix(get(i), G(1, 0), 0.55));
+      const tk = 1 - 0.45 * rec.soft;
+      if (tv < 0.34) set(i, mix(get(i), mix(G(4, 2), hex("#c8c07a"), 0.35), 0.62 * tk)); else if (tv > 0.67) set(i, mix(get(i), G(1, 0), 0.55 * tk));
       if (h32(x >> 2, y >> 1, 1330) < 0.04) set(i, G(1, 0));
       const tr = Math.sin((ax * 0.8 + av * 0.25) / 46 + f.ci * 1.7) * 26 - (((av % 70) + 70) % 70 - 35);
       if (Math.abs(tr) < 1 && h32(x, y, 1331) < 0.7) set(i, mix(get(i), hex("#b4ac78"), 0.4));
@@ -760,6 +818,14 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
       // a hop yard: rows of bines up their poles (raised below), bare earth between
       const rw = ((Math.floor(ax) % 11) + 11) % 11;
       if (rw < 3 && hd > 7) HOPS[i] = 1; else set(i, mix(SOIL[1], G(2, 1), 0.35));
+    } else if (f.kind === "garden") {
+      // pasture, with one small walled garden plot by the nearest building
+      const s0 = L.list.find((q) => q.ci === f.ci && q.cj === f.cj), hm = L0garden.homes;
+      let gx0 = s0 ? s0.cx : 0, gy0 = s0 ? s0.cy : 0;
+      if (s0 && hm.length) { const d = hm.reduce((a, b) => (Math.hypot(a.x - s0.cx, a.y - s0.cy) < Math.hypot(b.x - s0.cx, b.y - s0.cy) ? a : b)); const t = Math.min(1, 40 / Math.max(1, Math.hypot(d.x - s0.cx, d.y - s0.cy))); gx0 += (d.x - s0.cx) * (1 - t) * 0.6; gy0 += (d.y - s0.cy) * (1 - t) * 0.6; }
+      const e = Math.max(Math.abs(x / 2 - gx0) / 24, Math.abs(y / 2 - gy0) / 15);
+      if (e < 1) { const bd = ((Math.floor(y / 2) % 7) + 7) % 7; set(i, e > 0.9 ? hex("#8a7a5a") : bd < 1 ? mix(SOIL[2], G(3, 1), 0.3) : bd < 4 ? (((x + y) % 3) ? hex("#5e8a4a") : hex("#86ae5e")) : (((x >> 1) & 1) ? hex("#6a5440") : hex("#7a6248"))); }
+      else if (h32(x >> 2, y >> 1, 1330) < 0.03) set(i, G(1, 0));
     } else if (f.kind === "veg") {
       // vegetable plots: narrow beds of different greens, earth paths between
       const bd = ((Math.floor(av) % 30) + 30) % 30, bed = Math.floor(av / 30) + f.ci;
@@ -809,7 +875,7 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
   }
   // stooks in rows on some hay fields, flocks on the pasture and the ridges, a scarecrow and his crows
   let stooks = 0, sheepN = 0, scare = 0, flocks = 0;
-  const flockDone = new Set(), stookField = (f) => h32(f.ci, f.cj, 1606) < (rec.ch === "arable" ? 0.6 : 0.3);
+  const flockDone = new Set(), stookField = (f) => h32(f.ci, f.cj, 1606) < (rec.ch === "arable" ? 0.6 : 0.3) * (rec.soft > 0.3 ? 0.4 : 1);
   const flockP = { pastoral: 0.6, downfarm: 0.6, orchard: 0.5, arable: 0.5 }[rec.ch];
   for (let y = 24; y < AH - 20; y += 26) for (let x = 20; x < AW - 20; x += 30) {
     const X = x + Math.round((h32(x, y, 1600) - 0.5) * 4), Y = y + Math.round((h32(x, y, 1601) - 0.5) * 3);

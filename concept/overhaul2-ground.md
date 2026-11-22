@@ -270,3 +270,24 @@ lanes keep their own level along their length.
 15 The Goblin Warrens (gw5) - gentle banks, trampled
 
 Meadow 7, patchwork 4 (four different patterns), bold steps 2, gentle banks 2.
+
+## Round 3b: calmer farms and the sliver rule (owner: "bramblewick and millrace are too busy"; "little tiny rows next to the roads")
+
+- **`busy` dial** (`o.busy`, 0..1, 1 = round 3): lower means fields up to x1.45 a side (x1.3 more across for the calm
+  mixes), +30% neighbours merged, hedges -45%, hedgerow trees down to 30%, softer textures (paler, finer plough; no
+  hay windrows; duller wheat; pasture tints halved), a plain green margin up to 25 units along road and water, and
+  below 0.5 a calm mix (`CALM`): arable = pasture / hay / at most 2 wheat + 1 plough by the water; orchard country =
+  pasture / hay + 1 orchard block + 1 garden plot by a building, no hops or vegetable rows.
+  Set: Millrace 0.25, Bramblewick 0.25, Gullwick 1, Cinderholt 1.
+- **Sliver rule** (`FIELD_MIN` { width 45, area 3500, verge 12 }, board units): a patch may carry rows or crop texture
+  only if, clipped by road, water, wood, castle and headland, it survives an erosion of half the width (45 units at its
+  narrowest) and covers 3500 sq units; otherwise it is plain grass with no hedge of its own. Cultivated ground keeps a
+  12-unit plain verge from the road's edge. Patches made plain: Millrace 6 of 12, Gullwick 7 of 9, Bramblewick 3 of 6,
+  Cinderholt 6 of 17.
+- Panels: `ovh2_ground_farm_millrace2`, `_bramblewick2`, `_gullwick2`, `_cinderholt2`, `_calm_before_after`,
+  `_variety2`, `_slivers_before_after`.
+- Weak: Millrace's one plough field and Bramblewick's garden plot did not survive (the plough pick lands on a clipped
+  cell; the garden's whole cell failed the rule). A fix exempting the garden plot is in the code but NOT CHECKED
+  (the last render served a stale module). Bramblewick is now almost all pasture: calm, but its pattern rests on
+  pasture tints and a few hedges. The sliver close-up compares two different layouts (the calm pass also re-cut the
+  grid), so it shows the result, not the same patch made plain.
