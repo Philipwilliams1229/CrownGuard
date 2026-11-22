@@ -881,6 +881,14 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **Fire and frost don't mix** (owner's idea, 2026-11-21, "for future, hidden mechanics"): NOT built.
+  Today a burn and a slow stack freely on one foe (neither clears the other). Possible rules to put to
+  them: a burn thaws a slow (or a freeze) and a chill puts a burn out early, or the second one cancels
+  the first. Ask before building; it changes balance (Bladewheel's Brazier, Frost Altar, Dragonbreath).
+- **The slow's look, Round 6** (2026-11-21): today's frost ring at the feet read as part of the stun
+  when a foe was both. The owner wants a new look "like the fire" (the body's outline, Round 5 B);
+  brief `art/briefs/fx-round6.md`, row `slow6` in `concept/fx-r6-slow.js`,
+  `node scripts/build-fx-concepts.mjs round6`.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
