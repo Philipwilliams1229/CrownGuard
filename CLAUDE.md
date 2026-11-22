@@ -900,8 +900,14 @@ owner wants it reversible and played in a preview before it reaches main.
   `sunCurves`: long shadows down-right off every hall, soldier and ground foe stretch to 2.5x, then draw
   back to 1.6x and darken under the moon; an amber key light (`SUN_KEY`, k up to `SUN_RIM` 1.8: past 1
   the OUTER LINE alone is stamped again, `line` in pix.js lightLayer / rimOf / pixRim) and a faint amber
-  rake fade as the red comes in (from u 0.45); the shade from 0.3, lamps 0.3-0.75. Weak: baked scenery
-  shadows don't stretch; fliers cast none. Options A-D: `sunset-concepts.html`; a clip of the real game:
+  rake fade as the red comes in (from u 0.45); the shade from 0.3, lamps 0.3-0.75. The HALLS (owner: "that
+  whole side of the tower gets the outline", shadows "start from the outline of the base" and "take the
+  full width"; checked by Fable): pix/halls.js notes each hall (`noteHall`, one frame late) and stamps
+  `hallRim` (a 2-px amber line + a stepped wash on the sunward quarter of each run, baked per form and
+  facing in `bakeHallSun`); `drawHallShadows` lays the hall's own silhouette sheared along DIR from the
+  middle of its footing (hallfoot.js down - up), its width turned across the light (`QW`), stepped alpha
+  by height. Weak: baked scenery shadows don't stretch; fliers, crews and live pieces (catapult arm,
+  pennants) cast none. Options A-D: `sunset-concepts.html`; a clip of the real game:
   `sunset-anim.html?opt=real` (frames are JPEG bytes in .png names: ffmpeg `-f image2 -c:v mjpeg`). Saltgrave `--endure` seed 1: sun sets at wave 13, full 14-20 (929 / 476
   castle damage); the Lichgate sets at 14 (1686 / 1252, was ~700 / ~600 with the mid-level moon and
   ~1250 under the old always-rise rule).

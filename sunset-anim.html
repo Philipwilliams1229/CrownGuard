@@ -63,7 +63,7 @@
       const OPT = q.get("opt") || "C", FPS = Number(q.get("fps") || 20), RISE = Number(q.get("rise") || 13);
       const PRE = Number(q.get("pre") || 1.5), POST = Number(q.get("post") || 2.5), SPEED = Number(q.get("speed") || 3);
       const cv = document.createElement("canvas"); cv.width = W * 2; cv.height = H * 2;
-      const oc = document.createElement("canvas"); oc.width = 1260; oc.height = 840;
+      const OW = Number(q.get("ow") || 1260), oc = document.createElement("canvas"); oc.width = OW; oc.height = Math.round(OW * 2 / 3);
       const o = oc.getContext("2d");
       const N = Math.round((PRE + RISE + POST) * FPS), steps = Math.round(SPEED * 60 / FPS);
       const status = document.getElementById("status");
@@ -77,7 +77,7 @@
         setK(sm(k));
         draw(g, cv, { current: null });
         o.drawImage(cv, 0, 0, oc.width, oc.height);
-        const b = oc.toDataURL("image/jpeg", 0.92).replace(/^data:image\/jpeg;base64,/, "");
+        const b = q.get("png") ? oc.toDataURL("image/png").slice(22) : oc.toDataURL("image/jpeg", 0.92).replace(/^data:image\/jpeg;base64,/, "");
         await fetch(`/__shot?name=sunanim_${TAG}_${String(f).padStart(4, "0")}`, { method: "POST", body: b });
         status.textContent = `frame ${f + 1}/${N}`;
       }

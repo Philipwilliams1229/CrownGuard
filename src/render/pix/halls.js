@@ -17,6 +17,7 @@
 // a few milliseconds the first time it is drawn (three stonework variants a form, t.id % 3).
 import { prefs } from "../../data/prefs.js";
 import { nightOn, noteLamp } from "../nightlight.js";
+import { noteHall, hallRim } from "../sunset.js";
 import { toCanvas } from "./pix.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
 
@@ -46,7 +47,7 @@ export const hallPix = (name, mod, form, seed = 0, o = {}) => {
   if (H) return H;
   const b = bakeHall(mod.BOX, mod.build({ level: form.level, branch: form.branch || null, rank4: form.rank4 || null, seed, style: "B" }), { flip: !!o.flip });
   H = {
-    box: mod.BOX, spec: b.spec, back: toCanvas(b.back), front: b.front ? toCanvas(b.front) : null, shadow: shadowOf(b.spec.shadow),
+    name, box: mod.BOX, spec: b.spec, back: toCanvas(b.back), front: b.front ? toCanvas(b.front) : null, shadow: shadowOf(b.spec.shadow),
     glows: b.glows.map((g) => ({ key: g.key, back: toCanvas(g.back), front: g.front ? toCanvas(g.front) : null })),
   };
   BAKES.set(key, H);
@@ -105,13 +106,14 @@ export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
   if (nightOn(time) && prefs.spellLight !== false) for (const l of H.spec.lights || []) if (l.key === "torch") noteLamp(x + dir * l.x / 2, y + l.y / 2, l.r / 2, l.col, l.a ?? 0.7, -l.y / 2);
   if (H.shadow) stampPix(ctx, H.shadow, x, y);
   lay(ctx, H.back, H, x, y, dir);
+  noteHall(H, x, y, dir, time); hallRim(ctx, H, x, y, dir, "back", time);   // the setting sun (render/sunset.js)
   live(ctx, H, x, y, time, "back", id, dir);
   glows(ctx, H, x, y, time, "back", o, id, dir);
 };
 // What stands IN FRONT of the crew: the near parapet or rail, light on it, front-layer live pieces.
 export const drawHallFront = (ctx, H, x, y, time, o = {}) => {
   const id = o.id || 0, dir = o.dir < 0 ? -1 : 1;
-  if (H.front) lay(ctx, H.front, H, x, y, dir);
+  if (H.front) { lay(ctx, H.front, H, x, y, dir); hallRim(ctx, H, x, y, dir, "front", time); }
   glows(ctx, H, x, y, time, "front", o, id, dir);
   live(ctx, H, x, y, time, "front", id, dir);
 };
