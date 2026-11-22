@@ -27,7 +27,7 @@ for (const r of ROWS) {
     const src = `.shots/fxc_${r.id}_${k}.png`;
     if (!fs.existsSync(src)) continue;
     fs.copyFileSync(src, `${OUT}/${r.id}_${k}.png`);
-    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : (k === "C" && r.cLabel) || LABEL[k], file: `${r.id}_${k}.png` });
+    strips.push({ k, label: r.cols2 && k === "today" ? "firenova (kept)" : r.tl && k.startsWith("today") ? r.tl[k === "today" ? 0 : 1] : (k === "C" && r.cLabel) || (k === "Bdark" && r.bdLabel) || LABEL[k], file: `${r.id}_${k}.png` });
   }
   rows.push({ id: r.id, label: r.label, group: r.group, note: r.note, cw: r.cw, ch: r.ch, n: r.N, strips });
 }

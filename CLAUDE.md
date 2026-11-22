@@ -888,7 +888,9 @@ Bring these up with the owner; don't act on them unasked.
 - **The slow's look, Round 6** (2026-11-21): today's frost ring at the feet read as part of the stun
   when a foe was both. The owner wants a new look "like the fire" (the body's outline, Round 5 B);
   brief `art/briefs/fx-round6.md`, row `slow6` in `concept/fx-r6-slow.js`,
-  `node scripts/build-fx-concepts.mjs round6`.
+  `node scripts/build-fx-concepts.mjs round6`. Private Artifact "Crownguard Effects Concepts, Round 6"
+  (slug fd2dba94-116f-4103-8043-3937261a295e): Today / A hoarfrost edge / B creeping ice / C cold mist /
+  D chilled colours, plus B on a burning foe (fire + frost). Waiting on the owner's pick.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
