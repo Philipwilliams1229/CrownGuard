@@ -98,3 +98,10 @@ commit. Push only when the Greenwood is whole and checked (the owner asked for t
   - `art/briefs/overhaul-iron-questions.md`: the questions to put to the owner about the Iron Marches.
 - 2026-11-23 17:00: the owner said "resume". Dev server restarted; the five builders (the same agents as the
   Millrace build, context kept) are working on all boards under `?ovh=1`. No board switched on yet.
+- 2026-11-23 19:30: all five builders done on all fifteen boards; every Greenwood realm has `look: "overhaul"`
+  (committed locally, NOT pushed). Sims: ten boards exact; Gullwick 37 / 95 -> 51 / 104, Wolfrun 221 / 303 ->
+  335 / 253 (blocks). OPEN before any push: (1) `ovh-identity` hashes of Ironford / Frostwake / Bellmarsh differ
+  from the baseline even with `ovh=0` (cause being bisected: the origin/main merge 321f683 or an overhaul module's
+  import-time effect); (2) frame time +3 to +5 ms on Bramblewick / Wolfrun / Oakmere (being profiled per slot).
+  The new water on dry boards (data in B1's report: Barrowfields river, Kingstones pond + river, Cinderholt pond)
+  is NOT added yet: a separate step after the push (it moves decor scatter and sims; check-map-water must pass).
