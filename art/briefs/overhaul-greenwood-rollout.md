@@ -96,3 +96,5 @@ commit. Push only when the Greenwood is whole and checked (the owner asked for t
     blackbriar 601 / 283, cinderholt 419 / 338, gw5 Warrens 644 / 610. A board with no new `blocks` or
     water must print these exact numbers after it is switched on.
   - `art/briefs/overhaul-iron-questions.md`: the questions to put to the owner about the Iron Marches.
+- 2026-11-23 17:00: the owner said "resume". Dev server restarted; the five builders (the same agents as the
+  Millrace build, context kept) are working on all boards under `?ovh=1`. No board switched on yet.
