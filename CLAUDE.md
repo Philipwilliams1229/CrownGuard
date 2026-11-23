@@ -1131,6 +1131,13 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
   Powder Keg Runs facing each other whose kegs MEET mid-roll go up together in one much bigger
   blast. The owner would like more like it over time; put ideas to the owner before building any.
 - **Night maps** (2026-11-21): levels fought at night.
+- **Farmland ground (cultivated fields)** (2026-11-22, parked by the owner: "lets drop the farm textures for now,
+  maybe we can revisit it in the future? like the terraces"): a generated patchwork of fields per board
+  (`concept/overhaul2-ground.js`, notes "Round 3c" in its `.md`). What the owner liked: Cinderholt's version (big
+  plots, the board still full of farm, split plots that keep one crop); what failed: small lots and crop textures
+  changing too often; rules they asked for: a minimum size for any cultivated field, no slivers by the road, no two
+  maps alike. Three options (A big fields, B blocks of one crop, C Cinderholt's recipe) were drawn and not picked.
+  Not in the first overhaul build: the Greenwood's ground is the calm meadow.
 - **Terraced ground ("bold steps")** (2026-11-22, parked by the owner: "take this out for now, put it on the to do"):
   earth scarps stepping the land on hilly Greenwood levels. Start again from ROUND 2's look (long steps;
   `concept/overhaul2-ground.js`, `?r2=1` in its lab), which the owner preferred ("round 3 is much worse"); how a step

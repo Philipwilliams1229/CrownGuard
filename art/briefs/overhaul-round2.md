@@ -180,3 +180,6 @@ GROUND
 - **Culverts: REMOVED** (a comment on round 3's culvert before / after): "Lets just remove this feature." No
   streams passing under roads through culverts. The tarn keeps its shape and rocky headland; a stream may run
   in or out only where it need not cross a road (else none).
+- **Farmland: PARKED** (2026-11-22, late): "lets drop the farm textures for now, maybe we can revisit it in the
+  future? like the terraces." No cultivated fields in the first build: the Greenwood's ground is the calm meadow
+  everywhere. (The farm BUILDINGS, the village, stay: they were approved separately.)
