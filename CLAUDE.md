@@ -1086,6 +1086,11 @@ overhaul, show bold options before building.
   **Answers to round 3's questions:** the strand willow APPROVED; trees are TREATMENT 4 ONLY now (not the 3+4 mix), with
   variety in how the foliage fills each tree's skeleton; the chapel and wall redraws APPROVED; the mere's bank "perfect";
   farmland "went too far": keep the amount of farm, bigger lots, fewer texture changes between neighbours: more options asked.
+  **Round 6 notes, drawn and on the round 3 page (2026-11-22, late; awaiting the owner's look):** trees: no dead-limb
+  fill; variety also from re-ordering the crown's clumps (`ord`); trunk, boughs and roots ONE welded body (`P.body(WOOD)`, the
+  joint kit's rule applies to trees); four root flares, no ball under the roots; few sticks under pines. Ponds are SMALL LAKES
+  (`concept/overhaul3-lakes.js` `genPond`, five variants, two with lily / rush growth on one side); the owner allows more
+  lakes and streams on dry boards (`NEWWATER`: Barrowfields, Kingstones, Cinderholt drawn); Bramblewick's tarn left as is.
   **Nothing is built.** Building means wider / repathed rivers, bank faces, scarps
   and bigger scenery: every board re-laid and re-simmed, a chapter at a time, one Greenwood board first.
 - **Water** (`src/render/waterlook.js`: the shared 7-step ramp per chapter kind, `waterLook`, `waterPal`,
