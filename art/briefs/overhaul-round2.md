@@ -183,3 +183,13 @@ GROUND
 - **Farmland: PARKED** (2026-11-22, late): "lets drop the farm textures for now, maybe we can revisit it in the
   future? like the terraces." No cultivated fields in the first build: the Greenwood's ground is the calm meadow
   everywhere. (The farm BUILDINGS, the village, stay: they were approved separately.)
+- **Trees, round 6 notes** (owner, 2026-11-22, late): "remove the dead limb variants, dont love. I was thinking we can
+  get a decent amount of variety too by just changing the order of layers so other clumps come to the front or back."
+  "trunks, branches, and roots. we kinda have the same issue with the trunk and branch conection that we had with the
+  joints on big enemies. They should be shaded like one object, to avoid the lines where they connect." "roots, can we
+  get some variation on the root flair? there is also a big ball under the current roots, that looks strange." "pine
+  trees, dial back the sticks youve put underneath."
+- **Lakes and streams:** "you can add more lakes and streams yes" (on boards that have none). Bramblewick's tarn:
+  "leave it for now".
+- **Ponds and puddles:** "just make them like small lakes ... I do like the little growth on the right side you have,
+  with lillies and stuff, so you can work that in on some variants."
