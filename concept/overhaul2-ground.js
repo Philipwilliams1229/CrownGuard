@@ -593,6 +593,31 @@ const CALM = {
   arable: { mix: [["pasture", 0.52], ["hay", 0.36], ["crop", 0.12]], orchard: [0, "water"], plough: 1, maxCrop: 2 },
   orchard: { mix: [["pasture", 0.8], ["hay", 0.2]], orchard: [1, "pond"], garden: 1, maxCrop: 0 },
 };
+// ROUND 3c, the owner's yardstick: Cinderholt (downs farm: fields 116-202 x 89-124 units, 3-4 textures, a big plot
+// split by grass headlands with the same crop either side). The options keep round 3's AMOUNT of farmland:
+//   A "big fields"   the board's own field grid at 1.6x a side, straight edges, few hedges, its own palette
+//   B "blocks"       the board's own lots, grouped: Voronoi blocks of 3-4 lots share ONE crop (two or three crop
+//                    textures a board), divided only by grass headlands; hedges mostly between blocks
+//   D "Cinderholt's recipe in this board's crops": Cinderholt's field sizes, hedge density, merging and split
+//                    style, filled with the board's own palette
+// All: softer textures (plough paler and finer, no windrows, duller wheat), the sliver rule, the road verge.
+const PAL = {
+  arable: { mix: [["hay", 0.4], ["crop", 0.42], ["pasture", 0.18]], plough: 1, orchard: [0, "water"], blocks: ["crop", "hay", "crop", "hay", "pasture", "crop"] },
+  orchard: { mix: [["hay", 0.42], ["crop", 0.33], ["pasture", 0.25]], orchard: [2, "pond"], garden: 1, blocks: ["hay", "crop", "hay", "crop", "pasture"] },
+  pastoral: { mix: [["pasture", 0.6], ["hay", 0.3], ["crop", 0.1]], orchard: [1, "castle"], oneWheat: true, blocks: ["pasture", "hay", "pasture", "hay", "crop"] },
+  downfarm: { mix: CHARS.downfarm.mix, orchard: [1, "wood"], common: 1, blocks: ["ridge", "hay", "ridge", "pasture"] },
+};
+function optRecipe(o, ch, C0, R, dom, span) {
+  const opt = o.opt, P = PAL[ch], G0 = opt === "D" ? CHARS.downfarm : C0, k = opt === "A" ? 1.6 : 1;
+  const r = (a) => a * (0.85 + R() * 0.3);
+  return { ch, busy: 1, opt, angle: dom * 0.6 + (R() - 0.5) * 2 * G0.jit * (opt === "A" ? 0.4 : 1),
+    u: [r(G0.u[0]) * k, r(G0.u[1]) * k], v: [r(G0.v[0]) * k, r(G0.v[1]) * k],
+    wander: G0.wander * (opt === "A" ? 0.3 : 1), bend: G0.bend * (opt === "A" ? 0.3 : 1), slopeK: opt === "A" ? 0 : span([0.04, 0.16]),
+    hedge: opt === "A" ? 0.4 : opt === "B" ? 0.3 : CHARS.downfarm.hedge, merge: opt === "D" ? CHARS.downfarm.merge : 0.1,
+    trees: Math.round((opt === "D" ? CHARS.downfarm.trees : C0.trees) * 0.7), mix: P.mix, orchard: P.orchard, hops: 0, veg: 0,
+    garden: P.garden || 0, plough: P.plough || 0, maxCrop: 99, common: ch === "downfarm" ? 1 : 0, oneWheat: !!P.oneWheat,
+    blocks: opt === "B" ? P.blocks : null, margin: 0, soft: 0.5 };
+}
 const rngOf = (seed) => { let s = (seed * 2654435761) | 0; return () => (s = (Math.imul(s, 1664525) + 1013904223) | 0, (s >>> 0) / 4294967296); };
 export function recipeOf(o) {
   const ch = o.char || (PONDS.length ? "orchard" : RIVERS.length >= 2 ? "arable" : COAST ? "pastoral" : "downfarm");
@@ -607,6 +632,7 @@ export function recipeOf(o) {
   // neighbours merged, fewer hedges and hedgerow trees, a calmer crop mix (CALM), softer field textures and a
   // wider plain green margin along the road and the water
   const busy = clamp(o.busy ?? 1, 0, 1), calm = 1 - busy, big = 1 + 0.45 * calm, CM = busy < 0.5 ? CALM[ch] : null;
+  if (o.opt) return optRecipe(o, ch, C0, R, dom, span);
   return { ch, busy, angle: dom * 0.6 + (R() - 0.5) * 2 * C0.jit, u: [C0.u[0] * (0.85 + R() * 0.3) * big, C0.u[1] * (0.85 + R() * 0.3) * big], v: [C0.v[0] * (0.85 + R() * 0.3) * big * (CM ? 1.3 : 1), C0.v[1] * (0.85 + R() * 0.3) * big * (CM ? 1.3 : 1)],
     wander: C0.wander * (0.7 + R() * 0.6), bend: C0.bend * (0.6 + R() * 0.8), hedge: Math.min(0.95, C0.hedge * (0.85 + R() * 0.3)) * (1 - 0.45 * calm), merge: C0.merge + 0.3 * calm, trees: Math.round(C0.trees * (0.7 + R() * 0.6) * (0.3 + 0.7 * busy)),
     mix: CM ? CM.mix : C0.mix, orchard: CM ? CM.orchard : C0.orchard, hops: CM ? 0 : C0.hops || 0, veg: CM ? 0 : C0.veg || 0, garden: CM?.garden || 0, plough: CM?.plough || 0, maxCrop: CM?.maxCrop ?? 99,
@@ -630,11 +656,11 @@ const cellAt = (F, xu, yu) => {
 // the layout: which field is what, decided once from the board's masks (road, water, wood), never the decor
 const LAYOUTS = new Map();
 // the sliver rule's numbers (board units): narrowest width, area, plain verge from the road's edge
-export const FIELD_MIN = { width: 45, area: 3500, verge: 12 };
+export const FIELD_MIN = { width: 38, area: 3500, verge: 12 };
 const CULT = new Set(["plough", "crop", "stubble", "hay", "orchard", "garden", "hops", "veg", "ridge"]);
 let L0garden = { homes: [] };
 function layoutOf(o, B) {
-  const rec = recipeOf(o), key = `${o.seed}|${rec.ch}|${rec.busy}|${TOTAL_LEN.toFixed(1)}|${JSON.stringify(o.fields || [])}`;
+  const rec = recipeOf(o), key = `${o.seed}|${rec.ch}|${rec.busy}|${o.opt}|${TOTAL_LEN.toFixed(1)}|${JSON.stringify(o.fields || [])}`;
   if (LAYOUTS.has(key)) return LAYOUTS.get(key);
   const F = fieldGrid(o, rec), cells = new Map();
   const gx = (W - WALL_W) - 20;
@@ -668,6 +694,22 @@ function layoutOf(o, B) {
     for (const [kk, p] of rec.mix) { a += p; if (r < a) { kd = kk; break; } }
     kinds.set(k, kd);
   }
+  const blockOf = new Map();
+  if (rec.blocks) {
+    // blocks of one crop: a few seeds over the farmland, each lot takes its nearest seed's crop
+    const RB = rngOf((o.seed || 7) * 13 + 1), big = list.filter((s) => s.n >= 60), seeds = [];
+    for (let t = 0; t < 400 && seeds.length < rec.blocks.length; t++) {
+      const s = big[Math.floor(RB() * big.length)]; if (!s) break;
+      if (seeds.some((q) => Math.hypot(q.x - s.cx, q.y - s.cy) < 150)) continue;
+      seeds.push({ x: s.cx, y: s.cy, kd: rec.blocks[seeds.length] });
+    }
+    for (const s of list) {
+      const k = `${s.ci},${s.cj}`, cur = kinds.get(k);
+      if (["orchard", "garden", "common", "plough"].includes(cur) && !(cur === "orchard" && rec.ch !== "orchard")) continue;
+      let b = null, bd = 1e9; for (const q of seeds) { const d = Math.hypot(q.x - s.cx, (q.y - s.cy) * 1.2) + (vn(s.cx / 60, s.cy / 60, 1290) - 0.5) * 60; if (d < bd) { bd = d; b = q; } }
+      if (b) { kinds.set(k, b.kd); blockOf.set(k, seeds.indexOf(b)); }
+    }
+  }
   if (rec.oneWheat) { // pasture country: one wheat field, the biggest open one
     for (const [k, v] of kinds) if (v === "crop") kinds.set(k, "hay");
     const big = list.filter((s) => ["pasture", "hay", "meadow"].includes(kinds.get(`${s.ci},${s.cj}`))).sort((a, b) => b.n - a.n)[0];
@@ -685,8 +727,8 @@ function layoutOf(o, B) {
     const up = kinds.get(`${s.ci},${s.cj - 1}`), me = kinds.get(`${s.ci},${s.cj}`);
     if (!["orchard", "common", "hops", "garden", "plough"].includes(up) && !["orchard", "common", "hops", "garden", "plough"].includes(me)) { kinds.set(`${s.ci},${s.cj}`, up); open.add(`${s.ci},${s.cj}`); }
   }
-  for (const [kd, x, y] of o.fields || []) { const c = cellAt(F, x, y); kinds.set(`${c.ci},${c.cj}`, kd); }
-  const L = { rec, F, kinds, open, list };
+  for (const [kd, x, y] of o.fields || []) { const c = cellAt(F, x, y), k0 = `${c.ci},${c.cj}`; if (!["plough", "garden", "orchard"].includes(kinds.get(k0))) kinds.set(k0, kd); }
+  const L = { rec, F, kinds, open, list, blockOf };
   LAYOUTS.set(key, L);
   return L;
 }
@@ -739,13 +781,13 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
   // (something survives eroding it by half that) and FIELD_MIN.area square units; a patch that fails is plain
   // grass, no rows, no hedge of its own. Cultivated ground also keeps FIELD_MIN.verge units of plain verge from
   // the road's edge.
-  const rootOf = (ci, cj) => { while (L.open.has(`${ci},${cj}`)) cj--; return `${ci},${cj}`; };
+  const rootOf = (ci, cj) => { const bk = L.blockOf.get(`${ci},${cj}`); if (bk != null) return `b${bk}`; while (L.open.has(`${ci},${cj}`)) cj--; return `${ci},${cj}`; };
   const LBL = new Int32Array(N).fill(-1), ids = new Map(), keys = [];
   const cultOK = (i, x, y, f) => !KEEP[i] && !TM[i] && feature(x, y) && B.roadD[i] >= RH + FIELD_MIN.verge * 2 + rec.margin && B.wD[i] >= 24 + rec.margin
-    && Math.min(f.du, f.dv0 + (L.open.has(`${f.ci},${f.cj}`) ? 99 : 0), f.dv1) >= 4.5;
+    && (rec.blocks || Math.min(f.du, f.dv0 + (L.open.has(`${f.ci},${f.cj}`) ? 99 : 0), f.dv1) >= 4.5); // a block is measured whole, headlands and all
   for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
     const i = y * AW + x; if (KEEP[i] || TM[i]) continue;
-    const f = field(x, y); if (!CULT.has(f.kind) || f.kind === "garden" || !cultOK(i, x, y, f)) continue; // the garden plot is its own small walled thing
+    const f = field(x, y); if (!CULT.has(f.kind) || f.kind === "garden" || f.kind === "orchard" || !cultOK(i, x, y, f)) continue; // the garden plot is its own small walled thing
     const rk = rootOf(f.ci, f.cj); let id = ids.get(rk); if (id == null) { id = keys.length; ids.set(rk, id); keys.push(rk); }
     LBL[i] = id;
   }
@@ -759,6 +801,8 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
     if (au < FIELD_MIN.area || wu < FIELD_MIN.width) { failed.add(k); if (!worst || au > worst.au) worst = { au, x: Math.round(sx[l] / area[l] / 2), y: Math.round(sy[l] / area[l] / 2) }; }
   });
   log.push(`picks ${L0garden.picks || "-"}; failed ${[...failed].join(" ")}`);
+  let freeN = 0; const cultCells = new Set(); const surv = keys.map((k, l) => [k, l]).filter(([k]) => !failed.has(k));
+  const lotArea = surv.reduce((a, [, l]) => a + area[l] / 4, 0);
   log.push(`slivers: ${failed.size} of ${keys.length} cultivated patches made plain${worst ? ` (biggest ${Math.round(worst.au)} sq units at ${worst.x},${worst.y})` : ""}`);
   for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
     const i = y * AW + x;
@@ -769,7 +813,14 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
     const nearEdge = f.kind !== "plain" && (f.du < 1.6 || (f.dv0 < 1.6 && !L.open.has(`${f.ci},${f.cj}`)));
     const hedgeOK = B.roadD[i] > RH + 26 + rec.margin * 0.7 && B.wD[i] > 30 + rec.margin * 0.7 && FD(B, x, y) < -22 && hallE(halls, x, y) > 1.3 && x < (W - WALL_W) * 2 - 40;
     const edgeHedge = f.du < 1.6 ? h32(f.ci, f.cj >> 1, (o.seed || 7) + 1310) < rec.hedge : h32(f.ci, f.cj, (o.seed || 7) + 1311) < rec.hedge * 0.85;
-    if (nearEdge && hedgeOK && edgeHedge) {
+    let sameAcross = false;
+    if (nearEdge && rec.blocks) { // look a few units across the edge: same crop there -> a headland, not a hedge
+      const cs = Math.cos(rec.angle), sn = Math.sin(rec.angle);
+      for (const [dx, dy] of f.du < 1.6 ? [[cs * 4, sn * 4], [-cs * 4, -sn * 4]] : [[-sn * 4, cs * 4], [sn * 4, -cs * 4]]) {
+        const g = cellAt(F, x / 2 + dx, y / 2 + dy); if ((g.ci !== f.ci || g.cj !== f.cj) && kindOf(L, g.ci, g.cj) === f.kind) sameAcross = true;
+      }
+    }
+    if (nearEdge && hedgeOK && (rec.blocks ? !sameAcross && h32(f.ci, f.cj, 1312) < 0.85 : edgeHedge)) {
       let gate = false;
       for (let r = -14; r <= 14 && !gate; r += 2) for (let s2 = -14; s2 <= 14; s2 += 2) if (TM[clamp(y + s2, 0, AH - 1) * AW + clamp(x + r, 0, AW - 1)]) { gate = true; break; }
       if (!gate) { HM[i] = 1; continue; }
@@ -777,10 +828,13 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
     }
     if (!feature(x, y)) continue;
     if (B.roadD[i] < RH + 14 + rec.margin || B.wD[i] < 24 + rec.margin) continue; // the plain green margin
+    freeN++;
     const hd = Math.min(f.du, f.dv0 + (L.open.has(`${f.ci},${f.cj}`) ? 99 : 0), f.dv1); // headland: grass round every field
-    if (hd < 4.5) continue;
+    if (hd < (rec.blocks && CULT.has(f.kind) ? 0 : 4.5)) continue; // a block's lots are split by a thin line only
+    if (rec.blocks && CULT.has(f.kind) && hd < 1.4) { set(i, mix(get(i), G(1, 0), 0.45)); counts[f.kind] = (counts[f.kind] || 0) + 1; continue; }
     if (f.kind === "plain" || (CULT.has(f.kind) && B.roadD[i] < RH + FIELD_MIN.verge * 2 + rec.margin)) continue;
     counts[f.kind] = (counts[f.kind] || 0) + 1;
+    if (CULT.has(f.kind)) cultCells.add(`${f.ci},${f.cj}`);
     const ax = f.u * 2, av = f.v * 2;
     if (f.kind === "plough" || (aut && f.kind === "crop" && h32(f.ci, f.cj, 1320) < 0.5)) {
       // deep furrows: a lit ridge, its body, the shaded furrow (darker than the road at any hour)
@@ -897,6 +951,12 @@ function farm(S, B, halls, feature, o, G, aut, set, get, KEEP, rnd, log) {
     if (f.kind === "crop" && !aut && f.dv1 > 26 && !scare && hd > 22) { scarecrow(S, X, Y, set); scare++; }
   }
   if (trackEnd) cat(S, Math.round(trackEnd[0] * 2) + 14, Math.round(trackEnd[1] * 2) + 6, set, feature);
+  {
+    const cultN = Object.entries(counts).filter(([kk]) => CULT.has(kk)).reduce((a, [, v]) => a + v, 0);
+    const kindsOf = new Set(Object.entries(counts).filter(([kk, v]) => CULT.has(kk) && (v > cultN * 0.02 || kk === "garden")).map(([kk]) => kk));
+    const nLots = rec.blocks ? cultCells.size : surv.length;
+    log.unshift(`STATS lots ${nLots}${rec.blocks ? ` in ${surv.length} blocks` : ""}, avg ${Math.round(cultN / 4 / Math.max(1, nLots))} sq units, textures ${kindsOf.size} (${[...kindsOf].join("/")}), cultivated ${Math.round(cultN * 100 / Math.max(1, freeN))}% of free land`);
+  }
   const tot = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
   log.push(`${rec.ch} (angle ${(rec.angle * 57.3).toFixed(0)}deg, fields ${Math.round(rec.u[0])}-${Math.round(rec.u[1])} x ${Math.round(rec.v[0])}-${Math.round(rec.v[1])}, hedges ${rec.hedge.toFixed(2)}) ` + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v * 100 / tot)}%`).join(" ") + `; ${stooks} stooks, ${flocks} flocks / ${sheepN} sheep, ${scare} scarecrow`);
 }

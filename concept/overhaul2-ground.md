@@ -291,3 +291,35 @@ Meadow 7, patchwork 4 (four different patterns), bold steps 2, gentle banks 2.
   (the last render served a stale module). Bramblewick is now almost all pasture: calm, but its pattern rests on
   pasture tints and a few hedges. The sliver close-up compares two different layouts (the calm pass also re-cut the
   grid), so it shows the result, not the same patch made plain.
+
+## Round 3c: farmland options (owner: round 3b "went too far"; the lots were small and textures swapped too much)
+
+Yardstick, the owner's pick: Cinderholt (`farm_cinderholt2`): downs-farm fields 116-202 x 89-124 units, 13 lots,
+average 7772 sq units, 3 textures (ridge / wheat / hay), 51% of free land cultivated, big plots split by grass
+headlands with the same crop either side. Options (`o.opt`, `optRecipe` / `PAL` in the painter), all with
+softer textures (`soft` 0.5), the sliver rule (`FIELD_MIN` now width 38, area 3500, verge 12) and the round-3 amount:
+- **A big fields**: the board's own grid at 1.6x a side, straight edges, hedges 0.4.
+- **B blocks of one crop**: the board's own lots, grouped by Voronoi seeds into 4-7 blocks of one crop (palette of
+  2-3 crops), lots inside a block split by a thin dark line (no headland, no hedge); hedges only between blocks.
+  The sliver rule measures a block whole.
+- **C Cinderholt's recipe in the board's crops**: Cinderholt's sizes, hedge density, merging, filled with the board's
+  own palette (Millrace hay / wheat / one plough by the mill; Bramblewick hay / wheat / pasture, two orchards, a
+  garden plot by a building).
+
+| board | option | lots | avg lot (sq u) | textures | cultivated |
+|---|---|---|---|---|---|
+| Millrace | round 3 (with today's sliver rule) | 11 | 6214 | 5 | 37% |
+| | A | 10 | 10088 | 3 | 54% |
+| | B | 36 in 7 blocks | 4486 | 3 | 87% |
+| | C | 13 | 7266 | 3 | 51% |
+| Bramblewick | round 3 | 12 | 5035 | 4 | 28% |
+| | A | 14 | 9427 | 4 | 60% |
+| | B | 56 in 4 blocks | 3372 | 4 | 86% |
+| | C | 12 | 11818 | 4 | 65% |
+| Gullwick | round 3 at width 38 | 1 | 13423 | 2 | 10% |
+
+Panels: `ovh2_ground_farmopt_<A|B|C>_<millrace|bramblewick>`, `ovh2_ground_farmopt_sheet_millrace`, `_bramblewick`.
+Weak: B is very full (86-87%), Bramblewick's B nearly one blanket of hay / wheat with its orchard hard to find; inside
+B's wheat lots the mown stubble strip on each lot's south edge is still a second texture; Gullwick keeps only 1
+cultivated lot even at width 38 (its closes are too small: give it recipe C or let hay not count as cultivated);
+round 3's numbers are measured WITH today's sliver rule, so its original amount was a little higher.

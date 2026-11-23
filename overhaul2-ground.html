@@ -102,6 +102,16 @@
         ["farm_bramblewick2", "bramblewick", "farm", { busy: 0.25 }],
         ["farm_gullwick2", "gullwick", "farm", { busy: 1 }],
         ["farm_cinderholt2", "cinderholt", "farm", { busy: 1 }],
+        ["farmopt_A_millrace", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296], opt: "A" }],
+        ["farmopt_B_millrace", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296], opt: "B" }],
+        ["farmopt_C_millrace", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296], opt: "D" }],
+        ["farmopt_A_bramblewick", "bramblewick", "farm", { opt: "A" }],
+        ["farmopt_B_bramblewick", "bramblewick", "farm", { opt: "B" }],
+        ["farmopt_C_bramblewick", "bramblewick", "farm", { opt: "D" }],
+        ["tmp_r3_millrace", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296] }],
+        ["tmp_r3_bramblewick", "bramblewick", "farm", {}],
+        ["tmp_r3_gullwick", "gullwick", "farm", {}],
+        ["tmp_r3_cinderholt", "cinderholt", "farm", {}],
         ["tmp_farm_millrace_g", "millrace", "farm", { cropAtHall: 0, trackAt: [92, 296] }, "golden"],
         ["tmp_farm_gullwick_g", "gullwick", "farm", {}, "golden"],
         ["tmp_farm_bramblewick_g", "bramblewick", "farm", {}, "golden"],
@@ -193,6 +203,20 @@
           await save("terrace_before_after", c); show("terrace_before_after", c);
         }
         // the calm pass: before / after at board size; the four boards again; the worst roadside sliver close up
+        for (const bd of ["millrace", "bramblewick"]) {
+          const nm = `farmopt_sheet_${bd}`; if (!want(nm)) continue;
+          const lg = (sessionStorage.getItem("ovh2log") || "").split("\n");
+          const stat = (n) => ((lg.filter((l) => l.startsWith(n + ":")).pop() || "").match(/STATS ([^,]+, [^,]+, [^,]+, [^,]+)/) || [, "-"])[1];
+          const c = document.createElement("canvas"); c.width = 1680; c.height = 760; const x = c.getContext("2d");
+          x.fillStyle = "#20242c"; x.fillRect(0, 0, 1680, 760);
+          const T = [[`farm_${bd}`, "ROUND 3 (the owner: lots too small, too many textures)", `tmp_r3_${bd}`], [`farmopt_A_${bd}`, "A  big fields", `farmopt_A_${bd}`], [`farmopt_B_${bd}`, "B  blocks of one crop, split by headlands", `farmopt_B_${bd}`],
+            [`farmopt_C_${bd}`, "C  Cinderholt's recipe in this board's crops", `farmopt_C_${bd}`], ["farm_cinderholt2", "YARDSTICK: Cinderholt (the owner's reference)", "tmp_r3_cinderholt"]];
+          const tl = (im, X, Y, t) => { x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high"; x.drawImage(im, X, Y, 560, 373); x.fillStyle = "rgba(20,24,32,0.85)"; x.fillRect(X, Y, 560, 22); x.fillStyle = "#f0e6c8"; x.font = "bold 13px monospace"; x.fillText(t, X + 6, Y + 16); };
+          for (let k = 0; k < 5; k++) tl(await img(T[k][0]), (k % 3) * 560, Math.floor(k / 3) * 386, T[k][1]);
+          x.fillStyle = "#f0e6c8"; x.font = "bold 13px monospace"; x.fillText(`${bd}: lots / average lot / textures / cultivated`, 1126, 410);
+          x.font = "11px monospace"; T.forEach((t, k) => { const st = stat(t[2]).replace(" sq units", "").replace(" of free land", "").replace(/textures (\d) \(([^)]*)\)/, "$1 textures: $2"); x.fillStyle = "#e0d4b0"; x.fillText(t[1].slice(0, 60), 1126, 440 + k * 52); x.fillStyle = "#b8b098"; x.fillText(st, 1126, 458 + k * 52); });
+          await save(nm, c); show(nm, c);
+        }
         if (want("farm_calm_before_after")) {
           const c = document.createElement("canvas"); c.width = 1680; c.height = 1120; const x = c.getContext("2d");
           const R2 = [["millrace", "Millrace"], ["bramblewick", "Bramblewick"]];
