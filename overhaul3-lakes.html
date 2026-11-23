@@ -5,6 +5,8 @@
     /overhaul3-lakes.html?sheet=1&save=1     the contact sheet of the four at board size beside the approved river
   Saves .shots/ovh3_lakes_<n>_<noon|golden|zoom|pond>.png, .shots/ovh3_anim_lake<n>_c6r5_fps10.png + _still, .shots/ovh3_lakes_sheet.png
   Resumable: each scene saves on its own; re-run only the missing ones.
+  Pass 5: ?pondsheet=1&save=1 (.shots/ovh3_ponds_sheet.png); ?scene=pb_<foxmere|oakmere|bramblewick>,nw_<barrowfields|kingstones|cinderholt>,anim_pond&save=1
+    (.shots/ovh3_ponds_<realm>.png, ovh3_newwater_<realm>.png, ovh3_anim_pond_c6r5_fps10.png + _still); bare_<realm> = a board as it is.
 -->
 <html>
   <head><meta charset="utf-8" /><title>overhaul3 lakes</title>
@@ -53,6 +55,22 @@
           const c = cv.getContext("2d"); c.imageSmoothingEnabled = q.get("smooth") !== "0";
           ims.forEach((im, i) => c.drawImage(im, (i % cols) * cw, Math.floor(i / cols) * ch, cw - 2, ch - 2));
           await shot(q.get("out") || "ovh3l_look", cv); document.title = "DONE";
+        } else if (q.get("pondsheet")) {
+          // pass 5: the five pond variants, each at 3x board size (1.5 px an art px, smoothed from a 3x nearest copy) and at board size
+          const { runScene } = await import("/concept/overhaul3-lakes.js?v=" + Date.now());
+          const ids = ["A", "B", "C", "D", "E"], CW = 360 + 8 + 120, CH = 240 + 34;
+          const cv = document.createElement("canvas"); cv.width = CW * 2 + 24; cv.height = 40 + CH * 3; const c = cv.getContext("2d");
+          c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height); c.font = "bold 15px monospace"; c.fillStyle = "#f4ead0";
+          c.fillText("PONDS = SMALL LAKES: the lakes' water, banks, sprites at their own pixel sizes. 3x | board size", 8, 22);
+          const P = await import("/concept/overhaul3-lakes.js?v=" + Date.now());
+          for (let i = 0; i < ids.length; i++) {
+            const { raw } = await runScene("p_" + ids[i], q), x = 8 + (i % 2) * (CW + 8), y = 40 + Math.floor(i / 2) * CH;
+            const big = document.createElement("canvas"); big.width = raw.width * 3; big.height = raw.height * 3; const bc = big.getContext("2d"); bc.imageSmoothingEnabled = false; bc.drawImage(raw, 0, 0, big.width, big.height);
+            c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(big, x, y + 26, 360, 240);
+            c.drawImage(raw, x + 368, y + 26, 120, 80);
+            c.fillStyle = "#f4ead0"; c.fillText(P.PONDS3[ids[i]].line, x, y + 18); c.font = "11px monospace"; c.fillText("board size", x + 368, y + 120); c.font = "bold 15px monospace";
+          }
+          document.body.appendChild(cv); if (q.get("save") === "1") await shot("ovh3_ponds_sheet", cv); st.textContent = "pondsheet"; document.title = "DONE";
         } else if (q.get("sheet")) {
           // the four lakes at board size (a 420-unit patch at 2 px a unit), and the approved river reaches at the same scale
           const cv = document.createElement("canvas"); cv.width = 840 * 3 + 16; cv.height = 560 * 2 + 8 + 30;
@@ -92,7 +110,7 @@
               continue;
             }
             document.body.appendChild(canvas);
-            if (q.get("save") === "1") await shot(n.startsWith("v_") ? `ovh3_lakes_${n}` : `ovh3_lakes_${n.replace(/^l/, "")}`, canvas);
+            if (q.get("save") === "1") await shot(/^(pb|nw|bare)_/.test(n) ? n.replace(/^pb_/, "ovh3_ponds_").replace(/^nw_/, "ovh3_newwater_").replace(/^bare_/, "ovh3l_bare_") : n.startsWith("v_") ? `ovh3_lakes_${n}` : `ovh3_lakes_${n.replace(/^l/, "")}`, canvas);
             st.textContent += ` | ${n}: ${log.join("; ")}`;
           }
           document.title = "DONE";

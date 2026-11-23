@@ -112,3 +112,44 @@ Loop checks (step mean / wrap step / shimmer px): 1: 605 / 620 / 0; 2: 296 / 399
   (it runs off the panel across open grass). Bramblewick: no open course in the road's loop, so seeps only.
 - Weak spots: the seeps barely read at board size; Bramblewick's tarn without its beck is small and two-lobed (its
   character there is the headland and the dark water only).
+
+## Pass 5: ponds as small lakes; new water on dry boards (2026-11-22)
+
+Owner: ponds and puddles "just make them like small lakes ... I do like the little growth on the right side you have, with
+lillies and stuff, so you can work that in on some variants", and "you can add more lakes and streams yes".
+
+- **Ponds = small lakes** (`genPond(kind, cx, cy, rx, ry, seed, growth)`, variants `PONDS3` A-E): the lakes' own water, edge
+  kinds and sprites, at the SAME pixel sizes (reeds, lilies, tussocks, the 13 px cut face), so a pond is not a shrunken
+  picture. Only what belongs to the shape scales: depth (`deep` = min(34, ry x 1.5) art px; the tarn 18 and darkest; the fen
+  stays shallow), the cut bank's taper (`bankFade` = 0.6 x the pond's width instead of the lake's 72 px, per pond via `ext`),
+  lobes and props. A small mere; B small tarn (two lobes, a rocky spit); C small reed fen; D mere + growth east; E tarn +
+  growth west. THE GROWTH (`planGrowth`): one side of the shore turns to reeds, a raft of ~10 lily pads off it (a third in
+  flower, pink or cream), flowering rush (thin stems, pink umbels) in its edge, meadowsweet (cream froth) and purple
+  loosestrife on the bank behind; all sway in the loop. Sheet `ovh3_ponds_sheet.png` (`?pondsheet=1`): each at 3x and board
+  size on Oakmere's pond place.
+- **Puddles** (`puddleW`): round 2's lobed shapes, now in the river's palette (the pale shallow bands WA[4-6]), shaded north
+  lip, lit south edge, the lakes' sky colour lying in it; rushes / a tussock on grass, ruts on the road.
+- **The pond boards** (`?scene=pb_<realm>`, full board 1680x1120): Oakmere's pond is variant D (the growth on its east side);
+  Foxmere keeps the approved long mere; Bramblewick's tarn left as it is (owner). Puddles on all three.
+- **New water** (`NEWWATER`, `?scene=nw_<realm>`): placed from a road-distance grid (20-unit cells) in each board's spare ground,
+  never across the road, out of the castle band, no culverts, streams 28 wide (the Greenwood rivers' width; never under
+  Millrace's 18). Barrowfields: a beck out of the west wood along the south to the board's foot (cut north bank, a reed
+  stretch with lilies, then a lip). Kingstones: a spring-fed mere in the open ground east of the stone loop, its beck running
+  off to the south edge. Cinderholt: a small spring-fed reed fen in the low south-east corner under the road's last leg.
+  (`?scene=bare_<realm>` draws a board as it is, for choosing.)
+- Loop `ovh3_anim_pond_c6r5_fps10.png` (+ `_still`): variant D on Oakmere; lilies bob, rush and flowers sway, a ring rises.
+  Step mean 306 / wrap 364 / shimmer 0 / 2379 moving px of 138000.
+- Weak spots: the growth is small at board size (it reads as a few pink dots and a green patch; at 3x it reads); meadowsweet
+  barely shows against light grass; in the loop crop the pond is small, so little moves (the growth's lilies and rush only);
+  the tarn's rock sprite sits on the shore below its spit, not on it; Kingstones' beck is the river painter's deep channel
+  and reads darker than its mere where they join (a neck); Kingstones' mere sits in ground near the castle where halls might
+  want to stand (NOT CHECKED against real hall placement); Barrowfields' beck passes under an oak's crown (the board's decor
+  kept on its south bank); a pine stands on Foxmere's mere's north-east shore. Hall footings / buildability for the new
+  shapes: NOT CHECKED (concept only; the engine still knows ponds as ellipses).
+- Pass 5b (the lead's review): the becks now use the approved rivers' spec (`widen` 1.5, `near` "plain", lip banks with one
+  short cut stretch each) on a smooth Catmull-Rom course (`spline`, ~8 units a segment), so no bank is ruled straight.
+  Kingstones' beck FLARES into the mere (`flare` 1.3 over its first 44 units, fillet `mouth` 26) and the lake's painter
+  keeps its own water and the mouth 40 art px out (`ownBias`), so one outline and the mere's shelving run into the stream.
+  The tarn's rock sits on its spit. Weak: a faint seam where the lake's painter hands the mouth to the river's (the flow
+  dashes start there); the beck's pale shelving is the river painter's own (14 px at a lip), so it reads darker in the
+  middle than the wide approved reaches.

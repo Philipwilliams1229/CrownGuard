@@ -207,3 +207,40 @@ loop; the dusk tint hides the deer.
 - Cost: as before (one bake per tree); the dials are a few multiplies before the sculpt.
 - Weak: the open spreading oak reads a little like an umbrella acacia; the hawthorn's six fills differ least (it is small);
   in the deep wood a dead limb shows as a dark speck; the dead limb is identical to its neighbours once bare in winter.
+
+## ROUND 6 (2026-11-22, owner's notes on round 5: no dead limbs, layer order, one-body wood, root flares, fewer pine sticks)
+- **The dead limb is gone** ("remove the dead limb variants, dont love"). `FILLS` is five now: dense, open, lopsided,
+  reaching, compact (`fillVar(seed, force, order)`).
+- **Layer order** ("changing the order of layers so other clumps come to the front or back"): `ord` 0..2 by the seed
+  (`o.order` forces it; `ORDERS` 3). `dressMasses` takes the kind's own set of mass depths and hands them out again in a
+  seeded order (each mass's z + a +-9 jitter, re-sorted), so a clump that sat behind comes to the front. Only overlaps
+  change: every mass keeps its own dome and the sun, so the light stays consistent. ord 0 = the kind's own order.
+- **The wood is one body** ("shaded like one object, to avoid the lines where they connect"), the joint kit's way
+  (style guide, "The joint kit"): trunk, boughs, roots (and in winter the twig limbs) are drawn inside `P.body(WOOD)`, so
+  none casts a shadow or an overlap line on another; `bark()` now draws every limb with `noSeam`, `weld 3` and a
+  `weldRoot` of ~2.2 x its root radius, and every bough is drawn ABOVE the trunk (z 41, was 30 under the leaves) so its
+  root takes the trunk's shading and the outline runs round the whole as one silhouette. Leaves stay separate parts
+  (`P.body(0)` before `clothe`) so they still cast on the wood. Every kind: round oak, spreading oak, beech, hawthorn,
+  birch grove (one body for the three stems), willow, pine.
+- **The ball under the roots** was the trunk's round end: the trunk started at y +2 with its full radius, so its cap
+  bulged 6-9 px below the ground under the roots. `trunk()` now starts the trunk 0.7 r above the ground and a ROOT FLARE
+  makes the foot: `FLARES` buttress / long root / collar / split toes (`FLARE_SET`, in trunk radii), one per tree by its
+  seed and mirrored by its seed (`o.flare` forces one; birch groves keep the collar unless forced). The old ground roots
+  drawn in the stand ring are gone (the flare is the roots now; the litter's dice are kept so nothing else moves).
+- **Pine sticks** ("dial back the sticks"): the needle floor's ~90 brown dashes a tree became a sparse single-pixel
+  speckle a step off the floor's tint; 0-2 real fallen twigs by the seed (a third of pines none), 1-2 cones; no ground
+  roots. Still no leaf litter under evergreens.
+- **The open / reaching spreading oak** no longer reads as an umbrella acacia: its top mass is taller and two shoulder
+  masses fill between it and the side masses (`SP.oak`, when open > 0.5 or reach > 0.6).
+- Shots: `ovh2_trees_fill_sheet.png` (5 kinds x 5 fills, two rows a kind: layers a (own order) and b (re-dealt), 3x with
+  a board-size copy), `ovh2_trees_fill_winter.png`, NEW `ovh2_trees_trunks_sheet.png` (lab `?mode=trunks`: 7 kinds x 4
+  flares, in leaf and bare, 4x crops of the foot and boughs, the pine on its needle floor), `ovh2_trees_1|2|3_final.png`,
+  `ovh2_trees_1_final_spring|_autumn|_winter.png`, `ovh2_trees_seasons_final.png`; loops `ovh3_anim_trees_meadow`,
+  `_winter`, `_autumn_leaves`, `_wood_edge_day` re-rendered (same names and grid).
+- Cost: as before (one bake a tree; the weld is a few multiplies per wood pixel).
+- **Lead's review fixes (same day):** the spreading oak's skeleton redone: the fork sits higher (-52) and the two great
+  boughs sweep out of it in a smooth four-point tapering curve, the leader rising between them (it read as raised arms with
+  square elbows). Willow: in leaf the boughs stop short of their arches, behind every strand (no dark knobs over the crown);
+  bare, the bough ends taper to 0.6 px and the outlined snow caps are a 3-px pinch of snow. Pine in winter: the diagonal
+  snow lines (scratches) became short level caps on each skirt's lit shoulder, just under the hem of the skirt above, in
+  runs with gaps. The trunks sheet's crops are 128 art px tall now (the oak's fork shows).

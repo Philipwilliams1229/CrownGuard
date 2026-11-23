@@ -172,13 +172,177 @@ export function genLook(kind, cx, cy, rx, ry, seed) {
     beds: [[isl[0], isl[1] + 2, 3], [cx - rx * 0.5, cy + ry * 0.2, 3]], punt: [cx + rx * 0.2, cy + ry * 0.3], willows: [[cx - rx * 1.05, cy - ry * 0.3, 1, 13]],
     birds: [["heron", cx - rx * 0.1, cy + ry * 0.2]], rings: [[cx, cy - 4, 0.1, 6, 0]] };
 }
+// ---------------- PONDS = SMALL LAKES (pass 5, owner: "just make them like small lakes ... I do like the little growth on
+// the right side you have, with lillies and stuff, so you can work that in on some variants") ----------------
+// A pond is the approved lake at a small size: the SAME water (the river's bands), the same edge kinds and the same sprites at
+// the same pixel sizes (reeds, lilies, tussocks, the cut bank's 13 px face), so it never reads as a shrunken picture. What
+// scales is only what belongs to the shape: depth (a small pond never reaches the river's middle), the bank's taper (over
+// ~half the pond's width, not the big lake's 72 px), the number of lobes and props.
+// genPond(kind, cx, cy, rx, ry, seed, growth): kind mere | tarn | fen; growth = +1 / -1 puts the lily patch on the east / west.
+export function genPond(kind, cx, cy, rx, ry, seed, growth = 0) {
+  const R = rnd(seed), sg = growth || (R() < 0.5 ? -1 : 1), j = (a) => (R() - 0.5) * a;
+  const base = { wob: 1.4, ext: [cx - rx * 1.2, cx + rx * 1.2], bankFade: rx * 2 * 0.6, deep: Math.min(34, ry * 1.5), qmax: 0.8, birds: [], rings: [[cx - rx * 0.15, cy - 2, 0.25, 6, 1]] };
+  let L;
+  if (kind === "mere") {
+    L = { ...base, shape: (x, y) => union(x, y, [[cx, cy, rx, ry], [cx - sg * rx * 0.38, cy - ry * 0.12 + j(3), rx * 0.58, ry * 0.86]], rx * 0.3),
+      kind: (x, y, nx, ny) => ny < -0.05 ? "cut" : "lip", birds: growth ? [] : [["duck", cx - sg * rx * 0.25, cy - 2]] };
+  } else if (kind === "tarn") {
+    const L1 = [cx - rx * 0.42, cy + j(ry * 0.3), rx * 0.6, ry * 0.86], L2 = [cx + rx * 0.44, cy - ry * 0.16 + j(ry * 0.2), rx * 0.56, ry * 0.8], hd = [cx + rx * 0.04, cy + ry * 0.98, rx * 0.13, ry * 0.62];
+    L = { ...base, wob: 2.4, deep: Math.min(18, ry * 0.9), qmax: 1, shape: (x, y) => Math.max(union(x, y, [L1, L2], 8), -ell(x, y, ...hd)),
+      kind: (x, y, nx, ny) => near(x, y, hd[0], hd[1] - hd[3] * 0.5, rx * 0.32) ? "rock" : ny < -0.05 ? "cut" : "lip",
+      rocks: [[hd[0] - 0.5, hd[1] - hd[3] * 0.45, 0.42]], boulders: [[hd[0] + 1, hd[1] - hd[3] * 0.95, 2.2]] };
+  } else {   // the reed fen, small: shallow, ringed in reeds, a bed or two standing out in it
+    L = { ...base, wob: 2.6, wobF: 12, deep: 30, qmax: 0.5, shape: (x, y) => union(x, y, [[cx - rx * 0.3, cy, rx * 0.7, ry * 0.9], [cx + rx * 0.4, cy - ry * 0.15, rx * 0.6, ry * 0.8]], 10),
+      kind: () => "reeds", beds: [[cx + j(rx * 0.4), cy + j(ry * 0.3), 2]], birds: rx > 34 ? [["heron", cx + rx * 0.2, cy + ry * 0.1]] : [] };
+  }
+  if (growth) {   // the growth: one side turns to reeds, with a raft of lilies off it, flowering rush in its edge and flowers on the bank
+    const gc = [cx + sg * rx * 0.86, cy + ry * 0.12], kd = L.kind;
+    L.growth = { c: gc, side: sg, r: Math.max(rx * 0.42, 16), raft: [cx + sg * rx * 0.42, cy + ry * 0.05, rx * 0.3, ry * 0.36], seed };
+    L.kind = (x, y, nx, ny) => near(x, y, gc[0], gc[1], L.growth.r) ? "reeds" : kd(x, y, nx, ny);
+  }
+  return L;
+}
+export const PONDS3 = {
+  A: { kind: "mere", growth: 0, line: "A  small MERE: cut far bank, grassy near lip" },
+  B: { kind: "tarn", growth: 0, line: "B  small TARN: two lobes, a rocky spit, dark" },
+  C: { kind: "fen", growth: 0, line: "C  small REED FEN: shallow, ringed in reeds" },
+  D: { kind: "mere", growth: 1, line: "D  mere + GROWTH east: lilies, flowering rush" },
+  E: { kind: "tarn", growth: -1, line: "E  tarn + GROWTH west: lilies, rush, meadowsweet" },
+};
+// a rain puddle on grass or road in the lake's water: the river's palette (pale shallow bands), a shaded north lip, a lit
+// south edge, the sky lying in it. [x, y, rx, ry, seed, on] (board units), as round 2's puddles.
+function puddleW(Pp, pd, t, golden) {
+  const [cx, cy, rx, ry, seed, on] = pd, X0 = cx * 2, Y0 = cy * 2;
+  const Rr = (x, y) => { let best = 9; for (let q = 0; q < 3; q++) { const ox = (hs(seed, q, 1) - 0.5) * rx * 1.1, oy = (hs(seed, q, 2) - 0.5) * ry * 0.8, sx = rx * (0.55 + hs(seed, q, 3) * 0.45), sy = ry * (0.6 + hs(seed, q, 4) * 0.4); best = Math.min(best, Math.hypot((x - ox) / sx, (y - oy) / sy)); } return best + (vn(x / 3, y / 3, seed) - 0.5) * 0.18; };
+  const xr = rx * 2 + 8, yr = ry * 2 + 8;
+  for (let jj = -yr; jj <= yr; jj++) for (let ii = -xr; ii <= xr; ii++) {
+    const r = Rr(ii / 2, jj / 2), X = X0 + ii, Y = Y0 + jj; if (r > 1.5) continue;
+    const g = Pp.getp(X, Y);
+    if (r > 1) { const a = (1.5 - r) / 0.5; Pp.set(X, Y, lerp(g, on === "road" ? hex("#5a442c") : hex("#2e4a26"), a * (on === "road" ? 0.5 : 0.42))); continue; }
+    const idx = 6 - Math.min(0.42, (1 - r) * 0.6) * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.6;
+    let c = WA[clamp(Math.round(idx), 0, 6)];
+    if (vl(X / 9, Y / 4, seed + 5, 0.4, 0, t) > 0.68) c = lerp(c, hex("#a8ccc4"), 0.3);                         // the sky lying in it
+    if (r > 0.8 && jj < 0) c = lerp(c, on === "road" ? hex("#3e2e1e") : hex("#22361e"), r > 0.9 ? 0.75 : 0.4); // its north lip shades it
+    else if (r > 0.88 && jj > 0) c = lerp(c, FOAM2, 0.4);                                                        // the wet edge catches light
+    if (golden) { c = lerp(c, hex("#7a6a62"), 0.12); if (jj > 0 && r > 0.6 && r < 0.8 && (X + Y) % 3 === 0) c = lerp(c, hex("#ffc870"), 0.5); }
+    if (Math.abs(Math.sin((r - t) * 6 * Math.PI)) < 0.08 && r < 0.72 && hs(seed, 9) > 0.4) c = lerp(c, FOAM2, 0.3);
+    Pp.set(X, Y, c);
+  }
+  if (on === "grass") { W.tussock(Pp, X0 - rx * 2 + 1, Y0 - ry + 1, seed + 3); if (rx > 10) W.reedClump(Pp, X0 + rx * 2 - 2, Y0 + ry * 0.5, 9, seed + 4, false); }
+  else for (let q = 0; q < 2; q++) { const yy = Y0 + (q ? 1 : -1) * ry * 0.6; for (let x = -rx * 2 - 6; x < -rx * 2 + 2; x++) Pp.set(X0 + x, yy, hex("#4a3420"), 0.4); }
+}
+// the growth's own plants, hand-placed pixels at the river sprites' sizes
+let GSW = 0, GNOW = 0;   // sway (art px) and the loop's clock
+const ROSE = [hex("#f4b8cc"), hex("#e48aa8"), hex("#c06a8a")], CREAM = [hex("#fbf6e4"), hex("#ece4c4"), hex("#cfc6a0")], LOOSE = [hex("#d070c0"), hex("#a8509c")];
+function rushFlower(Pp, X, Y, hgt, seed) {   // flowering rush: thin stems, a pink umbel on the tallest
+  const n = 3 + Math.floor(hs(seed, 1) * 3), ph = TAU * GNOW - X / 60;
+  for (let q = 0; q < n; q++) {
+    const dx = (hs(seed, q, 2) - 0.5) * 6, H = hgt * (0.7 + hs(seed, q, 3) * 0.4), sw = GSW * Math.sin(ph + q * 0.5);
+    let tx = X, ty = Y;
+    for (let y = 0; y < H; y++) { tx = X + dx + sw * (y / H) * (y / H); ty = Y - y; Pp.set(tx, ty, y < 2 ? W.REED[0] : y < H * 0.5 ? W.REED[1] : W.REED[2]); }
+    if (q === 0 || hs(seed, q, 4) > 0.55) {   // the umbel: a spray of pink florets
+      for (const [ox, oy, c] of [[0, -1, 0], [-1, 0, 1], [1, 0, 1], [-2, 1, 2], [2, 1, 2], [0, 0, 0], [-1, -2, 0], [1, -2, 1]]) Pp.set(tx + ox, ty + oy, ROSE[c]);
+      Pp.set(tx, ty + 1, hex("#6a8a3a"));
+    }
+  }
+}
+function bankFlower(Pp, X, Y, seed) {   // meadowsweet (cream froth) or purple loosestrife (a spike), on a leafy foot
+  const loose = hs(seed, 7) > 0.6, ph = TAU * GNOW - X / 50, sw = Math.round(GSW * 0.7 * Math.sin(ph));
+  for (let q = 0; q < 6; q++) { const a = -Math.PI / 2 + (hs(seed, q, 1) - 0.5) * 2.4, L = 2 + hs(seed, q, 2) * 3; for (let r = 0; r < L; r++) Pp.set(X + Math.cos(a) * r * 1.3, Y + Math.sin(a) * r * 0.7, r < 1 ? W.TURF[1] : W.TURF[3]); }
+  const H = 7 + Math.floor(hs(seed, 3) * 4);
+  for (let y = 1; y < H; y++) Pp.set(X + (y > H * 0.6 ? sw : 0), Y - y, W.TURF[2]);
+  const tx = X + sw, ty = Y - H;
+  if (loose) for (let y = 0; y < 5; y++) { Pp.set(tx, ty + y, LOOSE[y % 2]); if (y % 2 === 0) Pp.set(tx + 1, ty + y, LOOSE[1]); }
+  else for (const [ox, oy, c] of [[0, 0, 0], [-1, 0, 1], [1, 0, 0], [-2, 1, 2], [2, 1, 1], [-1, 1, 1], [0, 1, 0], [1, 1, 2], [0, -1, 1], [-1, 2, 2], [1, 2, 2]]) Pp.set(tx + ox, ty + oy, CREAM[c]);
+}
+function padFlower(Pp, X, Y, seed) {   // a water-lily in flower, sitting a pixel proud of its pad
+  const pink = hs(seed, 4) > 0.55, A = pink ? ROSE : CREAM;
+  Pp.set(X, Y, hex("#f6e070")); Pp.set(X - 1, Y, A[0]); Pp.set(X + 1, Y, A[1]); Pp.set(X, Y - 1, A[0]); Pp.set(X - 1, Y - 1, A[1]); Pp.set(X + 1, Y - 1, A[2]); Pp.set(X, Y + 1, A[2]);
+}
+// lay the growth out once from the field: shore pixels inside the growth's circle get rushes (water side) and flowers (land side)
+function planGrowth(Gr, F, X0, Y0) {
+  const { D, w, h, NX, NY } = F, out = { rush: [], bank: [], pads: [] }, seen = new Set(), [gx, gy] = Gr.c, R2 = Gr.r * 2 + 6;
+  for (let jj = 2; jj < h - 2; jj++) for (let ii = 2; ii < w - 2; ii++) {
+    const k = jj * w + ii, d = D[k]; if (d > 0 || d < -1) continue;
+    const X = X0 + ii, Y = Y0 + jj; if (Math.hypot(X - gx * 2, Y - gy * 2) > R2) continue;
+    const cell = `${Math.floor(X / 9)},${Math.floor(Y / 9)}`; if (seen.has(cell)) continue; seen.add(cell);
+    const r = hs(X, Y, 401), nx = NX[k], ny = NY[k];
+    if (r < 0.55) out.rush.push([X - nx * 3, Y - ny * 3 + 2, 12 + hs(X, Y, 402) * 5, X * 7 + Y]);
+    if (r > 0.25 && ny < 0.4) out.bank.push([X + nx * (5 + hs(X, Y, 403) * 5), Y + ny * (5 + hs(X, Y, 403) * 4) + 1, X * 3 + Y * 5]);
+  }
+  const [rx0, ry0, rrx, rry] = Gr.raft, Rn = rnd(Gr.seed * 7 + 3);
+  for (let q = 0; q < 14; q++) {
+    const a = Rn() * TAU, u = Math.sqrt(Rn()), X = Math.round((rx0 + Math.cos(a) * rrx * u) * 2), Y = Math.round((ry0 + Math.sin(a) * rry * u) * 2);
+    const k = (Y - Y0) * w + X - X0; if (k < 0 || k >= w * h || D[k] > -4) continue;
+    out.pads.push([X, Y, 2 + Math.round(Rn() * 2), q * 13 + Gr.seed, Rn() < 0.35]);
+  }
+  return out;
+}
+
 export const VARIETY = {
   foxmere: { kind: "mere", line: "FOXMERE: the LONG MERE: the board's big open water; a deep pool with a cut far bank (round 3's mere)", look: () => LOOKS[1].fox, c: [430, 210] },
   oakmere: { kind: "fen", line: "OAKMERE: the REED FEN: low meadow ground and a small pond beside the road: soft, wild, shallow", look: () => LOOKS[4].oak, c: [118, 398] },
   bramblewick: { kind: "tarn", line: "BRAMBLEWICK: a TARN in the road's loop: no open course for a stream, so a spring-fed pool (a seep and rushes at its ends)", gen: [285, 190, 62, 34, 7] },
   thistlecrag: { kind: "mere", line: "THISTLECRAG: a SMALL ROUND MERE in a hollow among the crags (placed by seed in the widest ground clear of the road)", gen: "auto", seed: 11 },
 };
+// ---------------- pass 5 scenes: ponds as small lakes, the existing pond boards, new water on dry boards ----------------
+// p_<A-E>        one pond variant at Oakmere's pond place (the sheet: ?pondsheet=1 in the lab)
+// pb_<realm>     a whole existing pond board, its pond redrawn, rain puddles in the lake's water
+// nw_<realm>     a whole dry Greenwood board with new water (a spring-fed lake, a stream edge to edge)
+// bare_<realm>   a whole board as it is (for choosing where water could go)
+// anim_pond      the loop: variant D's growth moving
+const OAK_POND = [120, 396, 40, 22];
+const FULL = [0, 0, 840, 560];
+const PUD = {
+  foxmere: [[600, 150, 14, 6, 1, "grass"], [222, 420, 12, 5, 2, "grass"], [520, 470, 11, 5, 3, "road"], [130, 140, 16, 7, 4, "grass"]],
+  oakmere: [[300, 420, 17, 7, 1, "grass"], [392, 296, 12, 5, 3, "grass"], [84, 476, 15, 6, 4, "grass"], [560, 200, 14, 6, 6, "grass"]],
+  bramblewick: [[120, 300, 15, 6, 1, "grass"], [500, 420, 13, 6, 2, "grass"], [640, 140, 12, 5, 3, "grass"]],
+};
+export const SCN = {
+  pond: (id) => { const V = PONDS3[id], L = genPond(V.kind, ...OAK_POND, 5 + id.charCodeAt(0), V.growth); return { realm: "oakmere", L, look: L, crop: [60, 356, 120, 80], label: V.line, raw: true }; },
+  pb: (realm) => {
+    if (realm === "foxmere") { const L = { ...LOOKS[1].fox }; return { realm, L, look: { deep: 38, qmax: 0.88 }, crop: FULL, puddles: PUD.foxmere,
+      label: "FOXMERE: the long mere as approved; rain puddles now in the lake's own water" }; }
+    if (realm === "oakmere") { const L = genPond("mere", ...OAK_POND, 73, 1); return { realm, L, look: L, crop: FULL, puddles: PUD.oakmere,
+      label: "OAKMERE: its pond as a SMALL MERE with the growth (lilies, flowering rush, meadowsweet) on its east side" }; }
+    const L = genLook("tarn", 285, 190, 62, 34, 7); return { realm, L, look: { deep: 18, qmax: 1 }, crop: FULL, puddles: PUD.bramblewick,
+      label: "BRAMBLEWICK: the tarn left as it is (owner); rain puddles in the lake's water" };
+  },
+  nw: (realm) => { const N = NEWWATER[realm]; const L = N.make(); return { realm, L, look: L, crop: FULL, puddles: N.puddles || [], label: N.line }; },
+  bare: (realm) => ({ realm, L: { shape: () => 99, kind: () => "lip" }, look: { deep: 30, qmax: 0.8 }, crop: FULL, label: realm + " as it is" }),
+  anim: () => { const L = genPond("mere", ...OAK_POND, 73, 1); return { realm: "oakmere", L, look: L, crop: [5, 321, 230, 150], anim: { F: 30, fps: 10, cols: 6 } }; },
+};
+// NEW WATER on dry Greenwood boards (owner: "you can add more lakes and streams yes"): filled in pass 5 below
+// Rules (owner): never across the road, never in the castle band (x > 738), no culverts; a stream runs edge to edge over open
+// ground (or from a spring-fed lake to an edge) and is never narrower than the Greenwood's narrowest river (Millrace's race,
+// 18): these are 28, the Greenwood rivers' own width. Placed from a road-distance grid of each board (20-unit cells), in ground that is the board's spare
+// edge, not the bends where halls stand.
+// a beck is drawn by the approved river painter with the approved rivers' own spec (widen 1.5, near "plain"), its course a
+// smooth curve (Catmull-Rom through the points, ~8 units a segment) so no bank is ruled straight between two points
+const spline = (P) => { const o = []; for (let i = 0; i < P.length - 1; i++) { const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)], n = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / 8));
+  for (let k = 0; k < n; k++) { const t = k / n, t2 = t * t, t3 = t2 * t; o.push([0, 1].map((c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3))); } }
+  o.push(P[P.length - 1]); return o; };
+const beck = (pts, w, zones) => ({ pts: spline(pts), w, spec: { def: "lip", near: "plain", widen: 1.5, flow: 0.6, zones } });
+export const NEWWATER = {
+  barrowfields: { line: "BARROWFIELDS: a BECK out of the wood along the south, wood's edge to the board's foot; never near the road",
+    make: () => ({ shape: () => 99, kind: () => "lip", deep: 30, qmax: 0.8,
+      streams: [beck([[-24, 452], [30, 466], [86, 490], [140, 498], [196, 494], [246, 506], [292, 524], [340, 532], [384, 550], [408, 590]], 28,
+        [{ bank: "N", from: 30, to: 150, kind: "cut" }, { bank: "S", from: 150, to: 260, kind: "reeds" }])],
+      rings: [[200, 507, 0.3, 5, 0]] }),
+    puddles: [[600, 120, 14, 6, 1, "grass"]] },
+  kingstones: { line: "KINGSTONES: a spring-fed MERE in the open ground east of the loop, its beck running off to the south edge",
+    make: () => { const L = genPond("mere", 664, 376, 50, 32, 41, 0);
+      L.streams = [beck([[658, 384], [652, 414], [640, 446], [642, 474], [656, 500], [660, 526], [648, 552], [636, 576], [634, 596]], 28, [{ bank: "E", from: 70, to: 150, kind: "cut" }])];
+      L.streams[0].flare = 1.3; L.seeps = [[700, 346, 9]]; L.mouth = 26; L.ownBias = 40; return L; } },
+  cinderholt: { line: "CINDERHOLT: a small spring-fed REED FEN in the low south-east corner, below the last leg of the road",
+    make: () => { const L = genPond("fen", 632, 496, 58, 30, 23, 0); L.seeps = [[568, 516, 8]]; return L; } },
+};
 export const sceneOf = (name) => {
+  const pm = /^(p|pb|nw|bare)_(\w+)$/.exec(name);
+  if (pm || name === "anim_pond") {
+    const S = name === "anim_pond" ? SCN.anim() : SCN[{ p: "pond", pb: "pb", nw: "nw", bare: "bare" }[pm[1]]](pm[2]);
+    return { towers: [], at: 14, sun: "noon", anim: null, n: 9, ...S, kindName: pm ? pm[1] : "anim" };
+  }
   const v = /^v_(\w+)$/.exec(name);
   if (v) { const V = VARIETY[v[1]]; return { variety: V, realm: v[1], towers: [], at: 14, crop: null, sun: "noon", anim: null, label: V.line, n: 9, look: { deep: V.kind === "fen" ? 46 : V.kind === "tarn" ? 18 : 38, qmax: V.kind === "fen" ? 0.5 : 0.88 } }; }
   const m = /^(?:anim_lake(\d)|l(\d)_(noon|golden|zoom|pond))$/.exec(name); if (!m) throw new Error("no scene " + name);
@@ -213,8 +377,9 @@ function lakeMask(L, X0, Y0, w, h, pad) {
     const X = X0 - pad + i, Y = Y0 - pad + j, x = X / 2, y = Y / 2;
     let v = L.shape(x, y);
     if (v > 12) continue;
-    const wob = (L.wob || 0) + (L.wobN && y < (L.damY || 0) - 8 ? L.wobN : 0);
-    if (wob) v += (vn(x / (L.wobF || 22), y / 14, 301) - 0.5) * 2 * wob + (vn(x / 7, y / 6, 302) - 0.5) * wob * 0.15;
+    const LL = L.at ? L.at(x, y) : L;   // several ponds on one board: each keeps its own wobble
+    const wob = (LL.wob || 0) + (LL.wobN && y < (LL.damY || 0) - 8 ? LL.wobN : 0);
+    if (wob) v += (vn(x / (LL.wobF || 22), y / 14, 301) - 0.5) * 2 * wob + (vn(x / 7, y / 6, 302) - 0.5) * wob * 0.15;
     if (v >= 0) continue;
     // the road stays dry, and the shore curves away from it (a smooth max, never a straight clipped edge)
     const rd = W.nearestOnPath(x, y).d; v = -smin(-v, -(W.PATH_HALF + 14 - rd), 16);
@@ -239,7 +404,10 @@ function buildLake(sc, X0, Y0, w, h) {
   let Fr = null;
   if (L.streams) {
     const rivers = L.streams.map((s) => {
-      const segs = []; for (let i = 0; i < s.pts.length - 1; i++) { const [x1, y1] = s.pts[i], [x2, y2] = s.pts[i + 1]; segs.push({ x1, y1, x2, y2, len: Math.hypot(x2 - x1, y2 - y1) }); }
+      // flare: a stream leaving (or entering) a lake opens out to it like a mouth over its first ~44 units, so the lake's
+      // shore runs on into the stream's banks as one outline (no neck)
+      const segs = []; let c = 0; const hwAt = (d) => (s.w / 2) * (1 + (s.flare || 0) * sstep(44, 0, d));
+      for (let i = 0; i < s.pts.length - 1; i++) { const [x1, y1] = s.pts[i], [x2, y2] = s.pts[i + 1], len = Math.hypot(x2 - x1, y2 - y1); segs.push({ x1, y1, x2, y2, len, hw1: hwAt(c), hw2: hwAt(c + len) }); c += len; }
       return { w: s.w, segs };
     });
     Fr = W.buildField({ rivers: L.streams.map((s) => s.spec) }, rivers, [], X0, Y0, w, h);
@@ -248,7 +416,7 @@ function buildLake(sc, X0, Y0, w, h) {
   for (let k = 0; k < N; k++) {
     const dl = Dl[k]; let dr = Fr ? Fr.D[k] : 99;
     if (dr < 4) { const X = X0 + (k % w), Y = Y0 + Math.floor(k / w); if (W.nearestOnPath(X / 2, Y / 2).d < W.PATH_HALF + 5) dr = 4; }   // a stream goes UNDER the road
-    D[k] = Fr ? smin(dl, dr, 7) : dl; OWN[k] = dr < dl ? 1 : 0;
+    D[k] = Fr ? smin(dl, dr, L.mouth || 7) : dl; OWN[k] = (L.ownBias ? dl > L.ownBias && dr < dl : dr < dl) ? 1 : 0;   // ownBias (art px): the lake's painter keeps its own water and the mouth that far out, so its shelving runs on into the stream
   }
   // normals from a softened copy of the field (toward land)
   const Ds = new Float32Array(N);
@@ -290,16 +458,19 @@ function buildLake(sc, X0, Y0, w, h) {
 // Every colour step is the river's: idx = 6 - q x 6.2 + its Bayer nudge + its blotch noise, WA[round(idx)]. In the river q
 // rises across the channel to its line; here it rises with the distance from the shore, to `deep` art px.
 function paintLake(P, F, sc, t, X0, Y0, MOD) {
-  const { D, NX, NY, KIND, NEAR, BODY, KW, OWN, w, h } = F, look = sc.look;
+  const { D, NX, NY, KIND, NEAR, BODY, KW, OWN, w, h } = F, lookG = sc.look;
   const golden = W.DAY.id === "golden", fall = W.DAY.fall, slen = W.DAY.len || 0;
   const put = (k, c) => { P[k * 4] = c[0]; P[k * 4 + 1] = c[1]; P[k * 4 + 2] = c[2]; MOD[k] = 1; };
   for (let j = 2; j < h - 2; j++) for (let i = 2; i < w - 2; i++) {
     const k = j * w + i, d = D[k]; if (d > 8 || BODY[k] < 0 || OWN[k]) continue;
     const X = X0 + i, Y = Y0 + j, nx = NX[k], ny = NY[k], kind = KIND[k], isNear = ny > 0.35, s = F.S[k];
+    // several ponds on one board (sc.L.at): each its own depth and its own ends for the bank's taper
+    const LL = sc.L && sc.L.at ? sc.L.at(X / 2, Y / 2) : sc.L && sc.L.ext ? sc.L : null, look = LL ? LL : lookG;
+    const ex0 = LL && LL.ext ? LL.ext[0] * 2 : F.xmin, ex1 = LL && LL.ext ? LL.ext[1] * 2 : F.xmax, bf = LL && LL.bankFade ? LL.bankFade : BANK_FADE;
     const g = [P[k * 4], P[k * 4 + 1], P[k * 4 + 2]];
     // a CUT bank never stops in a wedge: its face eases to nothing as the shore turns from north- to west/east-facing,
     // and over a long run (BANK_FADE art px) toward each end of the lake, so the turf lip above it is one continuous line
-    const tp = kind === "cut" ? sstep(0.05, -0.55, ny) * sstep(F.xmin, F.xmin + BANK_FADE, X) * sstep(F.xmax, F.xmax - BANK_FADE, X) : 1;
+    const tp = kind === "cut" ? sstep(0.05, -0.55, ny) * sstep(ex0, ex0 + bf, X) * sstep(ex1, ex1 - bf, X) : 1;
     const ek = kind === "cut" && tp < 0.3 ? "lip" : kind;     // where the face has gone, the water meets a grassy lip
     if (d >= 0) {   // the land side: exactly the river's
       if (kind === "cut" && !isNear && d < 2.2 && tp > 0.05) put(k, lerp(g, TURF[5], (d < 1 ? 0.55 : 0.25) * Math.min(1, tp * 1.5)));
@@ -540,6 +711,7 @@ export async function runScene(name, q) {
   const I = imgs();
   // the willows (the approved strand willow, round 2's trees), baked once
   const willows = (L.willows || []).map(([x, y, form, seed]) => ({ x, y, sp: SP.willow(PAL.summer, form === 2 ? 0.8 : 0.9, 0, 0, seed, TREAT[3], { form, wet: 0 }) }));
+  const GP = L.growth ? planGrowth(L.growth, F, X0, Y0) : null;
   const outs = [];
   for (const ft of frames) {
     W.__set({ NOW: ft });
@@ -556,6 +728,13 @@ export async function runScene(name, q) {
       if (kd === "heron") return W.bird(Pp, kd, x * 2, y * 2, ft, false);
       const ph = TAU * ft + x * 0.7; W.bird(Pp, kd, x * 2 + Math.round(2.5 * Math.cos(ph)), y * 2 + Math.round(Math.sin(ph)), ft, Math.sin(ph) < 0);
     } });
+    for (const pd of sc.puddles || []) items.push({ y: -2e4, fn: () => puddleW(Pp, pd, ft, W.DAY.id === "golden") });
+    if (GP) {
+      GSW = sc.anim ? 1.4 : 0; GNOW = ft;
+      for (const [X, Y, r, sd, fl] of GP.pads) items.push({ y: -1.1e4, fn: () => { W.lily(Pp, X, Y, r, sd); if (fl) padFlower(Pp, X + 1, Y - 1 + (sc.anim && Math.sin(TAU * ft + sd * 0.61) > 0.35 ? 1 : 0), sd); } });
+      for (const [X, Y, hg, sd] of GP.rush) items.push({ y: Y, fn: () => rushFlower(Pp, X, Y, hg, sd) });
+      for (const [X, Y, sd] of GP.bank) items.push({ y: Y, fn: () => bankFlower(Pp, X, Y, sd) });
+    }
     for (const rg of L.rings || []) items.push({ y: -1.5e4, fn: () => W.ring(Pp, F, X0, Y0, rg, ft) });
     if (L.skiff) items.push({ y: L.skiff[1] * 2, fn: () => {
       const [x, y] = L.skiff, b = bob(0.3), im = I.skiff;
@@ -599,7 +778,7 @@ export async function runScene(name, q) {
     for (let k = 0; k < w * h; k++) {
       const a0 = A[k * 4], a1 = A[k * 4 + 1], a2 = A[k * 4 + 2], b0 = Bd[k * 4], b1 = Bd[k * 4 + 1], b2 = Bd[k * 4 + 2];
       if (Math.abs(a0 - b0) + Math.abs(a1 - b1) + Math.abs(a2 - b2) < 4) continue;
-      if (F.D[k] < -3 && F.BODY[k] >= 0 && !F.OWN[k] && sc.variety) continue;   // stray ground scatter the board drew where the lake now lies
+      if (F.D[k] < -3 && F.BODY[k] >= 0 && (sc.variety || sc.kindName)) continue;   // stray ground scatter the board drew where the lake now lies
       if (MOD[k]) {
         const al = [0, 1, 2].map((c) => { const bb = Bd[k * 4 + c], aa = A[k * 4 + c], sh = SHADE[c]; return Math.abs(bb - sh) < 12 ? null : (bb - aa) / (bb - sh); }).filter((v) => v != null);
         const amx = Math.max(...al), amn = Math.min(...al);
@@ -615,6 +794,7 @@ export async function runScene(name, q) {
     const sx = sheet.getContext("2d"); outs.forEach((c, f) => sx.drawImage(c, (f % cols) * w, Math.floor(f / cols) * h));
     return { canvas: sheet, still: outs[0], anim: { cols, rows, fps: sc.anim.fps }, outs, log };
   }
+  if (sc.raw) return { canvas: outs[0], raw: outs[0], log };
   const Z = 1680 / w, out = document.createElement("canvas"); out.width = 1680; out.height = Math.round(h * Z);
   const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false; oc.drawImage(outs[0], 0, 0, out.width, out.height);
   if (sc.label && q.get("label") !== "0") {

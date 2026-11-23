@@ -185,29 +185,55 @@
         throw new Error("done");
       }
 
-      // ---------------- round 5: how the foliage fills the skeleton ----------------
-      // fillsheet: each kind (rows) in the six fills (columns) at 3x, a board-size copy in each cell's corner
-      // fillwinter: six oaks (one per fill), summer above and winter below, 2x
+      // ---------------- round 5 / 6: how the foliage fills the skeleton ----------------
+      // fillsheet: each kind in the five fills (columns) at 3x, two rows a kind: its own layer order (a) and a re-dealt one (b);
+      //   a board-size copy in each cell's corner
+      // fillwinter: five oaks (one per fill), summer above and winter below, 3x
+      // trunks: round 6's wood close-ups, 4x: each kind (rows) in the four root flares, in leaf and bare (columns)
       if (MODE === "fillsheet" || MODE === "fillwinter") {
-        const FS = MODE === "fillsheet", kinds = FS ? [["roundoak", 0.9], ["oak", 0.85], ["beech", 0.85], ["birches", 0.85], ["hawthorn", 0.9]] : [["oak", 0.85], ["oak", 0.85]];
-        const Z = 3, CW = 180, CH = 168, sd0 = 40;
-        const out = document.createElement("canvas"); out.width = 6 * CW * Z; out.height = kinds.length * CH * Z; const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
-        kinds.forEach(([sp, k], r) => { for (let c = 0; c < 6; c++) {
-          const sea = !FS && r === 1 ? "winter" : "summer", seed = sd0 + c * 13 + (FS ? r * 101 : 0);
+        const FS = MODE === "fillsheet", KK = [["roundoak", 0.9], ["oak", 0.85], ["beech", 0.85], ["birches", 0.85], ["hawthorn", 0.9]];
+        const kinds = FS ? KK.flatMap((kk) => [[...kk, 0], [...kk, 1]]) : [["oak", 0.85, null], ["oak", 0.85, null]];
+        const Z = 3, CW = 180, CH = 168, sd0 = 40, NF = FILLS.length;
+        const out = document.createElement("canvas"); out.width = NF * CW * Z; out.height = kinds.length * CH * Z; const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        kinds.forEach(([sp, k, ord], r) => { for (let c = 0; c < NF; c++) {
+          const sea = !FS && r === 1 ? "winter" : "summer", seed = sd0 + c * 13 + (FS ? (r >> 1) * 101 : 0);
           const cell = document.createElement("canvas"); cell.width = CW; cell.height = CH; const cc = cell.getContext("2d");
           cc.fillStyle = sea === "winter" ? "#d8dee6" : "#6aa83e"; cc.fillRect(0, 0, CW, CH);
           for (let n = 0; n < 500; n++) { cc.fillStyle = sea === "winter" ? ["#cdd4de", "#e4e8ee"][n % 2] : ["#62a03a", "#72b044", "#5e9a38"][n % 3]; cc.fillRect((h2(n, 1, 3) * CW) | 0, (h2(n, 2, 3) * CH) | 0, 2, 1); }
           standRing(cc, CW / 2, CH - 12, (REACH[sp] || REACH.oak)[1] * 2 * k * 0.95 * 0.5, seed * 7, sea);
-          const spr = SP[sp](PAL[sea], k, 0, 0, seed, TREAT.final, { fill: c });
+          const spr = SP[sp](PAL[sea], k, 0, 0, seed, TREAT.final, { fill: c, order: ord === null ? undefined : ord === 1 ? 1 + (c % 2) : 0 });
           cc.drawImage(spr.cv, CW / 2 - spr.ax, CH - 10 - spr.ay);
           const X = c * CW * Z, Y = r * CH * Z;
           oc.drawImage(cell, X, Y, CW * Z, CH * Z);
           oc.fillStyle = "#20242c"; oc.fillRect(X, Y + CH * Z - CH - 4, CW + 4, CH + 4); oc.drawImage(cell, X, Y + CH * Z - CH);      // board size, bottom-left
-          oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 4, Y + 4, 250, 22); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace"; oc.fillText(`${sp} / ${FILLS[c]}${FS ? "" : " / " + sea}`, X + 8, Y + 20);
+          oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 4, Y + 4, 330, 22); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace";
+          oc.fillText(`${sp} / ${FILLS[c]}${FS ? " / layers " + (ord ? "b" + (1 + (c % 2)) : "a") : " / " + sea}`, X + 8, Y + 20);
           oc.fillStyle = "#20242c"; oc.fillRect(X + CW * Z - 2, Y, 2, CH * Z); oc.fillRect(X, Y + CH * Z - 2, CW * Z, 2);
         } });
         document.body.appendChild(out);
         await save(FS ? "ovh2_trees_fill_sheet" : "ovh2_trees_fill_winter", out);
+        throw new Error("done");
+      }
+      if (MODE === "trunks") {
+        const kinds = [["roundoak", 0.9, 1], ["oak", 0.85, 2], ["beech", 0.85, 3], ["hawthorn", 0.9, 4], ["birches", 0.85, 5], ["willow", 0.9, 6], ["pine", 1, 7]];
+        const Z = 4, CW = 180, CH = 168, cw = 120, ch = 128, cols = [];
+        for (let f = 0; f < 4; f++) for (const sea of ["summer", "winter"]) cols.push([f, sea]);
+        const out = document.createElement("canvas"); out.width = cols.length * cw * Z; out.height = kinds.length * ch * Z; const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        const FL = ["buttress", "long root", "collar", "split toes"];
+        kinds.forEach(([sp, k, sd], r) => cols.forEach(([f, sea], c) => {
+          const cell = document.createElement("canvas"); cell.width = CW; cell.height = CH; const cc = cell.getContext("2d");
+          cc.fillStyle = sea === "winter" ? "#d8dee6" : "#6aa83e"; cc.fillRect(0, 0, CW, CH);
+          for (let n = 0; n < 500; n++) { cc.fillStyle = sea === "winter" ? ["#cdd4de", "#e4e8ee"][n % 2] : ["#62a03a", "#72b044", "#5e9a38"][n % 3]; cc.fillRect((h2(n, 1, 3) * CW) | 0, (h2(n, 2, 3) * CH) | 0, 2, 1); }
+          standRing(cc, CW / 2, CH - 12, (REACH[sp] || REACH.oak)[1] * 2 * k * 0.95 * 0.5, sd * 7 + f, sea, sp === "pine");
+          const spr = SP[sp](PAL[sea], k, 0, 0, sd * 10 + f, TREAT.final, { flare: f, fill: 0, order: 0 });
+          cc.drawImage(spr.cv, CW / 2 - spr.ax, CH - 10 - spr.ay);
+          const X = c * cw * Z, Y = r * ch * Z;
+          oc.drawImage(cell, CW / 2 - cw / 2, CH - ch, cw, ch, X, Y, cw * Z, ch * Z);
+          oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 4, Y + 4, 300, 22); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace"; oc.fillText(`${sp} / ${FL[f]} / ${sea === "winter" ? "bare" : "in leaf"}`, X + 8, Y + 20);
+          oc.fillStyle = "#20242c"; oc.fillRect(X + cw * Z - 2, Y, 2, ch * Z); oc.fillRect(X, Y + ch * Z - 2, cw * Z, 2);
+        }));
+        document.body.appendChild(out);
+        await save("ovh2_trees_trunks_sheet", out);
         throw new Error("done");
       }
 
