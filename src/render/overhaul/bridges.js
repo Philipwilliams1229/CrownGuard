@@ -27,16 +27,36 @@ import { planSpan, bakeSpan, LAMP } from "./bridge-bake.js";
 
 OVH.flags.bridgeCast = false;
 
+// ---- which kind on which span, per realm, in BRIDGES order (spans listed west to east / as terrain finds them)
+//   thornbrook: its one span sits in the bottom of a U (the road turns within ~30 of each end): no room
+//               for a trestle's ramps, so today's bridge, updated, with lanterns (the board's only crossing)
+//   millrace:   toll (Foxwater) / mill (the race's north span) / today's bridge on the race's skew span up the screen (it read better at board size than the farm trestle: ?bk=2:farm shows that)
+//   wolfrun:    four fords up the screen, varied: today's bridge / farm trestle / today's bridge with
+//               lanterns / the toll trestle at the ford nearest the castle (the last crossing)
+const KINDS = {
+  thornbrook: ["flatlamp"],
+  millrace: ["toll", "mill", "flat"],
+  wolfrun: ["flat", "farm", "flatlamp", "toll"],
+};
+// lab only: ?bk=2:flat,0:toll overrides span kinds by index (never set in the game's own URL)
+const labKinds = () => {
+  const out = {};
+  try { const q = new URLSearchParams(globalThis.location?.search || "").get("bk"); if (q) for (const p of q.split(",")) { const [i, k] = p.split(":"); out[+i] = k; } } catch { /* no location */ }
+  return out;
+};
+
 // ---- the plan: one per realm load (BRIDGES is rebuilt by regenTerrain on every select) -------------
 let PLAN = null, PLAN_KEY = null;
 const plans = () => {
   const key = BRIDGES.length ? `${REALM.id}|${BRIDGES.map((b) => `${b.x},${b.y},${b.a},${b.d0},${b.d1}`).join(";")}` : REALM && REALM.id;
   if (PLAN && PLAN_KEY === key) return PLAN;
   PLAN_KEY = key;
-  PLAN = BRIDGES.map((b) => {
+  const set = KINDS[REALM.id] || [], ovr = labKinds();
+  PLAN = BRIDGES.map((b, i) => {
     const up = Math.abs(Math.sin(b.a)) > 0.7;
     const rv = RIVERS.find((r) => riverPast(r, b.x, b.y) < 0);
-    const kind = up ? "farm" : rv && rv.w >= 24 ? "toll" : "mill";
+    // a span over no river (a pond, the coast) or one the table does not name: today's bridge, updated
+    const kind = ovr[i] || set[i] || (!rv ? "flat" : up ? "farm" : rv.w >= 24 ? "toll" : "flat");
     return planSpan(b, kind);
   });
   SPR.clear();
@@ -149,8 +169,5 @@ export const ovhBridgePiers = () => {
   return out;
 };
 // where the toll hut stands (for the lead's build blocks): [{ x, y, rx, ry }] board units
-export const bridgeBlocks = () => plans().filter((pl) => pl.sp.hut).map((pl) => {
-  const [x, y] = pl.Fr.at(pl.hi - 0.5, -(pl.hw + 14.5), 0);
-  return { x, y, rx: 9, ry: 7 };
-});
+export const bridgeBlocks = () => plans().filter((pl) => pl.hut).map((pl) => ({ x: pl.hut.x, y: pl.hut.y, rx: 9, ry: 7 }));
 export { LAMP };

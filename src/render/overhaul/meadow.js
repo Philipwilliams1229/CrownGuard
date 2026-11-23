@@ -26,7 +26,8 @@
 import { register, OVH } from "./index.js";
 import { W, H, PATH_HALF, WALL_W } from "../../data/constants.js";
 import { posAt, TOTAL_LEN } from "../../engine/path.js";
-import { RIVERS, PONDS, FOREST, COAST, DECOR, forestDepthAt, riverPast, inSea } from "../../data/terrain.js";
+import { RIVERS, PONDS, FOREST, COAST, DECOR, forestDepthAt, riverPast, inSea, seaDepthAt, decorFootprint } from "../../data/terrain.js";
+import { buildableAt } from "../../engine/actions.js";
 import { REALM } from "../../data/maps.js";
 import { DAY } from "../../data/sun.js";
 import { turfTones, DITH, reliefOf } from "../world.js";
@@ -148,6 +149,21 @@ export function woodRows(X0, Y0, w, h) {
   const left = FOREST.edge === "left", n = left ? h : w, b = new Float32Array(n);
   for (let i = 0; i < n; i++) b[i] = left ? forestDepthAt(0, (Y0 + i + 0.5) / 2) : forestDepthAt((X0 + i + 0.5) / 2, 0);
   return left ? (X, Y) => b[clamp(Y - Y0, 0, n - 1)] - (X + 0.5) / 2 : (X, Y) => b[clamp(X - X0, 0, n - 1)] - (Y + 0.5) / 2;
+}
+
+// how far inland from the sea's waterline (board units; > 0 in the sea) at art px (X, Y): one waterline
+// sample per column / row (the depth runs straight across the coast's edge), as terrain's seaDepthAt
+export function seaRows(X0, Y0, w, h) {
+  if (!COAST) return () => -999;
+  const e = COAST.edge, along = e === "top" || e === "bottom", n = along ? w : h, L = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = ((along ? X0 : Y0) + i + 0.5) / 2;
+    L[i] = e === "top" ? seaDepthAt(a, 0) : e === "bottom" ? seaDepthAt(a, H) : e === "left" ? seaDepthAt(0, a) : seaDepthAt(W, a);
+  }
+  if (e === "top") return (X, Y) => L[clamp(X - X0, 0, n - 1)] - (Y + 0.5) / 2;
+  if (e === "bottom") return (X, Y) => L[clamp(X - X0, 0, n - 1)] - (H - (Y + 0.5) / 2);
+  if (e === "left") return (X, Y) => L[clamp(Y - Y0, 0, n - 1)] - (X + 0.5) / 2;
+  return (X, Y) => L[clamp(Y - Y0, 0, n - 1)] - (W - (X + 0.5) / 2);
 }
 
 // ---- the masses: one turf pixel's colour, before the edges and features ----
@@ -280,13 +296,12 @@ function paintMeadow(ctx) {
   for (let d = 0; d <= TOTAL_LEN; d += 0.25) { const [x, y] = posAt(d); const X = Math.round(x * 2), Y = Math.round(y * 2); if (X >= 0 && X < AW && Y >= 0 && Y < AH) roadD[Y * AW + X] = 0; }
   chamfer(roadD, AW, AH);
   const T1 = performance.now();
-  const hgt = heightGrid(0, 0, AW, AH, seed), wdAt = waterGrid(0, 0, AW, AH), fdAt = woodRows(0, 0, AW, AH);
+  const hgt = heightGrid(0, 0, AW, AH, seed), wdAt = waterGrid(0, 0, AW, AH), fdAt = woodRows(0, 0, AW, AH), sea = seaRows(0, 0, AW, AH);
   const T2 = performance.now();
 
   // which pixels stay as they are: the wood's floor (its own palette), the sea and the sand, the castle's strip
   const KEEP = new Uint8Array(N), WD = new Int16Array(N), FD = new Float32Array(N);
   const Z = new Int16Array(N), SH = new Uint8Array(N);
-  const castleX = (W - WALL_W) * 2 + 40;
   for (let Y = 0; Y < AH; Y++) {
     for (let X = 0; X < AW; X++) {
       const i = Y * AW + X, o = i * 4;
@@ -294,7 +309,7 @@ function paintMeadow(ctx) {
       const fd = fdAt(X, Y);
       FD[i] = fd;
       const px = (od[o] << 16) | (od[o + 1] << 8) | od[o + 2];
-      if (X >= castleX || fd > 9 || (fd > -6 && P.floor.has(px)) || (COAST && inSea(X / 2, Y / 2, COAST.sand + 1))) { KEEP[i] = 1; continue; }
+      if (fd > 9 || (fd > -6 && P.floor.has(px)) || (COAST && (sea(X, Y) > -(COAST.sand + 1) || (sea(X, Y) > -(COAST.sand + 24) && !P.turf.has(px) && !(od[o + 1] > od[o] + 10 && od[o + 1] >= od[o + 2] - 4))))) { KEEP[i] = 1; continue; }
       const wd = wdAt(X, Y);
       WD[i] = Math.round(clamp(wd, -999, 999));
       const c = mass(X, Y, hgt(X, Y), wd, fd);
@@ -364,36 +379,63 @@ function paintMeadow(ctx) {
   }
 
   // ---- the meadow's features: two stands of tall grass, one flower drift ----
-  const free = (xu, yu, pad) => {
-    if (xu < 14 || xu > W - WALL_W - 18 || yu < 10 || yu > H - 10) return false;
-    const i = Math.round(yu * 2) * AW + Math.round(xu * 2);
-    if (KEEP[i] || roadD[i] < RH + pad * 2 + 8 || WD[i] < 24 + pad * 2) return false;
-    if (FD[i] > -26 - pad) return false;
-    for (const d of decor) if (Math.hypot(d.x - xu, d.y - yu) < (d.tree ? 18 : 10) * d.s + pad) return false;
+  // (2026-11-23 roll-out: stands keep clear of every scenery piece by its footprint, since ground pieces
+  // such as a fairy ring are drawn after the meadow, and go first where no hall can stand anyway: by
+  // the wood, on bank strips, between pieces, at the castle band's foot; open prime ground only last)
+  const pieces = DECOR.filter((d) => !d.forest);
+  const at = (xu, yu) => { const X = clamp(Math.round(xu * 2), 0, AW - 1), Y = clamp(Math.round(yu * 2), 0, AH - 1); return Y * AW + X; };
+  const free = (xu, yu, pad, rx = pad, ry = pad * 0.5) => {
+    if (xu - rx < 8 || xu + rx > W - WALL_W - 6 || yu - ry < 8 || yu + ry > H - 6) return false;
+    // the footprint's middle and four rims: off the verge, out of the damp band, out of the wood and the sand
+    for (const [dx, dy] of [[0, 0], [-rx, 0], [rx, 0], [0, -ry], [0, ry]]) {
+      const i = at(xu + dx, yu + dy);
+      if (KEEP[i] || roadD[i] < RH + 16 || WD[i] < 16 || FD[i] > -7) return false;
+      if (COAST && inSea(xu + dx, yu + dy, COAST.sand + 18)) return false;
+    }
+    if (roadD[at(xu, yu)] < RH + pad * 2) return false;
+    for (const d of pieces) {
+      const r = d.t === "tree" || d.t === "pine" || d.t === "willow" ? 16 * (d.s || 1) : decorFootprint(d) * 0.6 + 10;
+      if (Math.hypot((d.x - xu) / (rx + r), (d.y - yu) / (ry + r * 0.8)) < 1) return false;
+    }
     return true;
+  };
+  // how much of a footprint no hall could stand on (0..5)
+  const noHall = (xu, yu, rx, ry) => {
+    const g0 = { towers: [] };
+    let n = 0;
+    for (const [dx, dy] of [[0, 0], [-rx * 0.7, 0], [rx * 0.7, 0], [0, -ry * 0.8], [0, ry * 0.8]]) {
+      try { if (!buildableAt(g0, xu + dx, yu + dy, "archer")) n++; } catch (e) { /* (an engine read the bake can't answer: count it buildable) */ }
+    }
+    return n;
   };
   const feature = (x, y) => x >= 0 && y >= 0 && x < AW && y < AH && !KEEP[y * AW + x] && roadD[y * AW + x] > RH + 14 && WD[y * AW + x] > 10;
   let s = seed * 977 + 7;
   const R = () => (s = (Math.imul(s, 1664525) + 1013904223) | 0, (s >>> 0) / 4294967296);
   const cand = [];
-  for (let t = 0; t < 600; t++) cand.push([20 + R() * (W - WALL_W - 40), 20 + R() * (H - 40)]);
+  for (let t = 0; t < 700; t++) cand.push([20 + R() * (W - WALL_W - 40), 20 + R() * (H - 40)]);
   const placed = [];
-  const take = (n, rx) => {
+  const take = (n, rx, ry, want = 0) => {
     const out = [];
-    for (const [x, y] of cand) {
-      if (out.length >= n) break;
-      if (placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < p[2] + rx + 30)) continue;
-      if (!free(x, y, rx * 0.8)) continue;
-      out.push([x, y, rx]); placed.push([x, y, rx]);
+    const ok = new Map(), nh = new Map();   // (each candidate tested once, whatever the pass)
+    for (const need of want ? [want, 3, 0] : [0]) {
+      for (let c = 0; c < cand.length; c++) {
+        const [x, y] = cand[c];
+        if (out.length >= n) break;
+        if (placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < p[2] + rx + 40)) continue;
+        if (!ok.has(c)) ok.set(c, free(x, y, rx * 0.8, rx, ry));
+        if (!ok.get(c)) continue;
+        if (need) { if (!nh.has(c)) { if (nh.size >= 90) continue; nh.set(c, noHall(x, y, rx, ry)); } if (nh.get(c) < need) continue; }
+        out.push([x, y, rx]); placed.push([x, y, rx]);
+      }
     }
     return out;
   };
-  const stands = take(M1.stands, M1.standR);
+  const stands = take(M1.stands, M1.standR, M1.standR * 0.5, 5);
   stands.forEach(([x, y, rx], n) => {
     const M = new Uint8Array(N), box = blob(M, AW, AH, x, y, rx * 1.1, rx * 0.44, { seed: seed + 100 + n, rag: 0.6, warp: 1.05, ok: feature });
     raised(S, (X, Y) => X >= 0 && X < AW && Y >= 0 && Y < AH && M[Y * AW + X], box, M1.standH, standLook(G, seed + 200 + n));
   });
-  const drifts = take(M1.drifts, 24);
+  const drifts = take(M1.drifts, 26, 14);
   drifts.forEach(([x0, y0], n) => {
     const X = x0 * 2, Y = y0 * 2, RX = 52, RY = 26, cols = [hex("#f4f0e0"), hex("#f2d030")], dens = 0.26;
     for (let y = Y - RY * 1.5; y < Y + RY * 1.5; y += 2) for (let x = X - RX * 1.5; x < X + RX * 1.5; x += 2) {
@@ -417,7 +459,7 @@ function paintMeadow(ctx) {
   }
   ctx.putImageData(img, 0, 0);
   const T6 = performance.now();
-  Object.assign(MEADOW_PROF, { road: T1 - T0, fields: T2 - T1, masses: T3 - T2, edges: T4 - T3, features: T5 - T4, out: T6 - T5, total: T6 - T0, stands: stands.length, drifts: drifts.length });
+  Object.assign(MEADOW_PROF, { road: T1 - T0, fields: T2 - T1, masses: T3 - T2, edges: T4 - T3, features: T5 - T4, out: T6 - T5, total: T6 - T0, feat: Math.round(T5 - T4), stands: stands.length, drifts: drifts.length });
   if (typeof window !== "undefined") window.__ovhMeadow = MEADOW_PROF;   // (labs read it)
 }
 

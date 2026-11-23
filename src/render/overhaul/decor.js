@@ -16,13 +16,18 @@
 // Slots: the lead wires them (overhaul/wire.js) from the exports below; decorKey() joins the ground's cache key.
 import { DAY, onDay } from "../../data/sun.js";
 import * as K from "./decor-kit.js";
-import { FARM, FARM_BLOCKS, MARKS } from "./decor-layout.js";
+import { FARM_BLOCKS, LAYOUTS } from "./decor-layout.js";
+import { REALM } from "../../data/maps.js";
 import { windowsLit, noteFarmLamps } from "./lights.js";
 import { DECOR } from "../../data/terrain.js";
 
 export { FARM_BLOCKS };
+// this realm's place (decor-layout.js LAYOUTS), or null: a board with only its rocks redrawn
+const layout = () => (REALM && LAYOUTS[REALM.id]) || null;
+// for the lead: the ellipses where halls may not be built, per realm (copied into the realm data's `blocks`)
+export const decorBlocks = (id) => (LAYOUTS[id] && LAYOUTS[id].blocks) || [];
 // the ground bake's version (wire.js adds it to world.js groundLayer's cache key)
-export const decorKey = () => "b4.2";
+export const decorKey = () => "b4.3";
 
 const mirrorNow = () => DAY.on && DAY.side === 1;
 const snap = (v) => Math.round(v * 2) / 2;
@@ -49,15 +54,19 @@ const sculpt = (make, mirror, lit = false) => {
 // each: { make(t) -> sprite, x, y, sort (sort y), shade (casts), round, mirror, frames (live: [t values]),
 //         fps, lit (has a lit twin), over }
 const mat = (n) => (typeof n === "string" ? K.V[n] : n);
-const houseOpts = (o) => ({ ...o, door: o.door ? [o.door[0], o.door[1], o.door[2], mat(o.door[3])] : o.door });
+const houseOpts = (o) => ({ ...o, door: o.door ? [o.door[0], o.door[1], o.door[2], mat(o.door[3])] : o.door,
+  windows: (o.windows || []).map(([x, y, w, h, wo]) => [x, y, w, h, wo && wo.shutter ? { ...wo, shutter: mat(wo.shutter) } : wo]) });
 // the t values that give a hen's two poses (standing, pecking): the kit's hen pecks while sin(t*2.2+seed*1.7) > 0.35
 const henTs = (seed) => { let up = null, dn = null; for (let t = 0; t < 6 && (up === null || dn === null); t += 0.05) { const pk = Math.sin(t * 2.2 + seed * 1.7) > 0.35; if (pk && dn === null) dn = t; if (!pk && up === null) up = t; } return [up ?? 0, dn ?? 0]; };
 const cyc = (n, period) => Array.from({ length: n }, (_, i) => (i * period) / n);
-let PIECES = null;
+let PIECES = null, PIECES_FOR = null;
 const pieces = () => {
-  if (PIECES) return PIECES;
-  const out = [], byId = {};
-  for (const p of FARM) {
+  const id = REALM ? REALM.id : "";
+  if (PIECES && PIECES_FOR === id) return PIECES;
+  if (PIECES_FOR !== id) BAKE = new Map();   // (a new board: its own bakes)
+  PIECES_FOR = id;
+  const out = [], byId = {}, L = layout();
+  for (const p of L ? L.pieces : []) {
     const base = { x: p.x, y: p.y, sort: p.y, shade: true, round: true, mirror: p.mirror !== false };
     switch (p.k) {
       case "house": { const it = { ...base, make: () => K.house(houseOpts(p.o)), round: false, lit: (p.o.windows || []).length > 0 || p.o.gableWin !== false }; out.push(it); byId[p.id] = it; break; }
@@ -70,6 +79,9 @@ const pieces = () => {
       case "washing": out.push({ ...base, make: (t) => K.washing(t), frames: cyc(6, (2 * Math.PI) / 1.5), fps: 2.4, round: false }); break;
       case "lamp": out.push({ ...base, make: () => K.lampPost(p.h) }); break;
       case "rock": out.push({ ...base, make: () => K.rockMass(p.s, p.fam, p.seed), rock: true }); break;
+      case "chapel": out.push({ ...base, make: () => K.chapel(p.seed, { lamp: true }), round: false }); break;
+      case "stile": out.push({ ...base, make: () => K.stile(), round: false }); break;
+      case "wall": out.push({ ...base, mirror: false, round: false, sort: p.y + Math.max(...p.pts.map((q) => q[1])) / 2, make: () => K.dryWall(p.pts, p.hgt ?? 11, p.seed, { gaps: 0.03, m: K.M.stoneW }) }); break;
       case "smoke": { const h = byId[p.of]; out.push({ x: h.x, y: h.y, dx: p.dx, dy: p.dy, smoke: true, sort: h.y + 150, shade: false, mirror: true, make: (t) => K.smoke(t), frames: cyc(8, 20), fps: 2 }); break; }
       case "fence": {
         const pts = p.pts, gap = p.gap ?? 9, h = p.h ?? 9, f = { ...base, mirror: false, round: false };
@@ -121,10 +133,10 @@ const blit = (ctx, b, x, y) => ctx.drawImage(b.cv, x - b.ox / 2, y - b.oy / 2, b
 const hashXY = (x, y) => K.hash(Math.round(x), Math.round(y));
 // a rock standing in the farm's ground (the stackyard's, 628,45) is a darker granite loaf, a little bigger
 // and sunk 1 unit deeper, so it sits with the haystacks rather than reading as a pale slab on the grass
-const inFarm = (d) => FARM_BLOCKS.some((b) => ((d.x - b.x) / (b.rx + 14)) ** 2 + ((d.y - b.y) / (b.ry + 14)) ** 2 <= 1);
+const inFarm = (d) => decorBlocks(REALM && REALM.id).some((b) => ((d.x - b.x) / (b.rx + 14)) ** 2 + ((d.y - b.y) / (b.ry + 14)) ** 2 <= 1);
 const rockSpec = (d) => {
   const h = hashXY(d.x, d.y), farm = inFarm(d);
-  return { s: Math.round(20 * (d.s || 1) + h * 4) + (farm ? 4 : 0), fam: farm || h < 0.7 ? "granite" : "limestone", seed: 1 + Math.floor(h * 997), sink: farm ? 1 : 0 };
+  return { s: Math.round(24 * (d.s || 1) + h * 4) + (farm ? 2 : 0), fam: farm || h < 0.7 ? "granite" : "limestone", seed: 1 + Math.floor(h * 997), sink: farm ? 1 : 0 };
 };
 const ROCK_FOOT = 8;   // today's pixRock stands its foot 8 below the piece's y
 const rockBake = (d) => {
@@ -133,15 +145,31 @@ const rockBake = (d) => {
   if (!b) { b = sculpt(() => K.rockMass(r.s, r.fam, r.seed), true); BAKE.set(key, b); }
   return b;
 };
-export const ownsDecor = (d) => d.t === "rock";
+// a DECOR piece this realm's look redraws (decor-layout.js `own`: Gullwick's watchtower as the ruin)
+const ownSpec = (d) => { const L = layout(); return (L && L.own && L.own[d.t]) || null; };
+const ownBake = (d, o) => {
+  const key = `own|${d.t}|${o.r}|${o.h}|${o.seed}`;
+  let b = BAKE.get(key);
+  if (!b) { b = sculpt(() => (o.k === "tower" ? K.oldTower(o.r, o.h, o.seed) : null), true); BAKE.set(key, b); }
+  return b;
+};
+// one DECOR piece as decor.js draws it: [bake, foot x, foot y] (null: not ours)
+const pieceOf = (d) => {
+  if (d.t === "rock") return [rockBake(d), snap(d.x), snap(d.y + ROCK_FOOT + rockSpec(d).sink)];
+  const o = ownSpec(d);
+  return o ? [ownBake(d, o), snap(d.x), snap(d.y + (o.foot ?? 8))] : null;
+};
+export const ownsDecor = (d) => d.t === "rock" || !!ownSpec(d);
 export const drawDecorPiece = (ctx, d) => {
-  if (d.t !== "rock" || typeof document === "undefined") return;
-  blit(ctx, rockBake(d), snap(d.x), snap(d.y + ROCK_FOOT + rockSpec(d).sink));
+  if (typeof document === "undefined") return;
+  const q = pieceOf(d);
+  if (q) blit(ctx, q[0], q[1], q[2]);
 };
 const spOf = (b) => ({ cv: b.cv, hw: b.ox / 2, top: b.oy / 2, bot: (b.cv.height - b.oy) / 2 });
 export const decorShadowItem = (d) => {
-  if (d.t !== "rock" || !DAY.on || typeof document === "undefined") return null;
-  return { sp: spOf(rockBake(d)), x: snap(d.x), y: snap(d.y + ROCK_FOOT + rockSpec(d).sink), lift: 0, mirror: false, round: true };
+  if (!DAY.on || typeof document === "undefined") return null;
+  const q = pieceOf(d);
+  return q ? { sp: spOf(q[0]), x: q[1], y: q[2], lift: 0, mirror: false, round: d.t === "rock" } : null;
 };
 
 // ---- the farm: shadows, ground marks, drawables ----
@@ -180,15 +208,16 @@ export const decorGroundMarks = (ctx) => {
   ctx.scale(0.5, 0.5);
   ctx.imageSmoothingEnabled = false;
   const P = ([x, y]) => [Math.round(x * 2), Math.round(y * 2)];
-  const { yard, stack, path, plot } = MARKS;
-  K.worn(ctx, ...P([yard.x, yard.y]), yard.rx, yard.ry, YARD, yard.seed, yard.k);
-  K.worn(ctx, ...P([stack.x, stack.y]), stack.rx, stack.ry, YARD, stack.seed, stack.k);
-  K.path(ctx, path.pts.map(P), path.w, YARD, path.seed);
-  K.plot(ctx, ...P([plot.x, plot.y]), plot.w, plot.h, SOIL, LEAF, plot.seed);
+  const L = layout();
+  for (const m of L ? L.marks : []) {
+    if (m.m === "worn") K.worn(ctx, ...P([m.x, m.y]), m.rx, m.ry, YARD, m.seed, m.k ?? 2);
+    else if (m.m === "path") K.path(ctx, m.pts.map(P), m.w, YARD, m.seed);
+    else if (m.m === "plot") K.plot(ctx, ...P([m.x, m.y]), m.w, m.h, SOIL, LEAF, m.seed);
+  }
   // the stackyard's straw and trodden earth run round the farm's rock: a darker, wetter foot
   for (const d of DECOR) if (d.t === "rock" && inFarm(d)) K.worn(ctx, Math.round(d.x * 2), Math.round((d.y + ROCK_FOOT) * 2), 16, 5, ["#5e5236", "#6e5e3c", "#7a6a44", "#544a30"], 11, 1.2);
   for (const it of pieces()) if (!it.smoke) { const [x, y] = footOf(it); contact(ctx, bakeOf(it), x, y); }
-  for (const d of DECOR) if (d.t === "rock") contact(ctx, rockBake(d), snap(d.x), snap(d.y + ROCK_FOOT + rockSpec(d).sink));
+  for (const d of DECOR) { const q = (d.t === "rock" || ownSpec(d)) && pieceOf(d); if (q) contact(ctx, q[0], q[1], q[2]); }
   ctx.restore();
 };
 // FRAME: the farm's standing things, sorted with the actors; its lanterns noted as lamps at night

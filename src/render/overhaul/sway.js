@@ -1,13 +1,13 @@
-// The overhaul's sway (B3): lone broadleaves and willows only (never pines, never the wood). Three whole-pixel
-// poses a tree: 0 (the tree as baked), 1 and 2 (its masses leaning 1 / 2 art px downwind at the crown's top; a
-// willow's strands 1.5 / 3 at their tips). The concept's gust: lean = 0.5 - 0.5 cos(2 pi (t / PERIOD - x / 160)),
-// a wave crossing the board left to right, each tree a beat apart; the pose is the lean rounded to thirds.
-// Poses are baked lazily (BAKES_A_FRAME), the tree holds pose 0 until its pose exists. ~2 extra canvases a tree.
-export const PERIOD = 5;
+// The overhaul's sway (B3): lone broadleaves and willows only (never pines, never the wood). Four whole-pixel
+// poses a tree: 0 (the tree as baked), 1 / 2 / 3 (its masses leaning 1 / 2 / 3 art px downwind at the crown's top; a
+// willow's strands 1.5 / 3 / 4.5 at their tips). The concept's gust: lean = 0.5 - 0.5 cos(2 pi (t / PERIOD - x / 160)),
+// a wave crossing the board left to right, each tree a beat apart; the pose is the lean rounded to whole poses.
+// Poses are baked lazily (BAKES_A_FRAME), the tree holds pose 0 until its pose exists. ~3 extra canvases a tree.
+export const PERIOD = 4;   // (Millrace review: 5 s and three poses read as still; a 4 s gust and a fourth pose)
 export const BAKES_A_FRAME = 1;
-export const LEANS = { broad: [0, 1, 2], willow: [0, 1.5, 3] };
+export const LEANS = { broad: [0, 1, 2, 3], willow: [0, 1.5, 3, 4.5] };
 export const swayKind = (plan) => (plan.forest || plan.kind === "pine" ? null : plan.kind === "willow" ? "willow" : "broad");
 export function poseAt(x, ph, time) {
   const u = time / PERIOD - x / 160 + ph;
-  return Math.round((0.5 - 0.5 * Math.cos(2 * Math.PI * u)) * 2);
+  return Math.round((0.5 - 0.5 * Math.cos(2 * Math.PI * u)) * (LEANS.broad.length - 1));
 }

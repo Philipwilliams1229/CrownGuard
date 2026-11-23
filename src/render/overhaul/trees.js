@@ -17,12 +17,13 @@
 
 import { SP, REACH, standRing, h2 } from "./treeart.js";
 import { SWAY } from "./treeart.js";
-import { woodPlan } from "./wood.js";
+import { woodPlan, WOOD_MAX } from "./wood.js";
 import { swayKind, poseAt, LEANS, BAKES_A_FRAME } from "./sway.js";
 import { layLife, lifeDrawables, lifeOver, setHalls } from "./life.js";
-import { DECOR, forestDepthAt, inRiver } from "../../data/terrain.js";
+import { DECOR, PONDS, COAST, FOREST, forestDepthAt, inRiver, inSea } from "../../data/terrain.js";
 import { REALM } from "../../data/maps.js";
-import { PATH_HALF, W, H } from "../../data/constants.js";
+import { PATH_HALF, W, H, WALL_W } from "../../data/constants.js";
+import { sunCurves, SUN_DIR, SUN_SHEAR } from "../sunset.js";
 import { PTS, nearestOnPath } from "../../engine/path.js";
 import { DAY, onDay } from "../../data/sun.js";
 import * as SCN from "../scenery.js";
@@ -34,13 +35,20 @@ export const STATS = { bakes: 0, bakeMs: 0, poses: 0, ghosts: 0, bytes: 0, woodK
 if (typeof window !== "undefined") window.__ovhTrees = STATS;   // (labs read it)
 
 // ---- the plan for one piece (cached on the piece) ----
-const PLANS = new WeakMap();
+const PLANS = new WeakMap(), WOOD = new Map();
 let REALM_ID = null;
-const clearOf = (kind, x, foot, k) => {
+// a crown must clear the road's lanes (its centre PATH_HALF + 0.9 x its radius off the road) and the castle's wall
+// (its right edge short of the wall face, W - WALL_W: the wall is drawn over anything behind it)
+const WALL_X = W - WALL_W - 2;
+const wallOk = (kind, x, k) => { const rc = (REACH[kind] || REACH.oak)[1]; return !(x + rc * k * 1.15 > WALL_X && x < WALL_X + 40); };
+const laneOk = (kind, x, foot, k) => {
   if (!PTS.length) return true;
   const [hc, rc] = REACH[kind] || REACH.oak;
   return nearestOnPath(x, foot - hc * k).d >= PATH_HALF + rc * k * 0.9;
 };
+const clearOf = (kind, x, foot, k) => wallOk(kind, x, k) && laneOk(kind, x, foot, k);
+// standing water a willow's strands may trail into: a river or a pond (never the sea: its surf is today's painter)
+const wetAt = (x, y) => inRiver(x, y, 2) || PONDS.some((p) => ((x - p.x) / (p.w / 2 + 2)) ** 2 + ((y - p.y) / (p.h / 2 + 2)) ** 2 < 1);
 // how high a piece stands on the gate's crag (scenery.js treeLift: 0 on the ground, -1 left out of the cave mouth's
 // clearing). Asked LIVE, never cached in the plan: the crag's height field exists only once the gate has been drawn.
 const liftOf = (p) => (p.forest && typeof SCN.treeLift === "function" ? SCN.treeLift(p.d) : 0);
@@ -48,7 +56,7 @@ const liftOf = (p) => (p.forest && typeof SCN.treeLift === "function" ? SCN.tree
 // concept's 0.9, pines 1.2 x, willows 1.25 x; the lane rule then shrinks only the crowns that must
 const LONE_K = { broad: 0.9 * 1.3, oak: 0.75 * 1.3, pine: 0.9 * 1.2, willow: 0.9 * 1.25 };
 function planOf(d) {
-  if (REALM_ID !== REALM.id) { REALM_ID = REALM.id; ALL = null; }
+  if (REALM_ID !== REALM.id) { REALM_ID = REALM.id; ALL = null; WOOD.clear(); STATS.woodKeys = new Set(); STATS.shrunk = []; }
   let p = PLANS.get(d);
   if (p && p.realm === REALM.id) return p;
   p = null;
@@ -56,18 +64,28 @@ function planOf(d) {
     const x = Math.round(d.x * 2) / 2, foot = Math.round((d.y + FOOT) * 2) / 2, s = d.s || 1;
     if (d.forest || (d.t !== "willow" && forestDepthAt(d.x, d.y) > -6)) p = woodPlan(d);   // (a willow stays a willow)
     else if (d.t === "willow") {
-      const wet = inRiver(d.x - 26, foot, 2) ? -1 : inRiver(d.x + 26, foot, 2) ? 1 : 0, seed = (d.x * 7 + d.y) | 0;
+      const wet = wetAt(d.x - 26, foot) ? -1 : wetAt(d.x + 26, foot) ? 1 : 0, seed = (d.x * 7 + d.y) | 0;
       p = { kind: "willow", dk: 0, k: LONE_K.willow * s, seed, o: { wet, form: wet ? 0 : seed % 2 ? 1 : 2 } };
     } else if (d.t === "pine") p = { kind: "pine", dk: 0, k: LONE_K.pine * s, seed: (d.x * 7 + d.y) | 0, o: {} };
     else { const kind = LONE[Math.floor(h2(d.x | 0, d.y | 0, 2) * 5)]; p = { kind, dk: 0, k: (kind === "oak" ? LONE_K.oak : LONE_K.broad) * s, seed: (d.x * 7 + d.y) | 0, o: {} }; }
     p.k = Math.round(p.k * 20) / 20;
-    // keep the crown off the lanes: shrink, never move (0.85, then 0.72 of its size)
-    if (!clearOf(p.kind, x, foot, p.k)) { const k0 = p.k; for (const q of [0.85, 0.72]) { p.k = Math.round(k0 * q * 100) / 100; if (clearOf(p.kind, x, foot, p.k)) break; } p.shrunk = true; STATS.shrunk.push(`${p.forest ? "wood " : ""}${p.kind}@${Math.round(x)},${Math.round(foot)} ${k0}->${p.k}`); }
+    // keep the crown off the lanes and the castle wall: shrink, never move (the lanes to 0.72 at most, the wall further)
+    if (!clearOf(p.kind, x, foot, p.k)) { const k0 = p.k; for (const q of [0.85, 0.72, 0.6, 0.5]) { p.k = Math.round(k0 * q * 100) / 100; if (wallOk(p.kind, x, p.k) && (q <= 0.72 || laneOk(p.kind, x, foot, p.k))) break; } p.shrunk = true; STATS.shrunk.push(`${p.forest ? "wood " : ""}${p.kind}@${Math.round(x)},${Math.round(foot)} ${k0}->${p.k}`); }
     Object.assign(p, { realm: REALM.id, x, foot, lone: !p.forest, d });
     p.key = `${p.kind}|${p.k}|${p.dk}|${p.seed}|${p.o.form ?? ""}|${p.o.wet ?? ""}`;
     p.sw = swayKind(p);
     p.ph = h2(p.seed, 3, 9) * 0.12;
-    if (p.forest) STATS.woodKeys.add(p.key);
+    if (p.forest) {
+      // the wood's bakes stay bounded (WOOD_MAX a board): past the cap a new look borrows the nearest one already
+      // dealt of the same kind, never a bigger one (a crown kept off the lanes stays off them)
+      if (!WOOD.has(p.key) && WOOD.size >= WOOD_MAX) {
+        let best = null;
+        for (const q of WOOD.values()) if (q.kind === p.kind && (!best || (q.k <= p.k ? (best.k > p.k || q.k > best.k) : (best.k > p.k && q.k < best.k)))) best = q;
+        if (best) Object.assign(p, { k: best.k, dk: best.dk, seed: best.seed, key: best.key });
+      }
+      if (!WOOD.has(p.key)) WOOD.set(p.key, { kind: p.kind, k: p.k, dk: p.dk, seed: p.seed, key: p.key });
+      STATS.woodKeys.add(p.key);
+    }
   }
   PLANS.set(d, p || { realm: REALM.id, none: true });
   return p;
@@ -123,10 +141,45 @@ const allPlans = () => {
 
 // ---- FRAME: which crowns stand in front of a hall or the build ghost; the lazy-bake budget; the halls for the life ----
 let GHOST = new Set();
+// ---- the Blood Moon (render/bloodmoon.js): the land takes SHADE_GROUND 0.85 of the night's shade in the ground pass,
+// everything standing (halls, figures, today's trees: all drawn among the actors) only SHADE_ACTORS 0.5 of it, laid
+// over the finished picture. Today's trees were darker blue-greens, so under that same 0.5 they sat low; the
+// overhaul's brighter summer leaves stood out. So an owned tree takes TREE_NIGHT more of the shade on itself (its own
+// silhouette in the night's colour over it, k-continuous), and the lone trees and the wood's front row lay a long
+// moon shadow like the halls' (sunset.js SUN_DIR / SUN_SHEAR x the curve's len, its strength), under the actors.
+let MOON = null;
+const TREE_NIGHT = 0.32, NIGHT_RGB = "rgb(22,10,26)";
+const SIL = new WeakMap();
+const silOf = (cv) => {
+  let s = SIL.get(cv);
+  if (s) return s;
+  s = document.createElement("canvas"); s.width = cv.width; s.height = cv.height;
+  const x = s.getContext("2d"); x.drawImage(cv, 0, 0); x.globalCompositeOperation = "source-in"; x.fillStyle = NIGHT_RGB; x.fillRect(0, 0, s.width, s.height);
+  SIL.set(cv, s);
+  return s;
+};
+function moonShadows(ctx) {
+  const L = SUN_SHEAR * MOON.len, pa = ctx.globalAlpha;
+  ctx.globalAlpha = pa * MOON.shadow * 0.55;
+  for (const p of allPlans()) {
+    if (p.dk) continue;
+    const lift = liftOf(p);
+    if (lift < 0) continue;
+    const s = baseOf(p);
+    ctx.save();
+    ctx.translate(p.x, p.foot - Math.round(lift * 2) / 2);
+    ctx.transform(1, 0, -L * SUN_DIR[0], -L * SUN_DIR[1], 0, 0);
+    ctx.drawImage(silOf(s.cv), -s.ax / 2, -s.ay / 2, s.cv.width / 2, s.cv.height / 2);
+    ctx.restore();
+  }
+  ctx.globalAlpha = pa;
+}
 const crownBox = (p, s, lift) => [p.x + (s.lb[0] - s.ax) / 2, p.foot - lift + (s.lb[1] - s.ay) / 2, p.x + (s.lb[2] - s.ax) / 2, p.foot - lift + (s.lb[3] - s.ay) / 2];
-export function treeFrame(g) {
+function treeFrame0(g) {
   // one lazy bake (a sway pose or a see-through crown, ~4-8 ms) every third frame at most, so no frame jumps much
   budget = (FRAMES++ % 3 === 0) ? BAKES_A_FRAME : 0;
+  const w = g.weather;
+  MOON = w && w.paint === "bloodmoon" && w.k > 0.01 ? sunCurves(Math.min(1, w.k)) : null;
   const t0 = STATS.firstFrameMs ? 0 : performance.now();
   const plans = allPlans();
   GHOST = new Set();
@@ -147,7 +200,7 @@ export function treeFrame(g) {
 }
 
 // ---- FRAME: one piece, in the y-sorted actors ----
-export function drawTreeDecor(ctx, d, time) {
+function drawTreeDecor0(ctx, d, time) {
   const p = planOf(d);
   if (!p || p.none) return;
   const lift = liftOf(p);
@@ -155,7 +208,14 @@ export function drawTreeDecor(ctx, d, time) {
   let s = baseOf(p), img = s.cv;
   if (p.sw && time) { const n = poseAt(p.x, p.ph, time); if (n) { const q = poseOf(p, n); if (q) { s = q; img = q.cv; } } }
   if (GHOST.has(p)) { const gh = ghostOf(s) || (s !== baseOf(p) ? ghostOf(baseOf(p)) : null); if (gh) img = gh; }
-  ctx.drawImage(img, p.x - s.ax / 2, p.foot - Math.round(lift * 2) / 2 - s.ay / 2, img.width / 2, img.height / 2);
+  const X = p.x - s.ax / 2, Y = p.foot - Math.round(lift * 2) / 2 - s.ay / 2;
+  ctx.drawImage(img, X, Y, img.width / 2, img.height / 2);
+  if (MOON && MOON.shade > 0.01) {
+    const pa = ctx.globalAlpha;
+    ctx.globalAlpha = pa * MOON.shade * TREE_NIGHT;
+    ctx.drawImage(silOf(img), X, Y, img.width / 2, img.height / 2);
+    ctx.globalAlpha = pa;
+  }
 }
 
 // ---- BAKE: the cast shadow (sceneryday.js castShadow reads the sprite's own silhouette) ----
@@ -168,7 +228,11 @@ export function treeShadowItem(d) {
 }
 
 // ---- BAKE: the stand rings under the lone trees (an evergreen's is a needle floor), into the ground ----
+// Every base sprite is baked HERE, in the level's loading moment (the ground bake), so no tree is missing from the
+// first visible frame; only sway poses and see-through crowns stay lazy. warmTrees() does the same for any caller.
+export function warmTrees() { for (const p of allPlans()) baseOf(p); }
 export function treeGroundMarks(ctx) {
+  warmTrees();
   ctx.save(); ctx.scale(0.5, 0.5);
   // at noon (no cast shadows) every crown lays a small pool of shade round its foot, stepped: a solid core and a
   // checker rim (today's trees painted one into their own sprite; the overhaul's sprites carry none)
@@ -190,15 +254,25 @@ export function treeGroundMarks(ctx) {
   }
   ctx.restore();
 }
-export const treeKey = () => "b3.3";
+export const treeKey = () => "b3.4";
 
 // ---- the life ----
 let LIFE_KEY = "";
 const lifeCast = () => {
   const plans = allPlans();
   const key = REALM.id + "|" + plans.length;
-  const clear = (x, y, m) => x > 14 && y > 14 && x < W - 90 && y < H - 14 && (!PTS.length || nearestOnPath(x, y).d > PATH_HALF + m) && !inRiver(x, y, 4) && forestDepthAt(x, y) < -8;
-  const edge = (y) => { for (let x = 0; x < 420; x += 2) if (forestDepthAt(x, y) < -14) return x > 0 ? x : null; return null; };
+  // a creature's ground: on the board short of the castle band, off the road, out of every water (rivers, ponds, the
+  // sea AND its beach: no deer on the sand), and out of the wood
+  const clear = (x, y, m) => x > 14 && y > 14 && x < W - WALL_W - 14 && y < H - 14 && (!PTS.length || nearestOnPath(x, y).d > PATH_HALF + m)
+    && !inRiver(x, y, 4) && !wetAt(x, y) && !(COAST && inSea(x, y, (COAST.sand || 0) + 8)) && forestDepthAt(x, y) < -8;
+  // the wood's edge, as points just outside it, and the way back in (the wood stands on the left or the top edge)
+  const top = FOREST && FOREST.edge === "top", edges = [];
+  if (FOREST) for (let u = 70; u < (top ? W - WALL_W - 40 : H - 60); u += 23) {
+    for (let v = 0; v < 420; v += 2) {
+      const x = top ? u : v, y = top ? v : u;
+      if (forestDepthAt(x, y) < -14) { if (v > 0) edges.push(top ? [x, y + 12, 0, -26] : [x + 12, y, -26, 4]); break; }
+    }
+  }
   const lone = plans.filter((p) => p.lone).map((p) => { const s = baseOf(p); return { x: p.x, foot: p.foot, kind: p.kind, crownTop: s.lb ? p.foot + (s.lb[1] - s.ay) / 2 + 1 : p.foot - 30, crownX: s.lb ? p.x + ((s.lb[0] + s.lb[2]) / 2 - s.ax) / 2 + 2 : p.x }; });
   const front = plans.filter((p) => p.forest && p.dk === 0 && p.kind !== "pine").map((p) => { const s = baseOf(p); return { x: p.x, foot: p.foot, crownMid: s.lb ? p.foot + ((s.lb[1] + s.lb[3]) / 2 - s.ay) / 2 : p.foot - 30 }; });
   LIFE_KEY = key;
@@ -210,9 +284,21 @@ const lifeCast = () => {
     for (let k = dist; k > 6; k -= 6) { const ax = x + ux * k, ay = y + uy * k; if (clear(ax, ay, 10)) return [ax, ay]; }
     return [x, y];
   };
-  return layLife(key, { lone, front, edge, clear, road, away });
+  return layLife(key, { lone, front, edges, clear, road, away });
 };
-export function treeDrawables(list, ctx, g) { lifeDrawables(list, ctx, g, lifeCast()); }
-export function treeOver(ctx, g) { lifeOver(ctx, g, lifeCast()); }
+function treeDrawables0(list, ctx, g) {
+  if (MOON && MOON.shadow > 0.01) list.push({ y: -1e9, fn: () => moonShadows(ctx) });   // first among the actors: on the land
+  lifeDrawables(list, ctx, g, lifeCast());
+}
+function treeOver0(ctx, g) { lifeOver(ctx, g, lifeCast()); }
 
 
+
+// labs: `b3prof=1` in the URL sums this module's frame time (bakes excluded) into STATS.frameMs / STATS.frames
+const PROF_ON = typeof location !== "undefined" && /[?&]b3prof=1/.test(location.search);
+const timed = (f) => (PROF_ON ? (...a) => { const t0 = performance.now(), b0 = STATS.bakeMs; try { return f(...a); } finally { STATS.frameMs = (STATS.frameMs || 0) + performance.now() - t0 - (STATS.bakeMs - b0); } } : f);
+// (the first 30 frames are left out: they carry the one-off bakes of creatures, silhouettes and see-through crowns)
+export const treeFrame = timed((g) => { STATS.frames = (STATS.frames || 0) + 1; if (STATS.frames === 31) { STATS.frameMs = 0; } treeFrame0(g); });
+export const drawTreeDecor = timed(drawTreeDecor0);
+export const treeDrawables = timed(treeDrawables0);
+export const treeOver = timed(treeOver0);

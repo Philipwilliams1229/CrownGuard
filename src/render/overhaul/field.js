@@ -15,7 +15,7 @@
 // from its first point), kind }, weir (units along), flow (dash speed x), faceMax (art px).
 // A face lies INSIDE the water band (land stays where the halls stand): side faces <= ~2.7 units,
 // north faces <= 6.5.
-import { RIVERS } from "../../data/terrain.js";
+import { RIVERS, PONDS, BRIDGES } from "../../data/terrain.js";
 import { REALM } from "../../data/maps.js";
 import { W, H } from "../../data/constants.js";
 
@@ -53,7 +53,93 @@ const PLANS = {
       { bank: "N", from: 322, to: 999, kind: "cut" },
     ] },
   ],
+  // the brook running UP the screen (south to north, x ~420): the east bank cut on its upper reach, one
+  // reed slack on the west bank, dressed stone round its bridge (s ~460), a weir below the bend
+  thornbrook: [
+    { def: "lip", flow: 1, faceMax: 13, sq: 0.68, weir: 268, zones: [
+      { bank: "E", from: -50, to: 300, kind: "cut" },
+      { bank: "W", from: 320, to: 398, kind: "reeds" },
+      { bank: "*", from: 410, to: 522, kind: "quay" },
+    ] },
+  ],
+  // the river ACROSS the screen with four up-screen bridges (x 256 / 400 / 544 / 688): the far (north)
+  // bank cut all along, a grassy near bank, quays at the second and fourth bridges only, one reed bay
+  // between the first two
+  wolfrun: [
+    { def: "lip", flow: 1, faceMax: 13, sq: 0.68, zones: [
+      { bank: "N", from: -400, to: 2000, kind: "cut" },
+      { bank: "S", from: 296, to: 362, kind: "reeds" },
+      { bank: "*", from: 366, to: 458, kind: "quay" },
+      { bank: "*", from: 654, to: 746, kind: "quay" },
+    ] },
+  ],
 };
+// a river with no hand plan: a grassy lip, its far (north) bank cut, dressed stone round each bridge
+const autoPlan = (B) => {
+  const zones = [{ bank: "N", from: -400, to: B.total + 400, kind: "cut" }];
+  for (const b of BRIDGES) {
+    const o = riverNear(B, b.x, b.y, {}); if (o.d > 12) continue;
+    zones.push({ bank: "*", from: o.s - 50, to: o.s + 50, kind: "quay" });
+  }
+  return { def: "lip", flow: 1, faceMax: 13, sq: 0.68, zones };
+};
+
+// ---- the ponds: the approved lakes (concept/overhaul3-lakes.js), fitted INSIDE the engine's pond
+// ellipse (its shore never runs past it by more than ~1 unit). A lake body is
+// { type: "lake", shape(x, y) (units, < 0 water), kind(x, y, nx, ny), deep (art px to its deepest band),
+//   qmax, box, plan, c }. Its kinds: "cut" (far shores), "lip", "reeds" (a bay, the growth, the seeps).
+const ell = (x, y, cx, cy, rx, ry) => (Math.hypot((x - cx) / rx, (y - cy) / ry) - 1) * Math.min(rx, ry);
+const near = (x, y, cx, cy, r) => Math.hypot(x - cx, y - cy) < r;
+// one look per pond kind, laid on the engine's pond (p: { x, y, w, h }). Each shore is the pond's own ellipse
+// pulled in and lobed (polar: r(angle) <= 0.98 of the ellipse), so the field is a clean distance near the shore
+// and the painted water never leaves the engine's pond.
+const polar = (p, r0, lobes) => {
+  const cx = p.x, cy = p.y, rx = p.w / 2, ry = p.h / 2;
+  return (x, y) => {
+    const ux = (x - cx) / rx, uy = (y - cy) / ry, th = Math.atan2(uy, ux);
+    let r = r0; for (const [f, a, ph] of lobes) r += a * Math.sin(f * th + ph);
+    return (Math.hypot(ux, uy) - Math.min(0.98, r)) * Math.hypot(rx * Math.cos(th), ry * Math.sin(th));
+  };
+};
+const LAKE_KINDS = {
+  // the long mere (round 3's look 1, Foxmere): lobed, a cut far shore, a grassy near lip, one reed bay
+  mere: (p) => {
+    const sh = polar(p, 0.9, [[3, 0.05, 1.1], [5, 0.025, 0.3], [2, 0.04, 2.6]]), bay = [p.x - p.w * 0.36, p.y + p.h * 0.3];
+    return { shape: sh, wob: 1.2, wobF: 9, deep: 38, qmax: 0.88,
+      kind: (x, y, nx, ny) => (near(x, y, bay[0], bay[1], Math.max(18, p.w * 0.13)) ? "reeds" : ny < -0.05 ? "cut" : "lip") };
+  },
+  // a small mere with the growth (lilies, rushes) on its east side (pass 5's pond D, Oakmere)
+  pondmere: (p) => {
+    const sh = polar(p, 0.88, [[3, 0.06, 0.4], [4, 0.035, 1.9]]), gc = [p.x + p.w * 0.4, p.y + p.h * 0.06], gr = Math.max(p.w * 0.2, 14);
+    return { shape: sh, wob: 1, wobF: 8, deep: Math.min(34, p.h * 1.5), qmax: 0.8,
+      kind: (x, y, nx, ny) => (near(x, y, gc[0], gc[1], gr) ? "reeds" : ny < -0.05 ? "cut" : "lip") };
+  },
+  // the spring-fed tarn (Bramblewick): lobed, a rocky spit from the south, dark and deep; rushes at the seeps
+  // at its two ends, no stream (owner: no culverts)
+  tarn: (p) => {
+    const rx = p.w / 2, ry = p.h / 2, base = polar(p, 0.86, [[3, 0.09, 0.5], [2, 0.04, 1.7]]);
+    const hd = [p.x + rx * 0.28, p.y + ry * 0.95, rx * 0.13, ry * 0.62], seeps = [[p.x + rx * 0.85, p.y - ry * 0.25], [p.x - rx * 0.86, p.y + ry * 0.2]];
+    return { shape: (x, y) => Math.max(base(x, y), -ell(x, y, ...hd)), wob: 1.8, wobF: 8, deep: 18, qmax: 0.95,
+      kind: (x, y, nx, ny) => (seeps.some((q) => near(x, y, q[0], q[1], 11)) ? "reeds" : near(x, y, hd[0], hd[1] - hd[3] * 0.4, rx * 0.3) ? "cut" : ny < -0.05 ? "cut" : "lip") };
+  },
+  // the small reed fen: shallow, ringed in reeds, a bed standing out in it
+  fen: (p) => {
+    const base = polar(p, 0.88, [[4, 0.06, 1], [3, 0.05, 2]]), isl = [p.x + p.w * 0.06, p.y - p.h * 0.04, p.w * 0.05, p.h * 0.07];
+    return { shape: (x, y) => Math.max(base(x, y), -ell(x, y, ...isl)), wob: 2, wobF: 12, deep: 30, qmax: 0.5, kind: () => "reeds" };
+  },
+};
+// which look each Greenwood pond takes (VARIETY / pass 5's choices); any other pond: the small mere
+const LAKE_PLAN = { foxmere: ["mere", 3], oakmere: ["pondmere", 73], bramblewick: ["tarn", 7], kingstones: ["pondmere", 41], cinderholt: ["fen", 23] };
+function lakeBody(p, i) {
+  const [kd, seed] = (REALM && LAKE_PLAN[REALM.id]) || [p.w > 120 ? "mere" : "pondmere", 11 + i];
+  const L = LAKE_KINDS[kd](p, seed), erx = p.w / 2, ery = p.h / 2;
+  const sh = L.shape, wob = L.wob || 0, wf = L.wobF || 9;
+  // the engine's ellipse, a unit in: the painted shore never runs past it
+  L.shape = (x, y) => Math.max(sh(x, y) + (vn(x / wf, y / wf, 501 + i) - 0.5) * wob * 2, ell(x, y, p.x, p.y, erx, ery) + 1);
+  const m = REACH + 4;
+  return { type: "lake", li: i, pond: p, ...L, look: kd, plan: { faceMax: 13, sq: L.qmax, flow: 0, zones: [] }, c: [p.x, p.y], hwMax: Math.min(erx, ery), total: 0, segs: [],
+    box: [p.x - erx - m, p.y - ery - m, p.x + erx + m, p.y + ery + m] };
+}
 const DEF_PLAN = { def: "lip", flow: 1, faceMax: 13, sq: 0.7, zones: [] };
 // the smooth union of two bodies: a mouth rounds its corners a little (SMIN units)
 export const SMIN = 5;
@@ -64,10 +150,10 @@ export const REACH = 5;                        // how far onto the land the fiel
 
 // ---- bodies, per realm (cached on RIVERS' identity) ----
 let CACHE = { key: null, list: [] };
-const keyOf = () => `${REALM && REALM.id}|${RIVERS.length}|${RIVERS[0] && RIVERS[0].pts.length}|${RIVERS[0] && RIVERS[0].segs[0] && RIVERS[0].segs[0].x1}`;
+const keyOf = () => `${REALM && REALM.id}|${RIVERS.length}|${RIVERS[0] && RIVERS[0].pts.length}|${RIVERS[0] && RIVERS[0].segs[0] && RIVERS[0].segs[0].x1}|${PONDS.length}|${PONDS[0] && PONDS[0].x}|${BRIDGES.length}`;
 export function bodies() {
   const key = keyOf();
-  if (CACHE.key === key && CACHE.rv === RIVERS[0]) return CACHE.list;
+  if (CACHE.key === key && CACHE.rv === RIVERS[0] && CACHE.pd === PONDS[0]) return CACHE.list;
   const plans = (REALM && PLANS[REALM.id]) || [];
   const list = RIVERS.map((rv, ri) => {
     let c0 = 0, mx = 0;
@@ -88,9 +174,13 @@ export function bodies() {
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (const s of segs) { x0 = Math.min(x0, s.x1, s.x2); y0 = Math.min(y0, s.y1, s.y2); x1 = Math.max(x1, s.x1, s.x2); y1 = Math.max(y1, s.y1, s.y2); }
     const m = mx + REACH + 2;
-    return { type: "river", ri, rv, segs, total: c0, hwMax: mx, plan: plans[ri] || DEF_PLAN, box: [x0 - m, y0 - m, x1 + m, y1 + m] };
+    const B = { type: "river", ri, rv, segs, total: c0, hwMax: mx, plan: null, box: [x0 - m, y0 - m, x1 + m, y1 + m] };
+    B.plan = plans[ri] || autoPlan(B);
+    return B;
   });
-  CACHE = { key, rv: RIVERS[0], list };
+  // lava and other non-water ponds are not ours
+  PONDS.forEach((p, i) => { if (p.t !== "lava") list.push(lakeBody(p, i)); });
+  CACHE = { key, rv: RIVERS[0], pd: PONDS[0], list };
   return list;
 }
 
@@ -118,12 +208,22 @@ function riverNear(B, x, y, out) {
   return out;
 }
 
+// nearest shore of a lake: the same fields as riverNear (s runs round the shore, by angle)
+function lakeNear(B, x, y, out) {
+  const d = B.shape(x, y), e = 0.5, gx = B.shape(x + e, y) - B.shape(x - e, y), gy = B.shape(x, y + e) - B.shape(x, y - e), l = Math.hypot(gx, gy) || 1;
+  out.d = d; out.nx = gx / l; out.ny = gy / l; out.side = 1; out.hw = B.hwMax; out.bd = 0; out.ux = -out.ny; out.uy = out.nx;
+  out.s = (Math.atan2((y - B.c[1]) / (B.pond.h || 1), (x - B.c[0]) / (B.pond.w || 1)) + Math.PI) * (B.pond.w + B.pond.h) / 4;
+  return out;
+}
+const nearOf = (B, x, y, out) => (B.type === "lake" ? lakeNear(B, x, y, out) : riverNear(B, x, y, out));
+
 // the compass bank a land normal faces from
 export const bankOf = (nx, ny) => (Math.abs(ny) >= Math.abs(nx) ? (ny < 0 ? "N" : "S") : (nx < 0 ? "W" : "E"));
 
 // the edge kind on a bank at s; kw 0..1 = how far inside its zone (faces taper over a zone's ends)
 const KO = { kind: "lip", kw: 1 };
-export function kindAt(B, s, side, bank) {
+export function kindAt(B, s, side, bank, x = 0, y = 0, nx = 0, ny = 0) {
+  if (B.type === "lake") { KO.kind = B.kind(x, y, nx, ny); KO.kw = 1; return KO; }
   const P = B.plan, sj = s + (vn(s / 9, side * 3, 11) - 0.5) * 10;
   let kind = P.def, kw = 1;
   for (const z of P.zones) if ((z.bank === "*" || z.bank === bank) && sj >= z.from && sj < z.to) { kind = z.kind; kw = clamp(Math.min(sj - z.from + 2, z.to - sj + 2) / 22, 0, 1); }
@@ -134,6 +234,8 @@ export function kindAt(B, s, side, bank) {
 // a face's width at the waterline, art px (0 for a near bank we look down onto, or an edge with no face)
 export function facePx(B, kind, kw, nx, ny) {
   const H = HFACE[kind]; if (!H || ny > 0.35) return 0;
+  // a lake's cut shore: a face only where it looks at us, easing to nothing as the shore turns (no wedge ends)
+  if (B.type === "lake") return H * sstep(0.05, -0.55, ny);
   const w = H * (Math.max(0, -ny) + Math.abs(nx) * 0.42);
   return Math.min(w, B.plan.faceMax || 13) * (0.15 + 0.85 * sstep(0, 1, kw));
 }
@@ -145,19 +247,19 @@ export function probe(x, y, o = P1, skipFace = false) {
   const L = bodies(); o.B = null; o.d = 99;
   for (const B of L) {
     const b = B.box; if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
-    riverNear(B, x, y, NB);
+    nearOf(B, x, y, NB);
     const du = o.B ? smin(o.d, NB.d, SMIN * 2) : NB.d;
     if (NB.d < o.d) { o.B = B; o.d = NB.d; o.s = NB.s; o.nx = NB.nx; o.ny = NB.ny; o.side = NB.side; o.hw = NB.hw; o.bd = NB.bd; o.ux = NB.ux; o.uy = NB.uy; }
     o.d = du;
   }
   if (!o.B || skipFace) return o;
-  const k = kindAt(o.B, o.s, o.side, bankOf(o.nx, o.ny));
+  const k = kindAt(o.B, o.s, o.side, bankOf(o.nx, o.ny), x, y, o.nx, o.ny);
   o.kind = k.kind; o.kw = k.kw;
   o.fw = o.d < 0 ? facePx(o.B, k.kind, k.kw, o.nx, o.ny) : 0;
   // no face where the "land" behind it is another body's water (a mouth, a confluence)
-  if (o.fw > 0 && L.length > 1) {
+  if (o.fw > 0 && L.length > 1 && o.B.type !== "lake") {
     const e = -o.d, lx = x + o.nx * (e + 0.6), ly = y + o.ny * (e + 0.6);
-    for (const B of L) if (B !== o.B) { const b = B.box; if (lx < b[0] || lx > b[2] || ly < b[1] || ly > b[3]) continue; if (riverNear(B, lx, ly, NB).d < 0) { o.fw = 0; break; } }
+    for (const B of L) if (B !== o.B) { const b = B.box; if (lx < b[0] || lx > b[2] || ly < b[1] || ly > b[3]) continue; if (nearOf(B, lx, ly, NB).d < 0) { o.fw = 0; break; } }
   }
   return o;
 }
@@ -180,6 +282,21 @@ export function buildField(x0, y0, x1, y1, k, only = null) {
   L.forEach((B, bi) => {
     Db.fill(99);
     const SQ = B.plan.sq || 0.7;
+    if (B.type === "lake") {
+      // a lake: its shape's distance, the normal from its slope, depth from the shore to `deep` art px
+      const NO = {}, bx = B.box;
+      const ia = Math.max(0, Math.floor((bx[0] - x0) * k)), ib = Math.min(w - 1, Math.ceil((bx[2] - x0) * k));
+      const ja = Math.max(0, Math.floor((bx[1] - y0) * k)), jb = Math.min(h - 1, Math.ceil((bx[3] - y0) * k));
+      for (let j = ja; j <= jb; j++) for (let i = ia; i <= ib; i++) {
+        const x = x0 + (i + 0.5) / k, y = y0 + (j + 0.5) / k, p = j * w + i;
+        const d0 = B.shape(x, y); if (d0 > REACH + 1) continue;
+        lakeNear(B, x, y, NO);
+        const d = d0 * ART;
+        if (d < 0) { const q = clamp(-d / B.deep, 0, 1) * B.qmax; if (q > Q[p]) Q[p] = q; }
+        Db[p] = d;
+        if (d < D[p]) { S[p] = NO.s; BODY[p] = bi; SIDE[p] = 1; NX[p] = Math.round(NO.nx * 127); NY[p] = Math.round(NO.ny * 127); }
+      }
+    }
     for (const sg of B.segs) {
       const m = Math.max(sg.hw1, sg.hw2) + REACH + 1;
       const ia = Math.max(0, Math.floor((Math.min(sg.x1, sg.x2) - m - x0) * k)), ib = Math.min(w - 1, Math.ceil((Math.max(sg.x1, sg.x2) + m - x0) * k));
@@ -219,11 +336,11 @@ export function buildField(x0, y0, x1, y1, k, only = null) {
   for (let p = 0; p < N; p++) {
     const bi = BODY[p]; if (bi < 0 || D[p] > 10) continue;
     const B = L[bi], nx = NX[p] / 127, ny = NY[p] / 127;
-    const kd = kindAt(B, S[p], SIDE[p], bankOf(nx, ny));
+    const kd = kindAt(B, S[p], SIDE[p], bankOf(nx, ny), x0 + ((p % w) + 0.5) / k, y0 + (((p / w) | 0) + 0.5) / k, nx, ny);
     KIND[p] = KI[kd.kind] ?? 0; KW[p] = Math.round(kd.kw * 255);
     if (D[p] < 0) {
       let fw = facePx(B, kd.kind, kd.kw, nx, ny);
-      if (fw > 0) {
+      if (fw > 0 && B.type !== "lake") {
         const e = -D[p] / ART, i = p % w, j = (p / w) | 0;
         const li = Math.round(i + nx * (e + 0.6) * k), lj = Math.round(j + ny * (e + 0.6) * k);
         if (li >= 0 && lj >= 0 && li < w && lj < h && D[lj * w + li] < 0) fw = 0;

@@ -23,6 +23,8 @@
 // No getImageData; the only per-pixel work is here, at the bake.
 
 import { RIVERS, inRiver } from "../../data/terrain.js";
+import { nearestOnPath } from "../../engine/path.js";
+import { PATH_HALF } from "../../data/constants.js";
 import { REALM } from "../../data/maps.js";
 import { DAY } from "../../data/sun.js";
 
@@ -194,12 +196,16 @@ const beam = (P, a, b, w, ramp, base, m, n = [0, 1, 0.3]) => {
 };
 
 // ---- the plan of one span: its profile, its water, its members -----------------------------------
+// toll / mill / farm: the trestles (a plateau on battered bents, ramps on land). flat / flatlamp: TODAY'S
+// BRIDGE UPDATED (the third approved kind): a low cos arch over the water and 8 units each side, vertical
+// piles just outside the deck, no ramps (tight crossings; variety); flatlamp has lanterns on its posts.
 export const SPEC = {
-  toll: { Z: 12, R: 26, hw: 26, rail: "truss", RH: 7, post: 13, lamps: true, banners: true, hut: true },
-  mill: { Z: 12, R: 26, hw: 26, rail: "truss", RH: 7, post: 11, lamps: true, sluice: true },
-  farm: { Z: 9, R: 20, hw: 26, rail: "post", RH: 5, post: 8 },
+  toll: { Z: 10, R: 20, hw: 26, rail: "truss", RH: 7, post: 13, lamps: true, banners: true, hut: true, batter: 0.4, step: 6 },
+  mill: { Z: 10, R: 20, hw: 26, rail: "truss", RH: 7, post: 11, lamps: true, sluice: true, batter: 0.4, step: 6 },
+  farm: { Z: 10, R: 21, hw: 26, rail: "post", RH: 5, post: 8, batter: 0.4, step: 6 },
+  flat: { Z: 8, hw: 26, rail: "post", RH: 4.5, post: 7, arch: true, batter: 0, out: 1, step: 7 },
+  flatlamp: { Z: 8, hw: 26, rail: "post", RH: 4.5, post: 9, arch: true, batter: 0, out: 1, step: 7, lamps: true },
 };
-const BATTER = 0.4;
 export const planSpan = (b, kind) => {
   const sp = SPEC[kind], Fr = frameOf(b), half = (b.d1 - b.d0) / 2, hw = sp.hw;
   const wetUV = (u, v) => { const [x, y] = Fr.at(u, v, 0); return inRiver(x, y, 0); };
@@ -207,13 +213,24 @@ export const planSpan = (b, kind) => {
   let uN = Infinity, uS = -Infinity;
   for (let v = -hw; v <= hw; v += 1.5) for (let u = -half - 30; u <= half + 30; u += 0.5) if (wetUV(u, v)) { if (u < uN) uN = u; if (u > uS) uS = u; }
   if (uN === Infinity) { uN = -half + 8; uS = half - 8; }
-  const A = uN - 3, B = uS + 3, lo = A - sp.R, hi = B + sp.R, Z = sp.Z, R = sp.R;
-  const z = (u) => (u <= lo || u >= hi ? 0 : u < A ? (Z * (u - lo)) / R : u > B ? (Z * (hi - u)) / R : Z);
-  const dz = (u) => (u <= lo || u >= hi ? 0 : u < A ? Z / R : u > B ? -Z / R : 0);
+  const Z = sp.Z, arch = !!sp.arch;
+  let A, B, lo, hi, R, z, dz;
+  if (arch) {
+    // today's bridge: a cos arch over the water and 8 each side, no separate ramps
+    lo = uN - 8; hi = uS + 8; A = lo; B = hi; R = 0;
+    const mid = (lo + hi) / 2, h2 = (hi - lo) / 2;
+    z = (u) => (Math.abs(u - mid) >= h2 ? 0 : Z * Math.cos(((u - mid) / h2) * Math.PI / 2));
+    dz = (u) => (Math.abs(u - mid) >= h2 ? 0 : -Z * (Math.PI / 2 / h2) * Math.sin(((u - mid) / h2) * Math.PI / 2));
+  } else {
+    A = uN - 3; B = uS + 3; R = sp.R; lo = A - R; hi = B + R;
+    z = (u) => (u <= lo || u >= hi ? 0 : u < A ? (Z * (u - lo)) / R : u > B ? (Z * (hi - u)) / R : Z);
+    dz = (u) => (u <= lo || u >= hi ? 0 : u < A ? Z / R : u > B ? -Z / R : 0);
+  }
   // bents: a navigation bay of 19 units round the water's middle, then every 8.5 out to the cribs
   const uc = (uN + uS) / 2, bents = [];
-  for (let u = uc + 9.5; u < B - 2.5; u += 6) bents.push(u);
-  for (let u = uc - 9.5; u > A + 2.5; u -= 6) bents.push(u);
+  const bLo = arch ? uN + 1 : A + 2.5, bHi = arch ? uS - 1 : B - 2.5;
+  for (let u = uc + 9.5; u < bHi; u += sp.step) bents.push(u);
+  for (let u = uc - 9.5; u > bLo; u -= sp.step) bents.push(u);
   bents.sort((p, q) => p - q);
   // the way the water runs under the span (for the wakes)
   let best = Infinity, flow = [0, 1];
@@ -224,13 +241,21 @@ export const planSpan = (b, kind) => {
     if (d < best) { best = d; flow = [dx / Math.sqrt(l2), dy / Math.sqrt(l2)]; }
   }
   const up = Math.abs(Fr.s) > 0.7;
-  return { b, kind, sp, Fr, hw, Z, R, A, B, lo, hi, z, dz, uN, uS, bents, flow, up, wetUV };
+  // the toll hut: the first bridgehead corner where it stands clear of the road and the water
+  let hut = null;
+  if (sp.hut) for (const [u, v] of [[hi - 0.5, -(hw + 14.5)], [hi - 0.5, hw + 14.5], [lo + 0.5, -(hw + 14.5)], [lo + 0.5, hw + 14.5], [hi - 0.5, -(hw + 17)], [hi - 0.5, hw + 17], [lo + 0.5, -(hw + 17)], [lo + 0.5, hw + 17]]) {
+    const [x, y] = Fr.at(u, v, 0);
+    const ok = [[0, 0], [-7, -6], [7, -6], [-7, 6], [7, 6]].every(([dx, dy]) => nearestOnPath(x + dx, y + dy).d > PATH_HALF + 1 && !inRiver(x + dx, y + dy, 3) && x + dx < 728);
+    if (ok) { hut = { x, y }; break; }
+  }
+  return { b, kind, sp, Fr, hw, Z, R, A, B, lo, hi, z, dz, uN, uS, bents, flow, up, wetUV, arch, hut };
 };
 
 // ---- the bake ------------------------------------------------------------------------------------
 export const bakeSpan = (pl) => {
   setSun();
-  const { b, Fr, hw, Z, A, B, lo, hi, z, dz, bents, up, sp, kind, wetUV } = pl;
+  const { b, Fr, hw, Z, A, B, lo, hi, z, dz, bents, up, sp, kind, wetUV, arch, uN, uS } = pl;
+  const BAT = sp.batter, OUT = sp.out || 0, W2 = up ? 1.15 : 0.9;     // up the screen: thicker members, to read in the strip
   const RD = roadTones(), TURF = turfTones();
   // the back buffer: the whole span, its banks, rails and its thrown shadow
   const pts = [];
@@ -263,10 +288,10 @@ export const bakeSpan = (pl) => {
     for (const [u0, u1] of [[lo, A + 1], [B - 1, hi]]) for (let u = u0; u <= u1; u += STEP) {
       const top = z(u); if (top < 0.4) continue;
       for (let zz = 0; zz <= top; zz += STEP) {
-        const v = s * (hw + BATTER * (top - zz) * 0.8);
+        const v = s * (hw + (BAT || 0.3) * (top - zz) * 0.8);
         P.splat(u, v, zz, m, (i, j) => {
           const course = ((zz + 0.3) % 1.4 + 1.4) % 1.4;
-          let c = face(WOOD, course < 0.4 ? 1.5 : 2.9 + (hash(Math.floor(u / 6), Math.floor(zz / 1.4), 8) - 0.5) * 0.8, nx * 0.9, ny * 0.9, BATTER, i, j, 2.8);
+          let c = face(WOOD, course < 0.4 ? 1.5 : 2.9 + (hash(Math.floor(u / 6), Math.floor(zz / 1.4), 8) - 0.5) * 0.8, nx * 0.9, ny * 0.9, 0.4, i, j, 2.8);
           if (((u % 6) + 6) % 6 < 0.6) c = face(WOOD, 4.2, nx, ny, 0.3, i, j);            // a tie log's end
           if (zz < 1.2 + vn(u / 2, s, 4) * 1.4) c = face(TURF, 1.6 + vn(u, zz, 6) * 1.6, nx * 0.6, ny * 0.6, 0.8, i, j);   // grass at the foot
           return c;
@@ -276,45 +301,53 @@ export const bakeSpan = (pl) => {
   }
 
   // -- the trestle's flanks: X braces, piles, waling, cribs, stringer, cap ends (farther flank first)
-  const ends = [A + 1.5, ...bents, B - 1.5];
+  // (each bent stands as high as the deck over it: a plateau's are all Z, today's bridge's follow its arch)
+  const ends = arch ? [...bents] : [A + 1.5, ...bents, B - 1.5];
   for (const s of sides) {
     const [nx, ny] = Fr.n(0, s);
-    const nb = [nx * 0.9, ny * 0.9, BATTER];
-    const fv = (zz) => s * (hw + BATTER * (Z - zz));       // the battered flank's line at height zz
+    const nb = [nx * 0.9, ny * 0.9, BAT];
+    // up the screen the two strips must read: the sunward one's timbers a step lit, the other a step dark
+    const ST = up ? (nx * LV[0] > 0.05 ? 1.1 : -0.9) : 0;
+    const fv = (zz, u) => s * (hw + OUT + BAT * (z(u) - zz));     // the flank's line at height zz over u
     // X braces between bents (none over the navigation bay)
     const mX = BK.member();
     for (let k = 0; k < ends.length - 1; k++) {
       const a = ends[k], c2 = ends[k + 1]; if (c2 - a > 12) continue;
-      beam(P, [a, fv(Z * 0.88), Z * 0.88], [c2, fv(Z * 0.1), Z * 0.1], 0.6, WOOD, 1.9, mX, nb);
-      beam(P, [a, fv(Z * 0.1), Z * 0.1], [c2, fv(Z * 0.88), Z * 0.88], 0.6, WOOD, 1.7, mX, nb);
+      const za = z(a), zc = z(c2);
+      beam(P, [a, fv(za * 0.88, a), za * 0.88], [c2, fv(zc * 0.1, c2), zc * 0.1], up ? 0.8 : 0.6, WOOD, 1.9 + ST, mX, nb);
+      beam(P, [a, fv(za * 0.1, a), za * 0.1], [c2, fv(zc * 0.88, c2), zc * 0.88], up ? 0.8 : 0.6, WOOD, 1.7 + ST, mX, nb);
     }
-    // the piles: raked outer posts, lit on the sun's side, wet at the foot
+    // the piles: posts (raked on a trestle, upright on today's bridge), lit on the sun's side, wet at the foot
     for (const u of bents) {
-      const m = BK.member();
-      for (let zz = -0.6; zz <= Z; zz += STEP) for (let du = -0.9; du <= 0.9; du += STEP) {
-        P.splat(u + du, fv(zz), zz, m, (i, j) => {
-          const sideLit = (du * Fr.n(1, 0)[0]) * -LV[0] > 0.25;     // the edge toward the sun
-          let c = face(WOOD, sideLit ? 4.4 : Math.abs(du) > 0.6 ? 2 : 3.2, nx * 0.9, ny * 0.9, BATTER, i, j, 2.8);
-          if (zz < 1.4 && wetUV(u, fv(0))) c = mix(c, WOOD_WET, 0.6);
+      const m = BK.member(), top = z(u);
+      for (let zz = -0.6; zz <= top; zz += STEP) for (let du = -W2; du <= W2; du += STEP) {
+        P.splat(u + du, fv(zz, u), zz, m, (i, j) => {
+          const sideLit = (du * Fr.n(1, 0)[0]) * -LV[0] > 0.25 || (up && (s * Fr.n(0, 1)[0]) * LV[0] > 0.1 && Math.abs(du) < W2 - 0.3);
+          let c = face(WOOD, (sideLit ? 4.5 : Math.abs(du) > W2 - 0.3 ? 1.8 : 3.2) + ST, nx * 0.9, ny * 0.9, BAT, i, j, 2.8);
+          if (zz < 1.4 && wetUV(u, fv(0, u))) c = mix(c, WOOD_WET, 0.6);
           return c;
         });
       }
-      const [fx, fy] = Fr.at(u, fv(0), 0);
-      if (wetUV(u, fv(0))) feet.push({ x: fx, y: fy, r: 0.9 });
+      const [fx, fy] = Fr.at(u, fv(0, u), 0);
+      if (wetUV(u, fv(0, u))) feet.push({ x: fx, y: fy, r: 0.9 });
       // the cap's end, past the deck
-      block(P, u - 0.8, u + 0.8, s > 0 ? hw : -hw - 2.2, s > 0 ? hw + 2.2 : -hw, Z - 1.6, Z - 0.2, WOOD, 3.6, BK.member());
+      block(P, u - 0.8, u + 0.8, s > 0 ? hw : -hw - 2.2 - OUT, s > 0 ? hw + 2.2 + OUT : -hw, top - 1.6, top - 0.2, WOOD, 3.6, BK.member());
     }
-    // the waling along the bents
-    beam(P, [A + 1, fv(Z * 0.72), Z * 0.72], [B - 1, fv(Z * 0.72), Z * 0.72], 0.9, WOOD, 3.6, BK.member(), nb);
-    // the crib at each abutment: logs laid flat, their battered face
-    for (const [c0, c1] of [[A, A + 3], [B - 3, B]]) {
+    // the waling along the bents (where the deck stands high enough)
+    const mW = BK.member();
+    for (let u = (arch ? bents[0] ?? A : A + 1); u <= (arch ? bents[bents.length - 1] ?? B : B - 1); u += STEP) {
+      const top = z(u); if (top < 3) continue;
+      for (let t = 0; t <= (up ? 1.2 : 0.9); t += STEP) P.splat(u, fv(top * 0.72 - t, u), top * 0.72 - t, mW, (i, j) => face(WOOD, (t < 0.3 ? 4.2 : 3.2) + ST, nb[0], nb[1], nb[2], i, j, 2.8));
+    }
+    // the crib at each abutment (a trestle's): logs laid flat, their battered face
+    if (!arch) for (const [c0, c1] of [[A, A + 3], [B - 3, B]]) {
       const m = BK.member();
       for (let u = c0; u <= c1; u += STEP) for (let zz = -0.5; zz <= Z - 1.2; zz += STEP) {
-        P.splat(u, fv(zz), zz, m, (i, j) => {
+        P.splat(u, fv(zz, u), zz, m, (i, j) => {
           const course = ((zz + 0.6) % 1.6 + 1.6) % 1.6;
-          let c = face(WOOD, course < 0.45 ? 1.6 : 3, nx * 0.9, ny * 0.9, BATTER, i, j, 2.8);
+          let c = face(WOOD, course < 0.45 ? 1.6 : 3, nx * 0.9, ny * 0.9, BAT, i, j, 2.8);
           if (Math.abs(u - c0) < 0.4 || Math.abs(u - c1) < 0.4) c = face(WOOD, 4.2, nx, ny, 0.3, i, j);   // log ends
-          if (zz < 1.2 && wetUV(u, fv(0))) c = mix(c, WOOD_WET, 0.55);
+          if (zz < 1.2 && wetUV(u, fv(0, u))) c = mix(c, WOOD_WET, 0.55);
           return c;
         });
       }
@@ -324,18 +357,20 @@ export const bakeSpan = (pl) => {
     for (let u = lo + 2; u <= hi - 2; u += STEP) { const top = z(u); if (top < 1.6) continue; for (let zz = top - 1.6; zz <= top; zz += STEP) P.splat(u, s * hw, zz, mS, (i, j) => face(WOOD, zz > top - 0.5 ? 3.8 : 2.4, nx, ny, 0.1, i, j, 2.8)); }
   }
   // up the screen, the FAR bank's crib wing walls face south in full elevation, stepping down outward
+  // (today's bridge: low footings where its arch meets the far bank)
   if (up) {
-    const far = Fr.s > 0 ? A + 1 : B - 1, dir = Fr.s > 0 ? 1 : -1;     // its south face looks along +u (or -u)
+    const far = arch ? (Fr.s > 0 ? uN - 0.5 : uS + 0.5) : Fr.s > 0 ? A + 1 : B - 1, dir = Fr.s > 0 ? 1 : -1;
+    const H0 = arch ? Math.max(3, z(far)) : Z;
     const [nx, ny] = Fr.n(dir, 0);
     for (const s of [-1, 1]) {
-      const m = BK.member(), v0 = hw + BATTER * Z * 0.2, len = 6;
+      const m = BK.member(), v0 = hw + OUT + BAT * Z * 0.2, len = arch ? 4 : 8;
       for (let k = 0; k <= len; k += STEP) {
-        const h = Z * (k < 2 ? 0.9 : k < 4 ? 0.62 : 0.34);           // three steps down, outward
+        const f = k / len, h = H0 * (f < 0.34 ? 1 : f < 0.67 ? 0.68 : 0.38);   // three steps down, outward
         for (let zz = -0.8; zz <= h; zz += STEP) P.splat(far, s * (v0 + k), zz, m, (i, j) => {
           const course = ((zz + 0.8) % 1.5 + 1.5) % 1.5;
-          let c = face(WOOD, course < 0.4 ? 2 : 3.6, nx, ny, 0, i, j);
-          if (Math.abs(k - 2) < 0.3 || Math.abs(k - 4) < 0.3 || k > len - 0.3) c = face(WOOD, 4.4, nx, ny, 0.3, i, j);   // log ends at each step
-          if (zz > h - 0.7) c = face(TURF, 3.2, 0, 0, 1, i, j);          // turf on its top
+          let c = face(WOOD, course < 0.4 ? 2.4 : 3.9, nx, ny, 0.2, i, j);
+          if (Math.abs(f - 0.34) < 0.03 || Math.abs(f - 0.67) < 0.03 || f > 0.97) c = face(WOOD, 4.6, nx, ny, 0.3, i, j);   // log ends at each step
+          if (zz > h - 0.7) c = face(TURF, 3.3, 0, 0, 1, i, j);          // turf on its top
           if (zz < 1.2 && wetUV(far, s * (v0 + k))) c = mix(c, WOOD_WET, 0.6);
           return c;
         });
@@ -348,11 +383,13 @@ export const bakeSpan = (pl) => {
   // -- the deck: timber the whole way, planks across, ramps too (drawn in depth order)
   const mD = BK.member(F_NOEMPTY);
   // up the screen: the near ramp lightest, the level mid, the far ramp a step darker (the rule)
-  const farRampU = (u) => (Fr.s > 0 ? u < A : u > B), nearRampU = (u) => (Fr.s > 0 ? u > B : u < A);
+  const amid = (lo + hi) / 2, aq = (hi - lo) * 0.15;
+  const farRampU = arch ? (u) => (Fr.s > 0 ? u < amid - aq : u > amid + aq) : (u) => (Fr.s > 0 ? u < A : u > B);
+  const nearRampU = arch ? (u) => (Fr.s > 0 ? u > amid + aq : u < amid - aq) : (u) => (Fr.s > 0 ? u > B : u < A);
   const deckCol = (u, v, i, j) => {
     // (up the screen the ramps' tone is set by the rule, near light / far dark, not by their tilt to the sun)
     const dzu = up ? 0 : dz(u), [nx, ny] = Fr.n(-dzu, 0), nz = 1, zz = z(u);
-    const onRamp = u < A || u > B, foot = onRamp ? (u < A ? u - lo : hi - u) : 99;
+    const onRamp = u < A || u > B, foot = onRamp ? (u < A ? u - lo : hi - u) : arch ? Math.min(u - lo, hi - u) : 99;
     let tb = up ? (farRampU(u) ? -0.95 : nearRampU(u) ? 0.5 : 0) : 0;
     const pitch = 1.5, row = Math.floor(u / pitch), jj = ((u % pitch) + pitch) % pitch;
     const av = Math.abs(v);
@@ -399,7 +436,7 @@ export const bakeSpan = (pl) => {
     for (const v of vs) for (let u = lo; u <= hi; u += STEP) deckAt(u, v);
   }
   // a 1-px lit lip where the ramp breaks onto the level (the rule's height cue)
-  for (const ub of [A, B]) for (let v = -hw + 1.5; v <= hw - 1.5; v += STEP) {
+  if (!arch) for (const ub of [A, B]) for (let v = -hw + 1.5; v <= hw - 1.5; v += STEP) {
     P.splat(ub, v, Z + 0.05, mD, (i, j) => mix(mix(WOOD[5], [255, 246, 220], 0.35), SUNC, 0.2 * WARM));
     P.splat(ub + (ub === A ? -0.6 : 0.6), v, z(ub + (ub === A ? -0.6 : 0.6)) + 0.05, mD, () => WOOD[1]);    // the joint below the lip
   }
@@ -409,6 +446,7 @@ export const bakeSpan = (pl) => {
     // a low post and rail down each ramp, following it
     const mR = Bf.member();
     for (const [u0, u1] of [[lo + 4, A - 1], [B + 1, hi - 4]]) {
+      if (u1 - u0 < 3) continue;
       const n = Math.max(1, Math.round((u1 - u0) / 5.5));
       for (let k = 0; k <= n; k++) { const u = u0 + ((u1 - u0) * k) / n; for (let du = -0.45; du <= 0.45; du += STEP) for (let zz = z(u); zz <= z(u) + RH + 0.5; zz += STEP) Q.splat(u + du, v, zz, mR, (i, j) => face(WOOD, zz > z(u) + RH ? 4.8 : du * Fr.n(1, 0)[0] * -LV[0] > 0.1 ? 4 : 2.8, nx, ny, 0, i, j, 2.8)); }
       for (let u = u0; u <= u1; u += STEP) for (let zz = RH - 0.8; zz <= RH; zz += STEP) Q.splat(u, v, z(u) + zz, mR, (i, j) => face(WOOD, zz > RH - 0.3 ? 4.6 : 3.4, nx, ny, 0.4, i, j));
@@ -447,7 +485,7 @@ export const bakeSpan = (pl) => {
       for (let u = u0; u <= u1; u += STEP) for (const rz of [RH - 0.7, RH * 0.5]) for (let zz = rz; zz <= rz + 0.7; zz += STEP) for (let dv = -0.3; dv <= 0.3; dv += STEP)
         Q.splat(u, v + dv, z(u) + zz, mT, (i, j) => face(WOOD, rz > RH * 0.6 ? 4.2 : 3.4, nx, ny, 0.4, i, j));
       // up the screen, each bent's knee brace from the pile to the rail
-      if (up) for (const u of bents) beam(Q, [u, s * (hw + BATTER * Z * 0.45), Z * 0.55], [u, v, Z + RH * 0.8], 0.6, WOOD, 3, mT, [nx, ny, BATTER]);
+      if (up) for (const u of bents) beam(Q, [u, s * (hw + OUT + BAT * z(u) * 0.45), z(u) * 0.55], [u, v, z(u) + RH * 0.8], 0.7, WOOD, 3.4, mT, [nx, ny, BAT]);
       rampRail(Q, Bf, v, nx, ny, Math.min(RH, 4));
     }
   };
@@ -489,30 +527,29 @@ export const bakeSpan = (pl) => {
   };
   const ln = lo - 1.5, ls = hi + 1.5;
   if (kind === "toll") { for (const s of [-1, 1]) { postAt(ln, s, true, s < 0); postAt(ls, s, true, s < 0); } }
-  else if (kind === "mill") { postAt(ln, -1, true, false); postAt(ln, 1, false, false); postAt(ls, -1, false, false); postAt(ls, 1, true, false); }
+  else if (kind === "mill" || kind === "flatlamp") { postAt(ln, -1, true, false); postAt(ln, 1, false, false); postAt(ls, -1, false, false); postAt(ls, 1, true, false); }
   else for (const s of [-1, 1]) { postAt(ln, s, false, false); postAt(ls, s, false, false); }
 
   // -- the toll hut beside the far end of the eastern ramp, and the raised bar
-  if (sp.hut) {
-    const u0 = hi - 6, u1 = hi + 5, v1 = -(hw + 10), v0 = v1 - 9, H = 7, ridge = 5.5;
-    group([Fr.at(u0, v0, H + ridge + 3), Fr.at(u1, v1, 0), Fr.at(u1, v0, H + ridge + 3), Fr.at(u0, v1, 0)], Fr.gy((u0 + u1) / 2, v1), (G) => {
-      const Q = { Fr, B: G, splat: mkSplat(G, Fr, BK) };
-      // walls: boards with battens, the south face lit by the sun's side edge
-      const mW = G.member(), [nx, ny] = Fr.n(0, 1);
-      for (let u = u0; u <= u1; u += STEP) for (let zz = 0; zz <= H; zz += STEP) Q.splat(u, v1, zz, mW, (i, j) => {
-        const bt = ((u - u0) % 3 + 3) % 3 < 0.5;
-        return face(WOOD, bt ? 2.5 : zz < 0.6 ? 2 : 3.6, nx, ny, 0, i, j);
-      });
+  if (sp.hut && pl.hut) {
+    // the hut stands square to the screen (its own frame, a = 0) at the site planSpan found
+    const WF = frameOf({ x: pl.hut.x, y: pl.hut.y, a: 0 });
+    const u0 = -5.5, u1 = 5.5, v0 = -4.5, v1 = 4.5, H = 7, ridge = 5.5;
+    group([WF.at(u0, v0, H + ridge + 3), WF.at(u1, v1, 0), WF.at(u1, v0, H + ridge + 3), WF.at(u0, v1, 0)], WF.gy(0, v1), (G) => {
+      const Q = { Fr: WF, B: G, splat: mkSplat(G, WF, BK) };
+      const mW = G.member(), [nx, ny] = WF.n(0, 1);
       block(Q, u0, u1, v0, v1, 0, H, WOOD, 3, G.member());
+      // walls: boards with battens on the south face
       for (let u = u0; u <= u1; u += STEP) for (let zz = 0; zz <= H; zz += STEP) Q.splat(u, v1, zz, mW, (i, j) => face(WOOD, ((u - u0) % 3 + 3) % 3 < 0.5 ? 2.4 : zz < 0.6 ? 1.8 : 3.5, nx, ny, 0, i, j));
       const mO = G.member();
-      // the door (east) and the window (west), on the south face
-      const [dx, dy] = Fr.at(u0 + 7, v1, 0), [wx, wy] = Fr.at(u0 + 2, v1, 0);
+      // the door and the window, on the south face (the door toward the road's side of the hut)
+      const doorRight = pl.hut.x < b.x;
+      const [dx, dy] = WF.at(doorRight ? u1 - 4 : u0 + 1.5, v1, 0), [wx, wy] = WF.at(doorRight ? u0 + 2 : u1 - 5.5, v1, 0);
       G.rect(dx, dy - 5, 2.5, 5, INK, mO); G.rect(dx + 0.5, dy - 4.5, 1.5, 4.5, WOOD[2], mO); G.rect(dx + 1.5, dy - 2.5, 0.5, 0.5, BANNER[3], mO);
       const litW = LOW || DAY.id === "sunrise";
       G.rect(wx, wy - 5.5, 3.5, 2.5, INK, mO); G.rect(wx + 0.5, wy - 5, 2.5, 1.5, litW ? hex("#ffcf6a") : hex("#3a4250"), mO); G.rect(wx + 1.5, wy - 5, 0.5, 1.5, WOOD[1], mO);
       hutWin = { x: wx + 1.75, y: wy - 4.25, lit: litW };
-      // the shingle roof: a gable along u, the north slope then the south
+      // the shingle roof: a gable along x, the north slope then the south
       const vm = (v0 + v1) / 2, mR = G.member();
       for (const sd of [-1, 1]) for (let u = u0 - 1; u <= u1 + 1; u += STEP) for (let t = 0; t <= 1; t += 0.02) {
         const v = vm + sd * t * ((v1 - v0) / 2 + 1), zz = H + ridge * (1 - t);
@@ -522,8 +559,10 @@ export const bakeSpan = (pl) => {
           return t > 0.95 ? ROOF[0] : c;
         });
       }
-      block(Q, u0 + 7.5, u0 + 9, vm - 2.5, vm - 1, H + 1, H + ridge + 2, STONE, 3, G.member());   // the chimney
+      block(Q, 2, 3.5, -2.5, -1, H + 1, H + ridge + 2, STONE, 3, G.member());   // the chimney
     });
+  }
+  if (sp.hut) {
     // the bar: a post on the near side and a pole raised over the road
     const u = hi + 0.5, v = hw + 2.6;
     group([Fr.at(u - 10, v, 16), Fr.at(u + 3, v, 0)], Fr.gy(u, v) + 0.1, (G) => {
@@ -589,7 +628,7 @@ export const bakeSpan = (pl) => {
     }
     if (wet) {
       const dx = x - b.x, dy = y - b.y, u = dx * inv.c + dy * inv.s, v = -dx * inv.s + dy * inv.c;
-      if (u > A && u < B) { const gap = hw + BATTER * Z + 4 - Math.abs(v); if (gap > 0) a = Math.max(a, Math.min(0.42, 0.18 + gap * 0.025)); }
+      if (u > A && u < B) { const gap = hw + OUT + BAT * Z + 4 - Math.abs(v); if (gap > 0) a = Math.max(a, Math.min(0.42, 0.18 + gap * 0.025)); }
     }
     const o = p * 4;
     if (d[o + 3]) { out[o] = d[o]; out[o + 1] = d[o + 1]; out[o + 2] = d[o + 2]; out[o + 3] = 255; }

@@ -107,16 +107,16 @@ const blit = (ctx, s, x, y) => ctx.drawImage(s.cv, Math.round(x * 2 - s.ax) / 2,
 
 // ---- the cast, laid out once per realm from the trees' plans (trees.js hands them in) ----
 let CAST = null, CAST_KEY = "";
-// env: { lone: [{ x, foot, kind, crownTop, crownX }], front: [{ x, foot, crownMid }], edge: (y) -> x | null, clear: (x, y, m) -> bool }
+// env: { lone: [{ x, foot, kind, crownTop, crownX }], front: [{ x, foot, crownMid }], edges: [[x, y, dx, dy]] just outside the
+//   wood (dx, dy: the way back into it), clear: (x, y, m) -> bool, road: (x, y) -> distance, away: (x, y, d) -> [x, y] }
 export function layLife(key, env) {
   if (CAST && CAST_KEY === key) return CAST;
   CAST_KEY = key;
   const r = rng(4242);
   const C = { deer: [], rabbit: [], squirrel: null, birds: [], bflies: [], owl: null, flies: [] };
   // deer: two at the wood's edge, well apart, grazing just outside the trees
-  const edges = [];
-  for (let y = 70; y < 500; y += 23) { const x = env.edge(y); if (x != null && env.clear(x + 12, y, 30)) edges.push([x + 12, y]); }
-  for (const f of [0.3, 0.75]) { const p = edges[Math.floor(f * edges.length)]; if (p) C.deer.push({ kind: "deer", hx: p[0], hy: p[1], x: p[0], y: p[1], away: [p[0] - 26, p[1] + 4], flip: f < 0.5 ? 1 : -1, ph: r() * 40, state: "home", quietAt: 0 }); }
+  const edges = env.edges.filter(([x, y]) => env.clear(x, y, 30));
+  for (const f of [0.3, 0.75]) { const p = edges[Math.floor(f * edges.length)]; if (p && !C.deer.some((d) => Math.hypot(d.hx - p[0], d.hy - p[1]) < 60)) C.deer.push({ kind: "deer", hx: p[0], hy: p[1], x: p[0], y: p[1], away: [p[0] + p[2], p[1] + p[3]], flip: f < 0.5 ? 1 : -1, ph: r() * 40, state: "home", quietAt: 0 }); }
   // rabbits: by the lone trees' feet, three at most
   for (const t of env.lone) {
     if (C.rabbit.length >= 3) break;

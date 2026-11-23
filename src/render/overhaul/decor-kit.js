@@ -544,5 +544,194 @@ const cat = (t = 0) => sprite(14, 14, (px) => {
   px.dot(-3, -8, V.cat, 2.3); px.dot(-1, -8, V.cat, 2.3); px.dot(-2, -6.5, V.lichY, 2.4);
   const tl = [0, 1, 2, 1][t % 4]; px.part().limb([[2, -1], [4, -2 - tl * 0.5], [4 + tl * 0.6, -5 - tl]], 0.8, V.cat, 1.9);
 }, 2);
+
+// ---- ROUND 3 ruins and walls (copied the same way): the drystone wall, A's old tower, the approved chapel, a stile ----
+// ROUND 3 walls and fences: a FOOT. The wall stands on a base course of big flat footing stones half sunk in the
+// turf, a darker line where stone meets earth, tufts against it on both sides; its shadow and contact line run
+// along its own foot (spr.foot), so a wall on a slope never hangs above its shadow.
+const dryWall = (pts, hgt = 6, seed = 8, o = {}) => {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs) - 9, x1 = Math.max(...xs) + 9, y0 = Math.min(...ys) - hgt - 10, y1 = Math.max(...ys) + 6;
+  const W = Math.ceil(x1 - x0) + 4, Hh = Math.ceil(y1 - y0) + 4, R = rng(seed), m = o.m ?? M.stone, m2 = o.m2 ?? M.stoneD;
+  const px = new Pix(W, Hh, Math.round(-x0) + 2, Math.round(-y0) + 2);
+  const P = [...pts].sort((a, b) => a[0] - b[0]), xa = Math.round(P[0][0]), xb = Math.round(P[P.length - 1][0]);
+  const at = (x) => { if (x <= P[0][0]) return P[0][1]; for (let i = 0; i + 1 < P.length; i++) if (x <= P[i + 1][0]) return lerp(P[i][1], P[i + 1][1], (x - P[i][0]) / (P[i + 1][0] - P[i][0] || 1)); return P[P.length - 1][1]; };
+  const top = (x) => Math.round(at(x) - hgt + (x - xa < 2 || xb - x < 2 ? 1.5 : 0) + (hash(x >> 1, seed) > 0.8 ? 1 : 0));
+  // the body: one face, its courses of flat field stones drawn in (beds, staggered joints, each stone its own value)
+  const body = []; for (let x = xa; x <= xb; x++) body.push([x, Math.round(at(x)) - 3]); for (let x = xb; x >= xa; x--) body.push([x, top(x) + 1]);
+  px.part().poly(body, m, 1, { n: [0, 0.12, 0.99] });
+  // its top: a lit band where the cope stones sit
+  for (let x = xa; x <= xb; x++) { px.dot(x, top(x), m, 1.05, { n: [-0.15, -0.8, 0.55] }); }
+  for (let row = 0, yo = 3; yo < hgt - 1; row++, yo += 3) {
+    let x = xa + (row % 2 ? 2 : 0) + Math.floor(R() * 2);
+    for (let xs2 = xa; x <= xb + 4; ) {
+      const w = 4 + Math.floor(R() * 4), d = R() < 0.3 ? 1 : R() < 0.35 ? -1 : 0;
+      for (let i = xs2; i < Math.min(x, xb + 1); i++) { const yb = Math.round(at(i)) - yo; for (let j = 0; j < 3; j++) if (yb - j > top(i)) { if (d) px.tone(i, yb - j, d); } if (yb - 3 > top(i)) px.tone(i, yb - 2, 1); }
+      if (x <= xb) { const yb = Math.round(at(x)) - yo; px.toneLine(x, yb, x, Math.max(top(x) + 1, yb - 2), -1); }
+      xs2 = x + 1; x += w;
+    }
+    for (let i = xa; i <= xb; i++) { const yb = Math.round(at(i)) - yo - 3; if (yb > top(i)) px.tone(i, yb + 0, -1); }
+  }
+  // the base course: bigger, darker footing stones standing a pixel proud of the face, set into the ground
+  for (let x = xa - 1, k = 0; x < xb + 1; k++) {
+    const w = 5 + Math.floor(R() * 4), xe = Math.min(xb + 1.5, x + w);
+    px.part().poly([[x, at(x) + 0.5], [xe, at(xe) + 0.5], [xe, at(xe) - 3.5 - R()], [x, at(x) - 3.5 - R()]], R() > 0.5 ? m2 : m, 1.2, { n: [0, 0.2, 0.98], round: 0.4 });
+    x = xe + 0.3;
+  }
+  // the cope: upright stones on edge along the top, leaning a little each way, some mossy
+  for (let x = xa + 1; x <= xb - 1; x += 2) { const t = top(x), lean = (Math.floor(x / 2) % 3) - 1; px.part().poly([[x - 0.8, t + 1.5], [x + 1.2, t + 1.5], [x + 1.2 + lean * 0.5, t - 2.5], [x - 0.8 + lean * 0.5, t - 2.5]], hash(x, seed + 1) > 0.6 ? m2 : m, 1.3, { n: [-0.2, -0.2, 0.96] }); if (hash(x, seed + 2) > 0.7) px.dot(x, t - 2, o.cope ?? M.moss, 1.35); }
+  // where stone meets earth: a dark line along the foot, then turf in front, at the ends and in the joints
+  for (let x = xa - 1; x <= xb + 1; x++) { px.tone(x, Math.round(at(x)), -1); px.tone(x, Math.round(at(x)) - 1, -1); }
+  for (let x = xa - 1; x <= xb + 1; x += 3) { const y = at(x); tufts(px, x - 1.5, x + 1.5, y, R, 0.5, 5, { every: 3, front: 0.8, h0: 1, h: 2.5 }); if (R() > 0.6) px.part().ellipse(x, y + 0.4, 1.6 + R(), 0.8, V.turfD, 5, { round: 0.6 }); }
+  for (const [ex, sgn] of [[xa - 2, -1], [xb + 2, 1]]) tufts(px, ex - 2, ex + 2, at(ex), R, 0.5, 5, { every: 1.5, front: 0.5, h0: 2, h: 3 });
+  for (let k = 0; k < (xb - xa) / 10; k++) { const x = xa + R() * (xb - xa); px.part(); px.line(x, top(x) + 4, x - 1, top(x) + 1, V.turfL, 1.4); }
+  const img = px.resolve({ line: "tint", sun: kitSun() }), cv = toCanvas(img); grade(cv);
+  return { cv, ox: img.ox, oy: img.oy, foot: footOf(P, img) };
+};
+// ======================================================================================================
+// A's old tower, polished: a coursed cylinder whose joints crowd at the edges, a broken crown whose
+// inside you can see (the back wall's inner face, the wall-top rim), an empty window showing sky, a
+// doorway, ivy climbing the west side, fallen squared blocks, jackdaws on the rim.
+const oldTower = (r = 24, h = 120, seed = 12, o = {}) => sprite(r * 2 + 60, h + 50, (px) => {
+  const R = rng(seed), m = V.lime1, md = V.lime2, ry = r * 0.42, s = (x) => Math.sqrt(Math.max(0, 1 - (x / r) ** 2));
+  // the front wall's broken top: full height on the west, a jagged fall to the east
+  const brk = (x) => { const t = (x + r) / (2 * r), u = Math.max(0, Math.min(1, (t - 0.3) / 0.22)), sm = u * u * (3 - 2 * u); return sm * 44 + (t > 0.52 ? Math.sin(t * 15) * 5 : 0) + Math.floor(hash(Math.floor((x + 40) / 3), 7) * 3) * 2 * (t > 0.25 ? 1 : 0.4); };
+  const topF = (x) => -h + brk(x) + ry * s(x);
+  // the open top and the back wall's inner face (dark, in its own shade), drawn first
+  const inner = []; for (let x = -r; x <= r; x++) inner.push([x, -h - ry * s(x)]); for (let x = r; x >= -r; x--) inner.push([x, topF(x) + 1]);
+  px.part().poly(inner, md, 1, { n: [0.2, 0.35, 0.9] });
+  for (let x = -r + 3; x < r - 3; x += 1) for (let y = -h - ry * s(x) + 5; y < topF(x); y += 4) px.tone(x, y, hash(x, y | 0) > 0.7 ? 0 : -1);
+  // the wall-top rim of the standing back wall: a lit band
+  for (let x = -r; x <= r; x++) { const y = -h - ry * s(x); px.dot(x, y, m, 1.2, { n: [-0.2, -0.8, 0.55] }); px.dot(x, y + 1, m, 1.2, { n: [-0.2, -0.8, 0.55] }); px.dot(x, y + 2, md, 1.15, { n: [0, -0.2, 0.95] }); }
+  // the front wall: a cylinder (round 0.95), its foot on the front arc
+  const front = []; for (let x = -r; x <= r; x++) front.push([x, topF(x)]); for (let x = r; x >= -r; x--) front.push([x, ry * s(x) * 0.5]);
+  px.part().poly(front, m, 2, { round: 0.95 });
+  // its broken top edge: the wall's thickness, lit
+  for (let x = -r; x <= r; x++) { px.dot(x, topF(x), m, 2.3, { n: [-0.2, -0.8, 0.55] }); px.dot(x, topF(x) + 1, m, 2.3, { n: [-0.1, -0.6, 0.8] }); }
+  // coursed rubble: courses of uneven height; on a cylinder the joints crowd toward the edges
+  for (let y = -2, c = 0; y > -h; c++) {
+    const ch = 4 + Math.floor(hash(c, seed) * 3); y -= ch;
+    for (let x = -r; x <= r; x++) if (y > topF(x) + 2) px.tone(x, y + ry * s(x) * 0.5 * (1 - (-y / h)) , -1);
+    for (let a = -1.5 + hash(c, 3) * 0.35; a < 1.5; a += 0.3 + hash(c, a * 10 | 0) * 0.25) {
+      const x = r * Math.sin(a); if (y + 1 < topF(x) + 2) continue;
+      px.toneLine(x, y + 1, x, y + ch - 1, -1);
+      const v = hash(a * 100 | 0, c + 50); if (v > 0.85) px.toneLine(x + 1, y + 1, x + 1 + 3 * Math.cos(a), y + 1, 1);
+    }
+  }
+  for (let k = 0; k < r * h / 25; k++) { const x = (R() - 0.5) * 2 * r, y = -R() * h; if (y > topF(x) + 2) px.tone(x, y, R() > 0.6 ? 1 : -1); }
+  // the empty window high on the standing west part: sky through it, its jambs and sill
+  const wx = -r * 0.55, wy = -h + 22;
+  px.part().poly([[wx - 3, wy], [wx + 3, wy], [wx + 3, wy - 9], [wx, wy - 12], [wx - 3, wy - 9]], V.sky, 2.5);
+  px.part().rect(wx - 3, wy - 4, 2, 4, V.skyL, 2.55, { noLine: true }); px.part().rect(wx - 4, wy, 8, 1.5, m, 2.6, { n: [0, -0.7, 0.7] });
+  // a slit lower down, the doorway at the foot with its step
+  px.part().rect(r * 0.2, -h * 0.45, 2, 8, V.hole, 2.5);
+  px.part().poly([[-6, 2], [6, 2], [6, -12], [3, -16], [-3, -16], [-6, -12]], V.hole, 2.5);
+  px.part().rect(-8, 1, 16, 2, md, 2.6, { n: [0, -0.6, 0.8] });
+  for (const [x, y] of [[-6, -12], [-3, -16], [3, -16], [6, -12]]) px.dot(x, y, m, 2.55, { n: [0, -0.5, 0.85] });
+  // ivy climbs the west side from the ground and spills over the top
+  for (let k = 0; k < (o.ivy ?? 26); k++) { const t = R(), x = -r + 2 + R() * r * (0.9 - t * 0.5), y = -t * h * 0.9; if (y < topF(x) + 1) continue; px.ellipse(x, y, 2 + R() * 2.5, 2 + R() * 2.5, R() > 0.4 ? V.ivy : V.ivyL, 3, { wrap: true }); }
+  for (let k = 0; k < 6; k++) { const x = -r * 0.8 + R() * r * 0.5; px.part().ellipse(x, -h + 3 + R() * 6, 2.5, 2, V.ivyL, 3.1, { round: 0.8 }); }
+  // fallen squared blocks, half sunk, mossy
+  for (let k = 0; k < (o.rubble ?? 7); k++) {
+    const x = r * 0.6 + R() * r * 1.6, y = 2 - R() * 4, w = 4 + R() * 4, hh = 2.5 + R() * 2;
+    px.part().poly([[x - w / 2, y], [x + w / 2, y], [x + w / 2, y - hh], [x - w / 2, y - hh]], R() > 0.5 ? m : md, 4 + k * 0.01, { round: 0.4, ny: 0.1 });
+    px.part().poly([[x - w / 2 + 0.5, y - hh], [x + w / 2 - 0.5, y - hh], [x + w / 2 - 1.5, y - hh - 2], [x - w / 2 + 1, y - hh - 2]], m, 4.05 + k * 0.01, { n: [-0.1, -0.7, 0.7] });
+    if (R() > 0.5) px.ellipse(x, y - hh - 1, w * 0.3, 0.8, V.moss, 4.1, { wrap: true });
+  }
+  // turf hugging the foot
+  for (let k = 0; k < r; k++) px.part().ellipse((R() - 0.5) * r * 2.4, 1 + R() * 2, 2 + R() * 2, 1.2, R() > 0.5 ? V.turf : V.turfD, 5, { round: 0.6 });
+  // jackdaws on the rim
+  for (const x of o.daws ?? [-r * 0.7, -r * 0.35]) { const y = topF(x) - 1; px.part().ellipse(x, y - 1.5, 1.6, 1.2, V.hole, 3.5); px.dot(x - 1.5, y - 2.5, V.hole, 3.5); px.dot(x - 2.5, y - 2.5, V.gold, 3.6); }
+}, 8);
+// the second ruin: a roofless chapel's west gable standing alone, a bellcote on it, a lancet showing sky
+const chapel = (seed = 41, o = {}) => spriteL(150, 116, (px, Lt) => {
+  const R = rng(seed), m = V.lime1, d = V.lime2, hw = 26, eave = -34, apex = -62, bw = 7, D = 30, bTop = -80;
+  const rake = (x) => eave + (apex - eave) * (1 - Math.abs(x) / hw), bBase = Math.round(rake(bw + 1));
+  // 1. the east gable at the back: its inner face toward us, its top fallen from the north-west corner down
+  const eg = [[-hw, -D], [-hw, -D - 24], [-20, -D - 26], [-15, -D - 21], [-10, -D - 23], [-4, -D - 16], [2, -D - 18], [8, -D - 12], [14, -D - 14], [20, -D - 9], [hw, -D - 11], [hw, -D]];
+  px.part().poly(eg, d, 0.5, { n: [0.15, 0.25, 0.95] }); courses2(px, -hw, -84, hw * 2, 54, 4, seed + 3);
+  for (let i = 1; i + 1 < eg.length - 1; i++) { const [ax, ay] = eg[i], [bx, by] = eg[i + 1]; for (let t = 0; t <= 1; t += 0.1) px.dot(lerp(ax, bx, t), lerp(ay, by, t) + 1, m, 0.52, { n: [-0.2, -0.8, 0.55], noLine: true }); }
+  px.part().poly([[-20, -43], [-17, -43], [-17, -50], [-18.5, -52], [-20, -50]], V.hole, 0.55);
+  // 2. the side walls running back: drawn slice by slice from the back, tops lit, broken lowest mid-nave
+  const hL = (z) => z < 19 ? 34 : z < 24 ? lerp(34, 13, (z - 19) / 5) : z < 28 ? 12 + hash(z, 3) * 2 : lerp(13, 24, (z - 28) / 2);
+  const hR = (z) => z < 15 ? 34 : z < 20 ? lerp(34, 10, (z - 15) / 5) : z < 27 ? 9 + hash(z, 5) * 2 : lerp(10, 11, (z - 27) / 3);
+  for (const [x0, h] of [[-hw, hL], [hw - 4, hR]]) {
+    px.part();
+    for (let z = D; z >= 0; z--) { const top = Math.round(-z - h(z)); for (let x = x0; x < x0 + 4; x++) for (let y = top; y <= -z; y++) px.dot(x, y, (z + (x >> 1)) % 7 === 0 ? d : m, 0.6 + (D - z) * 0.002, { n: y - top < 1.5 ? [-0.2, -0.85, 0.5] : x0 > 0 ? [0.5, 0.1, 0.86] : SOUTH }); }
+    for (let z = 2; z < D; z += 3) { const y = -z - h(z); px.toneLine(x0, y + 1, x0 + 3, y + 1, -1); }
+  }
+  // 3. what is left of the roof: slates still under the west coping (north-west slope), rafters, a purlin, a fallen rafter
+  const sl = []; for (let x = -hw - 1; x <= -bw - 1; x++) sl.push([x, rake(x) - 0.5]);
+  const brk = (x) => 5 + Math.round(hash(Math.floor((x + 40) / 3), seed) * 4) + (x > -14 ? 2 : 0);
+  for (let x = -bw - 1; x >= -hw - 1; x--) sl.push([x, rake(x) - brk(x)]);
+  px.part().poly(sl, V.slate, 1.2, { n: [-0.5, -0.4, 0.76] });
+  for (let k = 1; k < 9; k += 2) for (let x = -hw; x <= -bw - 1; x++) if (k < brk(x)) px.tone(x, rake(x) - k, -1);
+  for (let x = -hw; x < -bw; x += 3) px.tone(x, rake(x) - 2, 1);
+  for (const z of [11, 17]) { px.part(); px.line(-hw + 2, eave - z, -bw - 2, rake(-bw - 2) - z, V.wood, 1 - z * 0.01); }
+  for (const z of [6, 13]) { px.part(); px.line(hw - 2, eave - z, bw + 3, rake(bw + 3) - z, V.wood, 1 - z * 0.01); }
+  px.part(); px.line(hw - 3, eave - 14, 13, -37, V.wood, 0.98);
+  // 4. the west gable and its bellcote: ONE mass, the courses run through both
+  const gp = [[-hw, 0], [hw, 0], [hw, eave], [bw + 1, bBase], [bw, bBase], [bw, bTop], [-bw, bTop], [-bw, bBase], [-bw - 1, bBase], [-hw, eave]];
+  px.part().poly(gp, m, 3, { n: SOUTH }); courses2(px, -hw, bTop, hw * 2, -bTop, 4, seed + 7);
+  for (let x = 13; x < hw; x++) px.toneLine(x, rake(x) + 3, x, -2, -1);
+  for (let x = 3; x < bw; x++) px.toneLine(x, bTop + 2, x, bBase + 1, x > 4 ? -1 : 0);
+  // quoins up both gable corners and both bellcote corners: long and short dressed blocks, lit
+  const quoin = (x, y0, y1, dir) => { for (let y = y0, k = 0; y > y1 + 1; y -= 4, k++) { const w = k % 2 ? 2 : 4; for (let yy = y - 3; yy < y; yy++) for (let i = 0; i < w; i++) px.tone(x + dir * i, yy, dir > 0 ? 1 : 0); px.toneLine(x, y - 4, x + dir * (w - 1), y - 4, -1); px.toneLine(x + dir * w, y - 4, x + dir * w, y - 1, -1); } };
+  quoin(-hw, 0, eave, 1); quoin(hw - 1, 0, eave, -1); quoin(-bw, bBase, bTop, 1); quoin(bw - 1, bBase, bTop, -1);
+  // the raking copings from the kneelers up to the bellcote's piers, where they stop against its quoins
+  px.part().poly([[-hw - 2, eave + 1], [-bw, bBase + 1], [-bw, bBase - 1.5], [-hw - 2, eave - 1.5]], m, 3.4, { n: [-0.35, -0.7, 0.62] });
+  px.part().poly([[hw + 2, eave + 1], [bw, bBase + 1], [bw, bBase - 1.5], [hw + 2, eave - 1.5]], d, 3.4, { n: [0.45, -0.55, 0.7] });
+  for (const x of [-hw - 2, hw - 3]) { px.part().rect(x, eave - 1, 5, 4, x < 0 ? m : d, 3.45, { n: [0, -0.3, 0.95] }); px.toneLine(x, eave + 3, x + 4, eave + 3, -1); }
+  // the bellcote: a string course, the opening with its bell, a gabled cap, a cross
+  px.part().rect(-bw - 1, bBase - 6, bw * 2 + 2, 1.5, m, 3.3, { n: [0, -0.7, 0.7] });
+  px.part().poly([[-3.5, bBase - 7], [3.5, bBase - 7], [3.5, -72], [0, -76], [-3.5, -72]], V.sky, 3.5);
+  px.part().ellipse(0, -69.5, 2.4, 2.8, V.bell, 3.6, { round: 0.9 }); px.part().rect(-3, -67.5, 6, 1, V.bell, 3.62); px.part().line(0, -73, 0, -72, V.iron, 3.6);
+  px.part().poly([[-bw - 2, bTop + 1], [0, bTop - 7], [0, bTop + 1]], m, 3.7, { n: [-0.3, -0.6, 0.74] });
+  px.part().poly([[0, bTop - 7], [bw + 2, bTop + 1], [0, bTop + 1]], d, 3.7, { n: [0.5, -0.45, 0.74] });
+  px.part(); px.line(0, bTop - 7, 0, bTop - 12, m, 3.8); px.line(-2, bTop - 10, 2, bTop - 10, m, 3.8);
+  // the west window: a tall lancet with Y-tracery, its hood-mould and sill; the doorway with its hood and step
+  px.part().poly([[-4.5, -24], [4.5, -24], [4.5, -40], [0, -47], [-4.5, -40]], V.sky, 3.5); for (let y = -40; y < -25; y++) px.dot(-4, y, V.skyL, 3.52, { noLine: true });
+  px.part(); px.line(0, -24, 0, -40, d, 3.6); px.line(0, -40, -3.5, -43, d, 3.6); px.line(0, -40, 3.5, -43, d, 3.6);
+  for (const [x, y] of [[-5.5, -40], [-4.5, -44], [-2.5, -46.5], [0, -48.5], [2.5, -46.5], [4.5, -44], [5.5, -40]]) px.dot(x, y, m, 3.55, { n: [-0.1, -0.7, 0.7] });
+  px.part().rect(-6, -24, 12, 1.5, d, 3.6, { n: [0, -0.6, 0.8] });
+  px.part().poly([[-6, 0], [6, 0], [6, -12], [0, -18], [-6, -12]], V.hole, 3.5);
+  for (let x = -5; x <= 5; x++) { px.dot(x, -1, V.turfD, 3.52, { noLine: true }); if (hash(x, 9) > 0.5) px.dot(x, -2, V.turf, 3.52, { noLine: true }); }
+  for (const [x, y] of [[-7, -12], [-5.5, -15.5], [-3, -18], [0, -19.5], [3, -18], [5.5, -15.5], [7, -12]]) px.dot(x, y, m, 3.55, { n: [-0.1, -0.7, 0.7] });
+  px.part().rect(-8, -1.5, 16, 2, d, 3.6, { n: [0, -0.6, 0.8] });
+  // a plinth course along the foot, the buttresses at the corners with a set-off each
+  px.part().rect(-hw - 1, -3, hw * 2 + 2, 3, d, 3.2, { n: [0, 0.1, 0.99] }); px.toneLine(-hw - 1, -3, hw, -3, 1);
+  for (const [x, mm] of [[-hw - 5, m], [hw + 1, d]]) { px.part().poly([[x, 0], [x + 4, 0], [x + 4, -22], [x + 2, -26], [x, -24]], mm, 3.8, { round: 0.3 }); px.part().poly([[x, -12], [x + 4, -12], [x + 4, -14], [x, -12.5]], m, 3.85, { n: [0, -0.7, 0.7] }); courses2(px, x, -24, 4, 24, 4, x); }
+  // ivy up the north-west corner, along the coping and over the slates' edge
+  for (let k = 0; k < 30; k++) { const t = Math.pow(R(), 0.8), x = t < 0.7 ? -hw - 4 + R() * 9 : lerp(-hw, -16, (t - 0.7) / 0.3) + (R() - 0.5) * 3, y = t < 0.7 ? -t / 0.7 * 36 : rake(x) + 1 - R() * 2; px.ellipse(x, y, 1.6 + R() * 2.2, 1.6 + R() * 2, R() > 0.4 ? V.ivy : V.ivyL, 4, { wrap: true }); }
+  // the yew to the east, its red-brown fluted trunk and dark layered crown
+  px.part().capsule(45, -0.5, 3.4, 45, -10, 2.6, V.yewT, 0.4); px.toneLine(44, -1, 44, -9, 1); px.toneLine(46.5, -1, 47, -9, -1);
+  px.part(); for (const [x, y, rx, ry] of [[45, -20, 16, 10], [33, -13, 6, 4], [57, -13, 6, 4], [38, -27, 9, 7], [52, -27, 9, 7], [45, -32, 9, 6], [30, -19, 5, 5], [60, -19, 5, 5]]) px.ellipse(x, y, rx, ry, V.yew, 0.42, { round: 0.6 });
+  for (let k = 0; k < 26; k++) { const a = Math.PI * (0.15 + R() * 0.7), x = 45 + Math.cos(a) * 17, y = -12 + Math.sin(a) * 2; px.part().line(x, y - 3, x + (R() - 0.5), y, V.yew, 0.43); }
+  for (const [x, y, rx, ry] of [[38, -29, 5, 3], [44, -34, 4, 2.5], [33, -21, 4, 3], [42, -22, 5, 2.5]]) px.part().ellipse(x, y, rx, ry, V.yewL, 0.44, { round: 0.5 });
+  for (let k = 0; k < 60; k++) { const a = R() * 6.28, rr = Math.sqrt(R()); px.tone(45 + Math.cos(a) * rr * 15, -21 + Math.sin(a) * rr * 10, R() > 0.55 ? 1 : -1); }
+  for (const [x, y] of [[38, -24], [50, -30], [47, -16], [55, -22]]) px.dot(x, y, V.flowerR, 0.46, { noLine: true });
+  // two old headstones leaning in the turf, fallen blocks by the south-east buttress
+  for (const [x, lean, hh] of [[-44, -1, 8], [-36, 1, 7]]) { px.part().poly([[x - 2.5, 0.5], [x + 2.5, 0.5], [x + 2.5 + lean, -hh + 2], [x + lean, -hh], [x - 2.5 + lean, -hh + 2]], d, 5, { round: 0.6 }); px.ellipse(x + lean, -hh + 2, 1.5, 1, V.lichG, 5.1, { wrap: true }); px.toneLine(x - 1 + lean, -hh + 4, x + 1 + lean, -hh + 4, -1); }
+  for (let k = 0; k < 5; k++) { const x = 34 + k * 4 + R() * 2, w = 3.5 + R() * 3, y = 1 + R() * 2; px.part().poly([[x - w / 2, y], [x + w / 2, y], [x + w / 2, y - 3], [x - w / 2, y - 3]], R() > 0.5 ? m : d, 5 + k * 0.01, { round: 0.4 }); px.part().poly([[x - w / 2, y - 3], [x + w / 2, y - 3], [x + w / 2 - 1, y - 5], [x - w / 2 + 1, y - 5]], m, 5.05 + k * 0.01, { n: [-0.1, -0.7, 0.7] }); if (R() > 0.5) px.ellipse(x, y - 4, w * 0.3, 0.8, V.moss, 5.1, { wrap: true }); }
+  // its foot in the turf
+  tufts(px, -hw - 8, hw + 8, 0.3, R, 0.3, 4.5, { every: 2.6, front: 0.7, h: 2.5 }); collar(px, -hw - 6, hw + 6, 0.4, R, 4.4, 0.9);
+  tufts(px, -48, -32, 0.5, R, 4, 5.5, { every: 2.5 }); tufts(px, 36, 54, 0.5, R, 0.3, 5.5, { every: 2.5 });
+  // the lights: a lantern on a bracket by the door, a candle on the west window's sill
+  if (o.lamp) {
+    wallLamp(px, Lt, -8, -15, 3.9, -1, 14);
+    px.dot(1, -25, V.wool, 3.7); px.dot(1, -26, V.wool, 3.7); px.dot(1, -27, V.fireL, 3.75, { noLine: true }); px.dot(1, -28, V.lamp, 3.75, { noLine: true });
+    Lt.lamp(1, -27, 9); Lt.win(-3, -32, 7, 7);
+  }
+}, 10);
+
+// ======================================================================================================
+// WALLS, a stile, a field gate, kerb stones
+// ======================================================================================================
+const stile = () => sprite(22, 22, (px) => {
+  for (const x of [-6, 6]) beam2(px, x - 1, -12, 2, 12, 2, V.woodD);
+  px.part().rect(-7, -8, 14, 2, V.woodL, 2.5, { n: [0, -0.5, 0.86] }); px.part().rect(-5, -4, 10, 2, V.woodL, 2.6, { n: [0, -0.5, 0.86] });
+  const R = rng(3); for (const x of [-6, 6]) collar(px, x - 2, x + 2, 0, R, 2.7, 0.8); tufts(px, -9, 9, 0, R, 1, 2.8, { every: 2.5 });
+}, 3);
+
 export { hash, rng, lerp, sprite, spriteL, bottoms, silhouette, px1, worn, path, plot, M, V, courses, fence, post, haystack, woodpile, smoke,
-  tufts, collar, footOf, lantern, hen3, block, rockMass, ROCKS, house, henhouse, well2, lampPost, washing, cat, campfire, shrine2 };
+  tufts, collar, footOf, lantern, hen3, block, rockMass, ROCKS, house, henhouse, well2, lampPost, washing, cat, campfire, shrine2, dryWall, oldTower, chapel, stile };

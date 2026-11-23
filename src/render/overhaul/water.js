@@ -14,7 +14,7 @@
 // lilies swaying, ducks, a heron). Blits and fillRects only.
 import { register, OVH, ovhOn } from "./index.js";
 import { DAY } from "../../data/sun.js";
-import { RIVERS, PONDS } from "../../data/terrain.js";
+import { RIVERS, PONDS, COAST, inSea } from "../../data/terrain.js";
 import { W, H } from "../../data/constants.js";
 import { buildField, bodies, waterDist as fieldDist, openWater as fieldOpen, clamp, sstep, hs, vn, bay, HFACE } from "./field.js";
 import { buildLive, drawLive, liveMB } from "./waterlive.js";
@@ -101,7 +101,7 @@ function paintField(F) {
       // ---- the land side of the shore ----
       if (kind === KI_CUT && !isNear && d < 2.2) put(p, TURF[5], d < 1 ? 0.55 : 0.25);
       else if (kind === KI_CUT && isNear && d < 1.2) put(p, TURF[4], 0.4);
-      else if (kind === KI_QUAY && d < (isNear ? 4 : 5)) {
+      else if (kind === KI_QUAY && d < (isNear ? 4 : 5) * sstep(0.1, 0.6, KW[p] / 255)) {
         const run = Math.floor((s + (isNear ? 0 : 3)) / 11), jt = ((s % 11) + 11) % 11 < 1;
         let c = STONE[4 - (hs(run, 1, 5) > 0.6 ? 1 : 0)]; if (jt) c = STONE[1]; if (d > (isNear ? 3 : 4)) c = STONE[1]; if (d < 1) c = STONE[5];
         if (hs(X, Y, 7) > 0.93) c = lerp(c, hex("#7a8a50"), 0.5);
@@ -122,13 +122,16 @@ function paintField(F) {
     const hard = kind === KI_CUT || kind === KI_QUAY;
     // the shallow stream profile (concept/overhaul3-lakes.js pass 5c): the pale shelving takes 22 art px at a
     // soft edge and the channel tops out at the body's sq (Q carries it, and the point bars)
-    const SQ = F.bodies[bi].plan.sq || 0.7, qe = hard ? 0.75 : clamp(ew / 22, 0, 1);
-    const q = Math.min(Q[p], 0.2 + qe * 0.8 * SQ) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.12;
+    const Bd = F.bodies[bi], lake = Bd.type === "lake";
+    const SQ = Bd.plan.sq || 0.7, qe = hard ? (lake ? 1 : 0.75) : clamp(ew / (lake ? 14 : 22), 0, 1);
+    // a lake (concept/overhaul3-lakes.js): the river's bands over the distance from its shore, to its own depth
+    const q = lake ? Math.min(clamp((ew + (vn(X / 30, Y / 14, 43) - 0.5) * 8) / Bd.deep, 0, 1) * Bd.qmax, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18 * (1 - 0.6 * sstep(12, 34, ew))
+      : Math.min(Q[p], 0.2 + qe * 0.8 * SQ) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.12;
     const idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9;
     let c = WA[clamp(Math.round(idx), 0, 6)];
     // the bank's shade at its foot, and a low sun's long shadow off it
     const fdot = -(nx * fall[0] + ny * fall[1]);
-    const Hs = (HFACE[kind === KI_CUT ? "cut" : kind === KI_QUAY ? "quay" : ""] || 3) * (hard ? 0.15 + 0.85 * sstep(0, 1, KW[p] / 255) : 1);
+    const Hs = lake ? Math.max(3, fw) : hard && FW[p] === 0 ? 3 : (HFACE[kind === KI_CUT ? "cut" : kind === KI_QUAY ? "quay" : ""] || 3) * (hard ? 0.15 + 0.85 * sstep(0, 1, KW[p] / 255) : 1);
     const shadeLen = (isNear ? 0 : Math.max(0, -ny) * Hs * 0.45) + Math.max(0, fdot) * Hs * (0.3 + slen * 0.55) + (isNear ? 3.2 : 0);
     let shade = 0;
     if (ew < shadeLen) shade = ew < shadeLen - 1.5 ? 0.62 : 0.78;
@@ -143,8 +146,8 @@ function paintField(F) {
     else if (kind === KI_CUT && !isNear && ew < 1.3) c = lerp(c, FOAM2, 0.3);
     else if (kind === KI_QUAY && !isNear && ew < 2.2) c = ew < 1.1 ? WEED : lerp(c, FOAM2, 0.35);
     // the sky lying on it (still)
-    const cl = vn(X / 60, Y / 22, 72 + bi);
-    if (cl > 0.66 + bay(X, Y) * 0.08 && ew > 8) c = lerp(c, SKY, 0.16);
+    if (lake) { const cl = vn(X / 90, Y / 9, 71 + bi); if (cl > 0.64 + bay(X, Y) * 0.1 && ew > 14 && (Y % 3)) c = lerp(c, SKY, cl > 0.72 ? 0.2 : 0.11); }
+    else { const cl = vn(X / 60, Y / 22, 72 + bi); if (cl > 0.66 + bay(X, Y) * 0.08 && ew > 8) c = lerp(c, SKY, 0.16); }
     // the weir: glassy pool above, the sill's stones, a white fall (live frames go over it), churn below
     const wr = weirs[bi];
     if (wr != null) {
@@ -200,7 +203,7 @@ export const STATS = { bakeMs: 0, fieldMs: 0, px: 0 };
 
 function bakeWater(ctx) {
   buildLive(null); buildLife(null);
-  if (!RIVERS.length) { if (PONDS.length) console.warn("overhaul water: ponds are not drawn yet"); return; }
+  if (!bodies().length) return;   // a dry board (or only the sea, which coast.js paints as today)
   const T0 = performance.now();
   const [x0, y0, x1, y1] = boardRect();
   let F = buildField(x0, y0, x1, y1, 2);
@@ -236,9 +239,14 @@ export const waterMB = () => liveMB() + lifeMB();
 
 register("bakeWater", bakeWater);
 register("waterLive", waterLive);
-register("openWater", openWater);
+// the hour's glints (daygrade): our rivers and lakes, and today's sea on a coast board
+register("openWater", (x, y) => openWater(x, y) || (!!COAST && inSea(x, y, -2)));
 register("apronRiver", apronRiver);
 export { OVH, ovhOn };
 // for labs
 export { lifeInfo } from "./waterlife.js";
 export { liveStats } from "./waterlive.js";
+
+// the ground layer's cache key part (overhaul/wire.js): bump WATER_V when the bake must change
+const WATER_V = 2;
+export const waterKey = () => `w${WATER_V}`;

@@ -9,6 +9,7 @@ import { lineAt, probe, hs, vn, clamp } from "./field.js";
 import { underBridge } from "../../data/terrain.js";
 import { W, H, WALL_W } from "../../data/constants.js";
 import { groundLayer } from "../world.js";
+import { ovhBridgePiers } from "./bridges.js";
 
 const hex = (s) => [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
 const WA = ["#18384a", "#1f4a5a", "#28606c", "#33787c", "#46908a", "#68aa98", "#96c6ac"].map(hex);
@@ -68,6 +69,25 @@ export function buildLive(F, img) {
   const IP = img.data, XR = W - WALL_W;
   const pt = {};
   F.bodies.forEach((B, bi) => {
+    if (B.type === "lake") {
+      // still water: the river's own dashes lying in slow wind-lanes across it, drifting east
+      const [bx0, by0, bx1, by1] = B.box;
+      for (let yy = by0 + 4; yy < by1 - 4; yy += 6) {
+        const n = Math.max(1, Math.ceil(bx1 - bx0)), xs = new Float32Array(n), ys = new Float32Array(n), an = new Uint8Array(n), ok = new Uint8Array(n), lum = new Float32Array(n);
+        let any = 0;
+        for (let s = 0; s < n; s++) {
+          const x = bx0 + s, y = yy + Math.sin(s / 23 + yy) * 1.5; xs[s] = Math.round(x * 2) / 2; ys[s] = Math.round(y * 2) / 2;
+          an[s] = 0;
+          if (x < 1 || x > XR - 1 || y < 1 || y > H - 1) continue;
+          const q = fieldAt(F, x, y); if (q < 0 || F.BODY[q] !== bi || F.D[q] > -(F.FW[q] / 8 + 6)) continue;
+          ok[s] = 1; any++; const o = q * 4; lum[s] = lumaOf(IP[o], IP[o + 1], IP[o + 2]);
+        }
+        if (any < 8) continue;
+        const nd = Math.max(1, Math.round(any / 26));
+        lanes.push({ xs, ys, an, ok, lum, shade: new Uint8Array(n), n, v: 2.2 + hs(yy | 0, 1, 77) * 1.5, dashes: Array.from({ length: nd }, (_, i) => ({ ph: hs(i, yy | 0, 79) * n, len: hs(i, 3, 80) > 0.5 ? 1 : 0, tone: 1 })) });
+      }
+      return;
+    }
     const hw0 = B.hwMax, flow = B.plan.flow || 1, weir = B.plan.weir;
     const lats = hw0 >= 12 ? [-0.62, -0.32, 0, 0.32, 0.62] : [-0.5, 0, 0.5];
     for (const lat of lats) {
@@ -179,6 +199,34 @@ export function drawLive(ctx, g) {
   }
   // the weir: its fall and churn, 12 frames a second
   for (const wr of LIVE.weirs) ctx.drawImage(wr.frames[Math.floor(time * 12) % 6], wr.x, wr.y, wr.w, wr.h);
+  // foam round the bridges' feet that stand in the water (B2's piers), with a short broken wake downstream
+  if (!LIVE.piers) {
+    LIVE.piers = [];
+    try {
+      for (const f of ovhBridgePiers()) {
+        const o = probe(f.x, f.y); if (!o.B || o.d > 0.5) continue;
+        LIVE.piers.push({ x: Math.round(f.x * 2) / 2, y: Math.round(f.y * 2) / 2, r: Math.max(1, f.r || 1.5), ux: o.B.type === "lake" ? 0 : o.ux, uy: o.B.type === "lake" ? 0 : o.uy, k: LIVE.piers.length });
+      }
+    } catch (e) { LIVE.piers = []; }
+  }
+  if (LIVE.piers.length) {
+    const tf = Math.floor(time * 8);
+    ctx.fillStyle = FOAM;
+    for (const p of LIVE.piers) {
+      const n = Math.max(4, Math.round(p.r * 5));
+      for (let i = 0; i < n; i++) {
+        if (hs(i, tf + p.k * 3, 51) < 0.45) continue;
+        const a = (i / n) * TAU, x = p.x + Math.cos(a) * (p.r + 0.5), y = p.y + Math.sin(a) * (p.r + 0.5) * 0.6;
+        ctx.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
+      }
+      if (p.ux || p.uy) for (let r = 1; r < 6; r++) {
+        if (hs(r, tf - r, 52 + p.k) < 0.5) continue;
+        const x = p.x + p.ux * (p.r + r * 1.2), y = p.y + p.uy * (p.r + r * 1.2);
+        ctx.fillRect(Math.round((x - p.uy * r * 0.4) * 2) / 2, Math.round((y + p.ux * r * 0.4) * 2) / 2, 0.5, 0.5);
+        ctx.fillRect(Math.round((x + p.uy * r * 0.4) * 2) / 2, Math.round((y - p.ux * r * 0.4) * 2) / 2, 0.5, 0.5);
+      }
+    }
+  }
   // rings on slack water
   const RS = ringSprites();
   for (const r of LIVE.rings) {
