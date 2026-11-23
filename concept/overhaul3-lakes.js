@@ -46,17 +46,16 @@ const LOOKS = {
       birds: [["duck", 136, 398]], rings: [[112, 390, 0.2, 7, 1], [160, 384, 0.65, 5, 0]] },
     deep: 38, qmax: 0.88, zoom: [318, 158, 168, 112], loop: [318, 150, 230, 150], pondZoom: null,
   },
-  2: { name: "2 The tarn", line: "THE TARN: three lobes, a rocky headland, a stream in under the road and out to the south-west: one water",
+  2: { name: "2 The tarn", line: "THE TARN: three lobes, a rocky headland, dark and deep; spring-fed (a seep and rushes), its beck running off south-west",
     fox: { shape: (x, y) => {
         let d = union(x, y, [[348, 220, 40, 26], [430, 198, 44, 30], [508, 218, 36, 28], [388, 214, 24, 12], [470, 206, 20, 13]], 9);
         return Math.max(d, -ell(x, y, 464, 252, 18, 32));                                                                       // the headland pushing north
       }, wob: 4,
       kind: (x, y, nx, ny) => near(x, y, 466, 238, 30) || near(x, y, 400, 226, 9) ? "rock" : ny < -0.05 ? "cut" : "lip",
       streams: [
-        { pts: [[454, 136], [456, 150], [450, 164], [446, 180]], w: 20, spec: { def: "cut", flow: 0.7, zones: [{ bank: "W", from: 0, to: 999, kind: "lip" }] } },
         { pts: [[326, 232], [318, 254], [312, 276], [318, 300], [330, 322], [332, 346], [322, 370], [316, 392]], w: 24, spec: { def: "lip", flow: 0.6, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } },
       ],
-      culverts: [{ arch: [454, 142], w: 20 }],
+      culverts: [], seeps: [[512, 192, 13]],   // owner: no culverts: the tarn is spring-fed at its north-east end
       rocks: [[466, 252, 1.15], [476, 246, 0.7], [457, 258, 0.75], [404, 232, 0.6]], boulders: [[465, 221, 3.2], [472, 217, 2.2], [457, 224, 1.8], [352, 202, 2]],
       birds: [["heron", 486, 232]], rings: [[430, 198, 0.15, 9, 1], [508, 212, 0.6, 7, 0], [352, 222, 0.85, 6, 0]] },
     oak: { shape: (x, y) => { const d = union(x, y, [[90, 392, 46, 30], [154, 410, 40, 28], [120, 400, 26, 16]], 9); return Math.max(d, -ell(x, y, 124, 438, 12, 22)); }, wob: 3,
@@ -130,6 +129,17 @@ function rill1(x, y, ux, dy, R) {
 // walk from the lake up (dy -1) or down (+1); when it meets a road it CROSSES it (a culvert) and carries on beyond, so every
 // stream that goes under a road is seen coming out the other side. Of five headings it keeps the one with the shortest
 // crossing (never one that runs along the road). An arch mouth only ever on the road's SOUTH verge; the north verge: coping.
+// (pass 4, owner: "Lets just remove this feature": no culverts, no stream under a road.) A stream is kept only if its
+// course reaches the board's edge across open ground; rillClear returns that stretch (upstream -> downstream order is
+// the caller's) or null. rill() and the culvert painters stay, unused.
+function rillClear(x, y, dy) {
+  for (const ux of [0, -0.35, 0.35, -0.7, 0.7]) {
+    const r = rill1(x, y, ux, dy, rnd(Math.round(x * 13 + ux * 100)));
+    const end = r.a[r.a.length - 1];
+    if (r.span === 999 && (end[1] < -20 || end[1] > 580 || end[0] < -20 || end[0] > 860)) return r.a;
+  }
+  return null;
+}
 function rill(x, y, dy, R) {
   let best = null;
   for (const ux of [0, -0.35, 0.35, -0.7, 0.7]) { const r = rill1(x, y, ux, dy, rnd(Math.round(x * 13 + ux * 100))); if (!best || r.span < best.span - 6 || (r.span < 999 && r.b.length > best.b.length + 3 && r.span <= best.span + 6)) best = r; }
@@ -146,13 +156,14 @@ export function genLook(kind, cx, cy, rx, ry, seed) {
   if (kind === "tarn") {
     const L1 = [cx - rx * 0.62, cy + j(ry * 0.5), rx * 0.42, ry * 0.72], L2 = [cx + j(6), cy - ry * 0.2, rx * 0.44, ry * 0.8], L3 = [cx + rx * 0.62, cy + j(ry * 0.5), rx * 0.4, ry * 0.7];
     const hd = [cx + rx * 0.3, cy + ry * 0.95, rx * 0.16, ry * 0.75];
-    const inn = rill(L2[0] + j(10), L2[1] - L2[3] * 0.7, -1, R), out = rill(L1[0], L1[1] + L1[3] * 0.7, 1, R);
+    const inn = rillClear(L2[0] + j(10), L2[1] - L2[3] * 0.7, -1), out = rillClear(L1[0], L1[1] + L1[3] * 0.7, 1);
     return { shape: (x, y) => Math.max(union(x, y, [L1, L2, L3, [(L1[0] + L2[0]) / 2, (L1[1] + L2[1]) / 2, rx * 0.3, ry * 0.4], [(L2[0] + L3[0]) / 2, (L2[1] + L3[1]) / 2, rx * 0.26, ry * 0.4]], 9), -ell(x, y, ...hd)), wob: 3,
       kind: (x, y, nx, ny) => near(x, y, hd[0], hd[1] - hd[3] * 0.4, rx * 0.3) ? "rock" : ny < -0.05 ? "cut" : "lip",
       // the river painter runs each stretch upstream -> downstream: the inflow's stretches reversed
-      streams: [[inn.b.slice().reverse(), 18], [inn.a.slice().reverse(), 18], [out.a, 22], [out.b, 22]].filter(([p]) => p.length > 1)
+      streams: [inn && [inn.slice().reverse(), 18], out && [out, 22]].filter(Boolean)
         .map(([pts, w]) => ({ pts, w, spec: { def: "lip", flow: 0.65, zones: [{ bank: "E", from: 0, to: 999, kind: "cut" }] } })),
-      culverts: [inn.arch && { arch: inn.arch, w: 18 }, inn.cope && { cope: inn.cope, w: 18 }, out.cope && { cope: out.cope, w: 22 }, out.arch && { arch: out.arch, w: 22 }].filter(Boolean), rocks: [[hd[0], hd[1] + 2, 1.1], [hd[0] + 8, hd[1] - 4, 0.7]], boulders: [[hd[0], hd[1] - hd[3] * 0.9, 3]], birds: [], rings: [[L2[0], L2[1], 0.15, 8, 1]] };
+      culverts: [], seeps: [inn ? null : [L3[0] + L3[2] * 0.85, L3[1] - L3[3] * 0.4, 11], out ? null : [L1[0] - L1[2] * 0.9, L1[1] + L1[3] * 0.3, 9]].filter(Boolean),
+      rocks: [[hd[0], hd[1] + 2, 1.1], [hd[0] + 8, hd[1] - 4, 0.7]], boulders: [[hd[0], hd[1] - hd[3] * 0.9, 3]], birds: [], rings: [[L2[0], L2[1], 0.15, 8, 1]] };
   }
   // the reed fen
   const E = [[cx - rx * 0.45, cy, rx * 0.55, ry * 0.85], [cx + rx * 0.2, cy - ry * 0.25, rx * 0.5, ry * 0.75], [cx + rx * 0.6, cy + ry * 0.2, rx * 0.4, ry * 0.7], [cx, cy + ry * 0.5, rx * 0.45, ry * 0.4]];
@@ -164,7 +175,7 @@ export function genLook(kind, cx, cy, rx, ry, seed) {
 export const VARIETY = {
   foxmere: { kind: "mere", line: "FOXMERE: the LONG MERE: the board's big open water; a deep pool with a cut far bank (round 3's mere)", look: () => LOOKS[1].fox, c: [430, 210] },
   oakmere: { kind: "fen", line: "OAKMERE: the REED FEN: low meadow ground and a small pond beside the road: soft, wild, shallow", look: () => LOOKS[4].oak, c: [118, 398] },
-  bramblewick: { kind: "tarn", line: "BRAMBLEWICK: a TARN: the road loops round it on two sides, so a stream can run in and out under it (two culverts)", gen: [285, 190, 62, 34, 7] },
+  bramblewick: { kind: "tarn", line: "BRAMBLEWICK: a TARN in the road's loop: no open course for a stream, so a spring-fed pool (a seep and rushes at its ends)", gen: [285, 190, 62, 34, 7] },
   thistlecrag: { kind: "mere", line: "THISTLECRAG: a SMALL ROUND MERE in a hollow among the crags (placed by seed in the widest ground clear of the road)", gen: "auto", seed: 11 },
 };
 export const sceneOf = (name) => {
@@ -563,6 +574,15 @@ export async function runScene(name, q) {
       blit(Pp, im, x * 2 - 12, y * 2 - len * 2 - 6);
     } });
     if (L.sluice) items.push({ y: L.sluice[1] * 2 + 4, fn: () => blit(Pp, I.sluice, L.sluice[0] * 2 - 18, L.sluice[1] * 2 - 20 + 2) });
+    for (const [sx, sy, sr] of L.seeps || []) items.push({ y: -1.2e4, fn: () => {
+      const X = sx * 2, Y = sy * 2, R2 = sr * 2;
+      for (let j2 = -R2; j2 <= R2; j2++) for (let i2 = -R2 * 1.4; i2 <= R2 * 1.4; i2++) {
+        const r = Math.hypot(i2 / 1.4, j2) / R2 + (vn((X + i2) / 6, (Y + j2) / 5, 330) - 0.5) * 0.5; if (r > 1) continue;
+        const k = (Math.round(Y + j2) - Y0) * w + Math.round(X + i2) - X0; if (k < 0 || k >= w * h || F.D[k] < 0) continue;
+        Pp.set(X + i2, Y + j2, r < 0.45 && vn((X + i2) / 4, (Y + j2) / 3, 331) > 0.55 ? lerp(WA[4], hex("#3a4a30"), 0.35) : hex("#3a5228"), r < 0.45 ? 0.9 : 0.55 * (1 - r));
+      }
+      for (let q2 = 0; q2 < 4; q2++) W.reedClump(Pp, X + (hs(q2, sx, 7) - 0.5) * R2 * 2, Y + (hs(q2, sy, 8) - 0.5) * R2, 8 + hs(q2, 9, sx) * 5, sx * 5 + q2, q2 === 0);
+    } });
     for (const cu of L.culverts || []) {
       const ow = Math.round(cu.w * 1.5), H = 14;
       if (cu.arch) {   // the kerb sits on the road's edge; the face below it; the waterline at its foot

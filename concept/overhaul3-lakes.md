@@ -102,3 +102,13 @@ Loop checks (step mean / wrap step / shimmer px): 1: 605 / 620 / 0; 2: 296 / 399
   and comes out of an arch on the far side, running on south-east. `ovh3_lakes_culverts.png` = before / after at 3x.
 - Weak spots: Bramblewick's outflow crosses the road on a BEND, so its outfall arch sits on a verge that faces
   south-east, with a grass gap beside its west wing; the north verge's coping is small at board size.
+
+## Pass 4: no culverts (owner: "Lets just remove this feature")
+
+- No culvert and no stream under a road anywhere. `rillClear` keeps a tarn's beck only if its course reaches the board's
+  edge across open ground; otherwise the tarn is spring-fed: `seeps` (dark wet ground, a glint of standing water,
+  rushes) at the lobe's end. The culvert painters (`archImg`, `drawArchMouth`, `drawCoping`, `rill`) stay, unused
+  (`culverts: []`). Foxmere's tarn: the culvert inflow is gone, a seep at its north-east end, the south-west beck kept
+  (it runs off the panel across open grass). Bramblewick: no open course in the road's loop, so seeps only.
+- Weak spots: the seeps barely read at board size; Bramblewick's tarn without its beck is small and two-lobed (its
+  character there is the headland and the dark water only).
