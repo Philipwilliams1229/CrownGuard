@@ -28,7 +28,7 @@
       import { PATH_HALF } from "/src/data/constants.js";
       import { layShadows } from "/concept/overhaul-trees.js";
       import { SP, TREAT, PAL, REACH, LIFE, LIFE_STRIP, rng, h2, standRing, fallingLeaves, fireflies, mixT, duskShade,
-        SWAY, LOOP, lean, fireflyLoop, leafFall, leafLitter, snowLoop, snowSlide, bfly, LIFE2, ROUTINE } from "/concept/overhaul2-trees.js";
+        SWAY, LOOP, lean, FILLS, fillVar, fireflyLoop, leafFall, leafLitter, snowLoop, snowSlide, bfly, LIFE2, ROUTINE } from "/concept/overhaul2-trees.js";
       import { nightTick, clearLamps, swapLamps, drawLampPools, drawLampBloom } from "/src/render/nightlight.js";
       const q = new URLSearchParams(location.search), DT = 1 / 60;
       // ROUND 4, the animated loops: ?anim=<name> (art/briefs/overhaul-animation.md) -> .shots/ovh3_anim_<name>_c5r8_fps10.png
@@ -36,7 +36,7 @@
       const ANIMS = { trees_meadow: ["m", "summer", "noon"], willow_water: ["w", "summer", "noon"], wood_edge_day: ["e", "summer", "noon"],
                       wood_edge_dusk: ["e", "summer", "dusk"], autumn_leaves: ["m", "autumn", "noon"], winter: ["m", "winter", "noon"] };
       const ANIM = ANIMS[q.get("anim")] ? q.get("anim") : null, AN = ANIM ? ANIMS[ANIM] : null;
-      const MODE = q.get("mode") || "board", SCENE = AN ? AN[0] : q.get("scene") || "1", OPTN = AN ? "mix" : q.get("opt") || "today";
+      const MODE = q.get("mode") || "board", SCENE = AN ? AN[0] : q.get("scene") || "1", OPTN = AN ? "final" : q.get("opt") || "today";
       const SEASON = AN ? AN[1] : q.get("season") || "summer", SUN = AN ? AN[2] : q.get("sun") || "noon";
       // smooth value noise (bilinear, smoothstepped) for the snow cover
       const vnoise = (x, y, sd) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
@@ -185,6 +185,32 @@
         throw new Error("done");
       }
 
+      // ---------------- round 5: how the foliage fills the skeleton ----------------
+      // fillsheet: each kind (rows) in the six fills (columns) at 3x, a board-size copy in each cell's corner
+      // fillwinter: six oaks (one per fill), summer above and winter below, 2x
+      if (MODE === "fillsheet" || MODE === "fillwinter") {
+        const FS = MODE === "fillsheet", kinds = FS ? [["roundoak", 0.9], ["oak", 0.85], ["beech", 0.85], ["birches", 0.85], ["hawthorn", 0.9]] : [["oak", 0.85], ["oak", 0.85]];
+        const Z = 3, CW = 180, CH = 168, sd0 = 40;
+        const out = document.createElement("canvas"); out.width = 6 * CW * Z; out.height = kinds.length * CH * Z; const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
+        kinds.forEach(([sp, k], r) => { for (let c = 0; c < 6; c++) {
+          const sea = !FS && r === 1 ? "winter" : "summer", seed = sd0 + c * 13 + (FS ? r * 101 : 0);
+          const cell = document.createElement("canvas"); cell.width = CW; cell.height = CH; const cc = cell.getContext("2d");
+          cc.fillStyle = sea === "winter" ? "#d8dee6" : "#6aa83e"; cc.fillRect(0, 0, CW, CH);
+          for (let n = 0; n < 500; n++) { cc.fillStyle = sea === "winter" ? ["#cdd4de", "#e4e8ee"][n % 2] : ["#62a03a", "#72b044", "#5e9a38"][n % 3]; cc.fillRect((h2(n, 1, 3) * CW) | 0, (h2(n, 2, 3) * CH) | 0, 2, 1); }
+          standRing(cc, CW / 2, CH - 12, (REACH[sp] || REACH.oak)[1] * 2 * k * 0.95 * 0.5, seed * 7, sea);
+          const spr = SP[sp](PAL[sea], k, 0, 0, seed, TREAT.final, { fill: c });
+          cc.drawImage(spr.cv, CW / 2 - spr.ax, CH - 10 - spr.ay);
+          const X = c * CW * Z, Y = r * CH * Z;
+          oc.drawImage(cell, X, Y, CW * Z, CH * Z);
+          oc.fillStyle = "#20242c"; oc.fillRect(X, Y + CH * Z - CH - 4, CW + 4, CH + 4); oc.drawImage(cell, X, Y + CH * Z - CH);      // board size, bottom-left
+          oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 4, Y + 4, 250, 22); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace"; oc.fillText(`${sp} / ${FILLS[c]}${FS ? "" : " / " + sea}`, X + 8, Y + 20);
+          oc.fillStyle = "#20242c"; oc.fillRect(X + CW * Z - 2, Y, 2, CH * Z); oc.fillRect(X, Y + CH * Z - 2, CW * Z, 2);
+        } });
+        document.body.appendChild(out);
+        await save(FS ? "ovh2_trees_fill_sheet" : "ovh2_trees_fill_winter", out);
+        throw new Error("done");
+      }
+
       // ---------------- round 3 sheets ----------------
       // mixsheet: the same six trees in treatment 3 and 4 side by side (3x, a board-size copy in each cell's corner)
       // wsheet:   six trees, summer above and winter below, same seed / size / anchor (2x)
@@ -224,13 +250,13 @@
         throw new Error("done");
       }
       if (MODE === "seasons") {
-        const names = ["ovh2_trees_1_mix_spring", "ovh2_trees_1_mix", "ovh2_trees_1_mix_autumn", "ovh2_trees_1_mix_winter"], labs = ["spring", "summer", "autumn", "winter"];
+        const O = OPTN === "today" ? "mix" : OPTN, names = [`ovh2_trees_1_${O}_spring`, `ovh2_trees_1_${O}`, `ovh2_trees_1_${O}_autumn`, `ovh2_trees_1_${O}_winter`], labs = ["spring", "summer", "autumn", "winter"];
         const ims = await Promise.all(names.map((n) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = "/.shots/" + n + ".png?" + Date.now(); })));
         const out = document.createElement("canvas"); out.width = 1688; out.height = 1128; const oc = out.getContext("2d");
         oc.fillStyle = "#20242c"; oc.fillRect(0, 0, out.width, out.height); oc.imageSmoothingEnabled = true;
         ims.forEach((im, i) => { const X = (i % 2) * 848, Y = Math.floor(i / 2) * 568; oc.drawImage(im, X, Y, 840, 560); oc.fillStyle = "rgba(32,36,44,0.85)"; oc.fillRect(X + 6, Y + 6, 90, 24); oc.fillStyle = "#f4ecd8"; oc.font = "16px monospace"; oc.fillText(labs[i], X + 12, Y + 23); });
         document.body.appendChild(out);
-        await save("ovh2_trees_seasons_sheet", out);
+        await save(O === "mix" ? "ovh2_trees_seasons_sheet" : `ovh2_trees_seasons_${O}`, out);
         throw new Error("done");
       }
 

@@ -28,6 +28,7 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 //  gaps    dark bough gaps in the lower crown;  sky  see-through holes near the rim
 //  broken  share of the lit outline dropped;   core  the underside pushed down a tone
 export const TREAT = {
+  final: null,   // set below: treatment 4, the owner's pick (round 5)
   1: { name: "1 Today's lobes",    split: 4, leaf: 3,   edge: 2,   band: 0,    sep: 0,   dither: 0, fleck: 0.18, shade: 0,    all: 0, gaps: 0,    sky: 0,    broken: 0,    core: 0.6 },
   2: { name: "2 Clean masses",     split: 2, leaf: 4,   edge: 2.5, band: 0,    sep: 0,   dither: 1, fleck: 0,    shade: 0,    all: 0, gaps: 0.06, sky: 0,    broken: 0.25, core: 1 },
   3: { name: "3 Leafy terminator", split: 1, leaf: 3.5, edge: 3,   band: 0.1,  sep: 1,   dither: 0, fleck: 0.07, shade: 0.04, all: 0, gaps: 0.1,  sky: 0.03, broken: 0.55, core: 1 },
@@ -120,7 +121,7 @@ function crown(P, M, T, seed, L) {
     const edge = g.d > 1 - ebD;
     if (edge && !(gc.d < 1 + ebD * (0.15 + 0.7 * cellH) - ebD * 0.4 && f1 < cl * (0.5 + 0.2 * cellH))) continue;
     // bough gaps (dark: the under-crown shows) and sky holes (see-through) — big cells, lower crown / rim
-    const G = 6.5, hx = Math.floor((px - sx) / G), hy = Math.floor(py / G), hc = h2(hx, hy, seed + 21);
+    const G = 6.5 * (T.gapG || 1), hx = Math.floor((px - sx) / G), hy = Math.floor(py / G), hc = h2(hx, hy, seed + 21);
     const hcx = (hx + 0.5) * G + sx, hcy = (hy + 0.5) * G, hd = Math.hypot((px - hcx) / G, (py - hcy) / (G * 0.8));
     if (!M.tier && !M.noGaps && T.gaps && g.v > 0.05 && g.d < 0.8 && hc < T.gaps && hd < 0.42) continue;
     if (!M.tier && !M.noGaps && T.sky && g.d > 0.62 && g.d < 0.92 && hc > 1 - T.sky && hd < 0.36) { P._sky = P._sky || []; P._sky.push([i, j]); continue; }
@@ -245,9 +246,9 @@ function bareCrown(P, root, ang, len, r, depth, bk, z, seed, pal, envelope) {
 // short limb from the bough to a hub low in the mass, then rays to the mass's own rim, each forking toward its end.
 // So the twigs fill exactly the outline the leaves had. Inner twigs dark (no outline), the tips paler (a soft lacy
 // edge against snow or grass), a little snow along the flatter limbs.
-function twigMasses(P, masses, roots, bk, pal, seed, k, z = 42) {
+function twigMasses(P, masses, roots, bk, pal, seed, k, z = 42, tw = null) {
   const R = rng(seed * 17 + 3), sn = pal.snow ? mat(pal.snow, { contrast: 0.5 }) : null;
-  const twD = mat("#5c4230"), twT = mat("#8c745e", { contrast: 0.7 });
+  const twD = mat(tw ? tw[0] : "#5c4230"), twT = mat(tw ? tw[1] : "#8c745e", { contrast: 0.7 });
   const snowOn = (ax, ay, bx, by, r, zz) => {
     if (!sn || Math.abs(by - ay) > Math.abs(bx - ax) * 0.9) return;
     const L = Math.hypot(bx - ax, by - ay);
@@ -297,7 +298,55 @@ function twigMasses(P, masses, roots, bk, pal, seed, k, z = 42) {
 
 // ---- ROUND 3: the mix (owner: "this broken canopy mixed in with the ones from C"): treatment 3 or 4 per tree, by
 // its seed (never by species), about half each
+TREAT.final = { ...TREAT[4], name: "Final: broken canopy" };
 export const mixT = (seed) => (h2(seed | 0, 17, 5) < 0.5 ? TREAT[3] : TREAT[4]);
+
+// ---- ROUND 5 (owner: "just do 4 now, but give me a bit of variety in how the foliage fills out the tree skeleton") ----
+// Every broadleaf is treatment 4 (TREAT.final). Each tree's seed deals a FILL: one of six characters, each with a little
+// random spread, applied to the kind's own skeleton and masses BEFORE the season branches, so a bare winter tree keeps
+// the same lean, reach, lopsidedness and dead limb as its summer self.
+//   full   crown mass size x (0.84 .. 1.14)          open  0..1: masses smaller and pulled apart, more gaps and sky holes
+//   side   -1..1: one side fuller, the other thinner  reach 0..1: outer boughs longer, a smaller drooping tuft at the end
+//   dead   an outer mass with no leaves (a dead limb / storm break: its twigs show in summer too)
+//   lean   art px at the crown top; jit  bough ends nudged (+-3 px); gapG  bough-gap cell size x (0.8 .. 1.3)
+export const FILLS = ["dense", "open", "lopsided", "dead limb", "reaching", "compact"];
+export function fillVar(seed, force) {
+  const h = (n) => h2(seed | 0, n, 77), sg = h(4) < 0.5 ? -1 : 1;
+  const arch = force ?? Math.floor(h(1) * 6);
+  const v = { arch, name: FILLS[arch], full: 0.94 + (h(2) - 0.5) * 0.12, open: h(3) * 0.3, side: sg * h(5) * 0.35, reach: h(6) * 0.3,
+    lean: (h(7) - 0.5) * 3, jit: 1, gapG: 0.85 + h(8) * 0.35, dead: -1, deadPick: h(9), seed };
+  if (arch === 0) Object.assign(v, { full: 1.1 + h(2) * 0.04, open: 0, reach: 0.1, gapG: 0.8 });
+  if (arch === 1) Object.assign(v, { full: 0.9, open: 0.75 + h(3) * 0.15, gapG: 1.25 });
+  if (arch === 2) Object.assign(v, { side: sg * (0.85 + h(5) * 0.15), lean: sg * (3 + h(7) * 2) });
+  if (arch === 3) Object.assign(v, { dead: 1, open: 0.2 });
+  if (arch === 4) Object.assign(v, { reach: 0.85 + h(6) * 0.15, full: 0.92, open: 0.3 });
+  if (arch === 5) Object.assign(v, { reach: 0, full: 0.98, open: 0.05, compact: 1 });
+  return v;
+}
+// the skeleton: a point of a bough (x, y in sprite px, y < 0 up) moved by the tree's lean and reach; i = which bough
+const skelOf = (v, k) => (x, y, i = 0, out = 1) => [x * (1 + 0.28 * v.reach * out - 0.12 * (v.compact || 0)) + v.lean * (-y) / (100 * k) + (i ? (h2(v.seed, i, 31) - 0.5) * 6 * k * out : 0), y + v.reach * out * 5 * k * Math.max(0, Math.abs(x) / (40 * k) - 0.4)];
+// the masses: the same move as the skeleton, then fullness, openness, lopsidedness, the reaching limbs' tufts, a dead one
+function dressMasses(M, v, k) {
+  const maxX = Math.max(1, ...M.map((m) => Math.abs(m.x))), SK = skelOf(v, k);
+  const out = M.map((m, i) => {
+    const o = Math.min(1, Math.abs(m.x) / maxX), [x, y] = SK(m.x, m.y, 0, o * 0.55);   // masses ride a little less far out than the bough tips (they overlap them)
+    let sc = v.full * (1 - 0.14 * v.open) * (1 - 0.2 * v.reach * o) * (1 + v.side * 0.45 * Math.sign(m.x) * o);
+    const pull = 1 + 0.07 * v.open * o;
+    return { ...m, x: x * pull, y: y + (v.open ? m.ry * 0.12 * v.open * o : 0), rx: m.rx * sc, ry: m.ry * sc * (1 - 0.1 * v.reach * o) };
+  });
+  if (v.dead >= 0) {   // the dead limb: an outer, not the top, mass; the lighter side if lopsided
+    const cand = out.map((m, i) => [m, i]).filter(([m]) => Math.abs(m.x) > maxX * 0.45 && m.y > Math.min(...out.map((q) => q.y)) + 8 * k);
+    if (cand.length) out[cand[Math.floor(v.deadPick * cand.length)][1]].dead = true;
+  }
+  return out;
+}
+const Tof = (T, v) => ({ ...T, gaps: T.gaps * (v.arch === 0 ? 0.45 : 0.7 + v.open * 1.3), sky: T.sky * (v.arch === 0 ? 0.3 : 0.6 + v.open * 2.2), gapG: v.gapG });
+// leaves on the living masses; the dead limb gets twigs (a grey, broken fan) in leaf seasons too
+function clothe(P, M, T, v, seed, un, roots, bk, pal, k) {
+  const live = M.filter((m) => !m.dead), dead = M.filter((m) => m.dead);
+  leafMasses(P, live, Tof(T, v), seed, un);
+  if (dead.length) twigMasses(P, dead.map((m) => ({ ...m, rx: m.rx * 0.72, ry: m.ry * 0.72 })), roots, mat("#5e5048"), pal, seed + 5, k * 0.9, 50, ["#3e3430", "#5c5048"]);   // grey-dark, not the warm winter tan
+}
 
 // ---- species --------------------------------------------------------------------------------------------
 // each returns { cv, ax, ay }; args (pal, k, sway, dk (wood depth tint), seed, T)
@@ -311,55 +360,65 @@ const deep = (c, dk) => { if (!dk) return c; const a = hx2(c), b = [34, 62, 52],
 const ugly = (c) => c;
 export const SP = {
   // today's round oak: a tidy dome of lobes on a short stout trunk (owner: keep today's styles)
-  roundoak(pal, k = 1, s = 0, dk = 0, seed = 1, T = TREAT[3]) {
-    return sprite(Math.ceil(120 * k), Math.ceil(124 * k), 10, T, (P) => {
+  roundoak(pal, k = 1, s = 0, dk = 0, seed = 1, T = TREAT[3], o = {}) {
+    const V = fillVar(seed, o.fill), SK = skelOf(V, k);
+    return sprite(Math.ceil(132 * k), Math.ceil(128 * k), 10, T, (P) => {
       const bk = mat(pal.bark), lf = leafMat(deep(oakCol(pal, seed), dk)), un = mat(oakCol(pal, seed), { contrast: 1.3 });
       for (const [x, y] of [[-11, 4], [10, 4], [2, 5]]) bark(P, [[0, -5], [x * 0.6 * k, y * 0.3 * k], [x * k, y * k]], [3.2 * k, 2 * k, 1], bk, 41, { strokes: false });
-      bark(P, [[0, 2], [0, -30 * k]], [6.5 * k, 5 * k], bk, 40);
-      const BO = [[-20, -52], [18, -50], [0, -62]];
-      for (const [x, y] of BO) bark(P, [[0, -28 * k], [x * k, y * k]], [3 * k, 1.8], bk, pal.bare ? 41 : 30, { strokes: false });
+      const TT = SK(0, -30 * k), TR = SK(0, -28 * k);
+      bark(P, [[0, 2], TT], [6.5 * k, 5 * k], bk, 40);
+      const BO = [[-20, -52], [18, -50], [0, -62]].map(([x, y], i) => SK(x * k, y * k, i + 1, Math.abs(x) / 20));
+      for (const pt of BO) bark(P, [TR, pt], [3 * k, 1.8], bk, pal.bare ? 41 : 30, { strokes: false });
       const M = [
         { x: sw(s, 1), y: -94 * k, rx: 24 * k, ry: 18 * k, z: 54 },
         { x: -18 * k + sw(s, 0.8), y: -76 * k, rx: 24 * k, ry: 18 * k, z: 58 }, { x: 18 * k + sw(s, 0.8), y: -76 * k, rx: 24 * k, ry: 18 * k, z: 59 },
         { x: -32 * k, y: -54 * k, rx: 20 * k, ry: 15 * k, z: 64 }, { x: 0, y: -52 * k, rx: 24 * k, ry: 16 * k, z: 66 }, { x: 32 * k, y: -54 * k, rx: 20 * k, ry: 15 * k, z: 65 },
       ].map((m) => ({ ...m, m: lf, bias: -Math.min(1, dk), split: Math.min(T.split, 2) }));
-      if (pal.bare) { twigMasses(P, M, [[0, -28 * k], ...BO.map(([x, y]) => [x * k, y * k])], bk, pal, seed, k); marcescent(P, pal, 1, seed, M.map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.3); return; }
-      leafMasses(P, M, T, seed, un);
+      const MD = dressMasses(M, V, k), roots = [TR, ...BO];
+      if (pal.bare) { twigMasses(P, MD, roots, bk, pal, seed, k); marcescent(P, pal, 1, seed, MD.filter((m) => !m.dead).map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.3); return; }
+      clothe(P, MD, T, V, seed, un, roots, bk, pal, k);
     });
   },
   // C's bigger spreading oak, with a visible fork and boughs
-  oak(pal, k = 1, s = 0, dk = 0, seed = 1, T = TREAT[3]) {
-    return sprite(Math.ceil(158 * k), Math.ceil(150 * k), 10, T, (P) => {
+  oak(pal, k = 1, s = 0, dk = 0, seed = 1, T = TREAT[3], o = {}) {
+    const V = fillVar(seed, o.fill), SK = skelOf(V, k);
+    return sprite(Math.ceil(176 * k), Math.ceil(156 * k), 10, T, (P) => {
       const bk = mat(pal.bark), lf = leafMat(deep(oakCol(pal, seed), dk)), lf2 = leafMat(deep(oakCol2(pal, seed), dk)), un = mat(oakCol(pal, seed), { contrast: 1.3 }), ms = mat(pal.moss);
       for (const [x, y] of [[-15, 4], [13, 5], [3, 6]]) bark(P, [[0, -6], [x * 0.7 * k, y * 0.4 * k], [x * k, y * k]], [3.6 * k, 2.4 * k, 1.2], bk, 41, { strokes: false });
-      bark(P, [[0, 2], [-1 * k, -26 * k], [0, -42 * k]], [7.5 * k, 6 * k, 5.4 * k], bk, 40);
+      const FK = SK(0, -42 * k);
+      bark(P, [[0, 2], SK(-1 * k, -26 * k), FK], [7.5 * k, 6 * k, 5.4 * k], bk, 40);
       P.ellipse(-3 * k, -12 * k, 2.5 * k, 4 * k, ms, 41, { wrap: true });
-      const BO = [[-34, -76], [32, -74], [2, -96]];
-      for (const [x, y] of BO) bark(P, [[0, -40 * k], [x * 0.5 * k, (y + 18) * 0.7 * k], [x * k * 0.85, y * k * 0.9]], [4 * k, 2.8 * k, 1.8], bk, pal.bare ? 41 : 30, { strokes: false });
+      const BO = [[-34, -76], [32, -74], [2, -96]], BM = [], BE = [];
+      BO.forEach(([x, y], i) => { const o = Math.abs(x) / 34; BM.push(SK(x * 0.5 * k, (y + 18) * 0.7 * k, 0, o * 0.5)); BE.push(SK(x * k * 0.85, y * k * 0.9, i + 1, o)); });
+      BO.forEach((_, i) => bark(P, [SK(0, -40 * k), BM[i], BE[i]], [4 * k, 2.8 * k, 1.8], bk, pal.bare ? 41 : 30, { strokes: false }));
       const M = [
         { x: -38 * k, y: -80 * k, rx: 32 * k, ry: 26 * k, m: lf, z: 60 }, { x: 36 * k, y: -78 * k, rx: 32 * k, ry: 26 * k, m: lf2, z: 62 },
         { x: -4 * k + sw(s, 0.9), y: -110 * k, rx: 38 * k, ry: 27 * k, m: lf, z: 56 }, { x: 4 * k, y: -70 * k, rx: 24 * k, ry: 16 * k, m: lf2, z: 72 },
         { x: -60 * k, y: -66 * k, rx: 16 * k, ry: 12 * k, m: lf, z: 66 }, { x: 58 * k, y: -64 * k, rx: 16 * k, ry: 12 * k, m: lf2, z: 66 },
       ].map((m) => ({ ...m, bias: -Math.min(1, dk) }));
-      if (pal.bare) { twigMasses(P, M, [[0, -40 * k], ...BO.map(([x, y]) => [x * k * 0.85, y * k * 0.9]), ...BO.map(([x, y]) => [x * 0.5 * k, (y + 18) * 0.7 * k])], bk, pal, seed, k); marcescent(P, pal, 1, seed, M.map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.25); return; }
-      leafMasses(P, M, T, seed, un);
+      const MD = dressMasses(M, V, k), roots = [FK, ...BE, ...BM];
+      if (pal.bare) { twigMasses(P, MD, roots, bk, pal, seed, k); marcescent(P, pal, 1, seed, MD.filter((m) => !m.dead).map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.25); return; }
+      clothe(P, MD, T, V, seed, un, roots, bk, pal, k);
     });
   },
   // today's tall oval (beech / elm)
-  beech(pal, k = 1, s = 0, dk = 0, seed = 2, T = TREAT[3]) {
-    return sprite(Math.ceil(96 * k), Math.ceil(160 * k), 10, T, (P) => {
+  beech(pal, k = 1, s = 0, dk = 0, seed = 2, T = TREAT[3], o = {}) {
+    const V = fillVar(seed, o.fill), SK = skelOf(V, k);
+    return sprite(Math.ceil(116 * k), Math.ceil(164 * k), 10, T, (P) => {
       const bk = mat("#857868"), lf = leafMat(deep(pal.beech, dk)), un = mat(pal.beech, { contrast: 1.3 });
       for (const [x, y] of [[-9, 4], [9, 4]]) bark(P, [[0, -5], [x * k, y * k]], [3 * k, 1.2], bk, 41, { strokes: false });
-      bark(P, [[0, 2], [1 * k, -40 * k]], [5.5 * k, 4.4 * k], bk, 40);
-      bark(P, [[1 * k, -38 * k], [-12 * k, -70 * k]], [2.8 * k, 1.6], bk, pal.bare ? 41 : 30, { strokes: false });
-      bark(P, [[1 * k, -38 * k], [14 * k, -76 * k]], [2.8 * k, 1.6], bk, pal.bare ? 41 : 30, { strokes: false });
-      if (pal.bare) bark(P, [[1 * k, -38 * k], [0, -100 * k]], [2.6 * k, 1.4], bk, 41, { strokes: false });   // the leader, hidden by the leaves in summer
+      const FK = SK(1 * k, -40 * k), F2 = SK(1 * k, -38 * k), BL = SK(-12 * k, -70 * k, 1, 0.8), BR = SK(14 * k, -76 * k, 2, 0.9), LD = SK(0, -100 * k), LO = SK(0, -60 * k);
+      bark(P, [[0, 2], FK], [5.5 * k, 4.4 * k], bk, 40);
+      bark(P, [F2, BL], [2.8 * k, 1.6], bk, pal.bare ? 41 : 30, { strokes: false });
+      bark(P, [F2, BR], [2.8 * k, 1.6], bk, pal.bare ? 41 : 30, { strokes: false });
+      if (pal.bare) bark(P, [F2, LD], [2.6 * k, 1.4], bk, 41, { strokes: false });   // the leader, hidden by the leaves in summer
       const M = [
         { x: sw(s, 1), y: -120 * k, rx: 28 * k, ry: 26 * k, z: 56 }, { x: -16 * k, y: -90 * k, rx: 26 * k, ry: 25 * k, z: 60 },
         { x: 16 * k, y: -86 * k, rx: 26 * k, ry: 25 * k, z: 62 }, { x: 0, y: -58 * k, rx: 28 * k, ry: 18 * k, z: 70 },
       ].map((m) => ({ ...m, m: lf, bias: -Math.min(1, dk) }));
-      if (pal.bare) { twigMasses(P, M, [[1 * k, -38 * k], [-12 * k, -70 * k], [14 * k, -76 * k], [0, -100 * k], [0, -60 * k]], bk, pal, seed, k); marcescent(P, pal, 1, seed, M.map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.35); return; }
-      leafMasses(P, M, T, seed, un);
+      const MD = dressMasses(M, V, k), roots = [F2, BL, BR, LD, LO];
+      if (pal.bare) { twigMasses(P, MD, roots, bk, pal, seed, k); marcescent(P, pal, 1, seed, MD.filter((m) => !m.dead).map((m) => [m.x, m.y, m.rx * 0.8, m.ry * 0.8]), 0.35); return; }
+      clothe(P, MD, T, V, seed, un, roots, bk, pal, k);
     });
   },
   // today's tiered pine (the owner likes it): five skirts, scalloped hems, through the treatment
@@ -505,12 +564,15 @@ export const SP = {
     });
   },
   // C's birch grove, airier: three white stems, small crowns that let the sky through
-  birches(pal, k = 1, s = 0, dk = 0, seed = 5, T = TREAT[3]) {
-    return sprite(Math.ceil(120 * k), Math.ceil(164 * k), 10, T, (P) => {
+  birches(pal, k = 1, s = 0, dk = 0, seed = 5, T = TREAT[3], o = {}) {
+    const V = fillVar(seed, o.fill), SK = skelOf(V, k);
+    if (V.dead >= 0) Object.assign(V, { dead: -1, side: (V.deadPick < 0.5 ? -0.7 : 0.7) });   // a birch grove loses no limb: it leans thin on one side instead
+    return sprite(Math.ceil(136 * k), Math.ceil(168 * k), 10, T, (P) => {
       const bk = mat(pal.birchBark), mk = mat(pal.mark), lf = leafMat(pal.birch), un = mat(pal.birch, { contrast: 1.3 });
       const stems = [[-20, 3, -30, 118, -3], [4, 0, 9, 134, 3], [24, 5, 34, 108, 6]], roots = [];
       stems.forEach(([x0, y0, x1, h, bend], n) => {
-        const pts = [[x0 * k, y0 * k], [(x0 + bend) * k, (y0 - h * 0.5) * k], [x1 * k + sw(s, 0.9), (y0 - h) * k]];
+        const top = SK(x1 * k, (y0 - h) * k, n + 1, Math.abs(x1) / 34), mid = SK((x0 + bend) * k, (y0 - h * 0.5) * k, 0, 0.5);
+        const pts = [[x0 * k, y0 * k], mid, top];
         P.part(); P.limb(pts, [3 * k, 2.4 * k, 1.2], bk, 40 + y0);
         for (let t = 0.08; t < 0.8; t += 0.1 + h2(n, t * 100, seed) * 0.08) {
           const y = pts[0][1] + (pts[2][1] - pts[0][1]) * t, x = pts[0][0] + (pts[2][0] - pts[0][0]) * t + bend * k * Math.sin(t * Math.PI) * 0.5;
@@ -519,27 +581,30 @@ export const SP = {
         if (pal.bare) for (const t of [0.5, 0.65, 0.8, 0.95]) roots.push([pts[0][0] + (pts[2][0] - pts[0][0]) * t + bend * k * Math.sin(t * Math.PI) * 0.5, pts[0][1] + (pts[2][1] - pts[0][1]) * t]);
       });
       const M = [[-32, -112, 18, 14], [-26, -88, 18, 13], [10, -130, 20, 14], [12, -104, 21, 14], [36, -100, 17, 13], [34, -78, 15, 11]];
-      const MM = M.map(([mx, my, rx, ry], i) => ({ x: mx * k + sw(s * 1.3, -my / 140), y: my * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 4, bias: -Math.min(1, dk), split: 1, noUnder: true }));
+      const MM = dressMasses(M.map(([mx, my, rx, ry], i) => ({ x: mx * k, y: my * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 4, bias: -Math.min(1, dk), split: 1, noUnder: true })), V, k);
       if (pal.bare) { twigMasses(P, MM, roots, mat("#6a5448"), pal, seed, k * 0.8, 46); return; }
-      leafMasses(P, MM, { ...T, sky: T.sky + 0.06 }, seed, un);
+      clothe(P, MM, { ...T, sky: T.sky + 0.06 }, V, seed, un, roots.length ? roots : stems.map(([x0, y0, x1, h], n) => SK(x1 * k, (y0 - h) * k * 0.8, n + 1, 1)), mat("#6a5448"), pal, k * 0.8);
     });
   },
   // C's hawthorn: low, wide, crooked; blossom in spring (white sprays on the lit leaves), haws in autumn
-  hawthorn(pal, k = 1, s = 0, dk = 0, seed = 6, T = TREAT[3]) {
-    return sprite(Math.ceil(100 * k), Math.ceil(92 * k), 8, T, (P) => {
+  hawthorn(pal, k = 1, s = 0, dk = 0, seed = 6, T = TREAT[3], o = {}) {
+    const V = fillVar(seed, o.fill), SK = skelOf(V, k);
+    return sprite(Math.ceil(116 * k), Math.ceil(98 * k), 8, T, (P) => {
       const bk = mat(pal.bark), lf = leafMat(pal.haw), un = mat(pal.haw, { contrast: 1.3 }), bl = mat(pal.blossom, { contrast: 0.6 });
-      bark(P, [[0, 2], [-5 * k, -16 * k], [3 * k, -30 * k]], [4.2 * k, 3.2 * k, 2.4 * k], bk, 40);
-      bark(P, [[-4 * k, -14 * k], [-20 * k, -30 * k]], [2.2 * k, 1.2], bk, 41, { strokes: false });
-      const HM = [[-18, -44, 22, 16], [18, -46, 22, 16], [0, -58, 24, 15], [0, -36, 18, 10]].map(([x, y, rx, ry], i) => ({ x: x * k + sw(s, -y / 70), y: y * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 5, bias: -Math.min(1, dk) }));
-      if (pal.bare) {
-        bark(P, [[3 * k, -30 * k], [16 * k, -40 * k]], [2 * k, 1.1], bk, 41, { strokes: false });   // the summer's hidden crook, shown
-        twigMasses(P, HM, [[3 * k, -30 * k], [-20 * k, -30 * k], [16 * k, -40 * k], [-10 * k, -22 * k]], bk, pal, seed, k * 0.85);
-      } else leafMasses(P, HM, T, seed, un);
+      const C1 = SK(3 * k, -30 * k), C2 = SK(-20 * k, -30 * k, 1, 1), C3 = SK(16 * k, -40 * k, 2, 0.9);
+      bark(P, [[0, 2], SK(-5 * k, -16 * k), C1], [4.2 * k, 3.2 * k, 2.4 * k], bk, 40);
+      bark(P, [SK(-4 * k, -14 * k), C2], [2.2 * k, 1.2], bk, 41, { strokes: false });
+      const HM = dressMasses([[-18, -44, 22, 16], [18, -46, 22, 16], [0, -58, 24, 15], [0, -36, 18, 10]].map(([x, y, rx, ry], i) => ({ x: x * k, y: y * k, rx: rx * k, ry: ry * k, m: lf, z: 60 + i * 5, bias: -Math.min(1, dk) })), V, k);
+      const hroots = [C1, C2, C3, SK(-10 * k, -22 * k)];
+      if (pal.bare || HM.some((m) => m.dead)) bark(P, [C1, C3], [2 * k, 1.1], bk, 41, { strokes: false });   // the summer's hidden crook, shown
+      if (pal.bare) twigMasses(P, HM, hroots, bk, pal, seed, k * 0.85);
+      else clothe(P, HM, T, V, seed, un, hroots, bk, pal, k * 0.85);
       // blossom / haws: clustered sprays of 2-4 px on the sunny side, never a random spray of dots
       const r = rng(seed * 101), N = Math.round(26 * (pal.hawBloom || 0) * (pal.hawBloom >= 1 ? 2.6 : 1));
       for (let n = 0; n < N; n++) {
         const a = -2.3 + (r() - 0.5) * (pal.hawBloom >= 1 ? 4.4 : 2.6), d = 0.45 + r() * 0.5, cx = Math.cos(a) * d * 38 * k, cy = -48 * k + Math.sin(a) * d * 22 * k;
-        let nd = 1e9, ox = 0; for (const M of HM) { const dd = Math.hypot(M.x - cx, M.y - cy); if (dd < nd) { nd = dd; ox = M._dx || 0; } }
+        let nd = 1e9, ox = 0, dead = false; for (const M of HM) { const dd = Math.hypot(M.x - cx, M.y - cy); if (dd < nd) { nd = dd; ox = M._dx || 0; dead = !!M.dead; } }
+        if (dead) continue;
         for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 1]].slice(0, 2 + (n % 3))) P.dot(cx + dx + ox, cy + dy, bl, 120, { n: [-0.4, -0.5, 0.75], wrap: true });
       }
     });

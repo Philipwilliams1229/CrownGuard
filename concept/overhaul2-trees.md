@@ -185,3 +185,25 @@ autumn twins are drawn into the litter; the bird and fox enter and leave inside 
 Weak: falling leaves are small at board size (they read in motion, barely in a still); snowflakes are faint over the snow
 (a cool rim helps a little); the willow's sway is subtle; the owl's squirrel's and robin's routines are short and identical every
 loop; the dusk tint hides the deer.
+
+## ROUND 5: THE FINAL LOOK (2026-11-22, owner: "just do 4 now, but give me a bit of variety in how the foliage fills out the
+## tree 'skeleton'"; the strand willow approved)
+- **Treatment 4 everywhere**: `TREAT.final` (= treatment 4, broken canopy); the lab's `opt=final`; the loops use it.
+- **Fill variety** (`fillVar(seed, force)`, `skelOf`, `dressMasses`, `Tof`, `clothe`): each tree's seed deals one of six
+  characters (`FILLS`), each with a little random spread on the other dials; `o.fill` forces one (the sheets).
+  Dials and ranges: `full` crown mass size x0.84-1.14; `open` 0-1 (masses x(1 - 0.14 open), pulled out 7%, bough gaps x(0.7 +
+  1.3 open), sky holes x(0.6 + 2.2 open)); `side` -1..1 (one side's masses up to +45%, the other down); `reach` 0-1 (outer bough
+  tips 28% further out and drooping, their masses 20% smaller: a tuft at the end); `dead` an outer, not top, mass bare (dark grey
+  twigs, a broken limb) in every season (birch groves never: they get a thin side instead); `lean` +-1.5 px at the top (lopsided
+  3-5); bough tips jittered +-3 px per tree; `gapG` bough-gap cell size x0.8-1.3. Characters: dense (x1.1-1.14, no gaps), open,
+  lopsided, dead limb, reaching, compact (boughs 12% shorter).
+  The skeleton (trunk top, forks, bough tips) is moved by the same `skelOf` as the masses, BEFORE the season branch, so winter
+  shows the same lean, reach, lopsidedness and broken limb (`ovh2_trees_fill_winter.png`). Kinds keep their own skeletons:
+  round oak, spreading oak, beech, birch grove, hawthorn. Pines and the strand willow are unchanged.
+- Shots: `ovh2_trees_fill_sheet.png` (5 kinds x 6 fills, 3x, a board-size copy bottom-left of each cell),
+  `ovh2_trees_fill_winter.png` (six oaks, summer over winter), `ovh2_trees_1_final.png`, `ovh2_trees_3_final.png`,
+  `ovh2_trees_2_final.png`, `ovh2_trees_1_final_spring|_autumn|_winter.png`, `ovh2_trees_seasons_final.png`; the loops
+  `ovh3_anim_trees_meadow / wood_edge_day / wood_edge_dusk / autumn_leaves / winter_*` re-rendered in the final look.
+- Cost: as before (one bake per tree); the dials are a few multiplies before the sculpt.
+- Weak: the open spreading oak reads a little like an umbrella acacia; the hawthorn's six fills differ least (it is small);
+  in the deep wood a dead limb shows as a dark speck; the dead limb is identical to its neighbours once bare in winter.
