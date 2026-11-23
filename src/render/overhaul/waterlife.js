@@ -97,8 +97,8 @@ export function buildLife(F) {
     const x = (X + inx * 4) / 2, y = (Y + iny * 4 + 3) / 2;
     if (underBridge(x, y, 6)) continue;
     if (kd === 2) {
-      if (r < 0.62) { const o = 2 + hs(X, Y, 95) * 6; reeds.push({ x: (X + inx * o) / 2, y: (Y + iny * o + 3) / 2, seed: X * 31 + Y, size: 9 + hs(X, Y, 91) * 9, cat: true }); }
-      if (r < 0.5) { const dd = 12 + hs(X, Y, 92) * 20, lx = (X + inx * dd + (hs(X, Y, 93) - 0.5) * 10) / 2, ly = (Y + iny * dd) / 2; lilies.push({ x: lx, y: ly, seed: X + Y * 7, r: 2 + Math.round(hs(X, Y, 94) * 2) }); }
+      if (r < (F.bodies[BODY[p]].type === "lake" ? 0.42 : 0.62)) { const o = 2 + hs(X, Y, 95) * 6; reeds.push({ x: (X + inx * o) / 2, y: (Y + iny * o + 3) / 2, seed: X * 31 + Y, size: 9 + hs(X, Y, 91) * 9, cat: true }); }
+      if (r < (F.bodies[BODY[p]].type === "lake" ? 0.3 : 0.5)) { const dd = 12 + hs(X, Y, 92) * 20, lx = (X + inx * dd + (hs(X, Y, 93) - 0.5) * 10) / 2, ly = (Y + iny * dd) / 2; lilies.push({ x: lx, y: ly, seed: X + Y * 7, r: 2 + Math.round(hs(X, Y, 94) * 2) }); }
     } else if (!near && r > 0.4 && r < 0.47) reeds.push({ x: (X + inx * 3) / 2, y: (Y + iny * 3 + 2) / 2, seed: X + Y * 3, size: 9, cat: false });
   }
   // keep lilies on open water, clear of each other

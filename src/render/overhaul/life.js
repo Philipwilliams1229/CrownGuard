@@ -142,8 +142,8 @@ export function layLife(key, env) {
   const fr = env.front.filter((t) => env.road(t.x, t.foot) > 50);
   if (fr.length) { const t = fr[Math.floor(fr.length * 0.45)]; C.owl = { x: t.x + 5, y: t.crownMid + 6, sort: t.foot + 0.3 }; }
   // fireflies: along the wood's edge and round the lone trees, off the road
-  for (const [x, y] of edges) for (let n = 0; n < 3; n++) { const px = x + (r() - 0.6) * 40, py = y + (r() - 0.5) * 22; if (env.clear(px, py, 4)) C.flies.push([px, py]); }
-  for (const t of env.lone) for (let n = 0; n < 5; n++) { const px = t.x + (r() - 0.5) * 50, py = t.foot - 6 - r() * 26; if (env.clear(px, py, 4)) C.flies.push([px, py]); }
+  for (const [x, y] of edges) for (let n = 0; n < 3; n++) { const px = x + (r() - 0.6) * 40, py = y + (r() - 0.5) * 22; if (env.clear(px, py, 4) && C.flies.length < 40) C.flies.push([px, py]); }
+  for (const t of env.lone) for (let n = 0; n < 5; n++) { const px = t.x + (r() - 0.5) * 50, py = t.foot - 6 - r() * 26; if (env.clear(px, py, 4) && C.flies.length < 70) C.flies.push([px, py]); }
   return (CAST = C);
 }
 
@@ -236,6 +236,16 @@ function birdState(b, C, g, t) {
   }
 }
 
+// a firefly's glow, baked once (5 x 5 art px: a soft halo, a cross, a hot core), laid with "lighter"
+let FLY = null;
+const flySprite = () => {
+  const c = document.createElement("canvas"); c.width = 5; c.height = 5;
+  const x = c.getContext("2d");
+  x.fillStyle = "rgba(150,170,40,0.26)"; x.fillRect(0, 1, 5, 3); x.fillRect(1, 0, 3, 5);
+  x.fillStyle = "rgba(190,220,80,0.6)"; x.fillRect(1, 2, 3, 1); x.fillRect(2, 1, 1, 3);
+  x.fillStyle = "rgba(250,255,170,0.95)"; x.fillRect(2, 2, 1, 1);
+  return c;
+};
 // ---- over everything: robins in flight, fireflies at dusk ----
 export function lifeOver(ctx, g, C) {
   if (!C) return;
@@ -249,16 +259,19 @@ export function lifeOver(ctx, g, C) {
   if (dusk(g) && C.flies.length) {
     ctx.save(); ctx.scale(0.5, 0.5); ctx.globalCompositeOperation = "lighter";
     const r = rng(77), k1 = moon(g) ? 0.8 : 1;
+    // which flies have gone dark (a foe within 30): looked up every 0.5 s, not every frame
+    if (!C.flyAt || t - C.flyAt > 0.5 || t < C.flyAt) { C.flyAt = t; C.flyOff = C.flies.map(([bx, by]) => nearFoe(g, bx, by) < 30 * 30); }
+    let fi = -1;
     for (const [bx, by] of C.flies) {
+      fi++;
       const ax = 3 + r() * 6, ay = 2 + r() * 3, p1 = r(), p2 = r(), p3 = r(), per = r() < 0.5 ? 2 : 4, on = 0.28 + r() * 0.12, k0 = (0.6 + r() * 0.4) * k1;
       const x = Math.round(bx * 2 + ax * Math.sin(TAU * (t / 4 + p1))), y = Math.round(by * 2 + ay * Math.sin(TAU * (t / 2 + p2)));
-      if (nearFoe(g, bx, by) < 30 * 30) continue;
+      if (C.flyOff[fi]) continue;
       const bl = (t / per + p3) % 1; if (bl >= on) continue;
-      const k = (bl < 0.07 || bl > on - 0.07 ? 0.45 : 1) * k0;
-      ctx.fillStyle = `rgba(150,170,40,${0.26 * k})`; ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillRect(x - 1, y - 2, 3, 5);
-      ctx.fillStyle = `rgba(190,220,80,${0.6 * k})`; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3);
-      ctx.fillStyle = `rgba(250,255,170,${0.95 * k})`; ctx.fillRect(x, y, 1, 1);
+      ctx.globalAlpha = (bl < 0.07 || bl > on - 0.07 ? 0.45 : 1) * k0;
+      ctx.drawImage(FLY || (FLY = flySprite()), x - 2, y - 2);
     }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 }

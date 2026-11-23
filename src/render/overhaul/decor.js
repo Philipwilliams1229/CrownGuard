@@ -1,7 +1,8 @@
 // the overhaul: decor (art/briefs/overhaul-build-millrace.md, B4: the farm, the rocks, the lights).
 //
-// What it draws on an overhaul realm (Millrace):
-//   - THE FARM (decor-layout.js FARM): barn, farmhouse, hen house, well, haystacks, the garden's fence, hens,
+// What it draws on an overhaul realm (its place from decor-layout.js LAYOUTS[realm]: Millrace's farm, Gullwick's
+// hamlet details and ruined tower, the Greenwood's croft, Bramblewick's steading, Foxmere's chapel):
+//   - THE FARM (Millrace's, decor-layout.js FARM): barn, farmhouse, hen house, well, haystacks, the garden's fence, hens,
 //     a cat, washing, a yard lamp, chimney smoke, a granite group; sculpted with the approved concept's kit
 //     (decor-kit.js), y-sorted with the actors (decorDrawables), casting along the sun (decorShadowExtras),
 //     its yard, path, garden plot and every piece's contact line baked into the ground (decorGroundMarks).
@@ -27,7 +28,7 @@ const layout = () => (REALM && LAYOUTS[REALM.id]) || null;
 // for the lead: the ellipses where halls may not be built, per realm (copied into the realm data's `blocks`)
 export const decorBlocks = (id) => (LAYOUTS[id] && LAYOUTS[id].blocks) || [];
 // the ground bake's version (wire.js adds it to world.js groundLayer's cache key)
-export const decorKey = () => "b4.3";
+export const decorKey = () => "b4.4";
 
 const mirrorNow = () => DAY.on && DAY.side === 1;
 const snap = (v) => Math.round(v * 2) / 2;

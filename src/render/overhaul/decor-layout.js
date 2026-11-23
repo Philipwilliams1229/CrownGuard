@@ -145,16 +145,15 @@ export const LAYOUTS = {
   },
 
   // FOXMERE: the approved roofless chapel (round 3: west gable and bellcote one wall, the yew, two headstones)
-  // in the open top band, a drystone wall with a stile running west from it (three birches stand east of it); a ruin, so no lived-in light (its door
+  // in the open top band, a short drystone wall with a stile west of it (the oak at 113,34 hides any longer run; three birches stand east); a ruin, so no lived-in light (its door
   // lantern and sill candle are the chapel's own, lit at night).
   foxmere: {
     pieces: [
       { k: "chapel", x: 190, y: 50, seed: 41 },
-      { k: "wall", x: 108, y: 62, pts: [[0, 0], [26, -2], [52, -3]], hgt: 11, seed: 3, mirror: false },
       { k: "stile", x: 140, y: 61 },
       { k: "wall", x: 146, y: 61, pts: [[0, 0], [20, 1], [36, 3]], hgt: 10, seed: 4, mirror: false },
     ],
     marks: [{ m: "worn", x: 188, y: 54, rx: 22, ry: 6, seed: 44, k: 1.4 }],
-    blocks: [{ x: 196, y: 44, rx: 30, ry: 18 }, { x: 136, y: 61, rx: 30, ry: 5 }],
+    blocks: [{ x: 196, y: 44, rx: 30, ry: 18 }, { x: 152, y: 62, rx: 16, ry: 5 }],
   },
 };

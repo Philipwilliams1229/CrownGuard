@@ -62,6 +62,18 @@ const PLANS = {
       { bank: "*", from: 410, to: 522, kind: "quay" },
     ] },
   ],
+  // NEW WATER (concept/overhaul3-lakes.js NEWWATER, once the realm data carries it): a beck out of the wood
+  // along the south, its north bank cut on its first reach, a reed margin on the south bank further down
+  barrowfields: [
+    { def: "lip", flow: 0.6, faceMax: 11, sq: 0.62, zones: [
+      { bank: "N", from: 30, to: 150, kind: "cut" },
+      { bank: "S", from: 150, to: 260, kind: "reeds" },
+    ] },
+  ],
+  // the spring-fed mere's beck running off south (the mere itself is a lake body: LAKE_PLAN)
+  kingstones: [
+    { def: "lip", flow: 0.6, faceMax: 11, sq: 0.62, zones: [{ bank: "E", from: 70, to: 150, kind: "cut" }] },
+  ],
   // the river ACROSS the screen with four up-screen bridges (x 256 / 400 / 544 / 688): the far (north)
   // bank cut all along, a grassy near bank, quays at the second and fourth bridges only, one reed bay
   // between the first two
@@ -129,7 +141,7 @@ const LAKE_KINDS = {
   },
 };
 // which look each Greenwood pond takes (VARIETY / pass 5's choices); any other pond: the small mere
-const LAKE_PLAN = { foxmere: ["mere", 3], oakmere: ["pondmere", 73], bramblewick: ["tarn", 7], kingstones: ["pondmere", 41], cinderholt: ["fen", 23] };
+const LAKE_PLAN = { foxmere: ["mere", 3], oakmere: ["pondmere", 73], bramblewick: ["tarn", 7], kingstones: ["mere", 41], cinderholt: ["fen", 23] };
 function lakeBody(p, i) {
   const [kd, seed] = (REALM && LAKE_PLAN[REALM.id]) || [p.w > 120 ? "mere" : "pondmere", 11 + i];
   const L = LAKE_KINDS[kd](p, seed), erx = p.w / 2, ery = p.h / 2;
