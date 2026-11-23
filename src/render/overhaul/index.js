@@ -117,6 +117,9 @@ const DEFAULTS = {
   // BAKE (apron.js layer(), right after the apron's ground is painted): (ctx, [x0, y0, x1, y1], k) -> nothing;
   // ctx is the apron ground canvas in its own pixels (k pixels a unit). Default: nothing. (B5: overhaul/apron.js)
   apronGround: () => {},
+  // FRAME, draw.js right after drawCastleWorks: (ctx, g) -> nothing. Parts of standing scenery that stand in FRONT
+  // of the castle wall face (a crown west of the wall), drawn again over it. Default: nothing. (B3: treeOverCastle)
+  overCastle: () => {},
   // BAKE key: () -> string appended to world.js groundLayer's cache key (bump it when the overhaul's
   // ground must rebake, e.g. a season change). Default: "".
   key: () => "",

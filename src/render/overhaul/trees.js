@@ -70,10 +70,14 @@ function planOf(d) {
     else { const kind = LONE[Math.floor(h2(d.x | 0, d.y | 0, 2) * 5)]; p = { kind, dk: 0, k: (kind === "oak" ? LONE_K.oak : LONE_K.broad) * s, seed: (d.x * 7 + d.y) | 0, o: {} }; }
     p.k = Math.round(p.k * 20) / 20;
     // keep the crown off the lanes and the castle wall: shrink, never move (the lanes to 0.72 at most, the wall further)
-    if (!clearOf(p.kind, x, foot, p.k)) { const k0 = p.k; for (const q of [0.85, 0.72, 0.6, 0.5]) { p.k = Math.round(k0 * q * 100) / 100; if (wallOk(p.kind, x, p.k) && (q <= 0.72 || laneOk(p.kind, x, foot, p.k))) break; } p.shrunk = true; STATS.shrunk.push(`${p.forest ? "wood " : ""}${p.kind}@${Math.round(x)},${Math.round(foot)} ${k0}->${p.k}`); }
+    // the lanes shrink a crown to 0.72 at most; the castle wall to 0.8 at most, and a crown still over the wall's
+    // face is drawn IN FRONT of it (treeOverCastle: its part past the face again after the castle), since a tree
+    // standing west of the wall stands in front of it
+    if (!clearOf(p.kind, x, foot, p.k)) { const k0 = p.k; for (const q of [0.85, 0.8, 0.72]) { if (q === 0.72 && laneOk(p.kind, x, foot, p.k)) break; p.k = Math.round(k0 * q * 100) / 100; if (laneOk(p.kind, x, foot, p.k) && (q <= 0.8 || wallOk(p.kind, x, p.k))) break; } p.shrunk = true; STATS.shrunk.push(`${p.forest ? "wood " : ""}${p.kind}@${Math.round(x)},${Math.round(foot)} ${k0}->${p.k}`); }
     Object.assign(p, { realm: REALM.id, x, foot, lone: !p.forest, d });
     p.key = `${p.kind}|${p.k}|${p.dk}|${p.seed}|${p.o.form ?? ""}|${p.o.wet ?? ""}`;
     p.sw = swayKind(p);
+    p.wall = !wallOk(p.kind, x, p.k) && x < WALL_X;
     p.ph = h2(p.seed, 3, 9) * 0.12;
     if (p.forest) {
       // the wood's bakes stay bounded (WOOD_MAX a board): past the cap a new look borrows the nearest one already
@@ -200,6 +204,21 @@ function treeFrame0(g) {
 }
 
 // ---- FRAME: one piece, in the y-sorted actors ----
+// the crowns that reach over the castle wall's face, as drawn this frame (image, x, y), for treeOverCastle
+const LAST = new Map();
+// FRAME, right after the castle is drawn (draw.js drawCastle / drawCastleWorks): the part of each such crown past the
+// wall's face, again, so the tree stands in front of the wall instead of being cut by it
+function treeOverCastle0(ctx) {
+  if (!LAST.size) return;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(WALL_X, -50, W - WALL_X + 50, H + 100); ctx.clip();
+  for (const [img, X, Y] of LAST.values()) {
+    ctx.drawImage(img, X, Y, img.width / 2, img.height / 2);
+    if (MOON && MOON.shade > 0.01) { const pa = ctx.globalAlpha; ctx.globalAlpha = pa * MOON.shade * TREE_NIGHT; ctx.drawImage(silOf(img), X, Y, img.width / 2, img.height / 2); ctx.globalAlpha = pa; }
+  }
+  ctx.restore();
+  LAST.clear();
+}
 function drawTreeDecor0(ctx, d, time) {
   const p = planOf(d);
   if (!p || p.none) return;
@@ -209,6 +228,7 @@ function drawTreeDecor0(ctx, d, time) {
   if (p.sw && time) { const n = poseAt(p.x, p.ph, time); if (n) { const q = poseOf(p, n); if (q) { s = q; img = q.cv; } } }
   if (GHOST.has(p)) { const gh = ghostOf(s) || (s !== baseOf(p) ? ghostOf(baseOf(p)) : null); if (gh) img = gh; }
   const X = p.x - s.ax / 2, Y = p.foot - Math.round(lift * 2) / 2 - s.ay / 2;
+  if (p.wall) LAST.set(p, [img, X, Y]);
   ctx.drawImage(img, X, Y, img.width / 2, img.height / 2);
   if (MOON && MOON.shade > 0.01) {
     const pa = ctx.globalAlpha;
@@ -302,3 +322,4 @@ export const treeFrame = timed((g) => { STATS.frames = (STATS.frames || 0) + 1; 
 export const drawTreeDecor = timed(drawTreeDecor0);
 export const treeDrawables = timed(treeDrawables0);
 export const treeOver = timed(treeOver0);
+export const treeOverCastle = timed(treeOverCastle0);

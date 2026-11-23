@@ -101,6 +101,10 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           at(5.6, 5.45, "marram", 0.9, 0, 0, 0), at(8.6, 5.4, "marram", 1, 0, 0, 2), at(13.55, 6.45, "marram", 0.9, 0, 0, 1),
         ],
         decorRecipe: { count: 30, types: ["pine", "marram", "pine", "tree", "rock", "marram"] },
+        // the overhaul's look (render/overhaul/index.js ovhOn); `blocks`: the hamlet's yard (overhaul/decor-layout.js),
+        // no hall on it; `layout` goes up whenever `blocks` change (data/checkpoint.js)
+        look: "overhaul", season: "summer",
+        blocks: [{ x: 700, y: 222, rx: 33, ry: 16 }, { x: 709, y: 262, rx: 16, ry: 5 }], layout: 1,
       },
     ),
 
@@ -167,6 +171,7 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           ...ridge(9.5, span(1.2, 7.2, 0.62, [2.8])),
         ],
         decorRecipe: { count: 58, types: ["ircrag", "rock", "irheather", "pine", "thistle", "ircrag", "tree"] },
+        look: "overhaul", season: "summer",
       },
     ),
 
@@ -204,6 +209,7 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           at(11.4, 9.0, "tree", 0.9), at(0.9, 6.9, "tree", 0.85),
         ],
         decorRecipe: { count: 52, types: ["irheather", "menhir", "irheather", "tree", "cairn", "thistle", "pine"] },
+        look: "overhaul", season: "summer",
       },
     ),
   };

@@ -71,6 +71,11 @@ export const REALMS = {
       { x: 700, y: 158, t: "pine", s: 0.8 }, { x: 108, y: 200, t: "tree", s: 0.95 },
     ],
     ponds: [],
+    // the overhaul's look (render/overhaul/index.js ovhOn); `blocks`: no hall on the place by the gate
+    // (overhaul/decor-layout.js); `layout` goes up whenever `blocks` change (data/checkpoint.js).
+    // greenwoodVariant drops all four, so no other board inherits them.
+    look: "overhaul", season: "summer",
+    blocks: [{ x: 676, y: 58, rx: 48, ry: 28 }], layout: 1,
   },
 
   frostfang: {
@@ -208,8 +213,10 @@ export const REALMS = {
 // them itself and keeps them off the road, so no hand-placing is needed.
 
 // Everything green: the same meadow as Greenwood Vale, a different road.
+// The Vale Road's own overhaul fields (look, season, blocks, layout) are left out: each board sets its own.
+const { look: _look, season: _season, blocks: _blocks, layout: _layout, ...GREENWOOD_BASE } = REALMS.greenwood;
 const greenwoodVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
-  ...REALMS.greenwood, id, name, tag, blurb, seed, path,
+  ...GREENWOOD_BASE, id, name, tag, blurb, seed, path,
   spawn: "grove",
   water: { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" },
   decor: undefined,
@@ -300,34 +307,38 @@ Object.assign(REALMS, {
     "One deep mere and a road that owes it a full circle. Everything you raise on the inner shore watches two lanes at once.",
     20260809,
     [[0.9, 3], [4, 3], [4, 1], [11, 1], [11, 5], [7, 5], [7, 8], [13.7, 8]],
-    { ponds: [{ x: 345, y: 160, w: 190, h: 80 }] },
+    { ponds: [{ x: 345, y: 160, w: 190, h: 80 }], look: "overhaul", season: "summer",
+      blocks: [{ x: 196, y: 44, rx: 30, ry: 18 }, { x: 152, y: 62, rx: 16, ry: 5 }], layout: 1 },
   ),
   wolfrun: greenwoodVariant(
     "wolfrun", "Wolfrun Ford", "FOUR FORDS",
     "The Wolfrun crosses the road four times — or the road crosses it, nobody in the vale agrees. Hold the bridges; the water holds everything else.",
     20260810,
     [[1, 0.8], [1, 3.5], [4, 3.5], [4, 8], [7, 8], [7, 2], [10, 2], [10, 8], [13, 8], [13, 3], [13.7, 3]],
-    { rivers: [{ pts: [[-0.5, 5.5], [5, 5.4], [10, 5.6], [15.5, 5.5]], w: 28 }] },
+    { rivers: [{ pts: [[-0.5, 5.5], [5, 5.4], [10, 5.6], [15.5, 5.5]], w: 28 }], look: "overhaul", season: "summer",
+      // the toll hut by a bridge (overhaul/bridges.js bridgeBlocks)
+      blocks: [{ x: 647.5, y: 293.7, rx: 9, ry: 7 }], layout: 1 },
   ),
   thornbrook: greenwoodVariant(
     "thornbrook", "Thornbrook Ford", "THE BROOK",
     "Wide meadows cut in half by a living brook. One timber bridge carries the road over — and the brook itself will carry a River Watch, if you moor one.",
     20260714,
     [[0.9, 8], [3, 8], [3, 3], [6, 3], [6, 8], [9, 8], [9, 2], [12, 2], [12, 6], [13.7, 6]],
-    { rivers: [{ pts: [[7.5, -0.5], [7.2, 3.5], [7.7, 6.5], [7.4, 10.5]], w: 28 }] },
+    { rivers: [{ pts: [[7.5, -0.5], [7.2, 3.5], [7.7, 6.5], [7.4, 10.5]], w: 28 }], look: "overhaul", season: "summer" },
   ),
   oakmere: greenwoodVariant(
     "oakmere", "Oakmere Hollow", "TIGHT TURNS",
     "A sunken hollow ringed with old oaks. The road folds back on itself twice — one good tower covers both lanes.",
     20260715,
     [[2, 0.8], [2, 4], [6, 4], [6, 1], [10, 1], [10, 6], [4, 6], [4, 8], [13, 8], [13.7, 8]],
-    { ponds: [{ x: 110, y: 338, w: 84, h: 46 }] },
+    { ponds: [{ x: 110, y: 338, w: 84, h: 46 }], look: "overhaul", season: "summer" },
   ),
   barrowfields: greenwoodVariant(
     "barrowfields", "The Barrowfields", "HAUNTED GROUND",
     "Burial mounds under long grass. The goblins have been digging here, and something is answering.",
     20260716,
     [[0.9, 1], [6, 1], [6, 4], [2, 4], [2, 7], [8, 7], [8, 4], [11, 4], [11, 9], [13.7, 9]],
+    { look: "overhaul", season: "summer" },
   ),
   bramblewick: greenwoodVariant(
     "bramblewick", "Bramblewick", "THE MILLPOND",
@@ -337,6 +348,8 @@ Object.assign(REALMS, {
     {
       ponds: [{ x: 245, y: 150, w: 100, h: 62 }],
       decorRecipe: { count: 24, types: ["tree", "tree", "pine", "tree", "rock"] },
+      look: "overhaul", season: "summer",
+      blocks: [{ x: 636, y: 478, rx: 48, ry: 26 }, { x: 704, y: 526, rx: 30, ry: 14 }], layout: 1,
     },
   ),
   ravenscar: greenwoodVariant(
@@ -349,6 +362,7 @@ Object.assign(REALMS, {
       // the horde comes out of, then a beach, then the ridge's turf
       coast: { edge: "top", from: 230, depth: 104, sand: 26 },
       decorRecipe: { count: 22, types: ["rock", "rock", "pine", "rock", "pine"] },
+      look: "overhaul", season: "summer",
     },
   ),
   blackbriar: greenwoodVariant(
@@ -360,6 +374,7 @@ Object.assign(REALMS, {
       light: { tint: "200,230,190", amount: 0.12, vignette: 0.36 },
       GRASS: "#6e9a4c", GRASS_DK: "#557d3a", GRASS_LT: "#88b45c", TUFT: "#4a7432",
       decorRecipe: { count: 34, types: ["pine", "pine", "tree", "pine", "mushroom"] },
+      look: "overhaul", season: "summer",
     },
   ),
   cinderholt: greenwoodVariant(
@@ -373,6 +388,7 @@ Object.assign(REALMS, {
       GRASS: "#7c8a52", GRASS_DK: "#5e6a3e", GRASS_LT: "#96a262", TUFT: "#525c38",
       scatter: { patches: 58, tufts: 60, flowers: 10, flowerCols: ["#e0a060", "#c8b898"] },
       decorRecipe: { count: 20, types: ["deadtree", "deadtree", "rock", "deadtree", "pine"] },
+      look: "overhaul", season: "summer",
     },
   ),
   warrens: greenwoodVariant(
@@ -380,7 +396,7 @@ Object.assign(REALMS, {
     "The mouth of the horde's home burrow. The road coils like a gut — and the dragon that guards it is awake.",
     20260717,
     [[0.9, 1], [4, 1], [4, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 5], [7, 5], [7, 2], [11, 2], [11, 5], [13, 5], [13, 8], [13.7, 8]],
-    { decorRecipe: { count: 26, types: ["pine", "pine", "tree", "rock"] } },
+    { decorRecipe: { count: 26, types: ["pine", "pine", "tree", "rock"] }, look: "overhaul", season: "summer" },
   ),
 
   // ---- Chapter II: The Iron Marches ----

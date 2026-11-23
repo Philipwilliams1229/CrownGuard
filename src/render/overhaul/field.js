@@ -158,7 +158,8 @@ export const SMIN = 5;
 export const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
 
 export const HFACE = { cut: 13, quay: 11 };   // a face's full height, art px (a north face)
-export const REACH = 5;                        // how far onto the land the field runs, units
+export const REACH = 12;                       // how far onto the land the field runs, units (a river's bank face lies
+                                               // on the LAND side of its waterline: up to 6.5 units, then its lip)
 
 // ---- bodies, per realm (cached on RIVERS' identity) ----
 let CACHE = { key: null, list: [] };
@@ -279,7 +280,8 @@ export function probe(x, y, o = P1, skipFace = false) {
 export const waterDist = (x, y) => probe(x, y, P1, true).d;
 // open water (visible water, not a bank face): the hour's glints may lie here
 const P2 = {};
-export const openWater = (x, y) => { const o = probe(x, y, P2); return !!o.B && o.d < 0 && -o.d * 2 > o.fw + 1; };
+// (a river's faces are on its land side: its open water is all of it; a lake's face lies in its water)
+export const openWater = (x, y) => { const o = probe(x, y, P2); return !!o.B && o.d < 0 && (o.B.type !== "lake" || -o.d * 2 > o.fw + 1); };
 
 // ---- the raster, for the bake ----
 // D (art px, + land), S (units along), Q (0..1 depth across the channel, max over bodies: no seam at a
@@ -346,16 +348,21 @@ export function buildField(x0, y0, x1, y1, k, only = null) {
   const KIND = new Uint8Array(N), KW = new Uint8Array(N), FW = new Uint8Array(N);
   const KINDS = ["lip", "cut", "reeds", "quay"], KI = { lip: 0, cut: 1, reeds: 2, quay: 3 };
   for (let p = 0; p < N; p++) {
-    const bi = BODY[p]; if (bi < 0 || D[p] > 10) continue;
+    const bi = BODY[p]; if (bi < 0 || D[p] > 24) continue;
     const B = L[bi], nx = NX[p] / 127, ny = NY[p] / 127;
     const kd = kindAt(B, S[p], SIDE[p], bankOf(nx, ny), x0 + ((p % w) + 0.5) / k, y0 + (((p / w) | 0) + 0.5) / k, nx, ny);
     KIND[p] = KI[kd.kind] ?? 0; KW[p] = Math.round(kd.kw * 255);
-    if (D[p] < 0) {
+    // a lake's face lies inside its water (its shore stays inside the engine's pond); a river's on the land
+    // side of its waterline, so it never narrows the water: its width is asked on both sides of the line
+    if (D[p] < 0 || B.type !== "lake") {
       let fw = facePx(B, kd.kind, kd.kw, nx, ny);
       if (fw > 0 && B.type !== "lake") {
-        const e = -D[p] / ART, i = p % w, j = (p / w) | 0;
-        const li = Math.round(i + nx * (e + 0.6) * k), lj = Math.round(j + ny * (e + 0.6) * k);
-        if (li >= 0 && lj >= 0 && li < w && lj < h && D[lj * w + li] < 0) fw = 0;
+        // no face where its ground is another body's water (a mouth): test the face's middle and its top
+        const i = p % w, j = (p / w) | 0, e = -D[p] / ART;
+        for (const u of [0.5, 1]) {
+          const r = e + (fw * u) / ART + 0.6, li = Math.round(i + nx * r * k), lj = Math.round(j + ny * r * k);
+          if (li >= 0 && lj >= 0 && li < w && lj < h && D[lj * w + li] < 0) { fw = 0; break; }
+        }
       }
       FW[p] = Math.min(255, Math.round(fw * 8));
     }

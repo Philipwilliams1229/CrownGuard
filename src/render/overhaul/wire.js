@@ -32,3 +32,4 @@ register("drawables", each(treesOn && T.treeDrawables, D.decorDrawables));
 register("over", each(treesOn && T.treeOver));
 register("key", () => [M.meadowKey && M.meadowKey(), treesOn && T.treeKey && T.treeKey(), D.decorKey && D.decorKey(), B.bridgeKey && B.bridgeKey(), WTR.waterKey && WTR.waterKey()].filter(Boolean).join("."));
 register("apronGround", apronGround);
+register("overCastle", each(treesOn && T.treeOverCastle));

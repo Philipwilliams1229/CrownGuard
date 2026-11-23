@@ -93,10 +93,17 @@ function paintField(F) {
   const put = (p, c, a = 1) => { const o = p * 4; P[o] = c[0]; P[o + 1] = c[1]; P[o + 2] = c[2]; P[o + 3] = Math.round(a * 255); };
   const ax0 = Math.round(F.x0 * 2), ay0 = Math.round(F.y0 * 2), sc = 2 / k;   // art px of the rect's corner; art px a buffer px
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-    const p = j * w + i, d = D[p], bi = BODY[p];
-    if (bi < 0 || d > 8) continue;
-    const X = k === 2 ? ax0 + i : Math.floor((F.x0 + (i + 0.5) / k) * 2), Y = k === 2 ? ay0 + j : Math.floor((F.y0 + (j + 0.5) / k) * 2);
+    const p = j * w + i, bi = BODY[p];
+    if (bi < 0) continue;
     const nx = NX[p] / 127, ny = NY[p] / 127, kind = KIND[p], isNear = ny > 0.35, s = S[p] * 2;
+    // A RIVER's bank (its face, a near bank's turf or stone edge, the lip's overhang) is drawn on the LAND
+    // side of the engine's waterline (riverPast = 0), so the open water is never narrower than the river
+    // the engine knows: the whole edge is shifted out by its own width `sh` (art px). A lake keeps its
+    // face inside its water (its shore must stay inside the engine's pond).
+    const sh = F.bodies[bi].type === "lake" ? 0 : FW[p] / 8 + (kind === KI_LIP ? 2.4 : isNear && kind === KI_CUT ? 1.6 : isNear && kind === KI_QUAY ? 2 : 0);
+    const d = D[p] - sh;
+    if (d > 8) continue;
+    const X = k === 2 ? ax0 + i : Math.floor((F.x0 + (i + 0.5) / k) * 2), Y = k === 2 ? ay0 + j : Math.floor((F.y0 + (j + 0.5) / k) * 2);
     if (d >= 0) {
       // ---- the land side of the shore ----
       if (kind === KI_CUT && !isNear && d < 2.2) put(p, TURF[5], d < 1 ? 0.55 : 0.25);
@@ -134,15 +141,15 @@ function paintField(F) {
     const Hs = lake ? Math.max(3, fw) : hard && FW[p] === 0 ? 3 : (HFACE[kind === KI_CUT ? "cut" : kind === KI_QUAY ? "quay" : ""] || 3) * (hard ? 0.15 + 0.85 * sstep(0, 1, KW[p] / 255) : 1);
     const shadeLen = (isNear ? 0 : Math.max(0, -ny) * Hs * 0.45) + Math.max(0, fdot) * Hs * (0.3 + slen * 0.55) + (isNear ? 3.2 : 0);
     let shade = 0;
-    if (ew < shadeLen) shade = ew < shadeLen - 1.5 ? 0.62 : 0.78;
+    if (ew < shadeLen) shade = lake ? (ew < shadeLen - 1.5 ? 0.62 : 0.78) : (ew < shadeLen - 1.5 ? 0.7 : 0.82);
     // the edge itself
     if (kind === KI_LIP && ew < 2.2) {
       // the lip's turf hanging over the water with a thin wet shade under it, tufts breaking the line
       const tf = hs(Math.floor(X / 2), Math.floor(Y / 2), 88), ov = ew < 1 + tf * 1.4;
       c = ov ? (tf > 0.72 ? TURF[3] : tf > 0.35 ? TURF[2] : lerp(TURF[1], c, 0.35)) : lerp(mul(c, 0.8), LINE_LIP, 0.25);
     }
-    else if (kind === KI_LIP && ew < 7) c = lerp(c, GRASS_W, 0.26 * (1 - ew / 7));
-    else if (kind === KI_REEDS && ew < 12) c = lerp(c, SLACK, 0.42 * (1 - ew / 12));
+    else if (kind === KI_LIP && ew < 5) c = lerp(c, GRASS_W, 0.16 * (1 - ew / 5));
+    else if (kind === KI_REEDS && ew < 10) c = lerp(c, SLACK, 0.28 * (1 - ew / 10));
     else if (kind === KI_CUT && !isNear && ew < 1.3) c = lerp(c, FOAM2, 0.3);
     else if (kind === KI_QUAY && !isNear && ew < 2.2) c = ew < 1.1 ? WEED : lerp(c, FOAM2, 0.35);
     // the sky lying on it (still)
@@ -187,7 +194,7 @@ function dressStatic(F, img) {
     const p = j * w + i, d = D[p]; if (BODY[p] < 0 || d > 0 || d < -1 || KIND[p] !== KI_LIP) continue;
     const X = ax0 + i, Y = ay0 + j, cell = `${Math.floor(X / 7)},${Math.floor(Y / 7)}`;
     if (seen.has(cell)) continue; seen.add(cell);
-    if (hs(X, Y, 90) < 0.4) tussock(set, X - NX[p] / 127 * 1.5, Y - NY[p] / 127 * 1.5 + 1, X * 13 + Y);
+    if (hs(X, Y, 90) < 0.4) tussock(set, X + NX[p] / 127, Y + NY[p] / 127 + 1, X * 13 + Y);   // on the bank, over the waterline
   }
 }
 

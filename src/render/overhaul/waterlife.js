@@ -97,14 +97,14 @@ export function buildLife(F) {
     const x = (X + inx * 4) / 2, y = (Y + iny * 4 + 3) / 2;
     if (underBridge(x, y, 6)) continue;
     if (kd === 2) {
-      if (r < (F.bodies[BODY[p]].type === "lake" ? 0.42 : 0.62)) { const o = 2 + hs(X, Y, 95) * 6; reeds.push({ x: (X + inx * o) / 2, y: (Y + iny * o + 3) / 2, seed: X * 31 + Y, size: 9 + hs(X, Y, 91) * 9, cat: true }); }
+      if (r < (F.bodies[BODY[p]].type === "lake" ? 0.42 : 0.62)) { const o = F.bodies[BODY[p]].type === "lake" ? 2 + hs(X, Y, 95) * 6 : -2 + hs(X, Y, 95) * 4; /* a river's reeds stand at its waterline, not out in it */ reeds.push({ x: (X + inx * o) / 2, y: (Y + iny * o + 3) / 2, seed: X * 31 + Y, size: 9 + hs(X, Y, 91) * 9, cat: true }); }
       if (r < (F.bodies[BODY[p]].type === "lake" ? 0.3 : 0.5)) { const dd = 12 + hs(X, Y, 92) * 20, lx = (X + inx * dd + (hs(X, Y, 93) - 0.5) * 10) / 2, ly = (Y + iny * dd) / 2; lilies.push({ x: lx, y: ly, seed: X + Y * 7, r: 2 + Math.round(hs(X, Y, 94) * 2) }); }
     } else if (!near && r > 0.4 && r < 0.47) reeds.push({ x: (X + inx * 3) / 2, y: (Y + iny * 3 + 2) / 2, seed: X + Y * 3, size: 9, cat: false });
   }
   // keep lilies on open water, clear of each other
   const fieldAt = (x, y) => { const i = Math.floor((x - F.x0) * 2), j = Math.floor((y - F.y0) * 2); return i < 0 || j < 0 || i >= w || j >= h ? -1 : j * w + i; };
   const pads = [];
-  for (const L of lilies) { const q = fieldAt(L.x, L.y); if (q < 0 || D[q] > -(FW[q] / 8 + 3)) continue; if (pads.some((o) => Math.hypot(o.x - L.x, o.y - L.y) < 3.5)) continue; pads.push(L); }
+  for (const L of lilies) { const q = fieldAt(L.x, L.y); if (q < 0 || D[q] > -((F.bodies[BODY[q]].type === "lake" ? FW[q] / 8 : 0) + 3)) continue; if (pads.some((o) => Math.hypot(o.x - L.x, o.y - L.y) < 3.5)) continue; pads.push(L); }
   // sprites: each reed clump its own 4 poses (sway -1, 0, 1, 0 px at the tip, larger for tall ones)
   for (const R of reeds) { const A = R.size > 13 ? 1.6 : 1.1; R.poses = [-A, 0, A].map((sw) => reedClump(R.seed, R.size, sw, R.cat)); }
   for (const L of pads) L.cv = lilyPad(L.seed, L.r);
@@ -113,7 +113,7 @@ export function buildLife(F) {
   const spots = (pred, n, gap) => {
     const out = [];
     for (let j = 0; j < h; j += 4) for (let i = 0; i < w; i += 4) {
-      const q = j * w + i; if (BODY[q] < 0) continue; const e = -D[q] - FW[q] / 8;
+      const q = j * w + i; if (BODY[q] < 0) continue; const e = -D[q] - (F.bodies[BODY[q]].type === "lake" ? FW[q] / 8 : 0);
       if (!pred(KIND[q], e, F.Q[q])) continue;
       const x = F.x0 + (i + 0.5) / 2, y = F.y0 + (j + 0.5) / 2; if (x * 2 > XR - 10 || y < 4 || y > H - 4 || underBridge(x, y, 10)) continue;
       out.push({ x, y, r: hs(i, j, 333) });

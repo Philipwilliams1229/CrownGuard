@@ -84,19 +84,7 @@ register("bridgesBack", (ctx, g) => {
   P.forEach((pl, k) => {
     const s = spriteOf(pl, k), B = s.back;
     ctx.drawImage(B.cv, B.x0, B.y0, B.w, B.h);
-    // the white water at each foot: an upstream lip and a broken tongue slipping downstream
-    const [fx, fy] = pl.flow;
-    for (const f of s.feet) {
-      const ph = (g.time * 1.1 + f.x * 0.37 + f.y * 0.11) % 1;
-      ctx.fillStyle = "rgba(220,236,236,0.7)";
-      ctx.fillRect(Math.round((f.x - fx * 1.2) * 2) / 2 - 0.5, Math.round((f.y - fy * 1.2) * 2) / 2, 1, 0.5);
-      for (let n = 0; n < 3; n++) {
-        const t = (ph + n / 3) % 1, d = 1 + t * 5, a = 0.75 * (1 - t);
-        if (a < 0.08) continue;
-        ctx.fillStyle = `rgba(238,246,242,${a.toFixed(2)})`;
-        ctx.fillRect(Math.round((f.x + fx * d - fy * (n - 1) * 0.5) * 2) / 2, Math.round((f.y + fy * d + fx * (n - 1) * 0.3) * 2) / 2, t < 0.4 ? 1 : 0.5, 0.5);
-      }
-    }
+    // (the white water at each pile's foot is the water's painter's, from ovhBridgePiers(): B1)
     if (night) {
       for (const l of s.lamps) noteLamp(l.x, l.y, 13, "#ffb84a", 0.75, 7);
       if (s.hutWin) noteLamp(s.hutWin.x, s.hutWin.y + 2, 9, "#ffb84a", 0.5, 3);

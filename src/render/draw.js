@@ -554,6 +554,7 @@ export function draw(g, canvas, bufRef) {
 
   drawCastle(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
   drawCastleWorks(ctx, g);
+  if (ovhOn()) OVH.overCastle(ctx, g);   // (the overhaul: a crown standing in front of the wall face)
 
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)

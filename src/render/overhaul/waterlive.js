@@ -99,7 +99,7 @@ export function buildLive(F, img) {
         if (x < 1 || y < 1 || x > XR - 1 || y > H - 1) continue;
         if (weir != null && s > weir - 4 && s < weir + 26) continue;
         const q = fieldAt(F, x, y); if (q < 0 || F.BODY[q] < 0) continue;
-        if (F.D[q] > -(F.FW[q] / 8 + 4)) continue;          // keep off the faces and the edge
+        if (F.D[q] > -4) continue;                           // keep off the edge (a river's faces stand on its land side)
         if (underBridge(x, y, 2)) continue;                    // a deck covers it
         ok[s] = 1; const o = q * 4; lum[s] = lumaOf(IP[o], IP[o + 1], IP[o + 2]);
       }
@@ -112,7 +112,7 @@ export function buildLive(F, img) {
       const p = lineAt(B, s, pt), px = -p.uy * side, py = p.ux * side;
       const o = probe(p.x + px * (p.hw - 0.4), p.y + py * (p.hw - 0.4));
       if (!o.B || o.B !== B || o.fw < 2 || o.ny > 0.35) continue;
-      const r = p.hw - o.fw / 2 - 0.55, x = Math.round((p.x + px * r) * 2) / 2, y = Math.round((p.y + py * r) * 2) / 2;
+      const r = p.hw - 0.5, x = Math.round((p.x + px * r) * 2) / 2, y = Math.round((p.y + py * r) * 2) / 2;
       if (x < 0 || y < 0 || x > XR || y > H || underBridge(x, y, 2)) continue;
       feet.push({ x, y, s, side, quay: o.kind === "quay" });
     }
@@ -120,7 +120,7 @@ export function buildLive(F, img) {
     if (weir != null) {
       let i0 = 1e9, j0 = 1e9, i1 = -1, j1 = -1; const px = [];
       for (let j = 0; j < F.h; j++) for (let i = 0; i < F.w; i++) {
-        const q = j * F.w + i; if (F.BODY[q] !== bi || F.D[q] >= 0 || -F.D[q] < F.FW[q] / 8) continue;
+        const q = j * F.w + i; if (F.BODY[q] !== bi || F.D[q] >= 0) continue;
         const dw = (F.S[q] - weir) * 2; if (dw < 0 || dw >= 46) continue;
         px.push([i, j, dw]); i0 = Math.min(i0, i); j0 = Math.min(j0, j); i1 = Math.max(i1, i); j1 = Math.max(j1, j);
       }
@@ -151,7 +151,7 @@ export function buildLive(F, img) {
   const cand = [];
   for (let j = 0; j < F.h; j += 6) for (let i = 0; i < F.w; i += 6) {
     const q = j * F.w + i; if (F.BODY[q] < 0) continue;
-    const e = -F.D[q] - F.FW[q] / 8, kd = F.KIND[q];
+    const e = -F.D[q] - (F.bodies[F.BODY[q]].type === "lake" ? F.FW[q] / 8 : 0), kd = F.KIND[q];
     if ((kd === 2 && e > 8 && e < 20) || (kd === 0 && e > 7 && e < 11 && F.Q[q] < 0.75)) {
       const x = F.x0 + (i + 0.5) / F.k, y = F.y0 + (j + 0.5) / F.k;
       if (x > XR - 4 || x < 2 || y < 2 || y > H - 2 || underBridge(x, y, 8)) continue;
