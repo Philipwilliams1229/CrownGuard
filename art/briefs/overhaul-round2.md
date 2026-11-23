@@ -177,3 +177,6 @@ GROUND
    Split plots but they stay the same crop, like on the bottom left. that looks good too." (Cinderholt in round 3b
    is the reference: big plots, the board still full of farm; and a plot divided into parts that keep ONE crop,
    as in Cinderholt's bottom-left fields, is liked.)
+- **Culverts: REMOVED** (a comment on round 3's culvert before / after): "Lets just remove this feature." No
+  streams passing under roads through culverts. The tarn keeps its shape and rocky headland; a stream may run
+  in or out only where it need not cross a road (else none).
