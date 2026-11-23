@@ -82,3 +82,17 @@ commit. Push only when the Greenwood is whole and checked (the owner asked for t
   is switched on. Nothing of the roll-out is pushed.
 - 2026-11-22 22:40: usage limit reached before any builder was started. NOTHING of the roll-out is built yet:
   next step is to spawn the five builders (B1-B5 above), one per file-owner. Tree is clean and committed.
+- 2026-11-23 (scheduled resume, nobody present): **BLOCKED before any builder was started.** The dev server
+  on 5173 was down and starting it (`preview_start` "crownguard") was declined (no one was there to approve
+  it), and a server must not be started from a shell. With no board in a browser neither builders nor the
+  lead can look at anything, so no builder was spawned (blind art would have burnt usage and could not be
+  reviewed). Still true: only Millrace is on; nothing of the roll-out is built or pushed. NEXT: with the
+  owner present (or the dev server already running), spawn B1-B5 as above. Disk had 4.7 GB free: builders
+  must delete scratch shots. Done meanwhile:
+  - Baseline for the per-board check, `node scripts/sim.mjs --chapter greenwood --endure` at 7ad9fef
+    (castle damage, swarm / burst; all 15 held): gw1 0 / 0, gw2 Thornbrook 58 / 55, gullwick 37 / 95,
+    millrace 139 / 52, foxmere 135 / 33, gw3 Oakmere 186 / 70, bramblewick 412 / 219, gw4 Barrowfields
+    324 / 212, wolfrun 221 / 303, thistlecrag 647 / 244, kingstones 243 / 231, ravenscar 431 / 451,
+    blackbriar 601 / 283, cinderholt 419 / 338, gw5 Warrens 644 / 610. A board with no new `blocks` or
+    water must print these exact numbers after it is switched on.
+  - `art/briefs/overhaul-iron-questions.md`: the questions to put to the owner about the Iron Marches.
