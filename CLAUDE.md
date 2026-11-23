@@ -2208,9 +2208,17 @@ Moon (6 halls, 50 raise effects up), old -> new: 290 foes 7.3 -> 4.0 ms a frame 
 sprite stamps; 145 foes 5.7 -> 2.5 ms; pixels painted a frame ~22 -> ~17.6 million (the board is
 1.9 million). Not yet measured or seen on a phone. Pending the owner's playtest on their iPhone. (It was built
 in a worktree and pushed straight to origin/main, so the Desktop folder's own main was left behind.)
-- **Pacing** (CrownguardGame.jsx, the main loop's header): 60 frames a second at most, 30 with
-  **Battery saver** (Settings, Display; `prefs.saver`). The engine takes the real time between
-  the frames it runs, so the game's speed is the same (checked: 1.6 game s per 2 s at every rate).
+- **Pacing** (CrownguardGame.jsx, the main loop's header): the battle is drawn `prefs.fps` times a
+  second: **60 normally, 30 with Power saver** (Settings, Display; owner, same day, after trying a
+  24 / 30 / 60 selector: "drop the 24 option. 60 normal and 30 on power saver", and no jump to 60
+  while a hall is dragged at 30: "i dont think its that big of a deal"; `FPS_CHOICES` in prefs.js;
+  a saved 24 or an old `saver: true` loads as 30). Frames come due on a clock of their own, so any
+  rate a screen can't divide evenly still averages true. **The frame counter** (`prefs.showFps`, default ON while the owner
+  tests; turn the default off before publishing to the App Store): a small bright green number in
+  the screen's upper right corner in a battle, frames painted in the last second (it reads 4 when
+  paused and 30 in a quiet build phase: that is the saving, not a fault). The engine takes the real
+  time between the frames it runs (capped at 70 ms, was 50), so the game's speed is the same
+  (checked at 24 / 30 / 60 on made-up 60 and 120 Hz screens: exact rates, equal game time).
   The board is REPAINTED only when it can have changed: paused = 4 a second; a quiet build phase
   (no foes, no shots, nothing touched for 1.5 s) = 30 a second; any touch (the `k2` signature:
   selection, build ghost, camera, gold, phase...) paints at once at full pace for 1.5 s. A new

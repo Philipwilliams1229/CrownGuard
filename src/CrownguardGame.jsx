@@ -617,20 +617,32 @@ export default function Crownguard() {
     initGame();
     let raf, last = performance.now();
     // Pacing (2026-11-22, owner: the phone "got so hot"). The screen asks for a frame as often as it
-    // refreshes, 120 times a second on a ProMotion iPhone; the game answers 60 at most, 30 with the
-    // Battery saver (Settings, Display). The engine takes the real time between the frames it does
-    // run, so the game's speed never changes. And the board is only REPAINTED when it can have changed:
+    // refreshes, 120 times a second on a ProMotion iPhone; the game answers `prefs.fps` times (60, or
+    // 30 with Power saver: Settings, Display). The engine takes the real time between the frames
+    // it does run, so the game's speed never changes. A frame is DUE every 1000 / fps ms on a clock of
+    // its own (`due`), so a rate the screen can't divide evenly still averages true. And the board is only REPAINTED when it can have changed:
     //   paused       g.time stands still, so the picture does too: 4 a second, at once on any touch
-    //   a quiet build phase (no foes, no shots, nothing touched for 1.5 s): 30 a second
-    const FRAME = 1000 / 60, SAVER = 1000 / 30, SLACK = 3, STILL = 250, CALM_MS = 1500;
-    let shown = 0, sig = "", stirred = 0;
+    //   a quiet build phase (no foes, no shots, nothing touched for 1.5 s): 30 a second at most
+    const SAVER = 1000 / 30, SLACK = 3, STILL = 250, CALM_MS = 1500;
+    let shown = 0, sig = "", stirred = 0, due = 0;
+    // the frame counter (Settings, Display): frames painted in the last second, small and bright green
+    // in the screen's upper right corner, only in a battle. Its own element, so no panel re-renders for it.
+    const meter = document.createElement("div");
+    meter.setAttribute("aria-hidden", "true");
+    meter.style.cssText = "position:fixed;top:calc(env(safe-area-inset-top, 0px) + 2px);right:calc(env(safe-area-inset-right, 0px) + 3px);z-index:9999;pointer-events:none;font:700 9px/1 ui-monospace,Menlo,monospace;color:#5cff5c;text-shadow:0 0 2px #000,0 1px 0 #000;display:none";
+    document.body.appendChild(meter);
+    let painted = 0, meterAt = 0, meterOn = false;
 
     const step = (now) => {
       raf = requestAnimationFrame(step);
       const g = G.current;
       if (!g) return;
-      if (now - last < (prefs.saver ? SAVER : FRAME) - SLACK) return;
-      const dt = Math.min((now - last) / 1000, 0.05);
+      const every = 1000 / (prefs.fps || 60);
+      if (now < due - SLACK) return;
+      due = Math.max(due + every, now - every);
+      // (a long frame is cut short so a hitch never leaps the battle forward: 70 ms, since 24 a second
+      // on a 60 Hz screen has honest 50 ms frames and the old 50 ms cap would have run it slow)
+      const dt = Math.min((now - last) / 1000, 0.07);
       last = now;
       // dev-server playtest handle: the live game object, for poking from the console
       if (import.meta.env.DEV) window.__g = g;
@@ -656,6 +668,9 @@ export default function Crownguard() {
       const wait = !calm ? 0 : g.paused ? STILL : g.phase === "build" && !g.enemies.length && !g.projectiles.length ? SAVER - SLACK : 0;
       const paint = now - shown >= wait;
       if (paint) shown = now;
+      { const on = prefs.showFps && screenRef.current === "game" && !!canvasRef.current;
+        if (on !== meterOn) { meterOn = on; meter.style.display = on ? "block" : "none"; painted = 0; meterAt = now; }
+        if (on) { if (paint) painted++; if (now - meterAt >= 1000) { meter.textContent = String(Math.round((painted * 1000) / (now - meterAt))); painted = 0; meterAt = now; } } }
       try { if (paint) draw(g, canvasRef.current, bufRef); }
       catch (err) { const k = "draw:" + String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("draw failed", err); noteCrash("draw", err); } }
       // the crash recorder's heartbeat (native/crashlog.js): only while a battle is on screen
@@ -715,7 +730,7 @@ export default function Crownguard() {
       }
     };
     raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); meter.remove(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

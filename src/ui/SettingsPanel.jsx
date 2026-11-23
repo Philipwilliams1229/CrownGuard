@@ -49,8 +49,11 @@ function DisplayPanel() {
       <Switch label="Spell light" on={prefs.spellLight} onFlip={() => setPrefs({ spellLight: !prefs.spellLight })}>
         Spells and fire light the redrawn figures near them. Turn it off if battles run slowly on this device.
       </Switch>
-      <Switch label="Battery saver" on={prefs.saver} onFlip={() => setPrefs({ saver: !prefs.saver })}>
+      <Switch label="Power saver" on={prefs.fps === 30} onFlip={() => setPrefs({ fps: prefs.fps === 30 ? 60 : 30 })}>
         The battle is drawn 30 times a second instead of 60. The game plays at the same speed; the device runs cooler and the battery lasts longer.
+      </Switch>
+      <Switch label="Frame counter" on={prefs.showFps} onFlip={() => setPrefs({ showFps: !prefs.showFps })}>
+        A small green number in the upper right corner of a battle: how many frames were drawn in the last second.
       </Switch>
     </div>
   );
