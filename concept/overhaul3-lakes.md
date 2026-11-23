@@ -153,3 +153,12 @@ lillies and stuff, so you can work that in on some variants", and "you can add m
   The tarn's rock sits on its spit. Weak: a faint seam where the lake's painter hands the mouth to the river's (the flow
   dashes start there); the beck's pale shelving is the river painter's own (14 px at a lip), so it reads darker in the
   middle than the wide approved reaches.
+- Pass 5c (owner via the lead: fix the two weak spots, then approved): the new becks (Barrowfields, Kingstones; `oneField`)
+  are no longer handed to the river painter: `paintLake` paints lake and stream from ONE depth field. The stream's profile
+  is the river's (deepest along its line, WA bands, Bayer nudge, blotch) made SHALLOWER: the channel tops out at q 0.6
+  (never the two darkest steps) and the pale shelving at a lip runs 22 px, not 14. Across Kingstones' mouth the mere's
+  depth blends into the stream's by m = smoothstep(-10, 120 art px) of the distance from the mere's own shore, and the
+  current's moving dashes fade in with m while the lake's still wind-lanes fade out: no row shows a change of painter.
+  The tarn's beck on Foxmere and the approved lakes still use the river painter (unchanged). Weak: the becks' dashes are
+  softer than the river painter's (no foam flecks, no V-wakes); the stream faces use `faceW` (the cut stretch is short);
+  the loop does not include a beck (NOT CHECKED in motion).

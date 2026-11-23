@@ -325,7 +325,7 @@ const spline = (P) => { const o = []; for (let i = 0; i < P.length - 1; i++) { c
 const beck = (pts, w, zones) => ({ pts: spline(pts), w, spec: { def: "lip", near: "plain", widen: 1.5, flow: 0.6, zones } });
 export const NEWWATER = {
   barrowfields: { line: "BARROWFIELDS: a BECK out of the wood along the south, wood's edge to the board's foot; never near the road",
-    make: () => ({ shape: () => 99, kind: () => "lip", deep: 30, qmax: 0.8,
+    make: () => ({ shape: () => 99, kind: () => "lip", deep: 30, qmax: 0.8, oneField: true,
       streams: [beck([[-24, 452], [30, 466], [86, 490], [140, 498], [196, 494], [246, 506], [292, 524], [340, 532], [384, 550], [408, 590]], 28,
         [{ bank: "N", from: 30, to: 150, kind: "cut" }, { bank: "S", from: 150, to: 260, kind: "reeds" }])],
       rings: [[200, 507, 0.3, 5, 0]] }),
@@ -333,7 +333,7 @@ export const NEWWATER = {
   kingstones: { line: "KINGSTONES: a spring-fed MERE in the open ground east of the loop, its beck running off to the south edge",
     make: () => { const L = genPond("mere", 664, 376, 50, 32, 41, 0);
       L.streams = [beck([[658, 384], [652, 414], [640, 446], [642, 474], [656, 500], [660, 526], [648, 552], [636, 576], [634, 596]], 28, [{ bank: "E", from: 70, to: 150, kind: "cut" }])];
-      L.streams[0].flare = 1.3; L.seeps = [[700, 346, 9]]; L.mouth = 26; L.ownBias = 40; return L; } },
+      L.streams[0].flare = 1.3; L.seeps = [[700, 346, 9]]; L.mouth = 26; L.ownBias = 40; L.oneField = true; return L; } },
   cinderholt: { line: "CINDERHOLT: a small spring-fed REED FEN in the low south-east corner, below the last leg of the road",
     make: () => { const L = genPond("fen", 632, 496, 58, 30, 23, 0); L.seeps = [[568, 516, 8]]; return L; } },
 };
@@ -446,7 +446,7 @@ function buildLake(sc, X0, Y0, w, h) {
     KW[k] = Math.min(KW[k], ...[k - 1, k + 1, k - w, k + w].filter((q) => BODY[q] >= 0 && KIND[q] === KIND[k]).map((q) => KW[q] + 0.09));
   }
   let xmin = 1e9, xmax = -1e9; for (let k = 0; k < N; k++) if (Dl[k] < 0) { const X = X0 + (k % w); if (X < xmin) xmin = X; if (X > xmax) xmax = X; }
-  const F = { D, NX, NY, S, KIND, NEAR, BODY, KW, OWN, w, h, Fr, xmin, xmax, bodies: [{ type: "lake" }] };
+  const F = { D, NX, NY, S, KIND, NEAR, BODY, KW, OWN, Dl, w, h, Fr, xmin, xmax, bodies: [{ type: "lake" }] };
   if (Fr) {   // the river painter's view: the merged edge, only the stream's pixels
     const B2 = new Int8Array(N).fill(-1); for (let k = 0; k < N; k++) if (OWN[k] && Fr.BODY[k] >= 0) B2[k] = Fr.BODY[k];
     F.Fr2 = { ...Fr, D, NX, NY, BODY: B2 };
@@ -462,7 +462,11 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
   const golden = W.DAY.id === "golden", fall = W.DAY.fall, slen = W.DAY.len || 0;
   const put = (k, c) => { P[k * 4] = c[0]; P[k * 4 + 1] = c[1]; P[k * 4 + 2] = c[2]; MOD[k] = 1; };
   for (let j = 2; j < h - 2; j++) for (let i = 2; i < w - 2; i++) {
-    const k = j * w + i, d = D[k]; if (d > 8 || BODY[k] < 0 || OWN[k]) continue;
+    const k = j * w + i, d = D[k], one = !!(sc.L && sc.L.oneField && F.Fr); if (d > 8 || BODY[k] < 0 || (OWN[k] && !one)) continue;
+    // ONE FIELD (pass 5c, the new becks): lake and stream painted here together. m = how much of the stream's profile a
+    // pixel takes, read from the distance to the lake's own shore (continuous everywhere), so the mere's depth blends into
+    // the stream's over ~60 units of its mouth and no row shows a change of painter. No lake: m = 1.
+    const m = one ? sstep(-10, 120, F.Dl[k]) : 0, ownS = one && OWN[k];
     const X = X0 + i, Y = Y0 + j, nx = NX[k], ny = NY[k], kind = KIND[k], isNear = ny > 0.35, s = F.S[k];
     // several ponds on one board (sc.L.at): each its own depth and its own ends for the bank's taper
     const LL = sc.L && sc.L.at ? sc.L.at(X / 2, Y / 2) : sc.L && sc.L.ext ? sc.L : null, look = LL ? LL : lookG;
@@ -470,7 +474,7 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
     const g = [P[k * 4], P[k * 4 + 1], P[k * 4 + 2]];
     // a CUT bank never stops in a wedge: its face eases to nothing as the shore turns from north- to west/east-facing,
     // and over a long run (BANK_FADE art px) toward each end of the lake, so the turf lip above it is one continuous line
-    const tp = kind === "cut" ? sstep(0.05, -0.55, ny) * sstep(ex0, ex0 + bf, X) * sstep(ex1, ex1 - bf, X) : 1;
+    const tp = ownS ? 1 : kind === "cut" ? sstep(0.05, -0.55, ny) * sstep(ex0, ex0 + bf, X) * sstep(ex1, ex1 - bf, X) : 1;
     const ek = kind === "cut" && tp < 0.3 ? "lip" : kind;     // where the face has gone, the water meets a grassy lip
     if (d >= 0) {   // the land side: exactly the river's
       if (kind === "cut" && !isNear && d < 2.2 && tp > 0.05) put(k, lerp(g, TURF[5], (d < 1 ? 0.55 : 0.25) * Math.min(1, tp * 1.5)));
@@ -484,7 +488,7 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
       } else if (kind === "lip" || kind === "reeds") { if (d < 3.5) put(k, lerp(g, kind === "reeds" ? hex("#3a5a2c") : TURF[1], (1 - d / 3.5) * 0.42)); }
       continue;
     }
-    const kwt = sstep(0, 1, KW[k]), e = -d, fw = (kind === "cut" ? (isNear ? 0 : W.HFACE.cut * tp) : W.faceW(kind, nx, ny)) * (0.15 + 0.85 * kwt);
+    const kwt = sstep(0, 1, KW[k]), e = -d, fw = (ownS ? W.faceW(kind, nx, ny) : kind === "cut" ? (isNear ? 0 : W.HFACE.cut * tp) : W.faceW(kind, nx, ny)) * (0.15 + 0.85 * kwt);
     if (e < fw) { put(k, W.facePixel(kind, e / fw, fw, e, X, Y, s, -nx, -ny)); continue; }
     let ew = e - fw;
     if (isNear && (ek === "cut" || kind === "rock" || kind === "quay")) {
@@ -494,7 +498,14 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
     // depth: the river's q, measured from the shore; a shelving edge lightens right at it, as the river's does
     const qc = clamp((ew + (vn(X / 30, Y / 14, 43) - 0.5) * 8) / look.deep, 0, 1) * look.qmax;
     const qe = ek === "cut" || kind === "rock" || kind === "quay" ? 1 : clamp(ew / 14, 0, 1);
-    const q = Math.min(qc, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18 * (1 - 0.6 * sstep(12, 34, ew));
+    let q = Math.min(qc, 0.35 + qe * 0.65) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.18 * (1 - 0.6 * sstep(12, 34, ew));
+    if (m > 0) {   // the stream's own profile: the river's (deepest along its line) but SHALLOWER: the pale shelving takes a
+      // bigger share (22 px at a lip, not 14) and the channel tops out at SQ, so it never reaches the two darkest steps
+      const SQ = 0.6, lat = Math.abs(F.Fr.LAT[k]);
+      const qsc = clamp((1 - lat) * 1.4, 0, 1) * SQ, qse = ek === "cut" || kind === "rock" ? 0.75 : clamp(ew / 22, 0, 1);
+      const qs = Math.min(qsc, 0.2 + qse * 0.8 * SQ) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.12;
+      q = q + (qs - q) * m;
+    }
     const idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9 * (1 - 0.6 * sstep(12, 34, ew)), ri = clamp(Math.round(idx), 0, 6);
     let c = WA[ri];
     // the bank's shade and the low sun's long shadow (the river's)
@@ -509,12 +520,19 @@ function paintLake(P, F, sc, t, X0, Y0, MOD) {
     else if (kind === "quay" && !isNear && ew < 2.2) c = ew < 1.1 ? hex("#3a5a34") : lerp(c, FOAM2, 0.35);
     // still water's marks, in the river's mark language: its light dashes (one tone up, two up, a foam fleck), but lying
     // in level wind-lanes, forming and fading where they lie (a slow cross-fade, ~6 px of drift a loop), never running
-    if (ew > 5) {
+    if (m > 0.02 && ew > 3) {   // the stream's current: the river's light dashes in lanes along its line, moving downstream,
+      // fading in across the mouth (strength m) where the still lake's wind-lanes fade out
+      const Sx = F.Fr.S[k], lv = F.Fr.LAT[k] * 3.5, Ln = Math.round(lv), lane = Math.abs(lv - Ln), sp = 1 + (1 - Math.abs(F.Fr.LAT[k]));
+      const n1 = vn(Sx / 18 - t * 12 * sp + Ln * 4.1, Ln * 2.3, 162);
+      if (lane < 0.16 && n1 > 0.68) c = lerp(c, WA[Math.min(6, ri + 1)], 0.7 * m);
+      if (lane < 0.1 && n1 > 0.8) c = lerp(c, WA[Math.min(6, ri + 2)], 0.7 * m);
+    }
+    if (ew > 5 && m < 0.98) {
       const lv = Y / 7 + vn(X / 60, Y / 40, 151) * 0.8, Ln = Math.round(lv), lane = Math.abs(lv - Ln);
       const n1 = vl(X / 26 + Ln * 3.7, Ln * 1.3, 152 + sc.n, 0.25, 0, t);
-      if (lane < 0.1 && n1 > 0.7) c = lerp(c, WA[Math.min(6, ri + 1)], 0.7);
-      if (lane < 0.08 && n1 > 0.8) c = lerp(c, WA[Math.min(6, ri + 2)], 0.75);
-      if (lane < 0.07 && n1 > 0.9 && ew > 8) c = lerp(c, FOAM2, 0.55);
+      if (lane < 0.1 && n1 > 0.7) c = lerp(c, WA[Math.min(6, ri + 1)], 0.7 * (1 - m));
+      if (lane < 0.08 && n1 > 0.8) c = lerp(c, WA[Math.min(6, ri + 2)], 0.75 * (1 - m));
+      if (lane < 0.07 && n1 > 0.9 && ew > 8) c = lerp(c, FOAM2, 0.55 * (1 - m));
     }
     const cl = vn(X / 60, Y / 22, 72);                                                                       // the sky lying on it: still
     if (cl > 0.66 + bay(X, Y) * 0.08 && ew > 8) c = lerp(c, hex("#a8ccc4"), 0.16);
@@ -716,7 +734,7 @@ export async function runScene(name, q) {
   for (const ft of frames) {
     W.__set({ NOW: ft });
     const P = new Uint8ClampedArray(Bd), MOD = new Uint8Array(w * h);
-    if (F.Fr2) W.paintWater(P, F.Fr2, { anim: !!sc.anim }, ft, X0, Y0, MOD);
+    if (F.Fr2 && !L.oneField) W.paintWater(P, F.Fr2, { anim: !!sc.anim }, ft, X0, Y0, MOD);
     paintLake(P, F, sc, ft, X0, Y0, MOD);
     const Pp = W.canvasPainter(P, w, h, X0, Y0, MOD);
     const items = W.dressShores(Pp, F, sc, ft, X0, Y0);
