@@ -39,6 +39,8 @@ import { tintRing, mirrorsFor } from "./scenery-gwpix.js";
 import { PTS } from "../engine/path.js";
 import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data/terrain.js";
 import { drawTree, drawRiver, decorShadowItem } from "./scenery.js";
+import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
+ovhDefaults({ apronRiver: (ctx, rv) => drawRiver(ctx, rv, 0, REALM.water) });
 import { DAY, onDay } from "../data/sun.js";
 import { dayGradeRect } from "./daygrade.js";
 import { paintCastShadows } from "./sceneryday.js";
@@ -1149,7 +1151,8 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
         for (const rv of rivers) {
           const m = rv.w / 2 + 30;
           if (!rv.pts.some(([x, y]) => x > a - m && x < c2 + m && y > b - m && y < e + m)) continue;
-          drawRiver(tc, rv, 0, R.water); any = true;
+          if (ovhOn()) OVH.apronRiver(tc, rv, [a, b, c2, e], k); else drawRiver(tc, rv, 0, R.water);
+          any = true;
         }
         if (any) g.drawImage(tmp, Math.round((a - lx0) * k), Math.round((b - ly0) * k));
       }

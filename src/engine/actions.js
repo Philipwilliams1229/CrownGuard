@@ -9,6 +9,7 @@ import { CASTLE_WORKS, emptyWorks, workTier, nextWork, lastWork, GUARD_X } from 
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN, lanePos } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge, BRIDGES } from "../data/terrain.js";
+import { REALM } from "../data/maps.js";
 import { riverMouths } from "../render/water.js";
 import { TOWERS } from "../data/towers.js";
 import { cragBlocks } from "../data/gatecrag.js";
@@ -63,6 +64,10 @@ export const buildableAt = (g, x, y, kind = null) => {
   if (barrowBlocks(x, y)) return false;
   // a scenery piece is a circle of half its footprint the footing may not touch
   for (const d of DECOR) if (inFoot(kind, x, y, d.x, d.y, decorFootprint(d) * 0.5 + HALL_GAP)) return false;
+  // nor in a realm's no-build ground: `blocks` [{ x, y, rx, ry }] ellipses in board units (the
+  // overhaul's farm on Millrace, 2026-11-22), grown by the footing as a pond is. A change to a
+  // realm's blocks must bump its `layout` (data/checkpoint.js drops a battle kept on the old one).
+  if (REALM.blocks) for (const b of REALM.blocks) if (((x - b.x) / (b.rx + f.rx)) ** 2 + ((y + f.cy - b.y) / (b.ry + f.ry)) ** 2 < 1) return false;
   // A floating hall (the River Watch) moors only at the EDGE of water it can row —
   // a river, a pond or mere big enough (not lava, not ice), or just off a coast.
   // Everyone else keeps off it.

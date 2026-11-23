@@ -22,6 +22,8 @@ import { IRON_ART } from "./scenery-iron.js";
 import { paintShore, drawShoreLive, coastTones, coastPixel } from "./coast.js";
 import { paintRoad, drawRoadMarks } from "./road.js";
 import { bakeWater } from "./water.js";
+import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
+ovhDefaults({ bakeWater });
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { groundKind, pixelTuft, strawOf } from "./groundblend.js";
@@ -1408,7 +1410,8 @@ function paintTurf(ctx) {
   // the wood's hem: bushes and ferns crowding the treeline (a realm whose
   // edge wood isn't green turns it off with wood.hem: false) — staggered in
   // and out, in ones, pairs and trios, with gaps, never three ferns in a row
-  if (FOREST && REALM.wood?.hem !== false) {
+  // (the overhaul: off once its wood builder sets OVH.flags.hem false; overhaul/index.js)
+  if (FOREST && REALM.wood?.hem !== false && !(ovhOn() && !OVH.flags.hem)) {
     const edgeLeft = FOREST.edge === "left", span = edgeLeft ? H : W;
     const leaf = rich(mix(R.GRASS_DK, "#3f7a40", 0.5), 1.22), fern = rich(mix(R.GRASS_DK, "#3f8a3c", 0.35), 1.15);
     const at = (u, out) => (edgeLeft ? [forestDepthAt(0, u) + out, u] : [u, forestDepthAt(u, 0) + out]);
@@ -1476,7 +1479,7 @@ export const setEdgeCasters = (key, items) => { if (key !== EDGE.key) EDGE = { k
 // The cached ground for the realm currently loaded. Rebuilt whenever the
 // road changes underneath it (a new realm) — and only then.
 export function groundLayer() {
-  const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}|${DAY.on ? DAY.id : ""}|${DAY.on && DAY.len > 0 ? EDGE.key : ""}`;
+  const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}|${DAY.on ? DAY.id : ""}|${DAY.on && DAY.len > 0 ? EDGE.key : ""}${ovhOn() ? `|ovh:${OVH.key()}` : ""}`;
   if (layer && key === layerKey) return layer;
   layer = document.createElement("canvas");
   layer.width = W * RES;
@@ -1493,15 +1496,18 @@ export function groundLayer() {
   const art = REALM.groundArt, kit = () => ({ clear, rng: mulberry32((REALM.seed ^ 0x6a7d) >>> 0), SW });
   if (artFor("turf", art)) artFor("turf", art)(ctx, kit());
   GROUND_PROF.turfArt = performance.now() - T0; T0 = performance.now();
+  if (ovhOn()) OVH.ground(ctx, kit());   // the overhaul's meadow, under the road (overhaul/index.js)
   paintRoad(ctx);
   GROUND_PROF.road = performance.now() - T0; T0 = performance.now();
   if (artFor("road", art)) artFor("road", art)(ctx, kit());
-  bakeWater(ctx);
+  if (ovhOn()) OVH.groundMarks(ctx);
+  if (ovhOn()) OVH.bakeWater(ctx); else bakeWater(ctx);
   GROUND_PROF.water = performance.now() - T0; T0 = performance.now();
   // the time of day: every piece of scenery's cast shadow along the level's sun (sceneryday.js), baked
   // into the ground once per sun (nothing at noon)
   if (long) {
     const items = decorShadowItems();
+    if (ovhOn()) items.push(...OVH.shadowExtras());   // the overhaul's own standing things (overhaul/index.js)
     // the hem's bushes and ferns: a small shadow each (anchored at their middle, foot at the sprite's bottom)
     const mir = mirrorsFor("tree");
     for (const { cv, X, Y, w, h } of hem) items.push({ sp: { cv, hw: w / 2, top: 0, bot: h }, x: X + w / 2, y: Y, mirror: mir, round: true });

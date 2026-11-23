@@ -126,3 +126,22 @@ today's Millrace; bake memory; a look at morning, golden, sunrise, noon, storm, 
 ## STATUS (the lead keeps this current)
 
 - 2026-11-22: brief written; seams and stubs next.
+- 2026-11-22: **seams and stubs are in** (hashes of 18 realm x sun cases, Millrace included, and the
+  millrace / gw1 sims identical to before). The slot CONTRACTS are the comments in
+  `src/render/overhaul/index.js` (read them: arguments, bake vs frame, returns). `OVH.flags`
+  (`hem`, `butterflies`, `bridgeCast`; true = keep today's; set false in your module to remove
+  today's piece once yours replaces it). Each builder's entry module already exists and is imported
+  by `overhaul/all.js`: `water.js` (B1), `bridges.js` (B2), `trees.js` (B3), `decor.js` (B4),
+  `meadow.js` (B5); add your other files beside it and import them from your entry module.
+  `owns(d)` is ONE slot shared by trees and decor: do not `register("owns")` directly; export
+  `ownsTree(d)` / `ownsDecor(d)` etc. and the lead wires the combined slot (same for `drawDecor`,
+  `shadowItem`, `shadowExtras`, `drawables`, `over`, `frame`, `groundMarks`, `key`: every slot that
+  more than one builder needs is combined by the lead in `overhaul/wire.js`; register directly only
+  the slots that are yours alone: B1 `bakeWater`, `waterLive`, `openWater`, `apronRiver`; B2
+  `bridgesBack`, `bridgeFronts`, `deckLift`, `drawnSpans`; B5 `ground`). Until the lead wires a
+  shared slot you may register it yourself to SEE your work, but report it so it can be moved.
+  Labs: `ovh-millrace.html?sun=&weather=&blood=1&x=&y=&w=&h=&zoom=&frames=&dt=&perf=1&tag=`
+  (saves `.shots/ovhb_<tag>.png`), `ovh-identity.html?tag=` (other realms unchanged).
+  Known gaps to mind: the apron has its own hem bushes (`boardBush`); atmosphere.js `drawAmbient`
+  (leaves, fireflies) is not gated; waterreach.js paints the River Watch's lit water with today's
+  geometry; skiffs sort under a span by `underBridge` (the engine's span, not the drawn ramps).

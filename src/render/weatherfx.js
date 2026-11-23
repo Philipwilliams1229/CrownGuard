@@ -53,6 +53,8 @@ import { PX } from "./paint.js";
 import * as B from "./weatherbake.js";
 import { apronShade } from "./apron.js";
 import { drawnSpans } from "./bridge.js";
+import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
+ovhDefaults({ drawnSpans });
 import { bloodmoonPaint, bloodmoonGround } from "./bloodmoon.js";
 import { sunCurves } from "./sunset.js";
 
@@ -370,7 +372,7 @@ const puddles = () => B.memo(`puds3|${realmKey()}`, () => {
 // within `pad` of a bridge's deck (its span along the road, rail to rail)
 // the decks as bridge.js draws them: a span over a slanting river runs on,
 // flat, past its own ends until the road meets dry ground (bridge.js endsOver)
-const DECKS = () => B.memo(`decks|${realmKey()}`, drawnSpans);
+const DECKS = () => B.memo(`decks|${realmKey()}`, () => (ovhOn() ? OVH.drawnSpans() : drawnSpans()));
 const onDeck = (x, y, pad = 0) => DECKS().some((b) => {
   const dx = x - b.x, dy = y - b.y, c = Math.cos(b.a), s = Math.sin(b.a);
   return Math.abs(dx * c + dy * s) < (b.d1 - b.d0) / 2 + pad && Math.abs(-dx * s + dy * c) < BRIDGE_HALF + pad;

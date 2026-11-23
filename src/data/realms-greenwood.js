@@ -134,6 +134,9 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           at(10.4, 3.3, "willow", 1), at(4.0, 5.6, "willow", 0.95), at(8.2, 0.6, "willow", 0.9), at(8.3, 7.6, "willow", 0.9),
         ],
         decorRecipe: { count: 20, types: ["tree", "willow", "tree", "pine", "rock", "tree"] },
+        // the overhaul's look (art/briefs/overhaul-build-millrace.md; render/overhaul/index.js ovhOn):
+        // art only, no engine or data module reads these two
+        look: "overhaul", season: "summer",
       },
     ),
 

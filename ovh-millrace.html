@@ -1,0 +1,159 @@
+<!doctype html>
+<!--
+  The overhaul's integration lab (art/briefs/overhaul-build-millrace.md): the REAL engine and draw() on
+  Millrace (look "overhaul") with a wave marching and a few halls (one standing just behind a tree, one
+  River Watch at the water), saved to .shots/ovhb_<tag>.png.
+
+    /ovh-millrace.html?sun=morning&tag=b1
+      sun=sunrise|early|morning|noon|afternoon|late|golden   (default morning, Millrace's own)
+      season=summer          sets REALM.season for the run (only overhaul modules read it)
+      weather=storm:1        any kind:strength (fog, storm, blizzard, ...); default none
+      blood=1                the Blood Moon, risen at the first horn (forces noon; secs defaults to 50)
+      realm=millrace         another realm (e.g. to compare with a board that is not overhaul)
+      towers=archer@0.3:3,knight@0.45:2,wizard@0.6:2,riverwatch@0.5:1   (kind@road-fraction:level[,branch])
+      behind=archer          a hall placed just NORTH of a tree (its crown in front); behind=0 none
+      secs=8                 seconds of combat before the shot
+      x=&y=&w=&h=            crop, board units (840 x 560 board); default the whole board
+      zoom=2                 scale the saved image up (nearest neighbour)
+      frames=N&dt=ms         N frames dt ms apart (engine stepped between): ovhb_<tag>_<i>.png
+      perf=1                 mean ms per draw() over 200 frames (engine stepped 1/60 s between, not timed)
+                             and the first draw's time (the bakes) with world.js GROUND_PROF
+      nosave=1               don't save (perf runs)
+  The page shows the numbers; document.title = DONE (or "DONE perf <ms>").
+-->
+<html>
+  <head><meta charset="utf-8" /><title>ovh millrace</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; white-space: pre; } canvas { max-width: 100%; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm, REALM } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { DECOR } from "/src/data/terrain.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      // the overhaul registry and world.js AS draw.js loaded them: after an edit the dev server serves an
+      // edited module as file.js?t=..., and a plain "/src/..." import here would be a second instance
+      const loaded = (p) => performance.getEntriesByType("resource").map((e) => e.name).find((n) => n.includes(p + "?")) || p;
+      const I = await import(loaded("/src/render/overhaul/index.js"));
+      const { GROUND_PROF } = await import(loaded("/src/render/world.js"));
+      const { ovhOn, registered } = I;
+      const q = new URLSearchParams(location.search);
+      // spy=1: count every slot call (wrapping OVH), printed after the first draw: shows which seams ran
+      const calls = {};
+      if (q.get("spy")) for (const n of Object.keys(I.OVH).filter((k) => k !== "flags")) { const o = I.OVH[n]; I.OVH[n] = (...a) => { calls[n] = (calls[n] || 0) + 1; return o(...a); }; }
+      const TAG = q.get("tag") || "x", DT = 1 / 60, BLOOD = !!q.get("blood");
+      const status = (s) => (document.getElementById("status").textContent = s);
+      setDay(BLOOD ? "noon" : q.get("sun") || "morning");
+      selectRealm(q.get("realm") || "millrace");
+      if (q.get("season")) REALM.season = q.get("season");
+      selectFaction(q.get("faction") || "greenwood");
+      setWaveWindow(null);
+      if (BLOOD) setLevelWeather({ kind: "bloodmoon", strength: 1, whole: true });
+      else if (q.get("weather")) { const [kind, str] = q.get("weather").split(":"); setLevelWeather({ kind, strength: Number(str ?? 1) }); }
+      else setLevelWeather(null);
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 6) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, grounds: [],
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      const finish = (t) => { t.readyAt = 0; t.raised = null; };
+      const build = (kd, x, y, lv, br) => {
+        placeTower(g, kd, x, y);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        finish(t);
+        return t;
+      };
+      const placed = [];
+      // a hall just north of a tree, so the tree's crown stands in front of it
+      const behind = q.get("behind") ?? "archer";
+      if (behind && behind !== "0") {
+        let done = false;
+        for (const d of DECOR) {
+          if (done || !["tree", "willow", "pine"].includes(d.t)) continue;
+          for (let dy = 12; dy <= 30 && !done; dy += 2) for (const dx of [0, -6, 6, -12, 12]) {
+            if (buildableAt(g, d.x + dx, d.y - dy, behind)) { build(behind, d.x + dx, d.y - dy, 2); placed.push(`${behind} behind ${d.t}@${Math.round(d.x)},${Math.round(d.y)}`); done = true; break; }
+          }
+        }
+        if (!done) placed.push(`behind: no spot north of a tree for ${behind}`);
+      }
+      for (const spec of (q.get("towers") ?? "archer@0.3:3,knight@0.45:2,wizard@0.6:2,riverwatch@0.5:1").split(",").filter(Boolean).reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        let spot = null;
+        // the River Watch: the nearest water's edge to that point of the road; the rest beside the road
+        for (let tries = 0; tries < 40 && !spot; tries++) {
+          const d0 = ((at + (tries % 2 ? 1 : -1) * Math.ceil(tries / 2) * 0.01) % 1) * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+          for (let r = 24; r < 200 && !spot; r += 3) for (const s of [1, -1]) {
+            const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+            if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+          }
+        }
+        if (!spot) { placed.push(`${kd}: no spot`); continue; }
+        build(kd, spot[0], spot[1], lv, br);
+        placed.push(`${kd}@${Math.round(spot[0])},${Math.round(spot[1])}`);
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
+      startWave(g);
+      for (const k in calls) delete calls[k];   // (spy: count from here, the frames' own calls; the placing loop asks deckLift etc. too)
+      const SECS = Number(q.get("secs") || (BLOOD ? 50 : 8));
+      for (let el = 0; el < SECS; el += DT) { updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); }
+      g.shake = 0;
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      const RES = cv.width / 840;
+      let T = performance.now();
+      draw(g, cv, { current: null });
+      const firstMs = performance.now() - T;
+      draw(g, cv, { current: null });
+      const info = [`realm ${REALM.id}  look ${REALM.look || "-"}  ovhOn ${ovhOn()}  season ${REALM.season || "-"}  slots filled: ${registered().join(", ") || "(none: today's look)"}`,
+        ...(q.get("spy") ? [`slot calls: ${JSON.stringify(calls)}`] : []),
+        `halls: ${placed.join("  ")}`, `foes ${g.enemies.length}  wave ${g.wave}  phase ${g.phase}`,
+        `first draw ${firstMs.toFixed(1)} ms (bakes)  ground ${JSON.stringify(Object.fromEntries(Object.entries(GROUND_PROF).map(([k, v]) => [k, +v.toFixed(1)])))}`];
+      const crop = () => {
+        const x = Number(q.get("x") || 0), y = Number(q.get("y") || 0), w = Number(q.get("w") || 840), h = Number(q.get("h") || 560), z = Number(q.get("zoom") || 1);
+        const c = document.createElement("canvas"); c.width = Math.round(w * RES * z); c.height = Math.round(h * RES * z);
+        const o = c.getContext("2d"); o.imageSmoothingEnabled = false;
+        o.drawImage(cv, x * RES, y * RES, w * RES, h * RES, 0, 0, c.width, c.height);
+        return c;
+      };
+      const save = async (name) => { if (!q.get("nosave")) await fetch(`/__shot?name=${name}`, { method: "POST", body: crop().toDataURL("image/png").slice(22) }); };
+      if (q.get("perf")) {
+        const N = 200; let sum = 0, worst = 0;
+        for (let i = 0; i < N; i++) {
+          updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); g.shake = 0;
+          T = performance.now(); draw(g, cv, { current: null }); const ms = performance.now() - T;
+          sum += ms; worst = Math.max(worst, ms);
+        }
+        info.push(`perf: mean ${(sum / N).toFixed(2)} ms a draw over ${N} frames (worst ${worst.toFixed(1)})`);
+        status(info.join("\n"));
+        await save(`ovhb_${TAG}`);
+        document.title = `DONE perf ${(sum / N).toFixed(2)}`;
+      } else if (q.get("frames")) {
+        const N = Number(q.get("frames")), step = Number(q.get("dt") || 100) / 1000;
+        for (let i = 0; i < N; i++) {
+          if (i) for (let el = 0; el < step - 1e-9; el += DT) { updateGame(g, Math.min(DT, step - el)); hold(); if (g.phase !== "combat") startWave(g); }
+          g.shake = 0; draw(g, cv, { current: null });
+          await save(`ovhb_${TAG}_${i}`);
+        }
+        info.push(`saved .shots/ovhb_${TAG}_0..${N - 1}.png`);
+        status(info.join("\n"));
+        document.title = "DONE";
+      } else {
+        await save(`ovhb_${TAG}`);
+        info.push(`saved .shots/ovhb_${TAG}.png`);
+        status(info.join("\n"));
+        document.body.appendChild(crop());
+        document.title = "DONE";
+      }
+      window.__g = g;
+    </script>
+  </body>
+</html>

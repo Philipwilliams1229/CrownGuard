@@ -14,6 +14,7 @@ const shadow = (...a) => (longShade() ? undefined : shadow0(...a));
 import { DAY, onDay } from "../data/sun.js";
 import { sunRim, columnCast, liftCast, heightCast } from "./sceneryday.js";
 import { castBridges } from "./bridge.js";
+import { ovhOn, OVH } from "./overhaul/index.js";
 import { BRIDGES, BRIDGE_RISE } from "../data/terrain.js";
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
@@ -1247,6 +1248,7 @@ const treeLift = (d) => {
   return 0;
 };
 export const drawTree = (ctx, d, time) => {
+  if (ovhOn() && OVH.owns(d)) return OVH.drawDecor(ctx, d, time);   // a piece the overhaul draws (overhaul/index.js)
   const lift = treeLift(d);
   if (lift < 0) return;
   if (lift) { ctx.save(); ctx.translate(0, -Math.round(lift * PX) / PX); }
@@ -1280,6 +1282,7 @@ const NO_CAST = new Set(["reeds", "rmice", "irpan", "bogpool"]);
 // one piece as the shadow painter wants it (null: nothing to cast); the gate is baked first so the wood
 // round it knows which trees stand on the crag
 export const decorShadowItem = (d) => {
+  if (ovhOn() && DAY.on && typeof document !== "undefined" && OVH.owns(d)) return OVH.shadowItem(d);
   if (!DAY.on || NO_CAST.has(d.t) || typeof document === "undefined") return null;
   const lift = treeLift(d);
   if (lift < 0) return null;
@@ -1301,7 +1304,7 @@ export const decorShadowItems = () => {
     if (pre) out.push({ pre });
   }
   // the bridges: each deck stands a few units over the water (its shadow beside it, short)
-  if (BRIDGES.length) { const pre = liftCast(castBridges, W, H, BRIDGE_RISE * 0.5); if (pre) out.push({ pre }); }
+  if (BRIDGES.length && !(ovhOn() && !OVH.flags.bridgeCast)) { const pre = liftCast(castBridges, W, H, BRIDGE_RISE * 0.5); if (pre) out.push({ pre }); }
   return out;
 };
 

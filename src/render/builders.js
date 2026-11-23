@@ -32,6 +32,7 @@ import { bakeSprite, PX, hash, shadow } from "./paint.js";
 import * as builderFig from "./pix/fig-builder.js";
 import { crew, crewRec } from "./pix/crews.js";
 import { RIVERS, PONDS, BRIDGES, bridgeLift, seaDepthAt } from "../data/terrain.js";
+import { ovhOn, OVH } from "./overhaul/index.js";
 
 const ROLES = ["mason", "hod", "setter"];
 const LANE = [-7, 0, 7];                // their lanes out of the gate, so the three don't run in one file
@@ -165,7 +166,7 @@ const segDist = (segs, x, y) => {
   return best;
 };
 const wetAt = (x, y) => {
-  if (BRIDGES.length) { const lift = bridgeLift(x, y); if (lift > 0) return [0, lift]; }
+  if (BRIDGES.length) { const lift = ovhOn() ? OVH.deckLift(x, y) : bridgeLift(x, y); if (lift > 0) return [0, lift]; }
   let d = 0;
   for (const rv of RIVERS) if (rv.segs) d = Math.max(d, cl((rv.w / 2 - segDist(rv.segs, x, y) + 1) / 5));
   for (const p of PONDS) {

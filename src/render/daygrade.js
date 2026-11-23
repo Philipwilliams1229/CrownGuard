@@ -24,6 +24,7 @@
 import { W, H } from "../data/constants.js";
 import { DAY, onDay } from "../data/sun.js";
 import { RIVERS, PONDS, COAST, inRiver, inSea, underBridge, forestDepthAt } from "../data/terrain.js";
+import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
 import { REALM } from "../data/maps.js";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
@@ -73,6 +74,7 @@ const wetAt = (x, y) => {
   if (COAST && inSea(x, y, -2)) return true;
   return RIVERS.length > 0 && inRiver(x, y, -1);
 };
+ovhDefaults({ openWater: wetAt });
 
 // Bake the three layers for a world rect, `cell` world units a cell.
 // The apron (the landscape beyond the board) is ONE finished picture, ground and trees together,
@@ -108,9 +110,10 @@ const bakeRect = (x0, y0, w, h, cell, apron = false) => {
   let WET = null, ww = 0;
   if (water) {
     ww = Math.ceil(cw / 2); const wh = Math.ceil(ch / 2); WET = new Uint8Array(ww * wh);
+    const ovh = ovhOn();   // the overhaul's own water test (overhaul/index.js openWater)
     for (let j = 0; j < wh; j++) for (let i = 0; i < ww; i++) {
       const x = x0 + (i * 2 + 1) * cell, y = y0 + (j * 2 + 1) * cell;
-      WET[j * ww + i] = wetAt(x, y) && !underBridge(x, y, 0) && !underBridge(x, y + 9, 0) && !underBridge(x, y + 17, 0) ? 1 : 0;   // a span's far parapet and rail are drawn lifted over the water north of the deck: land, not water   // a bridge deck is land
+      WET[j * ww + i] = (ovh ? OVH.openWater(x, y) : wetAt(x, y)) && !underBridge(x, y, 0) && !underBridge(x, y + 9, 0) && !underBridge(x, y + 17, 0) ? 1 : 0;   // a span's far parapet and rail are drawn lifted over the water north of the deck: land, not water   // a bridge deck is land
     }
   }
   for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {

@@ -14,17 +14,31 @@
 // record is the wave's start, so a closed game replays that wave.
 // The key sits under `crownguard.`, so it travels in the save code
 // (data/backup.js) and in the iOS app's native mirror (native/keep.js).
+//
+// The board's LAYOUT (2026-11-22, the overhaul): a realm may carry `layout` (a number, default 0),
+// bumped whenever where halls may stand changes (its `blocks`, its scenery). The record keeps the
+// layout it was written on; one written on another layout is dropped at load, so a hall kept from
+// before can never come back standing inside new no-build ground. (Both lookups run only inside
+// these functions: campaign.js imports this file, so nothing here may touch it at module load.)
+import { levelById } from "./campaign.js";
+import { REALMS } from "./maps.js";
 const KEY = "crownguard.checkpoint.v1";
+const layoutOf = (levelId) => {
+  const lv = levelById(levelId), r = lv && REALMS[lv.realm];
+  return (r && r.layout) || 0;
+};
 
 export function loadCheckpoint() {
   try {
     const c = JSON.parse(localStorage.getItem(KEY) || "null");
-    return c && c.levelId && c.snap && Array.isArray(c.snap.towers) ? c : null;
+    if (!(c && c.levelId && c.snap && Array.isArray(c.snap.towers))) return null;
+    if ((c.layout || 0) !== layoutOf(c.levelId)) { clearCheckpoint(); return null; }
+    return c;
   } catch { return null; }
 }
 
 export function saveCheckpoint(c) {
-  try { localStorage.setItem(KEY, JSON.stringify({ ...c, savedAt: Date.now() })); } catch { /* private mode: play on */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ ...c, layout: layoutOf(c.levelId), savedAt: Date.now() })); } catch { /* private mode: play on */ }
 }
 
 export function clearCheckpoint() {

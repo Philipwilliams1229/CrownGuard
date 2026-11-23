@@ -51,6 +51,9 @@ import { drawTree, drawCastle, drawCastleWorks, drawSpawn } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
 import { drawWatchWater, drawSkiffReach, drawSkiffMarks, drawWatchStation, warmWaterReach } from "./waterreach.js";
 import { drawBridges, pushBridgeFronts } from "./bridge.js";
+import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
+import "./overhaul/all.js";   // the overhaul builders' modules register their slots (overhaul/index.js)
+ovhDefaults({ waterLive: drawWaterLive, bridgesBack: drawBridges, bridgeFronts: pushBridgeFronts });
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
@@ -123,6 +126,7 @@ export function draw(g, canvas, bufRef) {
   // copied across, a whole board of pixels a frame for nothing; the browser shows a canvas only once
   // the frame's work is done, so nothing half-drawn is ever seen). `bufRef` is no longer used.
   const ctx = cv.getContext("2d");
+  if (ovhOn()) OVH.frame(g);   // the overhaul's per-frame bookkeeping (overhaul/index.js)
   // how packed the road is this frame, for the crowd's small extras (render/lod.js)
   lodFrame(g, typeof performance !== "undefined" ? performance.now() : g.time * 1000);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -155,7 +159,7 @@ export function draw(g, canvas, bufRef) {
     }
   }
   if (watch) drawWatchWater(ctx, g, watch[0], watch[1], watch[2], "tint", ground);
-  drawWaterLive(ctx, g);
+  if (ovhOn()) OVH.waterLive(ctx, g); else drawWaterLive(ctx, g);
   drawRoadLive(ctx, g);
   if (watch) drawWatchWater(ctx, g, watch[0], watch[1], watch[2], "edge");
   // the castle's apron and the cobbled threshold go UNDER the foes, who walk right into the gate
@@ -175,7 +179,7 @@ export function draw(g, canvas, bufRef) {
 
   // timber or stone spans wherever the road wades a river — over the road texture
   // and the boats beneath, under everything that walks
-  drawBridges(ctx, g);
+  if (ovhOn()) OVH.bridgesBack(ctx, g); else drawBridges(ctx, g);
 
   // the trapsmith's work, waiting flush with the road
   drawTraps(ctx, g);
@@ -343,7 +347,7 @@ export function draw(g, canvas, bufRef) {
 
   // whoever stands on a bridge is drawn up on its arched deck
   const onDeck = (x, y, fn) => {
-    const lift = BRIDGES.length ? bridgeLift(x, y) : 0;
+    const lift = BRIDGES.length ? (ovhOn() ? OVH.deckLift(x, y) : bridgeLift(x, y)) : 0;
     if (!lift) return fn();
     ctx.save(); ctx.translate(0, -lift); fn(); ctx.restore();
   };
@@ -368,6 +372,7 @@ export function draw(g, canvas, bufRef) {
   // ...and a foe on fire is a small warm light (the status burn, statusfx.js): at most 12 a frame
   if (prefs.spellLight !== false) { let nb = 0, tb = g.time * 1000; for (const e of g.enemies) if (!e.dead && e.burnUntil > tb && !(e.guard > 0) && nb < 12) { nb++; addLight(e.x, e.y, 24 + e.size * 0.4, "#ff9a3c", 0.55 * [1, 0.85, 0.95, 0.8][Math.floor(g.time * 12 + e.id) & 3]); } }
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
+  if (ovhOn()) OVH.drawables(drawables, ctx, g);   // the overhaul's standing things, sorted with the actors
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;
@@ -453,7 +458,7 @@ export function draw(g, canvas, bufRef) {
     const low = e.flying ? flierDrop(g) : 0;
     if (!e.dead) drawables.push({ y: e.y + 10 + (e.flying ? 1000 : 0), fn: () => (e.flying ? (low ? (ctx.save(), ctx.translate(0, low), drawEnemy(ctx, e, g.time, tms), ctx.restore()) : drawEnemy(ctx, e, g.time, tms)) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
   }
-  pushBridgeFronts(drawables, ctx);   // a span's near rail, in front of the walkers on its deck (bridge.js)
+  if (ovhOn()) OVH.bridgeFronts(drawables, ctx); else pushBridgeFronts(drawables, ctx);   // a span's near rail, in front of the walkers on its deck (bridge.js)
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
   drawBandNotes(ctx, g);   // the King's Band: a note over every hall it plays for, on the beat
@@ -755,7 +760,7 @@ export function draw(g, canvas, bufRef) {
     }
   }
   // butterflies work the greenwood meadows
-  if (REALM.ambient === "leaves") {
+  if (REALM.ambient === "leaves" && !(ovhOn() && !OVH.flags.butterflies)) {
     for (let i = 0; i < 3; i++) {
       const ax = (i * 173 + 89) % W, ay = (i * 131 + 60) % (H - 80) + 30;
       const fx2 = ax + Math.sin(g.time * 0.7 + i * 2.4) * 34 + Math.sin(g.time * 1.9 + i) * 10;
@@ -774,6 +779,7 @@ export function draw(g, canvas, bufRef) {
   // Snow, embers, fireflies, leaves, blown grit — all of it derived from
   // g.time in render/atmosphere.js, so there is no state to keep.
   dayOver(ctx, g);   // the hour's colour over everything standing (daylight.js)
+  if (ovhOn()) OVH.over(ctx, g);
   drawAmbient(ctx, g.time);
   // a realm's battle weather over it (engine/weather.js; weatherfx.js painters)
   drawWeather(ctx, g);
