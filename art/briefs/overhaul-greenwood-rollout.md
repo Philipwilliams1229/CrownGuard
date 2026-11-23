@@ -80,3 +80,5 @@ commit. Push only when the Greenwood is whole and checked (the owner asked for t
 
 - 2026-11-22 22:30: brief written; `?ovh=1` lab switch added; builders starting. No board but Millrace
   is switched on. Nothing of the roll-out is pushed.
+- 2026-11-22 22:40: usage limit reached before any builder was started. NOTHING of the roll-out is built yet:
+  next step is to spawn the five builders (B1-B5 above), one per file-owner. Tree is clean and committed.
