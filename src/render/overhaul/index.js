@@ -39,7 +39,7 @@ import { bridgeLift } from "../../data/terrain.js";
 // labs only: `?ovh=1` in a lab page's URL turns the overhaul on for whatever realm is loaded (so a board can be
 // built and checked before its realm data opts in); `?ovh=0` turns it off (a BEFORE shot of an opted-in board)
 const LAB = typeof location !== "undefined" ? (/[?&]ovh=1/.test(location.search) ? 1 : /[?&]ovh=0/.test(location.search) ? -1 : 0) : 0;
-export const ovhOn = () => (LAB ? LAB > 0 : REALM.look === "overhaul");
+export const ovhOn = () => (LAB ? LAB > 0 : !!REALM && REALM.look === "overhaul");
 // the overhaul realm's season ("summer" for Millrace); only overhaul modules read it
 export const ovhSeason = () => (REALM && REALM.season) || "summer";
 
