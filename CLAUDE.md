@@ -1129,6 +1129,36 @@ overhaul, show bold options before building.
   and can kill the shared dev server (restart with `preview_start` "crownguard"); timings taken while
   many agents run swing 2-10x (compare old and new side by side in one page).
 
+## The overhaul, built: Millrace first (2026-11-22, owner: "they look good, lets build")
+
+ONE board, Millrace, carries every approved overhaul look in the real game, behind a per-realm switch; every
+other board is pixel-identical (18 realm x sun hashes) and gw1's sim byte-identical. NOT pushed; the owner
+has not played it. Brief, slot rules, STATUS: `art/briefs/overhaul-build-millrace.md`.
+- **The switch:** a realm's `look: "overhaul"` (`season: "summer"`); `src/render/overhaul/index.js` (`ovhOn()`,
+  the `OVH` slot table whose defaults are today's painters, `register`, `OVH.flags` hem / butterflies / bridgeCast);
+  seams in world.js `groundLayer`, draw.js, scenery.js `drawTree` / `decorShadowItem`, builders.js, weatherfx.js,
+  daygrade.js, apron.js. `overhaul/all.js` imports each builder module, then `wire.js` (the lead's: slots shared
+  by several modules). Nothing in src/ imports from `concept/`.
+- **Modules** (`src/render/overhaul/`): water.js + field.js + waterlive.js + waterlife.js (a distance field from
+  terrain's own river segments, baked per sun; shallow profile, point bars, edge zones in `PLANS.<realm>`; flow
+  dashes, weir, reeds, lilies, ducks, a heron; exports `waterDist`, `openWater`); bridges.js + bridge-bake.js
+  (trestles as one battered solid on the up-screen rule; ramps drawn past the engine's span; `deckLift`,
+  `bridgeBlocks`); trees.js + treeart.js + wood.js + sway.js + life.js (treatment 4, welded trunks, lazy bakes a
+  few a frame, see-through crowns in front of halls, wildlife that flees); decor.js + decor-kit.js +
+  decor-layout.js + lights.js (the farm, rocks, lamps via `noteLamp`); meadow.js + apron.js (the calm meadow,
+  repainted in the ground bake, running past the board's edge).
+- **Engine truth kept:** river courses / widths and bridge spans unchanged (art only; the water reads narrower
+  than the concepts). New data: a realm's `blocks` ellipses (no hall on the farm, toll hut, sluice; read by
+  `buildableAt`) and `layout` (a kept battle is dropped when it changes, data/checkpoint.js).
+- **Measured (dev Mac):** 4.3 ms a frame against 2.9 for today's Millrace; first frame ~2.5 s of bakes (as
+  before); bakes ~4 MB. Sim `--level millrace --endure` with the blocks: 139 / 52 (was 226 / 55: noise).
+- **Labs:** `ovh-millrace.html?sun=&weather=&blood=1&frames=6&dt=150&x=&y=&w=&h=&zoom=&perf=1&tag=` (use
+  `frames=` or the trees are not baked yet in the shot), `ovh-identity.html?tag=` (compare the `.json.png`).
+- **Weak / not done:** the up-screen farm trestle reads as a plank way; across spans are bulky; trees and the
+  farm sit bright under the Blood Moon and cast no long shadow there; sway is very subtle; trees appear over the
+  first frames of a level; the River Watch's lit water (waterreach.js) uses today's geometry; only summer;
+  nothing seen on a phone. Next boards: add `PLANS.<realm>`, bridge kinds, a farm layout if any, and `look`.
+
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
 The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated.

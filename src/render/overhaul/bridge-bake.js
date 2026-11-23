@@ -350,9 +350,10 @@ export const bakeSpan = (pl) => {
   // up the screen: the near ramp lightest, the level mid, the far ramp a step darker (the rule)
   const farRampU = (u) => (Fr.s > 0 ? u < A : u > B), nearRampU = (u) => (Fr.s > 0 ? u > B : u < A);
   const deckCol = (u, v, i, j) => {
-    const dzu = dz(u), [nx, ny] = Fr.n(-dzu, 0), nz = 1, zz = z(u);
+    // (up the screen the ramps' tone is set by the rule, near light / far dark, not by their tilt to the sun)
+    const dzu = up ? 0 : dz(u), [nx, ny] = Fr.n(-dzu, 0), nz = 1, zz = z(u);
     const onRamp = u < A || u > B, foot = onRamp ? (u < A ? u - lo : hi - u) : 99;
-    let tb = up ? (farRampU(u) ? -0.7 : nearRampU(u) ? 0.35 : 0) : 0;
+    let tb = up ? (farRampU(u) ? -0.95 : nearRampU(u) ? 0.5 : 0) : 0;
     const pitch = 1.5, row = Math.floor(u / pitch), jj = ((u % pitch) + pitch) % pitch;
     const av = Math.abs(v);
     let c;
@@ -365,17 +366,18 @@ export const bakeSpan = (pl) => {
         if (tr > 2.8 || k < 0.45) c = mix(WOOD[1], WOOD[2], 0.4);
         else {
           c = face(WOOD, (tr > 2.3 ? 2.6 : 3.7) + tb + (hash(Math.floor((u + (v > 0 ? 8.5 : 0)) / 14), v > 0 ? 1 : 2, 6) - 0.5) * 0.8, nx, ny, nz, i, j);
-          c = mix(c, RD[2], 0.22 + 0.22 * (vn(u / 3, v / 1.5, 5) > 0.55));
+          c = mix(c, RD[2], 0.34 + 0.24 * (vn(u / 3, v / 1.5, 5) > 0.5));
         }
-      } else if (jj < 0.38) c = mix(WOOD[0], WOOD[2], 0.35);                 // the gap between planks
+      } else if (jj < 0.38) c = mix(WOOD[1], WOOD[2], 0.45 + 0.4 * hash(row, 0, 12));   // the gap between planks
       else {
         // a plank: its own tone, a staggered butt joint, grain, nail rows over the stringers
         const seg = Math.floor((v + 200 + (row % 3) * 9) / 17), hv = hash(row, seg, 3);
         if (Math.round(v + 200 + (row % 3) * 9) % 17 === 0) c = mix(WOOD[1], WOOD[2], 0.5);
         else {
-          c = face(WOOD, (jj < 0.9 ? 4.6 : hv < 0.12 ? 2.5 : hv < 0.4 ? 3.3 : hv < 0.88 ? 3.85 : 4.5) + tb, nx, ny, nz, i, j);
+          const pv = hash(row, Math.floor(seg / 2), 13);              // whole boards a shade paler or darker
+          c = face(WOOD, (jj < 0.9 ? 4.5 : hv < 0.12 ? 2.6 : hv < 0.4 ? 3.3 : hv < 0.88 ? 3.8 : 4.4) + (pv < 0.12 ? -0.7 : pv > 0.9 ? 0.6 : 0) + tb, nx, ny, nz, i, j);
           if (jj >= 0.9 && hash(Math.round(v / 1.5), row, 9) > 0.84) c = mix(c, WOOD[2], 0.5);   // grain
-          if ((Math.abs(av - 9.5) < 0.3 || Math.abs(av - (hw - 3.5)) < 0.3) && jj > 0.95 && jj < 1.3) c = IRON;   // nails
+          if ((Math.abs(av - 9.5) < 0.3 || Math.abs(av - (hw - 3.5)) < 0.3) && jj > 0.95 && jj < 1.3 && (row & 1)) c = mix(c, WOOD[0], 0.6);   // nails
         }
       }
     }
@@ -397,8 +399,10 @@ export const bakeSpan = (pl) => {
     for (const v of vs) for (let u = lo; u <= hi; u += STEP) deckAt(u, v);
   }
   // a 1-px lit lip where the ramp breaks onto the level (the rule's height cue)
-  const mL = BK.member();
-  for (const ub of [A, B]) for (let v = -hw + 1.5; v <= hw - 1.5; v += STEP) P.splat(ub, v, Z + 0.05, mL, (i, j) => (hash(i, j, 2) > 0.15 ? mix(WOOD[5], SUNC, 0.2 * WARM) : null));
+  for (const ub of [A, B]) for (let v = -hw + 1.5; v <= hw - 1.5; v += STEP) {
+    P.splat(ub, v, Z + 0.05, mD, (i, j) => mix(mix(WOOD[5], [255, 246, 220], 0.35), SUNC, 0.2 * WARM));
+    P.splat(ub + (ub === A ? -0.6 : 0.6), v, z(ub + (ub === A ? -0.6 : 0.6)) + 0.05, mD, () => WOOD[1]);    // the joint below the lip
+  }
 
   // -- the rails
   const rampRail = (Q, Bf, v, nx, ny, RH) => {
@@ -457,7 +461,7 @@ export const bakeSpan = (pl) => {
   };
   const railBox = (s) => [Fr.at(lo, s * hw, 0), Fr.at(hi, s * hw, 0), Fr.at(lo, s * hw, Z + sp.RH + 5), Fr.at(hi, s * hw, Z + sp.RH + 5)];
   if (up) for (const s of sides) railOf(s, BK);
-  else for (const s of sides) group(railBox(s), Fr.gy(0, s * (hw + 1.5)), (G) => railOf(s, G));
+  else for (const s of sides) group(railBox(s), Fr.gy(0, s * (hw + 4)), (G) => railOf(s, G));
 
   // -- the bridgehead posts (lanterns on the toll's and the mill's, banners on the toll's far pair)
   const postAt = (u, s, withLamp, withBanner) => {

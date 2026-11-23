@@ -145,3 +145,6 @@ today's Millrace; bake memory; a look at morning, golden, sunrise, noon, storm, 
   Known gaps to mind: the apron has its own hem bushes (`boardBush`); atmosphere.js `drawAmbient`
   (leaves, fireflies) is not gated; waterreach.js paints the River Watch's lit water with today's
   geometry; skiffs sort under a span by `underBridge` (the engine's span, not the drawn ramps).
+- 2026-11-22 (late): **all five builders in, wired (`overhaul/wire.js`), checked by the lead**: morning, golden,
+  Blood Moon looked at; other realms' hashes unchanged; sims run; 4.3 ms a frame (2.9 before). Awaiting the
+  owner's look. Weak spots are listed in CLAUDE.md, "The overhaul, built".
