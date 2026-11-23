@@ -111,6 +111,9 @@ const DEFAULTS = {
   // (RIVERS entry); rect = [x0, y0, x1, y1] the strip in world units; k = canvas px per world unit.
   // Default: today's drawRiver(ctx, rv, 0, REALM.water) (scenery.js, injected by apron.js).
   apronRiver: need("apronRiver"),
+  // BAKE (apron.js layer(), right after the apron's ground is painted): (ctx, [x0, y0, x1, y1], k) -> nothing;
+  // ctx is the apron ground canvas in its own pixels (k pixels a unit). Default: nothing. (B5: overhaul/apron.js)
+  apronGround: () => {},
   // BAKE key: () -> string appended to world.js groundLayer's cache key (bump it when the overhaul's
   // ground must rebake, e.g. a season change). Default: "".
   key: () => "",

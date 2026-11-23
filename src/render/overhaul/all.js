@@ -6,3 +6,4 @@ import "./bridges.js";
 import "./trees.js";
 import "./decor.js";
 import "./meadow.js";
+import "./wire.js";

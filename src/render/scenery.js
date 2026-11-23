@@ -1242,7 +1242,7 @@ const gateTree = (d) => {
   return m;
 };
 // how high a piece stands on the gate's crag (0 on the ground), or -1: left out (it would hide the mouth)
-const treeLift = (d) => {
+export const treeLift = (d) => {
   if (d.forest && GATE.hAt && GATE.rid === REALM.id && (REALM.spawn === "grove" || !REALM.spawn)) return gateTree(d);
   if (reg().gateTree[REALM.spawn]) return reg().gateTree[REALM.spawn](d);
   return 0;

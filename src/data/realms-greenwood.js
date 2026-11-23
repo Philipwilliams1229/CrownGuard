@@ -137,6 +137,11 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
         // the overhaul's look (art/briefs/overhaul-build-millrace.md; render/overhaul/index.js ovhOn):
         // art only, no engine or data module reads these two
         look: "overhaul", season: "summer",
+        // the farm on the Foxwater's east bank (src/render/overhaul/decor-layout.js FARM_BLOCKS): no hall stands on it.
+        // `layout` goes up whenever `blocks` change, so a kept battle is dropped (data/checkpoint.js)
+        blocks: [{ x: 582, y: 70, rx: 45, ry: 44 }, { x: 650, y: 42, rx: 19, ry: 18 }, { x: 700, y: 249, rx: 28, ry: 9 },
+          // the toll hut by the Foxwater bridge and the sluice on the race (overhaul/bridges.js bridgeBlocks)
+          { x: 559, y: 455.5, rx: 9, ry: 7 }, { x: 311, y: 90, rx: 13, ry: 6 }], layout: 1,
       },
     ),
 

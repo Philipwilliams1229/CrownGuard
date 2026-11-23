@@ -1132,6 +1132,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
     const lx0 = Math.floor(x0 * k) / k, ly0 = Math.floor(y0 * k) / k;
     const lw = Math.ceil((x1 - lx0) * k), lh = Math.ceil((y1 - ly0) * k);
     const cv = paintGround(lx0, ly0, lw, lh, k, dens, road);
+    if (ovhOn()) OVH.apronGround(cv.getContext("2d"), [lx0, ly0, lx0 + lw / k, ly0 + lh / k], k);
     let T0 = performance.now();
     const g = cv.getContext("2d");
     // the rivers and the road into the ground's own pixels, at its grain
