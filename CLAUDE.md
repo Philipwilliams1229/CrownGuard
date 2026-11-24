@@ -1358,6 +1358,12 @@ Bring these up with the owner; don't act on them unasked.
   thinner at head height and more see-through, C thrown from the wheel's rim, rising as it flies and guttering. Weak: on
   screen the near half still crosses the operator in the first frames (clear on screen would need A 38 / B 49 units).
   Private Artifact "Crownguard Effects Concepts, Round 19: the ring of fire through the air". Awaiting the pick.
+  Burn **A** is IN THE GAME (statusfx.js `statusBurn`; not pushed until the owner has looked): the outline, ground pool,
+  warm ring and wash unchanged; Round 18 A's tongues in pairs (2-4 burning, scaled with height up to 1.7x), no smoke,
+  three sparks in Dragonbreath's tones; `BN` 16 baked AND played (step `floor(time*12 + id*3) % 16`); LRU cache
+  `BURN_BUDGET` 24 MB (500-canvas cap kept), `burnStats()`. 200 burning foes 0.385 -> 0.395 ms a frame (same page,
+  side by side); MB per figure about doubles (every step baked now: goblin 0.55 -> 1.21). Not seen in a live battle:
+  shotlab's one-draw snaps bake too little to show it (the 2-bakes-a-frame budget).
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

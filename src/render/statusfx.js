@@ -238,14 +238,19 @@ const pipSprite = (n, flash) => memo(`pip|${n}|${flash ? 1 : 0}`, () => {
 
 // ---- the entry points fx.js and enemies.js call ---------------------------------------------
 // (ctx, foe, world time, ms, feet y, world headroom hr). Each is one blit.
-// ---- BURN, Round 5 option B (owner's pick): the BODY'S OUTLINE burns ----------------------------------
+// ---- BURN: the BODY'S OUTLINE burns (Round 5 B), with Dragonbreath's tongues (Round 18 A) --------------
 // The figure's silhouette (its edge pixels) is read once per frame canvas (WeakMap) and the burn is
-// baked once per (frame, step): a hot band along the edge with colours rolling round it (cooler
-// round the face), small flames popping up at edge spots and going out, smoke trailing behind, a warm
-// ground pool and a faint warm wash. Drawn over the figure, which is already on the canvas; the glow
-// and smoke skip the body's own pixels. Baked facing right; a left-facing foe stamps mirrored.
+// baked once per (frame, step): a hot band along the edge with colours rolling round it (cooler round
+// the face), a warm ground pool, a warm ring outside the back and a faint warm wash (all Round 5 B, the
+// owner's pick), and the flames (Round 18 A, owner 2026-11-24: "A for fire on a foe looks great"): small
+// tongues in Dragonbreath's look (flames.js drawBreath) pop up at top-edge spots in pairs, grow, let go
+// at the root and rise off. No smoke. The face stays clear; a tongue lies over the body only at its
+// root. Drawn over the figure, which is already on the canvas. Baked facing right; a left-facing foe
+// stamps mirrored (so the tongues lean back against the walk). The loop is BN steps, baked and played
+// alike (before 2026-11-24 it baked 12 and played 8, so the outline's roll jumped back each loop).
 // enemies.js leaves the frame it drew on `e._rf` = { skin, ps, pf }; draw.js adds a firelight.
-const BN = 12;                                  // steps in the loop
+// Concept: concept/fx-r18-burn.js (row burn18).
+const BN = 16;                                  // steps in the loop, at 12 a second
 const MASKS = new WeakMap();
 const maskOf = (s) => {
   let m = MASKS.get(s.cv); if (m) return m;
@@ -267,22 +272,38 @@ const maskOf = (s) => {
 const FIFTH = (a) => Math.ceil(Math.min(1, Math.max(0, a)) * 5 - 1e-6) / 5;
 const fr1 = (v) => v - Math.floor(v);
 const cl1 = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
-const BSMOKE = ["#8a7a76", "#6a5c60", "#4a3e44"];
-// a small flame: teardrop that leans and sways, hot core, darker tinted edge
-const lick = (c, cx, by, h, w, lean, ph) => {
-  for (let j = 0; j < h; j++) {
-    const t = j / h, hw = Math.max(0, Math.round(w * Math.pow(1 - t, 0.75) * (1 + 0.15 * Math.sin(ph * 2 + t * 5))));
-    const mid = cx + lean * t * t * h * 0.35 + Math.sin(ph + t * 3.2) * 1.3 * t;
-    for (let q = -hw; q <= hw; q++) {
-      const heat = (1 - Math.abs(q) / (hw + 0.8)) * (1 - t * 0.85), edge = Math.abs(q) === hw && hw > 0 && j > 0;
-      px(c, mid + q, by - j, edge ? (t < 0.55 ? FIRE[4] : FIRE[3]) : heat > 0.62 ? FIRE[0] : heat > 0.42 ? FIRE[1] : heat > 0.22 ? FIRE[2] : FIRE[3]);
+const BFIRE = ["#fffbe0", "#ffe27a", "#ffb030", "#f26a1c", "#c03020"];   // Dragonbreath's tones (the tongues)
+const BINK = "#8a2028";                                                  // its tinted rim, round a tongue's root
+const cellP = (a, b, n) => H(((a % n) + n) % n, b);                      // hashed cells, periodic (the loop closes)
+// a tongue: rises from (x0, y0), h tall, w half-width, `lean` px back per px up. One mottled mass (two layers of
+// cells, 1x2 and 2x4 px, flowing up 2 px a step, periodic over BN), a broken pale core, a 1-px rim (wine at the
+// root, red-orange above, plain orange on a thin one), ragged edges. lift: rows cut from the root as it lets go.
+const tongue = (put, x0, y0, h, w, lean, f, sd, lift, hot) => {
+  for (let j = lift; j <= h; j++) {
+    const t = j / Math.max(1, h);
+    const mid = x0 + lean * j * (0.35 + 0.65 * t) + Math.sin((TAU * 2 * f) / BN + sd + t * 3) * 0.9 * t;
+    const hw = w * (t < 0.2 ? 0.72 + 1.4 * t : Math.pow((1 - t) / 0.8, 1.05));
+    for (let X = Math.floor(mid - hw - 2); X <= Math.ceil(mid + hw + 2); X++) {
+      const d = X + 0.5 - mid, ad = Math.abs(d), rows = Math.floor((j - 2 * f) / 2);
+      const rag = cellP(rows, sd * 13 + (d < 0 ? 0 : 7) + 3, 16);
+      const e = hw * (1 + (0.12 + 0.6 * t) * (rag * rag * 1.8 - 0.5)) + 0.35;
+      if (ad > e) continue;
+      const q = ad / Math.max(0.6, e);
+      const mot = cellP(rows, Math.floor(d) + sd * 31 + 50, 16) * 0.6 + cellP(Math.floor((j - 2 * f) / 4), Math.floor(d / 2) + sd * 17 + 90, 8) * 0.4;
+      const hh = (1 - q) * 0.42 + (1 - t) * 0.38 + (mot - 0.5) * 0.75 + hot + 0.1;
+      let col = hh > 0.95 ? BFIRE[0] : hh > 0.76 ? BFIRE[1] : hh > 0.54 ? BFIRE[2] : hh > 0.34 ? BFIRE[3] : BFIRE[4];
+      if (ad < 0.8 && t < 0.65 && mot > 0.4 && hw > 1.4) col = t < 0.3 ? BFIRE[0] : BFIRE[1];
+      if (ad > e - 1 || j === h) col = hw < 1.3 ? BFIRE[3] : t < 0.22 ? BINK : BFIRE[4];
+      else if (ad > e - 2 && t > 0.45 && bay(X + 64, y0 - j + 64) < 0.5) col = BFIRE[3];
+      put(X, y0 - j, col, t);
     }
   }
 };
+const T_HS = [4, 7, 10, 11, 9, 6], T_WS = [1.6, 2.4, 3, 3.2, 2.8, 2];   // a tongue's height / half-width through its life
 const burnBake = (m, f, view) => {
-  const { T, cx, xl, xr, has } = m, t = f / BN, ph = t * TAU, amp = 0.9 + 0.1 * Math.sin(ph * 2), span = xr - xl;
+  const { T, cx, xl, xr, has } = m, t = f / BN, ph = t * TAU, amp = 0.9 + 0.1 * Math.sin(ph * 2), span = xr - xl, S = cl1(T / 35, 1, 1.7);
   const rx = Math.round(span * 0.8 + 16), x0 = Math.min(xl - 22, cx - rx - 1), x1 = Math.max(xr + 10, cx + rx + 1);
-  const up = Math.round(T * 1.2 + 8), dn = 9, cw = x1 - x0 + 1, ch = up + dn, ax = -x0, ay = up;
+  const up = Math.round(T * 1.2 + 14), dn = 9, cw = x1 - x0 + 1, ch = up + dn, ax = -x0, ay = up;
   const cv = mk(cw, ch), c = cv.getContext("2d");
   c.translate(ax, ay);
   const free = (x, y, col, a = 1) => { if (!has(x, y)) px(c, x, y, col, a); };
@@ -292,13 +313,21 @@ const burnBake = (m, f, view) => {
     const s = FIFTH((1 - r) * 1.6 * amp); if (s <= 0 || (s < 0.4 && bay(X, y) > s * 2.5)) continue;
     free(X, y, r < 0.35 ? FIRE[1] : FIRE[2], s * 0.55);
   }
-  // smoke trailing behind (left), drifting up in dithered puffs
-  for (let k = 0; k < 5; k++) {
-    const q = fr1(t + k / 5), x = xl - 2 - q * 16 + Math.sin(q * 6 + k) * 2, y = -T * 0.55 - q * T * 0.6, r = 2 + q * 3;
-    for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) if (xx * xx + yy * yy <= r * r && bay(xx + k * 3 + 64, yy + 64) < 0.75 * (1 - q)) free(Math.round(x + xx), Math.round(y + yy), BSMOKE[q < 0.5 ? 0 : 1], 0.55 * (1 - q * 0.5));
-  }
-  // the edge pixels burn: a hot band, colours rolling round it; cooler and thinner round the face
   const isFace = view ? (x, y) => Math.abs(x - cx) < T * 0.2 && y < -T * 0.62 : (x, y) => x > cx + 1 && y < -T * 0.55;
+  // the tongues: they pop up at top-edge spots (the face's left out), each with a smaller one a step behind it,
+  // spread evenly round the loop (2-4 burning at once); over the body only in their lowest 30%, never over the face
+  const put = (x, y, col, tt) => { if (has(x, y) && (tt > 0.3 || isFace(x, y))) return; if (isFace(x, y) && y > -T - 1) return; px(c, x, y, col); };
+  const spots = m.tops.filter(([x, y]) => !isFace(x, y) && y < 0 && y > -T);
+  if (spots.length) for (let k = 0; k < 9; k++) {
+    const start = Math.floor((k * BN) / 9 + H(k, 7) * 1.5) % BN, age = (f - start + BN) % BN;
+    if (age >= T_HS.length) continue;
+    const [x, y] = spots[Math.floor(H(k, 3) * spots.length) % spots.length];
+    const h = Math.round(T_HS[age] * S * (0.85 + 0.3 * H(k, 5))), lift = age === 4 ? 2 : age === 5 ? Math.round(h * 0.45) : 0, hot = age < 2 ? 0.08 : 0, rs = Math.sqrt(S);
+    tongue(put, x - Math.round(2.5 * rs), y + 1, Math.round(h * 0.62), T_WS[age] * 0.72 * rs, -0.35, f, k + 40, Math.max(0, lift - 1), hot);
+    tongue(put, x, y + 1, h, T_WS[age] * rs, -0.3, f, k + 1, lift, hot);
+  }
+  for (let k = 0; k < 3; k++) { const q = fr1(t + k / 3); px(c, cx - 6 - q * 8 + H(k, 1) * 6, -T * 0.4 - q * 22, q < 0.3 ? BFIRE[0] : q < 0.6 ? BFIRE[1] : q < 0.85 ? BFIRE[2] : BFIRE[4]); }
+  // the edge pixels burn: a hot band, colours rolling round it; cooler and thinner round the face
   for (const [x, y] of m.open) {
     const v = (Math.sin(ph + x * 0.9 + y * 0.6) + Math.sin(ph * 2 - y * 0.7)) * 0.25 + 0.5 + (H(x, y) - 0.5) * 0.4;
     const s = v * (cl1(1 - -y / (T + 2)) * 0.5 + 0.5) * (isFace(x, y) ? 0.55 : 1);
@@ -308,20 +337,15 @@ const burnBake = (m, f, view) => {
   for (const [x, y] of m.list) { if (has(x - 1, y) || x > cx) continue; px(c, x - 1, y, bay(x + 64, y + 64) < 0.6 * amp ? FIRE[1] : FIRE[2], 0.8); if (bay(x + 66, y + 64) < 0.5 * amp && !has(x - 2, y)) px(c, x - 2, y, FIRE[3], 0.6); }
   // a warm wash on the lower body (the flames below light it), dithered
   for (const [x, y] of m.list) { const k = cl1(1 - -y / (T * 0.7)); if (k > 0 && bay(x + (f & 1), y) < FIFTH(k * 0.35 * amp)) px(c, x, y, FIRE[3], 0.28); }
-  // small flames pop up at random top-edge spots and go out (four steps each); the face stays clear
-  const spots = m.tops.filter(([x, y]) => !isFace(x, y) && y < 0 && y > -T);
-  if (spots.length) for (let k = 0; k < 9; k++) {
-    const start = Math.floor(H(k, 7) * BN), age = (f - start + BN) % BN;
-    if (age > 3) continue;
-    const [x, y] = spots[Math.floor(H(k, 3) * spots.length) % spots.length];
-    lick(c, x, y, [4, 7, 9, 4][age], age === 3 || age === 0 ? 1 : 2, -0.3, k + age);
-  }
-  for (let k = 0; k < 3; k++) { const q = fr1(t + k / 3); px(c, cx - 6 - q * 8 + H(k, 1) * 6, -T * 0.4 - q * 22, q < 0.35 ? FIRE[1] : q < 0.7 ? FIRE[2] : FIRE[4]); }
   return { cv, ax, ay };
 };
-// bakes are a few ms each in a crowd's first second: cap the new ones a frame (the rest wait a frame)
+// bakes are a few ms each in a crowd's first second: cap the new ones a frame (the rest wait a frame).
+// The bakes are kept per frame canvas, least recently used dropped first, to BURN_BUDGET bytes and 500 canvases.
 const BURNS = new Map();
-let bakedAt = -1, bakedN = 0;
+const BURN_BUDGET = 24 * 1024 * 1024;
+let burnBytes = 0, bakedAt = -1, bakedN = 0, burnBakes = 0, burnMs = 0;
+const dropOldest = () => { const k = BURNS.keys().next().value, per = BURNS.get(k); BURNS.delete(k); for (const s of per) if (s) burnBytes -= s.cv.width * s.cv.height * 4; };
+export const burnStats = () => ({ frames: BURNS.size, bytes: burnBytes, bakes: burnBakes, ms: burnMs });
 export const statusBurn = (ctx, e, time, feet, hr) => {
   const rf = e._rf, sf = rf && rigFrame(rf.skin, rf.ps, rf.pf, "");
   if (time !== bakedAt) { bakedAt = time; bakedN = 0; }
@@ -329,10 +353,15 @@ export const statusBurn = (ctx, e, time, feet, hr) => {
   const m = sf && sf.cv ? (MASKS.has(sf.cv) ? MASKS.get(sf.cv) : bakedN < 2 ? (bakedN++, maskOf(sf)) : null) : null;
   if (sf && !m) return;                        // over this frame's budget: no fire for a frame or two (the old mark would flash)
   if (m && !m.none) {
-    const f = frameOf(time, e.id || 0, 12) % BN, view = isViewSheet(rf.ps), key = sf.cv, slot = f + (view ? BN : 0);
-    let per = BURNS.get(key); if (!per) { per = []; BURNS.set(key, per); if (BURNS.size > 500) BURNS.delete(BURNS.keys().next().value); }
+    const f = ((Math.floor(time * 12 + (e.id || 0) * 3) % BN) + BN) % BN, view = isViewSheet(rf.ps), key = sf.cv, slot = f + (view ? BN : 0);
+    let per = BURNS.get(key);
+    if (per) { BURNS.delete(key); BURNS.set(key, per); }          // most recently used last
+    else { per = []; BURNS.set(key, per); if (BURNS.size > 500) dropOldest(); }
     let s = per[slot];
-    if (!s && bakedN < 2) { bakedN++; s = per[slot] = burnBake(m, f, view); }
+    if (!s && bakedN < 2) {
+      bakedN++; const t0 = performance.now(); s = per[slot] = burnBake(m, f, view); burnMs += performance.now() - t0; burnBakes++;
+      burnBytes += s.cv.width * s.cv.height * 4; while (burnBytes > BURN_BUDGET && BURNS.size > 1 && BURNS.keys().next().value !== key) dropOldest();
+    }
     if (s) {
       const X = Math.round(e.x * PX) / PX, Y = Math.round(feet * PX) / PX, flip = e.face < 0 && !view;
       ctx.save(); ctx.translate(X, Y); if (flip) ctx.scale(-1, 1);
