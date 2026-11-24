@@ -16,7 +16,9 @@
 // each light's overlay, and the frames of what moves (a pennant, a flame). One form bakes in
 // a few milliseconds the first time it is drawn (three stonework variants a form, t.id % 3).
 import { prefs } from "../../data/prefs.js";
-import { lampsOn, noteLamp } from "../nightlight.js";
+import { lampsOn, nightOn, noteLamp } from "../nightlight.js";
+import { stampTorch, torchLate } from "../torchflame.js";
+const per7 = (v) => ((v % 7) + 7) % 7;
 import { noteHall, hallRim } from "../sunset.js";
 import { toCanvas } from "./pix.js";
 import { onDay, DAY } from "../../data/sun.js";
@@ -84,7 +86,13 @@ const live = (ctx, H, x, y, time, layer, id, dir = 1) => {
     if ((l.layer || "back") !== layer) continue;
     let fr, dy = 0;
     if (l.kind === "pennant") { const fs = framesOf(`pen|${l.col}|${l.len}|${l.pole}|${l.h || 0}|${l.dir || 1}|${l.swallow ? 1 : 0}`, () => pennantFrames(l.col, l)); fr = fs[Math.floor(time * 9 + id * 3) % fs.length]; }
-    else if (l.kind === "flame") { const fs = framesOf(`flame|${l.w || 0}|${l.h || 0}`, () => flameFrames(l)); fr = fs[Math.floor(time * 11 + id) % fs.length]; }
+    else if (l.kind === "flame") {
+      // the owner's Round 20 A (render/torchflame.js); under the Blood Moon drawn over the night's shade (a fire is a light)
+      const fx = x + (dir < 0 ? -1 : 1) * l.x / 2, fy = y + l.y / 2, fw = l.w || 5, fh = l.h || 9, sd = per7(Math.round(l.x) * 7 + Math.round(l.y) * 3 + id);
+      if (nightOn(time)) torchLate(ctx, (c) => stampTorch(c, fx, fy, fw, fh, time, sd, id));
+      else stampTorch(ctx, fx, fy, fw, fh, time, sd, id);
+      continue;
+    }
     else if (l.kind === "spark") { if (prefs.spellLight === false) continue; const fs = framesOf(`spark|${l.col}`, () => sparkFrames(l.col)); fr = fs[Math.floor(time * 7 + (l.ph || 0) + id) % fs.length]; }
     else if (l.kind === "orb") { const fs = framesOf(`orb|${l.col}`, () => orbFrames(l.col)); fr = fs[Math.floor(time * 8) % fs.length]; }
     else if (l.kind === "book") { fr = framesOf("book", () => bookFrames())[0]; dy = Math.round(Math.sin(time * 1.9 + id) * 1.6) / 2; }
