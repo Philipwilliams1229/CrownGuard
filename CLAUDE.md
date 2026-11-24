@@ -1159,6 +1159,32 @@ has not played it. Brief, slot rules, STATUS: `art/briefs/overhaul-build-millrac
   first frames of a level; the River Watch's lit water (waterreach.js) uses today's geometry; only summer;
   nothing seen on a phone. Next boards: add `PLANS.<realm>`, bridge kinds, a farm layout if any, and `look`.
 
+**The whole Greenwood is on the overhaul** (2026-11-23, owner after playing Millrace: "runs great, go ahead and
+apply to the whole first area"; brief `art/briefs/overhaul-greenwood-rollout.md`). All fifteen Greenwood realms carry
+`look: "overhaul"`; `greenwoodVariant` (maps.js) copies the first board WITHOUT `look` / `season` / `blocks` /
+`layout`, so each realm states its own. Pending the owner's look at the other fourteen boards.
+- `?ovh=1` / `?ovh=0` in a lab URL forces the look on / off for any realm (`ovh-millrace.html?realm=<id>&ovh=1...`).
+- Water: `PLANS.<realm>` for Thornbrook, Wolfrun, Millrace; `autoPlan` for any other river; ponds are lake bodies
+  (`LAKE_PLAN`: Foxmere the long mere, Oakmere a mere with growth, Bramblewick the tarn) kept inside the engine's
+  ellipse; coast boards keep today's sea. River bank faces lie on the LAND side of the engine's waterline (owner:
+  rivers "wider only"; visible water measured >= today's), so a hall at the water's edge stands over the bank face.
+- Bridges: `KINDS` per realm in overhaul/bridges.js (toll / mill / farm trestle, `flat` / `flatlamp` = today's
+  bridge updated); Wolfrun's four differ; Millrace's up-screen crossing is `flat` now (`?bk=2:farm` in a lab).
+- Places (`decor-layout.js` `LAYOUTS`): Millrace farm, Gullwick village details + the ruined tower, the croft on the
+  first board, Bramblewick's steading, Foxmere's chapel; each has `blocks` + `layout: 1` in its realm data. Rocks by
+  the rock rule everywhere. The pale clumps on the meadow are its tall-grass stands, not old bushes.
+- Trees: crowns west of the castle wall are drawn again in front of it (`OVH.overCastle`, draw.js after
+  `drawCastleWorks`); sway poses and see-through crowns are cut from the base sprite by row shifts (under 1 ms, one
+  a frame), never re-sculpted; under the Blood Moon owned trees take an extra shade and cast long moon shadows.
+- Checks: ten levels' sims exact; Gullwick 37 / 95 -> 51 / 104 and Wolfrun 221 / 303 -> 335 / 253 (blocks); Iron,
+  Rime, Hollow boards pixel-identical. Steady state +0.4 to +1.8 ms a frame. **`ovh-identity.html` hashes depend on
+  the ORDER of realms and suns in the run** (some cache carries state between cases): always compare runs made with
+  the same list in the same order.
+- NOT done: the approved new water on dry boards (Barrowfields stream, Kingstones mere + stream, Cinderholt fen:
+  data in the brief / B1's notes; it moves the decor scatter and sims, and check-map-water must still pass); other
+  seasons; anything seen on a phone beyond Millrace. Next area: the Iron Marches, CONCEPTS FIRST
+  (`art/briefs/overhaul-iron-questions.md`).
+
 ## The owner's wishlist (ideas for later: do NOT build unasked)
 
 The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated.

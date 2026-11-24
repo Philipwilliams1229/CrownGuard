@@ -97,7 +97,7 @@ function planOf(d) {
 export const ownsTree = (d) => { const p = planOf(d); return !!p && !p.none; };
 
 // ---- the bakes (dropped on a new sun) ----
-let BASE = new Map(), POSES = new Map(), budget = BAKES_A_FRAME, FRAMES = 0;
+let BASE = new Map(), POSES = new Map(), budget = BAKES_A_FRAME, FRAMES = 0, AFTER_GROUND = false;
 onDay(() => { BASE = new Map(); POSES = new Map(); STATS.bytes = 0; LIFE_KEY = ""; });
 const bake = (p, lean) => {
   const t0 = performance.now();
@@ -108,29 +108,100 @@ const bake = (p, lean) => {
   s.sp = { cv: s.cv, hw: s.ax / 2, top: s.ay / 2, bot: (s.cv.height - s.ay) / 2 };
   return s;
 };
+// the lazy (in-battle) bakes: count, total ms, worst single, and the frame each happened in (labs read STATS)
+const lazy = (t0) => { const ms = performance.now() - t0; STATS.lazyN = (STATS.lazyN || 0) + 1; STATS.lazyMs = (STATS.lazyMs || 0) + ms; STATS.lazyWorst = Math.max(STATS.lazyWorst || 0, ms); STATS.lazyLast = FRAMES; lazyMsFrame += ms; };
 const baseOf = (p) => { let s = BASE.get(p.key); if (!s) BASE.set(p.key, (s = bake(p, 0))); return s; };
+// ---- the derived bakes (2026-11-23: no re-sculpt in battle) ----
+// A base sprite is split ONCE into its wood (everything that is not leaf) and its leaves (the leaf mask: leaf pixels
+// and the outline beside them), in the loading moment for every tree that sways (warmTrees), else when first needed.
+// A sway pose is then the wood as it stands plus the leaves shifted by whole pixels, row band by row band: a broadleaf's
+// crown leans most at its top (lean x height^1.3 from the crown's foot), a willow's strands most at their tips (the
+// lower they hang, the further they swing), so the trunk never moves. A see-through crown is the wood plus the leaves
+// with every other pixel cleared on a checker. Both are a few drawImage calls (~0.2-1 ms), no pixel reads.
+const splitOf = (s) => {
+  if (s.wood) return s;
+  const w = s.cv.width, h = s.cv.height, src = s.cv.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h);
+  const W0 = new ImageData(w, h), L0 = new ImageData(w, h), d = src.data;
+  for (let k = 0, q = 0; k < w * h; k++, q += 4) {
+    const T = s.leaf && s.leaf[k] ? L0.data : W0.data;
+    T[q] = d[q]; T[q + 1] = d[q + 1]; T[q + 2] = d[q + 2]; T[q + 3] = d[q + 3];
+  }
+  const mk = (img) => { const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").putImageData(img, 0, 0); return c; };
+  s.wood = mk(W0); s.leaves = mk(L0);
+  STATS.bytes += w * h * 8;
+  return s;
+};
+// the checker (one art pixel on, one off), made once
+let CHECK = null;
+const checker = () => {
+  if (CHECK) return CHECK;
+  const c = document.createElement("canvas"); c.width = 2; c.height = 2;
+  const x = c.getContext("2d"); x.fillStyle = "#000"; x.fillRect(0, 0, 1, 1); x.fillRect(1, 1, 1, 1);
+  return (CHECK = c);
+};
+// a new canvas the size of the base: the wood, then the leaves (shifted per row band by shift(row) whole pixels)
+const derive = (s, shift, see) => {
+  const w = s.cv.width, h = s.cv.height, c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const x = c.getContext("2d");
+  x.drawImage(s.wood, 0, 0);
+  let leaves = s.leaves;
+  if (see) {   // the leaves on a checker: drawn to a scratch, every other pixel punched out
+    const t = document.createElement("canvas"); t.width = w; t.height = h;
+    const tx = t.getContext("2d"); tx.drawImage(s.leaves, 0, 0);
+    tx.globalCompositeOperation = "destination-out"; tx.fillStyle = tx.createPattern(checker(), "repeat"); tx.fillRect(0, 0, w, h);
+    leaves = t;
+  }
+  if (!shift) { x.drawImage(leaves, 0, 0); return c; }
+  for (let j0 = 0; j0 < h;) {
+    const d0 = shift(j0);
+    let j1 = j0 + 1;
+    while (j1 < h && shift(j1) === d0) j1++;
+    x.drawImage(leaves, 0, j0, w, j1 - j0, d0, j0, w, j1 - j0);
+    j0 = j1;
+  }
+  return c;
+};
+// the lean of a pose as a row function: broadleaves lean from the crown's foot up (lean x u^1.3, u 0 at the foot of
+// the leaves, 1 at their top); a willow's strands swing from the arch down (0.8 x lean x u^1.4, u 0 at the arch)
+const leanRows = (p, s, lean) => {
+  const [, y0, , y1] = s.lb || [0, 0, 0, s.cv.height];
+  if (p.kind === "willow") { const arch = y0 + (y1 - y0) * 0.12; return (j) => (j <= arch ? 0 : Math.round(lean * 0.8 * Math.pow(Math.min(1, (j - arch) / Math.max(1, y1 - arch)), 1.4))); }
+  return (j) => (j >= y1 ? 0 : Math.round(lean * Math.pow(Math.min(1, (y1 - j) / Math.max(1, y1 - y0)), 1.3)));
+};
+// one derived bake a frame at most, ~2 ms of it at most, none in the frame right after the ground bake
+const BAKE_MS = 2;
+let lazyMsFrame = 0;
+const mayBake = () => budget > 0 && lazyMsFrame < BAKE_MS;
 const poseOf = (p, n) => {
   const key = p.key + "~" + n;
   let s = POSES.get(key);
   if (s !== undefined) return s;
-  if (budget <= 0) return null;
+  if (!mayBake()) return null;
+  const b = baseOf(p);
+  if (!b.leaf) { POSES.set(key, b); return b; }
   budget--; STATS.poses++;
-  POSES.set(key, (s = bake(p, LEANS[p.sw][n])));
+  const t0 = performance.now();
+  splitOf(b);
+  const sh = leanRows(p, b, LEANS[p.sw][n]);
+  s = { cv: derive(b, sh), ax: b.ax, ay: b.ay, base: b, shift: sh };
+  STATS.bytes += s.cv.width * s.cv.height * 4;
+  POSES.set(key, s);
+  lazy(t0);
   return s;
 };
-// the see-through crown: its leaf pixels on a checker (half of them) cleared; the wood and the rest kept
+// the see-through crown of a base sprite or a pose: the same leaves on a checker
 const ghostOf = (s) => {
   if (s.ghost !== undefined) return s.ghost;
-  if (!s.leaf || budget <= 0) return null;
+  const b = s.base || s;
+  if (!b.leaf || !mayBake()) return null;
   budget--; STATS.ghosts++;
-  const w = s.cv.width, h = s.cv.height, c = document.createElement("canvas");
-  c.width = w; c.height = h;
-  const x = c.getContext("2d"); x.drawImage(s.cv, 0, 0);
-  const img = x.getImageData(0, 0, w, h), dd = img.data;
-  for (let j = 0; j < h; j++) for (let i = (j & 1); i < w; i += 2) if (s.leaf[j * w + i]) dd[(j * w + i) * 4 + 3] = 0;
-  x.putImageData(img, 0, 0);
-  STATS.bytes += w * h * 4;
-  return (s.ghost = c);
+  const t0 = performance.now();
+  splitOf(b);
+  s.ghost = derive(b, s.shift || null, true);
+  STATS.bytes += b.cv.width * b.cv.height * 4;
+  lazy(t0);
+  return s.ghost;
 };
 
 // ---- every owned piece on the board (for the per-frame tests, the ground marks and the life) ----
@@ -181,7 +252,8 @@ function moonShadows(ctx) {
 const crownBox = (p, s, lift) => [p.x + (s.lb[0] - s.ax) / 2, p.foot - lift + (s.lb[1] - s.ay) / 2, p.x + (s.lb[2] - s.ax) / 2, p.foot - lift + (s.lb[3] - s.ay) / 2];
 function treeFrame0(g) {
   // one lazy bake (a sway pose or a see-through crown, ~4-8 ms) every third frame at most, so no frame jumps much
-  budget = (FRAMES++ % 3 === 0) ? BAKES_A_FRAME : 0;
+  budget = FRAMES++ === 0 || AFTER_GROUND ? 0 : BAKES_A_FRAME;
+  AFTER_GROUND = false; lazyMsFrame = 0;
   const w = g.weather;
   MOON = w && w.paint === "bloodmoon" && w.k > 0.01 ? sunCurves(Math.min(1, w.k)) : null;
   const t0 = STATS.firstFrameMs ? 0 : performance.now();
@@ -250,9 +322,10 @@ export function treeShadowItem(d) {
 // ---- BAKE: the stand rings under the lone trees (an evergreen's is a needle floor), into the ground ----
 // Every base sprite is baked HERE, in the level's loading moment (the ground bake), so no tree is missing from the
 // first visible frame; only sway poses and see-through crowns stay lazy. warmTrees() does the same for any caller.
-export function warmTrees() { for (const p of allPlans()) baseOf(p); }
+export function warmTrees() { for (const p of allPlans()) { const b = baseOf(p); if (p.sw && b.leaf) splitOf(b); } }
 export function treeGroundMarks(ctx) {
   warmTrees();
+  AFTER_GROUND = true;
   ctx.save(); ctx.scale(0.5, 0.5);
   // at noon (no cast shadows) every crown lays a small pool of shade round its foot, stepped: a solid core and a
   // checker rim (today's trees painted one into their own sprite; the overhaul's sprites carry none)
@@ -323,3 +396,11 @@ export const drawTreeDecor = timed(drawTreeDecor0);
 export const treeDrawables = timed(treeDrawables0);
 export const treeOver = timed(treeOver0);
 export const treeOverCastle = timed(treeOverCastle0);
+// labs only: one pose of a tree two ways, the old re-sculpt and the derived one (for the before / after check)
+export function labPose(kind, k, seed, n, o = {}) {
+  const p = { kind, k, dk: 0, seed, o, sw: kind === "willow" ? "willow" : "broad", key: "lab|" + kind + "|" + seed };
+  const b = bake(p, 0), lean = LEANS[p.sw][n];
+  const t0 = performance.now(); const old = bake(p, lean).cv; const oldMs = performance.now() - t0;
+  const t1 = performance.now(); splitOf(b); const neu = derive(b, leanRows(p, b, lean)); const newMs = performance.now() - t1;
+  return { old, neu, oldMs, newMs };
+}

@@ -105,3 +105,7 @@ commit. Push only when the Greenwood is whole and checked (the owner asked for t
   import-time effect); (2) frame time +3 to +5 ms on Bramblewick / Wolfrun / Oakmere (being profiled per slot).
   The new water on dry boards (data in B1's report: Barrowfields river, Kingstones pond + river, Cinderholt pond)
   is NOT added yet: a separate step after the push (it moves decor scatter and sims; check-map-water must pass).
+- 2026-11-23 22:10: identity was a false alarm (run order; other chapters identical), frame time explained (lazy
+  tree bakes in the first seconds: now cut from the base sprite, under 1 ms each). The owner: "push to main once
+  you've fixed that glitch, the additional water can be added in the next push". PUSHED. Next: the new water on
+  Barrowfields / Kingstones / Cinderholt as its own push; then Iron Marches concepts.
