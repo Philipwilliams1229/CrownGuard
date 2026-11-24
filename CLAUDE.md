@@ -1296,6 +1296,14 @@ Bring these up with the owner; don't act on them unasked.
   then a flat striped triangle): variations of today work, new constructions did not. Shown: A today cleaned (no smoke,
   warm far end), B streaked flame, C A + a fire ring at the staff and a broken arc on the far edge. Private Artifact
   "Crownguard Effects Concepts, Round 12: Dragonbreath" (slug 8de5408a-e422-4184-ad27-7f6adbed86bd). Awaiting the pick.
+  The owner turned all three down ("None of those, have fable draw us one"). **Round 13** (brief
+  `art/briefs/fx-round13.md`, row `breath13` in `concept/fx-r13-breath.js`, `oneCol: true` = TODAY + one option,
+  `build-fx-concepts.mjs round13`): Fable 5.2 designed and drew it as an artist (`subagent_type: "artist"`, `model:
+  "fable"`, at the owner's request): a blade of flame from a spell ring at the staff down to the road short of the foes,
+  a flare where it lands, and three surges of knee-high flame patches (burning ground B's tongues on a broken fireboom
+  line) rolling out to the wedge's far arc, an ember line on the arc, no smoke. Weak: aimed up-screen the patches stand
+  in columns; not baked (building it needs the blade baked per aim bucket). Private Artifact "Crownguard Effects
+  Concepts, Round 13: Dragonbreath by Fable" (slug 30614481-f5ca-4358-8ff5-c1d33d68275f). Awaiting the owner's look.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

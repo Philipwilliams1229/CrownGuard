@@ -23,7 +23,8 @@ import { ROWS9 } from "/concept/fx-r9.js";
 import { ROWS10 } from "/concept/fx-r10.js";
 import { ROWS11 } from "/concept/fx-r11.js";
 import { ROWS12 } from "/concept/fx-r12.js";
-const ROWS = [...ROWS12, ...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+import { ROWS13 } from "/concept/fx-r13.js";
+const ROWS = [...ROWS13, ...ROWS12, ...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
 
 const Z = 3, out = document.getElementById("status");
 const only = new URLSearchParams(location.search).get("only")?.split(",");
@@ -115,7 +116,7 @@ const post = (name, cv) => fetch("/__shot?name=" + name, { method: "POST", body:
 const errs = [];
 for (const row of ROWS) {
   if (only && !only.includes(row.id)) continue;
-  const cols = row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
+  const cols = row.oneCol ? [["today", row.today, false], ["A", row.A, false], ["Adark", row.A, true]] : row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
     : [["today", row.today || TODAY[(row.todayKeys || [row.id])[0]], false], ...(row.twoToday ? [["today2", TODAY[(row.todayKeys || [row.id, row.id + "2"])[1]], false]] : []), ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ...(row.D ? [["D", row.D, false]] : []), ["Bdark", row.B, true], ...(row.darkAll ? [["Adark", row.A, true], ["Cdark", row.C, true]] : [])];
   for (const [key, fn, dark] of cols) {
     const strip = mk(row.cw * Z * row.N, row.ch * Z), sx = strip.getContext("2d"); sx.imageSmoothingEnabled = false;
