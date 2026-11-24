@@ -1333,6 +1333,12 @@ Bring these up with the owner; don't act on them unasked.
   1 the head evenly ~80% (`HEAD_A`); 2 centre ~95%, rim ~60%, the foot partway (`CENTRE_A`, `RIM_A`, `FOOT_THIN`).
   Weak: see-through deep red over the tan road turns salmon. Private Artifact "Crownguard Effects Concepts, Round 17:
   Dragonbreath, a see-through flare". Awaiting the pick.
+  The owner picked **Round 17's version 1** ("lets do 1"): IN THE GAME (flames.js `drawBreath`, ported from
+  `concept/fx-r17-a.js`, the old billow / smoke code removed; not pushed until the owner has looked). The whole jet is ONE
+  baked sprite per (48 aim steps, 16 frames at 110 ms of game time, 6 `on` buckets, reach, mouth), at most
+  `BREATH_BAKES` 2 bakes a frame (a missing frame borrows the nearest), cache `BREATH_BUDGET` 32 MB, `breathStats()`.
+  Drawn over the fray (no depth sort; the 80% head lets foes show through); a faint dither marks the wedge on the road,
+  `GLOW_A` 0.5. Bake ~2.9 ms a sprite; 0.04 ms a hall a frame once baked. Weak: steep up-screen aims give a short jet.
   **Next, owner's ask (2026-11-24):** once Dragonbreath is settled, look at the OTHER fire effects with the same look and
   the same concept loop ("this actually looks so much better than what we have everywhere else").
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
