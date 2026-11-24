@@ -1304,6 +1304,15 @@ Bring these up with the owner; don't act on them unasked.
   line) rolling out to the wedge's far arc, an ember line on the arc, no smoke. Weak: aimed up-screen the patches stand
   in columns; not baked (building it needs the blade baked per aim bucket). Private Artifact "Crownguard Effects
   Concepts, Round 13: Dragonbreath by Fable" (slug 30614481-f5ca-4358-8ff5-c1d33d68275f). Awaiting the owner's look.
+  Round 13 was turned down ("looks like a fountain"), then the owner: "the fable one is close but I don't like the
+  ground splatter", and sent a REFERENCE (`art/briefs/ref/dragonbreath-ref.jpg`: a side-on pixel flamethrower jet, thin
+  white needle widening into a dense mottled orange mass with a pale core, ragged licks, a big rounded head; no smoke,
+  nothing on the ground). **Round 14** (brief `art/briefs/fx-round14.md`; shared cell `concept/fx-r14-kit.js`, one file
+  an option `concept/fx-r14-{a,b,c}.js` exporting `paint(c, e)` + `note`, gathered by `fx-r14-breath.js`, `threeABC`;
+  `build-fx-concepts.mjs round14`): A (Opus) the reference faithful, B (Opus) pumped surges and the head landing on the
+  road, C (Fable) its Round 13 jet with no ground fires. Owner asked for two Opus and one Fable. All three are steep (the
+  staff stands ~130 art px above the road, so a straight jet to the foes falls 50-75 degrees on screen). Private Artifact
+  "Crownguard Effects Concepts, Round 14: Dragonbreath after your reference" (slug 1f40569c-0069-4c7a-99dc-a43e91ef30f3).
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
