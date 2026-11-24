@@ -1321,6 +1321,12 @@ Bring these up with the owner; don't act on them unasked.
   pump (a lopsided bright bulge down the stem, the head squashes wide on arrival and springs back). Weak in all: at the
   sweep's ends the head lands on the grass beside the road (the kit's aim). Private Artifact "Crownguard Effects
   Concepts, Round 15: Dragonbreath, variations on B". Awaiting the pick.
+  The owner picked Round 15's **variation 1** ("looking good") and asked for the flare's bottom, where it meets the road,
+  "just a tad wider", two versions. **Round 16** (row `breath16`, `concept/fx-r16-{a,b}.js`, copies of fx-r15-a.js with
+  dials `FOOT` / `FLAT` / `GLOW` at the top, `twoAB`, `build-fx-concepts.mjs round16`): 1 the foot 1.2x, still round;
+  2 the foot 1.4x, a little flattened along the road, the glow 1.2x (reads slightly bell-shaped on frames 2-6). Private
+  Artifact "Crownguard Effects Concepts, Round 16: Dragonbreath, a wider foot". Awaiting the pick, then build it into
+  flames.js `drawBreath` (bake the jet per aim step and frame) and show it before pushing.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
