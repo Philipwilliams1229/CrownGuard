@@ -109,3 +109,6 @@ commit. Push only when the Greenwood is whole and checked (the owner asked for t
   tree bakes in the first seconds: now cut from the base sprite, under 1 ms each). The owner: "push to main once
   you've fixed that glitch, the additional water can be added in the next push". PUSHED. Next: the new water on
   Barrowfields / Kingstones / Cinderholt as its own push; then Iron Marches concepts.
+- 2026-11-23 22:40: the new water is in on Barrowfields, Kingstones, Cinderholt (`minor: true` entries; the
+  map check skips minor water) and pushed. THE GREENWOOD ROLL-OUT IS DONE. Next: the Iron Marches, concepts first
+  (the survey in `art/briefs/overhaul-iron-questions.md` was put to the owner; wait for answers).

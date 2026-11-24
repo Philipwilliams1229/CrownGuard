@@ -202,13 +202,18 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           }),
           // field walls across the down, broken where the sheep go through
           ...wall(4.4, 6.0, 3.05), ...wall(7.0, 8.6, 3.0),
-          ...wall(10.9, 13.3, 3.45), ...wall(10.9, 12.6, 7.25),
+          ...wall(10.9, 13.3, 3.45), ...wall(10.9, 11.8, 7.25),
           // the long barrow of whoever raised the stones, and cairns by it
           at(12.0, 5.2, "fenbarrow", 1.05), at(11.0, 5.0, "cairn", 0.9), at(12.9, 8.6, "cairn", 0.85),
           // a hawthorn or two the wind has bent
           at(11.4, 9.0, "tree", 0.9), at(0.9, 6.9, "tree", 0.85),
         ],
         decorRecipe: { count: 52, types: ["irheather", "menhir", "irheather", "tree", "cairn", "thistle", "pine"] },
+        // the owner's new water (2026-11-23): a spring-fed mere east of the ring and its beck running south off the
+        // board (the field wall at row 7.25 ends short of it)
+        ponds: [{ x: 624, y: 336, w: 100, h: 64, minor: true }],
+        rivers: [{ pts: [[12.38, 6.67], [12.4, 7.3], [12.1, 7.96], [12.04, 8.54], [12.33, 9.08], [12.42, 9.63], [12.2, 10.3]], w: 28, minor: true }],
+        layout: 1,
         look: "overhaul", season: "summer",
       },
     ),

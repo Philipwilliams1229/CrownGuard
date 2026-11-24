@@ -1180,8 +1180,11 @@ apply to the whole first area"; brief `art/briefs/overhaul-greenwood-rollout.md`
   Rime, Hollow boards pixel-identical. Steady state +0.4 to +1.8 ms a frame. **`ovh-identity.html` hashes depend on
   the ORDER of realms and suns in the run** (some cache carries state between cases): always compare runs made with
   the same list in the same order.
-- NOT done: the approved new water on dry boards (Barrowfields stream, Kingstones mere + stream, Cinderholt fen:
-  data in the brief / B1's notes; it moves the decor scatter and sims, and check-map-water must still pass); other
+- **New water on three dry boards** (owner: "you can add more lakes and streams yes"; pushed 2026-11-23): a stream
+  on Barrowfields, a spring-fed mere + stream on Kingstones (its field wall trimmed), a reed fen on Cinderholt, each
+  entry `minor: true` (too small for the campaign map: `check-map-water.mjs` leaves `minor` water out) and the realm
+  `layout: 1`. No bridges; sims: Barrowfields and Kingstones exact, Cinderholt 419 / 338 -> 446 / 371.
+- NOT done: other
   seasons; anything seen on a phone beyond Millrace. Next area: the Iron Marches, CONCEPTS FIRST
   (`art/briefs/overhaul-iron-questions.md`).
 

@@ -338,7 +338,13 @@ Object.assign(REALMS, {
     "Burial mounds under long grass. The goblins have been digging here, and something is answering.",
     20260716,
     [[0.9, 1], [6, 1], [6, 4], [2, 4], [2, 7], [8, 7], [8, 4], [11, 4], [11, 9], [13.7, 9]],
-    { look: "overhaul", season: "summer" },
+    {
+      // the owner's new water (2026-11-23): a stream out of the wood in the south-west corner, off the board's foot
+      rivers: [{ pts: [[0, 8.1], [0.46, 8.88], [1.58, 9.04], [2.75, 8.96], [3.79, 9.21], [4.75, 9.58], [5.75, 9.75], [6.9, 10.5]], w: 28, minor: true }],
+      look: "overhaul", season: "summer",
+      // `layout` goes up whenever the buildable ground changes (data/checkpoint.js drops a kept battle)
+      layout: 1,
+    },
   ),
   bramblewick: greenwoodVariant(
     "bramblewick", "Bramblewick", "THE MILLPOND",
@@ -388,7 +394,10 @@ Object.assign(REALMS, {
       GRASS: "#7c8a52", GRASS_DK: "#5e6a3e", GRASS_LT: "#96a262", TUFT: "#525c38",
       scatter: { patches: 58, tufts: 60, flowers: 10, flowerCols: ["#e0a060", "#c8b898"] },
       decorRecipe: { count: 20, types: ["deadtree", "deadtree", "rock", "deadtree", "pine"] },
+      // the owner's new water (2026-11-23): a small reed fen in the last loop
+      ponds: [{ x: 592, y: 456, w: 116, h: 60, minor: true }],
       look: "overhaul", season: "summer",
+      layout: 1,
     },
   ),
   warrens: greenwoodVariant(

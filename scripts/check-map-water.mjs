@@ -43,7 +43,9 @@ for (const lv of LEVELS) {
   const r = REALMS[lv.realm], [x, y] = lv.pos;
   const dR = Math.min(...RIVERS.map((rv) => Math.min(...rv.pts.map(([px, py]) => Math.hypot(px - x, py - y)))));
   const dM = Math.min(...meres.map((m) => Math.hypot(x - m.x, y - m.y) - m.rx));
-  const hasR = (r.rivers || []).length > 0, hasP = (r.ponds || []).length > 0;
+  // `minor: true` on a river or pond entry: a beck or small pool too small for the campaign map to show
+  // (owner, 2026-11-22: "you can add more lakes and streams" to boards the map shows dry). It is left out here.
+  const hasR = (r.rivers || []).some((x) => !x.minor), hasP = (r.ponds || []).some((x) => !x.minor);
   const dC = Math.min(...shore(lv.chapter.region).map(([px, py]) => Math.hypot(px - x, py - y)));
   // a dry level (no rivers, no ponds) must also stand clear of every lake
   const ok = (hasR ? dR < 2 : dR > 14) && (!hasP || hasR || dM < 22) && (hasR || hasP || dM > 10) && (!r.coast || dC < 24);
