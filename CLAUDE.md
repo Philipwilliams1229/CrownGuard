@@ -1341,6 +1341,15 @@ Bring these up with the owner; don't act on them unasked.
   `GLOW_A` 0.5. Bake ~2.9 ms a sprite; 0.04 ms a hall a frame once baked. Weak: steep up-screen aims give a short jet.
   **Next, owner's ask (2026-11-24):** once Dragonbreath is settled, look at the OTHER fire effects with the same look and
   the same concept loop ("this actually looks so much better than what we have everywhere else").
+  **Round 18** (2026-11-24, the owner's first two of the other fire effects, "Opus, give me three variations on each";
+  brief `art/briefs/fx-round18.md`, `build-fx-concepts.mjs round18`): row `firering18` (`concept/fx-r18-ring.js`, the
+  Brazier Wheel line's `firenova` ring on the real Bladewheel, flames redone in Dragonbreath's look, ring and timing
+  kept; A a mottled wall, B a low fast front see-through behind, C A + a white-hot edge and sparks; the centre burst and
+  heat haze dropped; the hall's own spike flames now look old) and row `burn18` (`concept/fx-r18-burn.js`, statusBurn's
+  outline and glow kept line for line, only the flames new, smoke puffs dropped; A small mottled tongues, B tall licks
+  streaming back, C A + sparks and a white-hot root). Found: statusBurn bakes 12 steps but plays 8 (`frameOf` mod `FX_N`
+  then `BN`), so the outline's roll jumps each loop; the concept uses 16. Private Artifact "Crownguard Effects Concepts,
+  Round 18: flame rings and foes on fire". Awaiting the picks.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
