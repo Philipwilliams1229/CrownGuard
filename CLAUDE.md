@@ -1313,6 +1313,14 @@ Bring these up with the owner; don't act on them unasked.
   road, C (Fable) its Round 13 jet with no ground fires. Owner asked for two Opus and one Fable. All three are steep (the
   staff stands ~130 art px above the road, so a straight jet to the foes falls 50-75 degrees on screen). Private Artifact
   "Crownguard Effects Concepts, Round 14: Dragonbreath after your reference" (slug 1f40569c-0069-4c7a-99dc-a43e91ef30f3).
+  The owner picked Round 14's **B** ("much closer to my vision") and asked for a wider stem before the flare, the lit trail
+  on the road from the hall removed ("didn't land"), and three more Opus variations. **Round 15** (brief
+  `art/briefs/fx-round15.md`, row `breath15`, files `concept/fx-r15-{a,b,c}.js` (each began as a copy of fx-r14-b.js),
+  `build-fx-concepts.mjs round15`; the first strip is Round 14's B): 1 B fixed (straight taper to half the head), 2 a
+  heavier torrent (wide from a fifth of the way, smaller head, only the head's foot in front of goblins), 3 a stronger
+  pump (a lopsided bright bulge down the stem, the head squashes wide on arrival and springs back). Weak in all: at the
+  sweep's ends the head lands on the grass beside the road (the kit's aim). Private Artifact "Crownguard Effects
+  Concepts, Round 15: Dragonbreath, variations on B". Awaiting the pick.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
