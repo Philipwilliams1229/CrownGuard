@@ -993,6 +993,113 @@ const gbFrame = (fx, life) => {
   return f;
 };
 
+// ---- the Brazier Wheel's ring of fire through the air (Round 19 A, owner 2026-11-24: "A looks great!") ----------------
+// concept/fx-r19-ring.js optA, baked. A hoop of flame flying outward at a goblin's chest (HOOP.hh art px up): Dragonbreath's
+// mottled mass, tongues leaning back toward the hall, a short ragged fringe below, a see-through sheet of flame trailing
+// behind the front. First seen at HOOP0 of the reach (clear of the hall and its operator), the rim on today's clock. Nothing
+// lies on the ground but a faint warm light under it (drawn live, a dithered disc). Baked per (radius in 2-art-px steps, fade
+// step), the flicker read from the radius (so every Brazier range shares the same bakes), lazily, at most HOOP_PER_FRAME bakes a frame, the cache held to HOOP_BUDGET bytes (oldest-asked dropped first);
+// each bake is two canvases: the far half (ground layer: the hall and the foes stand in front of it) and the near half (air).
+export const HOOP0 = 0.5;                                              // ringflash.js reads it: the front starts here
+const HOOP = { hh: 20, H0: 13, dn: 4, lean: 0.7, W: 15, ta: [0.75, 0.6, 0.45], see: 0.8, rise: 3, slide: 1.4 };
+const HOOP_COL = [[255, 251, 224], [255, 226, 122], [255, 176, 48], [242, 106, 28], [192, 48, 32], [138, 32, 40]];   // Dragonbreath's tones + its ink
+const HOOP_SQ = 0.55, HOOP_BUDGET = 12e6, HOOP_PER_FRAME = 1;
+const HOOPS = new Map();
+let hoopBytes = 0, hoopFid = null, hoopLeft = HOOP_PER_FRAME;
+const hH = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+const hPer = (a, n) => ((a % n) + n) % n;
+const hSm = (u) => u * u * (3 - 2 * u);
+const hRing = (n, pos, seed) => { const k = Math.floor(pos), f = pos - k, a = hH(hPer(k, n), seed), b = hH(hPer(k + 1, n), seed); return a + (b - a) * hSm(f); };
+export const hoopBake = (r, i, fa) => {
+  const o = HOOP, SQ = HOOP_SQ, hk = 0.6 + 0.4 * fa;
+  const L1 = Math.ceil(1.4 * o.H0 * hk) + 3, x0 = -r - 3, Wd = 2 * r + 7;
+  const mk = (y0, y1) => { const Hh = y1 - y0 + 1, n = Wd * Hh; return { y0, Hh, hc: new Int8Array(n).fill(-1), ha: new Float32Array(n), hz: new Float32Array(n).fill(-1e9), tc: new Int8Array(n).fill(-1), ta: new Float32Array(n), tz: new Float32Array(n).fill(-1e9) }; };
+  const B = [mk(Math.floor(-r * SQ - o.hh - L1), -o.hh + o.dn + 6), mk(-o.hh - L1, Math.ceil(r * SQ - o.hh + o.dn + 6))];   // [far, near]
+  const set = (half, x, y, ci, al, dep, tr) => {
+    const b = B[half], X = x - x0, Y = y - b.y0;
+    if (X < 0 || X >= Wd || Y < 0 || Y >= b.Hh || al <= 0) return;
+    const k = Y * Wd + X, z = tr ? b.tz : b.hz;
+    if (dep <= z[k]) return;
+    z[k] = dep; (tr ? b.tc : b.hc)[k] = ci; (tr ? b.ta : b.ha)[k] = Math.round(al * 20) / 20;
+  };
+  // the sheet trailing the front (at r - 1), sagging a little behind it, breaking up toward the inside
+  { const rt = r - 1, W = o.W, nm = Math.max(12, Math.round(TAU * rt / 4)), myy = Math.ceil((rt + 1) * SQ);
+    for (let y = -myy; y <= myy; y++) {
+      const v = (y + 0.5) / SQ, xo = Math.sqrt(Math.max(0, (rt + 0.5) ** 2 - v * v));
+      for (let x = Math.floor(-xo) - 1; x <= Math.ceil(xo); x++) {
+        const dg = Math.hypot(x + 0.5, v), d = rt - dg;
+        if (d < 0 || d > W) continue;
+        const k = 1 - d / W, an = Math.atan2(v, x + 0.5);
+        const cu = hPer(Math.floor((an + Math.PI) / TAU * nm), nm), mm = hH(cu, Math.floor((d + i * 2.2) / 3) + 60) * 0.6 + hH(cu + 3, Math.floor((d + i * 1.4) / 5) + 70) * 0.4;
+        const sy = y - o.hh + Math.round(d * 0.25);
+        if (bay(x + 512, sy + 512) > k * 1.6 + (mm - 0.5) * 0.5) continue;
+        const heat = k * 0.5 + (mm - 0.5) * 0.75 + 0.15;
+        const ci = heat > 0.75 ? 1 : heat > 0.5 ? 2 : heat > 0.28 ? 3 : heat > 0.1 ? 4 : 5;
+        set(an >= 0 ? 1 : 0, x, sy, ci, k > 0.66 ? o.ta[0] : k > 0.33 ? o.ta[1] : o.ta[2], y + 0.5, true);
+      }
+    }
+  }
+  // the hoop's leading edge: tongues above its line leaning back inward, a ragged fringe below, mottled, a tinted dark-red edge
+  { const n1 = Math.max(6, Math.round(TAU * r / 10)), n2 = Math.max(10, Math.round(TAU * r / 4.5)), nm = Math.max(12, Math.round(TAU * r / 3));
+    const hAt = (th) => { const a1 = hRing(n1, th / TAU * n1 + i * 0.15, 11), a2 = hRing(n2, th / TAU * n2 + i * o.slide, 23 + (i >> 1) * 0.37); return o.H0 * hk * (0.45 + 0.3 * a1 + 0.62 * a2 * a2 * a2 * a2); };
+    const dAt = (th) => o.dn * (0.4 + 0.6 * hRing(n2, th / TAU * n2 - i * 0.4, 51));
+    const dth = 0.7 / r, dl = 1.3 / r;
+    for (let th = 0; th < TAU; th += dth) {
+      const cs = Math.cos(th), sn2 = Math.sin(th), hg = hAt(th), hl = Math.min(hAt(th - dl), hAt(th + dl)), dn = dAt(th), half = sn2 >= 0 ? 1 : 0;
+      const cu = hPer(Math.floor(th / TAU * nm), nm), cu2 = hPer(Math.floor(th / TAU * nm / 2 + 0.5), Math.max(1, nm >> 1));
+      for (let h = -Math.ceil(dn); h <= Math.ceil(hg); h++) {
+        const up = h >= 0, t = up ? Math.min(1, h / Math.max(1, hg)) : Math.min(1, -h / Math.max(1, dn)), L = up ? Math.min(o.lean * h * t, r * 0.25) : -h * 0.3;
+        const rr = r - L, x = Math.round(rr * cs - 0.5), y = Math.round(rr * SQ * sn2 - o.hh - h - 0.5), dep = rr * SQ * sn2;
+        const m1 = hH(cu, Math.floor((h + 8 + i * o.rise) / 4) + 40), m2 = hH(cu2 + 7, Math.floor((h + 8 + i * o.rise * 0.7) / 7) + 90), m = m1 * 0.6 + m2 * 0.4;
+        const heat = (1 - t) * (up ? 0.6 : 0.5) + (m - 0.5) * 0.62 + 0.2;
+        let ci = heat > 0.9 ? 0 : heat > 0.72 ? 1 : heat > 0.5 ? 2 : heat > 0.3 ? 3 : 4;
+        if (h >= 0 && h <= 1 && m > 0.45) ci = m > 0.66 ? 0 : 1;                                     // the broken pale core along the line
+        const rim = (up && (h >= hg - 1 || h > hl + 0.5)) || (!up && h <= -dn + 1);
+        if (rim) ci = (up && h >= hg - 0.5) || (!up && h <= -dn + 0.5) || bay(x, y) < 0.6 ? 5 : 4;
+        else if (up && h >= hg - 2 && bay(x, y) < 0.5) ci = 4;
+        const eq = up ? Math.min(1, Math.floor(clamp01((t - 0.4) / 0.4) * 3 + bay(x, y)) / 3) : 0;
+        let al = 1 - (1 - o.see) * eq;
+        if (rim) al = Math.max(al, 0.9);
+        set(half, x, y, ci, al, dep, false);
+      }
+    }
+  }
+  // each half: the nearer layer over the farther (far half: the trailing sheet is nearer; near half: the hoop is)
+  const out = B.map((b, half) => {
+    const cv = document.createElement("canvas"); cv.width = Wd; cv.height = b.Hh;
+    const c = cv.getContext("2d"), img = c.createImageData(Wd, b.Hh), d = img.data;
+    const [uc, ua, oc, oa] = half ? [b.tc, b.ta, b.hc, b.ha] : [b.hc, b.ha, b.tc, b.ta];
+    for (let k = 0; k < Wd * b.Hh; k++) {
+      const a1 = uc[k] >= 0 ? ua[k] : 0, a2 = oc[k] >= 0 ? oa[k] : 0;
+      if (a1 + a2 === 0) continue;
+      const A = a2 + a1 * (1 - a2), q = k * 4;
+      for (let j = 0; j < 3; j++) d[q + j] = ((a2 ? HOOP_COL[oc[k]][j] * a2 : 0) + (a1 ? HOOP_COL[uc[k]][j] * a1 * (1 - a2) : 0)) / A;
+      d[q + 3] = Math.round(A * 255);
+    }
+    c.putImageData(img, 0, 0);
+    return { cv, ax: -x0, ay: -b.y0 };
+  });
+  return { back: out[0], front: out[1], bytes: Wd * (B[0].Hh + B[1].Hh) * 4 };
+};
+// the baked hoop for this radius / frame / fade, or the nearest one already baked when this frame's bakes are spent
+const hoopAt = (r, fa, fid) => {
+  const key = r * 8 + Math.round(fa * 4) - 1;
+  let s = HOOPS.get(key);
+  if (s) { HOOPS.delete(key); HOOPS.set(key, s); return s; }
+  if (fid !== hoopFid) { hoopFid = fid; hoopLeft = HOOP_PER_FRAME; }
+  if (hoopLeft <= 0) {
+    let best = null, bd = 1e9;
+    for (const [k, v] of HOOPS) { const kr = Math.floor(k / 8), d = Math.abs(kr - r) + (Math.round(fa * 4) - 1 === (k & 7) ? 0 : 50); if (d < bd) { bd = d; best = v; } }
+    return bd < 50 ? best : null;
+  }
+  hoopLeft--;
+  s = hoopBake(r, r >> 1, fa);
+  HOOPS.set(key, s); hoopBytes += s.bytes;
+  for (const [k, v] of HOOPS) { if (hoopBytes <= HOOP_BUDGET) break; HOOPS.delete(k); hoopBytes -= v.bytes; }
+  return s;
+};
+export const hoopStats = () => ({ n: HOOPS.size, mb: +(hoopBytes / 1e6).toFixed(2) });
+
 export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
   const GR = layer !== "a", AIR = layer !== "g";
   switch (fx.type) {
@@ -1097,70 +1204,27 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       return true;
     }
     case "firenova": {
-      // Round 4, B (owner's pick), on the ground rings' angled circle: a
-      // rolling wall of flame on a line of coals, the turf left scorched
-      // behind it in a ring, embers lifting, heat haze over the front.
-      const life = 450, p = lifeP(fx, life), age = p * life, R = fx.r || 60, sd = seedOf(fx), SQ = 0.55;
-      const r = R * easeOut(p * 1.15), A = stepA(a), hall = hallOf(g, fx);
+      // Round 19 A (owner's pick, 2026-11-24): a ring of fire flying out through the air at a goblin's chest, first seen at
+      // HOOP0 of the reach (clear of the hall and its operator), the rim reached on today's clock (rings.js's old ease). Its far
+      // half is ground layer (the hall and the foes inside the ring stand in front of it), its near half air layer. On the ground
+      // only a faint warm light under it, so its height reads. Baked: hoopBake / hoopAt above.
+      const life = 450, p = lifeP(fx, life), R = fx.r || 60, A = stepA(a);
+      if (A <= 0) return true;
+      const rw = R * (HOOP0 + (1 - HOOP0) * easeOut(p * 1.15)), rA = 2 * Math.round((rw * PX) / 2);
       ctx.save();
-      ctx.globalAlpha *= A;
-      // the line of coals under the flames: dark embers with hot hearts
-      const coals = () => {
-        arcPx(ctx, fx.x, fx.y, r, r * SQ, 1.5, rgba(FIRE[4], 0.9), true, false);
-        dashArc(ctx, fx.x, fx.y, r + 0.5, (r + 0.5) * SQ, 1, 2.6, FIRE[1], true, false);
-        dashArc(ctx, fx.x, fx.y, r, r * SQ, 1, 3.7, FIRE[3], true, false);
-      };
-      // the flames: those behind the hall are ground layer (it hides them), the rest rise over it
-      const flames = (back) => {
-        const n = Math.max(6, Math.min(36, Math.round((TAU * r) / 11)));
-        const s = a > 0.6 && p > 0.1 ? 1 : 0, fr = Math.floor(age / 65), a0 = hash(sd, 99) * TAU;
-        for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
-          const an = a0 + (i / n) * TAU, sy = Math.sin(an);
-          if ((sy < 0) !== (pass === 0)) continue;
-          const fxx = fx.x + Math.cos(an) * r, fyy = fx.y + sy * r * SQ + 1;
-          if (behindHall(hall, fx, fxx, fyy) !== back) continue;
-          put(ctx, flameS((i + sd) % 3, (fr + i) % 4, s && i % 4 !== 2 ? 1 : 0), fxx, fyy, Math.cos(an) < 0);
-        }
-      };
       if (GR) {
-        // the scorched ring, thick at the front and thinning inward, in dithered soot
-        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 7), dither(ctx, FIRE[5], 0.66), SQ);
-        disc(ctx, fx.x, fx.y, Math.max(0, r - 7), Math.max(0, r - 16), dither(ctx, FIRE[5], 0.4), SQ);
-        disc(ctx, fx.x, fx.y, Math.max(0, r - 3), Math.max(0, r - 6), dither(ctx, FIRE[4], 0.3), SQ);
-        const N = Math.max(3, Math.min(10, Math.round(R / 10)));
-        for (let i = 0; i < N; i++) {
-          const an = hash(sd, i) * TAU, d = R * (0.3 + 0.65 * Math.sqrt(hash(sd, i + 50)));
-          if (d > r - 10) continue;
-          put(ctx, charS((i + sd) % 6), fx.x + Math.cos(an) * d, fx.y + Math.sin(an) * d * SQ);
-        }
-        coals();
-        flames(true);
+        // the light on the turf: a band just inside the hoop's line, a fainter rim either side (art px: -3..12 inside, 0.5 from -1 to 7)
+        const k = 1 / PX;
+        ctx.globalAlpha *= 0.32;
+        disc(ctx, fx.x, fx.y, rw + 3 * k, Math.max(0, rw - 12 * k), dither(ctx, "#ffb030", 0.25 * A), HOOP_SQ);
+        disc(ctx, fx.x, fx.y, rw + 1 * k, Math.max(0, rw - 7 * k), dither(ctx, "#ffb030", 0.5 * A), HOOP_SQ);
+        ctx.restore(); ctx.save();
       }
-      if (AIR) {
-        const a0 = hash(sd, 99) * TAU;
-        // the front of the ring over the hall's base, inside its footprint only
-        if (hall) { ctx.save(); clipFront(ctx, fx); coals(); ctx.restore(); }
-        flames(false);
-        if (p < 0.3) put(ctx, burstS("fire", Math.min(3, Math.floor(p / 0.075))), fx.x, fx.y - 8);
-        // embers flying up off the ring, heat haze wavering above it
-        const e1 = [], e2 = [], hz = [];
-        for (let i = 0; i < 18; i++) {
-          const born = hash(sd, i + 300) * 0.6;
-          if (p < born) continue;
-          const an = hash(sd, i + 320) * TAU, d = R * easeOut(born * 1.15), t = (p - born) * life;
-          const x = fx.x + Math.cos(an) * d + Math.sin(t * 0.02 + i) * 2, y = fx.y + Math.sin(an) * d * SQ - 4 - t * 0.05;
-          (i % 3 ? e1 : e2).push(x, y, i % 4 ? 0.5 : 1);
-        }
-        for (let i = 0; i < 12; i++) {
-          const an = (i / 12) * TAU + a0 + 0.2;
-          hz.push(fx.x + Math.cos(an) * r + Math.sin(age * 0.03 + i * 2) * 1.5, fx.y + Math.sin(an) * r * SQ - 14 - (i % 3) * 3, 1);
-        }
-        dots(ctx, e1, FIRE[1]); dots(ctx, e2, FIRE[3]);
-        ctx.globalAlpha = A * 0.35;
-        ctx.fillStyle = FIRE[0];
-        ctx.beginPath();
-        for (let i = 0; i < hz.length; i += 3) ctx.rect(sn(hz[i]) - 1.5, sn(hz[i + 1]), 3, 0.5);
-        ctx.fill();
+      const s = rA > 4 ? hoopAt(rA, A, g && g.time != null ? g.time : Math.floor(performance.now() / 8)) : null;
+      if (s) {
+        ctx.globalAlpha *= A;
+        if (GR) put(ctx, s.back, fx.x, fx.y);
+        if (AIR) put(ctx, s.front, fx.x, fx.y);
       }
       ctx.restore();
       return true;

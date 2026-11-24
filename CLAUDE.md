@@ -1364,6 +1364,13 @@ Bring these up with the owner; don't act on them unasked.
   `BURN_BUDGET` 24 MB (500-canvas cap kept), `burnStats()`. 200 burning foes 0.385 -> 0.395 ms a frame (same page,
   side by side); MB per figure about doubles (every step baked now: goblin 0.55 -> 1.21). Not seen in a live battle:
   shotlab's one-draw snaps bake too little to show it (the 2-bakes-a-frame budget).
+  Ring **A** of Round 19 is IN THE GAME (owner: "A looks great!"; not pushed until the owner has looked): rings.js
+  `case "firenova"` draws the chest-height hoop from half the reach to the hall's range (65 / 69 / 74) on today's clock,
+  its far half in the ground layer and near half in the air layer; baked by the block above `drawRingFx` (`hoopBake` /
+  `hoopAt` / `hoopStats`: per 2-art-px radius step and fade step, one bake a frame, LRU 12 MB; the three Brazier
+  ranges ~9.4 MB); ringflash.js's `firenova` front now `0.5 + 0.5 * easeOut(p * 1.15)`. Six halls firing together 1.30 ->
+  0.093 ms a frame once baked. `flameS`, `charS`, `behindHall`, `clipFront` and the old centre burst are unused now.
+  Weak: foes outside the ring draw in the wrong order against it (two layers only); foes in the inner half never flash.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

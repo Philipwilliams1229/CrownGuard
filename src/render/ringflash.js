@@ -22,7 +22,7 @@ const RING = {
   frost: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   dust: [380, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   frostnova: [800, 0.55, (p) => easeOut(p * 2.5), 0.9],
-  firenova: [450, 0.55, (p) => easeOut(p * 1.15), 0.87],
+  firenova: [450, 0.55, (p) => 0.5 + 0.5 * easeOut(p * 1.15), 0.87],   // the hoop is first seen at half the reach (rings.js HOOP0)
 };
 
 // The frost nova's spikes erupt in turn round the circle (rings.js novaAt), so its flash follows the same
