@@ -1371,6 +1371,17 @@ Bring these up with the owner; don't act on them unasked.
   ranges ~9.4 MB); ringflash.js's `firenova` front now `0.5 + 0.5 * easeOut(p * 1.15)`. Six halls firing together 1.30 ->
   0.093 ms a frame once baked. `flameS`, `charS`, `behindHall`, `clipFront` and the old centre burst are unused now.
   Weak: foes outside the ring draw in the wrong order against it (two layers only); foes in the inner half never flash.
+  The three above were pushed (2026-11-24). **Round 20** (owner: "lets work with the other fire effects"; brief
+  `art/briefs/fx-round20.md`, four Opus artists, `build-fx-concepts.mjs round20`): `fireball20` (`concept/fx-r20-
+  fireball.js`: the Pyromancer fireball, the Comet Sling's stone (today it flies with NO fire on it) and the fire pot,
+  one shared flame painter keyed on heading and age; the pot's muzzle flash and landing burst redone too), `logs20`
+  (`fx-r20-logs.js`: calls the real `drawLog` with `burn` off and adds the flames; only the Powder Keg Run carries
+  `logBurn` in the game), `pools20` (`fx-r20-pools.js`: beds kept line for line, flames redone; WEAK after a fix pass:
+  still small spikes over a busy crack web, the lava's flames hard to see), `torch20` (`fx-r20-torch.js`: real halls by
+  day and under the Blood Moon, hall `live` "flame" entries replaced; at night the new flames are drawn over the shade,
+  so building it changes draw order in pix/halls.js and castle.js). Lab lesson: use literal `import("/src/...")` in a
+  concept file; a variable import is a second copy of the module with its own caches. Private Artifact "Crownguard
+  Effects Concepts, Round 20: the rest of the fire". Awaiting the picks.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
