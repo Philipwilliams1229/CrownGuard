@@ -13,6 +13,7 @@
 // knock). draw.js calls drawMusketShot(ctx, fx, a) in the effects pass.
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
+import { FLIGHT, drawPotShot, drawPotFlash, drawPotBurst } from "./flightfire.js";   // the fire pot, Round 20 A
 
 export const MUSKET_LIFE = 900;          // ms: the smoke's life; everything else is quicker
 const FLASH_MS = 72, HIT_MS = 170;   // the flash lasts as long as the kick (rigs-skiff.js skiffGunPose)
@@ -197,6 +198,15 @@ export const drawMusketShot = (ctx, fx, a = 1) => {
   const kind = fx.fire ? "fire" : "plain";
   const dx = fx.tx - fx.x, dy = fx.ty - fx.y, dist = Math.hypot(dx, dy) || 1, ang = Math.atan2(dy, dx);
   const ux = dx / dist, uy = dy / dist;
+  // the Fireship's fire pot (Round 20 A, flightfire.js): a tongue of flame at the muzzle, a white-hot shot with a streak of
+  // flame, a burst of flame climbing off the mark; no smoke
+  if (fx.fire && FLIGHT.on) {
+    const fl = flightOf(dist);
+    if (ms < FLASH_MS) drawPotFlash(ctx, fx.x, fx.y, ang, ms, FLASH_MS);
+    if (ms < fl) { const k = ms / fl; drawPotShot(ctx, fx.x + dx * k, fx.y + dy * k, ang, dist * k); }
+    else if (ms < fl + HIT_MS) drawPotBurst(ctx, fx.tx, fx.ty, ms - fl, HIT_MS);
+    return;
+  }
   // the smoke, behind the rest: blown out ahead of the muzzle, then hanging
   const smokeLife = Math.min(life, MUSKET_LIFE);
   if (ms < smokeLife) {
