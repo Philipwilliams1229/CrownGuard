@@ -16,9 +16,11 @@
 //   takes the same blow, physical, through dealDamage.
 // - Halberd Sweep (`fire`, aim none; id `brace`): he swings the halberd
 //   `beats` times (u.brace, first at `lead` ms, then every `gap`; both
-//   stretched by the game speed so the player can see them). Each swing
-//   strikes every foe on the ground in the half-circle before him (180
-//   degrees, the side he faces, reach `r` on the ground ellipse): `dmg`
+//   stretched by the game speed so the player can see them). A WHIRLWIND
+//   (owner, 2026-11-24): each swing is one full turn of him, the halberd held
+//   out, and strikes every foe on the ground all round him (`full`: 360
+//   degrees, reach `r` on the ground ellipse; render/heroes/hale.js turns him
+//   one revolution per `gap`, the blow at the middle of each): `dmg`
 //   physical and a `stun`-ms stun, `mounted` times the blow for riders and
 //   tramplers. A rider's trample within the swing's reach is spent on the
 //   halberd (`trampleLeft` 0; the Lord Marshal's re-arms on its own clock).
@@ -32,7 +34,15 @@
 //   on the spot he stands, a step ahead of him, the crossbows a little way back down the road
 //   (towers.js bowPosts), where any foe that gets past him stops and fights them. They
 //   fight until they drop (no clock, no respawn); sounding the horn again
-//   replaces whatever is left with four fresh men. For
+//   replaces whatever is left with four fresh men. They MOVE WITH HIM
+//   (owner, 2026-11-24; `followLevy`, every frame): whenever he stands
+//   FOLLOW_STEP from where they last formed on him, the band's rally is moved
+//   onto him, the watchmen's posts to either side of him across the road and
+//   the crossbows' posts back down the road from him (bowPosts, well inside
+//   their reach of his foe). The watchmen's circle (range x 0.92 round the
+//   rally, runMelee) is then round HIM: they take the free foes that come at
+//   him, and with none left they gang up with him on the ones he holds
+//   (runMelee's ganging-up). If he falls they hold the last spot. For
 //   `buffDur` ms every friendly soldier within `r` of him strikes `buff`
 //   harder (atkBuff, laid by `buffs` after the Support halls' auras, which
 //   clear it every tick).
@@ -40,6 +50,7 @@ import { dealDamage, releaseEnemy } from "../actions.js";
 import { isRising, bowPosts } from "../towers.js";
 import { isBuilt } from "../build.js";
 import { nextId } from "../ids.js";
+import { nearestOnPath, lanePos } from "../path.js";
 import { sfx } from "../../audio/sfx.js";
 
 const HOLD_R = 26;        // how close a foe must come to him to be held (a knight closes to 17)
@@ -54,6 +65,34 @@ const holdable = (e, tms) => !e.dead && !e.blockedBy && !e.flying && !e.swimming
 
 const braced = (u, tms) => !!(u.brace && u.brace.until > tms);
 
+const FOLLOW_STEP = 6;     // how far he moves before his levy re-forms on him
+const BESIDE = 15;        // the watchmen stand this far to either side of him, across the road
+
+// his levy keeps with him: the rally on him, the watchmen beside him, the
+// crossbows a little way back down the road (in reach of whatever he fights)
+const followLevy = (g) => {
+  if (!g.bands) return;
+  for (const lb of g.bands) {
+    if (!lb.levy || lb.gone) continue;
+    const hb = g.bands.find((x) => x.id === lb.heroId && x.kind === "hero" && !x.leaving);
+    const u = hb?.units[0];
+    if (!u || u.state === "dead") continue;
+    if (lb.rally && Math.hypot(u.x - lb.rally.x, u.y - lb.rally.y) < FOLLOW_STEP) continue;
+    lb.rally = { x: u.x, y: u.y };
+    const men = lb.units.filter((m) => !m.bow).length, bows = lb.units.length - men;
+    // across the road at his spot: the road's normal there
+    const at = nearestOnPath(u.x, u.y).dist ?? 0, [ax, ay] = lanePos(at, 0), [bx, by] = lanePos(at, 1);
+    let nx = bx - ax, ny = by - ay; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    const slots = [];
+    for (let i = 0; i < men; i++) {
+      const side = men === 1 ? 1 : (i % 2 ? -1 : 1) * (1 + Math.floor(i / 2) * 0.8);
+      slots.push([u.x + nx * BESIDE * side, u.y + ny * BESIDE * side]);
+    }
+    slots.push(...bowPosts(u.x, u.y, bows));
+    lb.slots = slots;
+  }
+};
+
 const releaseAll = (g, u) => {
   if (!u.holds) return;
   for (const id of u.holds) {
@@ -63,16 +102,17 @@ const releaseAll = (g, u) => {
   u.holds = [];
 };
 
-// one swing: everything on the ground in the half-circle before him
-// (also the castle's Gate Guard's sweep: update.js calls it as the hook's
-// `halberdSweep`; `b` is only read for its id)
+// one swing: everything on the ground in the half-circle before him, or all
+// round him when `br.full` (Hale's whirlwind). (Also the castle's Gate Guard's
+// half-circle sweep: update.js calls it as the hook's `halberdSweep`; `b` is
+// only read for its id)
 const swing = (g, b, u, br, i, tms) => {
   const f = u.face < 0 ? -1 : 1;
   let hit = 0;
   for (const e of g.enemies) {
     if (e.dead || e.flying || e.swimming || isRising(e, tms)) continue;
     const dx = (e.x - u.x) * f, dy = (e.y - u.y) / FLAT;
-    if (dx < -4 || Math.hypot(dx, dy) > br.r) continue;      // (a body's width of slack behind the line)
+    if ((!br.full && dx < -4) || Math.hypot(dx, dy) > br.r) continue;      // (a body's width of slack behind the line)
     const rider = e.mounted || e.trampleMax > 0;
     dealDamage(g, e, br.dmg * (rider ? br.mounted : 1), "phys", false, false, b.id);
     if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + br.stun);
@@ -82,7 +122,8 @@ const swing = (g, b, u, br, i, tms) => {
   // (the arc is drawn from a little before the blow, so the blade is crossing
   // the half-circle as it lands, not just starting out)
   const t0 = tms - SWING_LEAD * br.k;
-  (g.haleFx ||= []).push({ kind: "sweep", x: u.x, y: u.y, f, r: br.r, flip: i % 2, t0, k: br.k, until: t0 + 380 * br.k, hit });
+  // (the whirlwind's trail is drawn from u.brace itself, in step with his turning)
+  if (!br.full) (g.haleFx ||= []).push({ kind: "sweep", x: u.x, y: u.y, f, r: br.r, flip: i % 2, t0, k: br.k, until: t0 + 380 * br.k, hit });
   if (hit) g.shake = Math.max(g.shake, 2);
   sfx.play(hit ? "crunch" : "whistle");
 };
@@ -132,7 +173,7 @@ export default {
   fire(g, b, u, a, id, x, y, tms) {
     if (id === "brace") {
       if (u.state === "dead") return false;
-      // he turns to the nearest foe he can reach, so the half-circle is on it
+      // he turns to the nearest foe he can reach (where the spin starts and ends)
       let near = null, nd = Infinity;
       for (const e of g.enemies) {
         if (e.dead || e.flying || e.swimming) continue;
@@ -142,7 +183,7 @@ export default {
       if (near && nd <= a.r * 1.5) u.face = near.x >= u.x ? 1 : -1;
       // (stretched by the game speed, as Aldric's slam: the same real time at 1x, 2x and 4x)
       const k = Math.max(1, g.speed || 1);
-      u.brace = { x: u.x, y: u.y, face: u.face < 0 ? -1 : 1, t0: tms, k, until: tms + (a.lead + (a.beats - 1) * a.gap + 380) * k, done: 0, beats: a.beats, lead: a.lead, gap: a.gap, dmg: a.dmg, r: a.r, stun: a.stun, mounted: a.mounted, harm: a.harm };
+      u.brace = { x: u.x, y: u.y, face: u.face < 0 ? -1 : 1, t0: tms, k, until: tms + (a.lead + (a.beats - 1) * a.gap + 380) * k, done: 0, beats: a.beats, lead: a.lead, gap: a.gap, dmg: a.dmg, r: a.r, stun: a.stun, mounted: a.mounted, harm: a.harm, full: true };
       g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 360, r: 14 });
       return true;
     }
@@ -290,6 +331,7 @@ export default {
   },
 
   world(g, sdt, tms) {
+    followLevy(g);
     if (g.haleLevy) g.haleLevy = g.haleLevy.filter((lv) => Math.max(lv.until + 600, lv.t0 + 900 * lv.k) > tms);
     if (g.haleFx) g.haleFx = g.haleFx.filter((f) => f.until > tms);
   },

@@ -2833,7 +2833,19 @@ own, so several sessions can work on heroes side by side:
   `sweep` sheet (six frames, `SWEEP` + its grips in rigs-crown.js: guard,
   blade drawn back, blade coming round, strike, follow-through, recover;
   keyed in render/heroes/hale.js `pose`). Drawn as a steel arc (alternating
-  fore/backhand) plus a dotted reach ring. **Sound the Levy** (aim none now):
+  fore/backhand) plus a dotted reach ring. **Since 2026-11-24 a WHIRLWIND**
+  (owner: "3 full spins, same timing as now, but they hit 360 around him"):
+  `full` on u.brace strikes all round him (the Gate Guard's sweep, which
+  shares `swing`, stays a half-circle); he turns one revolution a `gap`, each
+  blow at the middle of its turn (`spinAt`, render/heroes/hale.js, the one
+  clock for body and trail). `pose` shows him from the side (sheet `spin`,
+  mirrored by `face` as the blade goes left), front (`spinFront`) or back
+  (`spinBack`) by where the blade is; a hero's `pose` may now return `face`
+  (enemies.js). The figure's own `spin` clips (fig-captain.js, FRONT / BACK in
+  fig-captain-views.js; brief `art/briefs/hale-whirlwind.md`); without them
+  pixrigs.js shows the sweep's strike pose and the views' stance. The trail is
+  a steel ring at the halberd's height, far half under the figures, near half
+  over. **Sound the Levy** (aim none now):
   2 watchmen (halberdier) + 2 crossbowmen (`crossbow` rig, `bows` mixed band
   as the Levy works' upper tiers) fall in ON him, soldiers a step ahead, bows
   behind; the buff ring is centred on him, the pennant planted by his shoulder.
@@ -2843,6 +2855,12 @@ own, so several sessions can work on heroes side by side:
   They have no clock and never respawn: they fight until they drop (owner,
   2026-10-05), and sounding the horn again (when the 45 s cooldown is up)
   replaces whoever is left with four fresh men; a retried wave drops them.
+  **They move with him** (owner, 2026-11-24: "If he moves up to attack, they
+  follow"): `followLevy` (engine/heroes/hale.js `world`) re-forms the band on
+  him whenever he is 6 from its rally: rally on him, watchmen 15 to either
+  side across the road, crossbows `bowPosts` back from him. Their circle is
+  then round him: they hold free foes coming at him and, with none, gang up
+  on his (runMelee's ganging-up). Dead, he leaves them at the last spot.
   `hale-lab.html?fire=brace|levy` snaps either on the real engine. Provisional.
 - **Ysolde**: ranged magic lightning that chains and prefers bare targets
   (magic glances off pips); Chain Storm (aim foe), Thunderclap (aim

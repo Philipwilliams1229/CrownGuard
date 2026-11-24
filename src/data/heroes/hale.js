@@ -1,7 +1,7 @@
 // ============ CAPTAIN HALE of the Watch ============
 // A halberdier who holds the road like a gate: he can hold several foes at
 // once (`holds`) and his halberd sweeps through every foe he holds. His first
-// ability is a triple half-circle sweep (Halberd Sweep; id `brace` kept so
+// ability is a whirlwind of three full spins (Halberd Sweep; id `brace` kept so
 // saved talents hold), his second calls watchmen and crossbowmen onto him.
 // Engine: engine/heroes/hale.js; look: render/heroes/hale.js; figure:
 // rigs-crown.js "heroCaptain". Numbers provisional (owner's playtest).
@@ -11,13 +11,13 @@ export default {
   key: "hale",
   hero: {
     name: "Captain Hale", title: "of the Watch", rig: "heroCaptain", icon: "",
-    blurb: "The captain of the castle watch. He holds three foes at once and his halberd sweeps through all of them. His sweep clears a half-circle, three times over.",
+    blurb: "The captain of the castle watch. He holds three foes at once and his halberd sweeps through all of them. His whirlwind clears all round him, three times over.",
     base: { hp: 680, dmg: 15, rate: 950, range: 95, unitSpeed: 95, respawnMs: 14000, holds: 3 },
     perLevel: { hp: 95, dmg: 3 },
   },
   abilities: [
     { id: "brace", name: "Halberd Sweep", aim: "none", unlock: 1, cd: 22000, icon: "brace",
-      desc: "Planted where he stands, three wide halberd swings, each a half-circle before him: all it reaches is struck and stunned, riders twice over.",
+      desc: "Planted where he stands, he spins three full turns with the halberd out: all round him is struck and stunned, riders twice over.",
       base: { dmg: 40, beats: 3, lead: 320, gap: 520, r: 68, stun: 700, mounted: 2, harm: 0.6 }, perLevel: { dmg: 6 } },
     { id: "levy", name: "Sound the Levy", aim: "none", unlock: 5, cd: 45000, icon: "levy",
       desc: "Two watchmen fall in where he stands, two crossbowmen a little way behind on the road; they fight until they drop; calling again replaces them with fresh men.",

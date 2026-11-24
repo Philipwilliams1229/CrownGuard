@@ -510,7 +510,9 @@ export const drawBandUnit = (ctx, u, b, time) => {
   // a bowman turns his bow to the foe he last loosed at (engine: u.aimDeg, aim.js)
   const heading = vertOf(u), tn = turnOf(u, u.face, time * 1000);
   if (u.state === "moving" && !own && sky < 0) psheet = vertSheet(kind, psheet, heading);
-  drawTurned(ctx, u.x, u.y + 9 - lift, tn.sx, () => drawRig(ctx, kind, u.x, u.y + 9 - lift, tn.face, psheet, frame, "", 1, u.aimDeg || 0));
+  // (a hero's own pose may turn him too: Hale's whirlwind)
+  const fc = own && own.face ? own.face : tn.face;
+  drawTurned(ctx, u.x, u.y + 9 - lift, tn.sx, () => drawRig(ctx, kind, u.x, u.y + 9 - lift, fc, psheet, frame, "", 1, u.aimDeg || 0));
   // the huntress at the string: a short pull when she has just loosed
   if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
   // health (owner, 2026-11-18: friendly bars as the soldiers' are): the hero, halberdiers, militia

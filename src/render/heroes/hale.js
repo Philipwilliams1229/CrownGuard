@@ -1,9 +1,17 @@
 // ============ CAPTAIN HALE'S EFFECTS ON THE BOARD ============
 // (see ./index.js for the hooks; engine/heroes/hale.js keeps the state.)
 //
-//   u.brace      Halberd Sweep: for the three swings he plays the rig's
-//                "sweep" sheet (wind-up, blade round, strike, follow-through
-//                each beat); `pose` reads it, the arcs are g.haleFx.
+//   u.brace      Halberd Sweep, a WHIRLWIND (owner, 2026-11-24): he turns
+//                three full times, one revolution a `gap`, each blow at the
+//                middle of its turn. `spinAt` is the one clock for both his
+//                body and the trail: `pose` shows him from the side (the
+//                figure's "spin" frames, mirrored as he faces left), from the
+//                front ("spinFront") and from behind ("spinBack") by where
+//                the blade is; `spinTrail` runs a ring of steel light round
+//                him at the halberd's height, its far half drawn under the
+//                figures (`under`), its near half over them (`fx`), and a
+//                dotted ring of the reach on the ground. g.haleFx keeps the
+//                half-circle arcs (drawSwing) for any `full`-less sweep.
 //   g.haleFx     one swing: a half-circle of steel light run across the ground
 //                in front of him at the halberd's height, head first, thick at
 //                its leading edge and thinning behind, with a faint dotted
@@ -91,6 +99,65 @@ const drawSwing = (ctx, fx, tms) => {
     px0 = x; py0 = y;
   }
   if (lit.length && p < 1) star(ctx, lit[lit.length - 2], lit[lit.length - 1], 3.5, STEEL[1], STEEL[0]);
+  ctx.restore();
+};
+
+// ---- the whirlwind ----
+// where the spin stands at `tms`: null outside it, else { th (radians turned since the
+// spin began), psi (the blade's bearing on the board: 0 = +x, PI/2 = toward the camera;
+// it starts on the side he faced), f0, cx, cy, r } — the body and the trail both read this
+const spinAt = (br, tms) => {
+  if (!br || !br.full) return null;
+  const rel = (tms - br.t0) / br.k, S0 = br.lead - br.gap / 2, S1 = br.lead + (br.beats - 1) * br.gap + br.gap / 2;
+  if (rel < S0 - 80 || rel > S1 + 160) return null;
+  const q = Math.max(0, Math.min(S1 - S0, rel - S0)), th = (q / br.gap) * TAU;
+  const f0 = br.face < 0 ? -1 : 1;
+  return { rel, S0, S1, th, psi: Math.atan2(Math.sin(th), f0 * Math.cos(th)), f0, cx: br.x, cy: br.y + 6, r: br.r };
+};
+const SPIN_TAIL = 0.6;            // how much of a turn the trail runs behind the blade
+// the trail: `near` true draws the half toward the camera (over the figures), false the far half
+const spinTrail = (ctx, br, tms, near) => {
+  const sp = spinAt(br, tms);
+  if (!sp) return;
+  const { rel, S0, S1, th, f0, cx, cy } = sp, R = sp.r * 0.92;
+  // in at the start, the tail catching up the head after the last turn
+  const fade = rel < S0 ? stepA(1 - (S0 - rel) / 80, 3) : rel > S1 ? stepA(1 - (rel - S1) / 160, 3) : 1;
+  if (fade <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= fade;
+  const tail = Math.min(SPIN_TAIL * TAU, th + 0.0001), n = 36;
+  const at = (a) => [cx + f0 * Math.cos(a) * R, cy - 8 + Math.sin(a) * R * FLAT];
+  let p0 = null;
+  for (let i = 0; i <= n; i++) {
+    const a = th - tail * (1 - i / n), [x, y] = at(a), t = i / n;     // t: 0 the tail's end, 1 the blade
+    const isNear = Math.sin(a) >= 0;
+    if (p0 && isNear === near) {
+      ctx.globalAlpha = fade * stepA(0.25 + 0.75 * t, 4);
+      pxLine(ctx, p0[0], p0[1], x, y, 1 + 3.5 * t * t, t > 0.85 ? STEEL[0] : t > 0.45 ? STEEL[1] : STEEL[2]);
+    }
+    p0 = [x, y];
+  }
+  // a twinkle where the blade is, on whichever half it is crossing
+  if (rel <= S1 && (Math.sin(th) >= 0) === near) { ctx.globalAlpha = fade; const [x, y] = at(th); star(ctx, x, y, 3.5, STEEL[1], STEEL[0]); }
+  ctx.restore();
+};
+// the reach, a dotted ring on the ground all round him while he spins; it flashes as each blow lands
+const spinGround = (ctx, br, tms) => {
+  const sp = spinAt(br, tms);
+  if (!sp) return;
+  const { rel, cx, cy } = sp, R = sp.r;
+  let flash = 0;
+  for (let i = 0; i < br.beats; i++) { const d = rel - (br.lead + i * br.gap); if (d >= 0 && d < 160) flash = Math.max(flash, 1 - d / 160); }
+  ctx.save();
+  ctx.globalAlpha *= 0.45 + 0.4 * stepA(flash, 3);
+  ctx.fillStyle = flash > 0.3 ? STEEL[0] : STEEL[3];
+  ctx.beginPath();
+  const N = 36, turn = sp.th * 0.25;
+  for (let i = 0; i < N; i++) {
+    const an = (i / N) * TAU + turn;
+    ctx.rect(sn(cx + Math.cos(an) * R - 0.75), sn(cy + Math.sin(an) * R * FLAT - 0.5), 1.5, 1);
+  }
+  ctx.fill();
   ctx.restore();
 };
 
@@ -234,6 +301,19 @@ export default {
   pose(b, u, time) {
     const tms = time * 1000, br = u.brace;
     if (!br || br.until <= tms) return null;
+    if (br.full) {
+      // the whirlwind: a wind-up, three turns, a recover (frames of the sweep sheet either side)
+      const rel = (tms - br.t0) / br.k, S0 = br.lead - br.gap / 2, S1 = br.lead + (br.beats - 1) * br.gap + br.gap / 2;
+      if (rel < S0) return { sheet: "sweep", frame: 1, face: br.face };
+      if (rel > S1) return { sheet: "sweep", frame: rel - S1 < 90 ? 5 : 0, face: br.face };
+      const sp = spinAt(br, tms), c = Math.cos(sp.psi), s = Math.sin(sp.psi);
+      // he faces where the blade is: from the side while it is out to his left or right
+      // (frame 0 the blade on the far side of him, 1 the near), from the front while it
+      // comes at the camera, from behind while it goes away (frame 0 the blade to screen
+      // right, 1 to screen left)
+      if (Math.abs(c) >= Math.abs(s)) return { sheet: "spin", frame: s > 0 ? 1 : 0, face: c > 0 ? 1 : -1 };
+      return { sheet: s > 0 ? "spinFront" : "spinBack", frame: c > 0 ? 0 : 1, face: 1 };
+    }
     const rel = (tms - br.t0) / br.k;
     const i = Math.max(0, Math.min(br.beats - 1, Math.round((rel - br.lead) / br.gap)));
     const d = rel - (br.lead + i * br.gap);          // ms from this beat's blow
@@ -242,13 +322,15 @@ export default {
 
   under(ctx, g) {
     const tms = g.time * 1000;
+    const hb = hale(g), hu = hb?.units[0];
+    if (hu && hu.state !== "dead" && hu.brace) { spinGround(ctx, hu.brace, tms); spinTrail(ctx, hu.brace, tms, false); }
     if (g.haleLevy) for (const lv of g.haleLevy) levyGround(ctx, lv, tms);
   },
 
   fx(ctx, g) {
     const tms = g.time * 1000;
     const b = hale(g), u = b?.units[0];
-    if (u && u.state !== "dead") drawSweep(ctx, u, tms);
+    if (u && u.state !== "dead") { drawSweep(ctx, u, tms); if (u.brace) spinTrail(ctx, u.brace, tms, true); }
     if (g.haleFx) for (const f of g.haleFx) if (f.kind === "sweep") drawSwing(ctx, f, tms);
     if (g.haleLevy) for (const lv of g.haleLevy) { levyBanner(ctx, lv, tms); drawHorn(ctx, lv, tms); }
   },

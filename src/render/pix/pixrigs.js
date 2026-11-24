@@ -264,6 +264,9 @@ const clipFrame = (d, sheet, frame) => {
   if (sheet === "sky" && d.sky) return ["sky", d.sky[(f | 0) % d.sky.length]];
   // Hale's Halberd Sweep: its own six frames
   if (sheet === "sweep" && d.sweep) return ["sweep", d.sweep[(f | 0) % d.sweep.length]];
+  // ...and its whirlwind, seen from the side ("spin" frame i; render/heroes/hale.js picks it), the
+  // sweep's strike pose until the figure has a spin clip of its own
+  if (sheet === "spin" && d.sweep) return C.spin ? ["spin", (f | 0) % C.spin.n] : ["sweep", d.sweep[3]];
   if (sheet === "fight" || sheet === "sky" || sheet === "sweep") return [d.atk, d.legacy[(f | 0) % 4] ?? 0];
   // "walk", a flier's "fly" (its walk clip is its wingbeat), or a marching cast: all loops in step
   const name = C[sheet] && C[sheet].loop ? sheet : "walk", c = C[name]; return [name, Math.floor(frac(f / 4) * c.n) % c.n];
@@ -271,13 +274,19 @@ const clipFrame = (d, sheet, frame) => {
 // the baked frame record (bake.js) for what the game asked; left: the figure faces left
 // `aim` (degrees in the figure's own frame, engine/aim.js) turns a shooter's bow or gun to its mark: the
 // figure reads it as "<variant>@<deg>" (art/briefs/aim-contract.md); only the shooting clip takes it
-export const isViewSheet = (sheet) => sheet === "walkFront" || sheet === "walkBack";
+export const isViewSheet = (sheet) => sheet === "walkFront" || sheet === "walkBack" || sheet === "spinFront" || sheet === "spinBack";
 export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
   const d = PIX[type];
   warmType(type);
   // the front / back views: their own figure, the walk in step with the side one, never mirrored
   if (isViewSheet(sheet) && d.views) {
-    const vf = sheet === "walkFront" ? d.views.front : d.views.back, c = vf.CLIPS.walk;
+    const vf = sheet === "walkFront" || sheet === "spinFront" ? d.views.front : d.views.back;
+    // Hale's whirlwind from the front / behind: the view's own "spin" frames (frame i), else its stance
+    if (sheet === "spinFront" || sheet === "spinBack") {
+      const sc = vf.CLIPS.spin;
+      return sc ? bakeFrame(vf, "spin", ((typeof frame === "number" ? frame : 0) | 0) % sc.n, { flip: false, variant: d.variant }) : bakeFrame(vf, "walk", 0, { flip: false, variant: d.variant });
+    }
+    const c = vf.CLIPS.walk;
     const f = Math.floor((((typeof frame === "number" ? frame : 0) / 4) % 1 + 1) % 1 * c.n) % c.n;
     return bakeFrame(vf, "walk", f, { flip: false, variant: d.variant });
   }
