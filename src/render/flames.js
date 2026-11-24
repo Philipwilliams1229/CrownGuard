@@ -250,117 +250,190 @@ export const drawBreath = (ctx, t, time) => {
   ctx.restore();
 };
 
-// ---- the Inferno Throne's burning ground (owner's pick, "Burning ground, take 2: B") ----------
-// The pool LIES IN the ground: a char heart, the ground's own colour scorched and browned round it,
-// dithered and ragged, no outline; a few forking hairline fissures with embers living in them; and
-// patches of 2-4 flame tongues sharing a root, each patch on its own clock, inked with the tinted
-// one-pixel line. Baked per (size bucket, shape variant, frame): the ground (embers), the flames and
-// smoke behind a foe standing in it ("back", drawn in the ground layer) and the tongues rooted in the
-// pool's front half ("front", drawn by drawFireFront after the figures). It catches over ~0.5 s, the
-// flames shrink first as it dies (embers last).
+// ---- fire on the ground (owner's pick, Effects Round 20 B, concept/fx-r20-pools.js) -----------------------------------------
+// The Inferno Throne's burning ground (g.grounds kind "fire"): the pool LIES IN the ground as "burning ground take 2: B" drew it
+// (a char heart, the ground scorched and browned round it, ragged, no outline, forking fissures with embers in them, now a tone
+// darker so they sit under the flames), and its heart glows as a bed of embers that breathes. On it stand the same patches as
+// before (where, how big, each on its own clock), each now ONE joined mass of fire in Dragonbreath's look, low and see-through so
+// the bed shows through: a broad mottled body (gold / orange / deep orange / red-orange clusters stretched up and rolling up)
+// rising into a few licks of different heights that lean together and sway, a broken pale core, white-hot only at the middle of
+// its root, the tinted dark-red 1-px rim, licks tearing off its top, its upper part see-through in steps. No smoke, no sparks.
+// Baked per (size bucket, shape variant, step): the bed (8 steps, it breathes slowly), the flames behind a foe standing in it
+// ("back", in the ground layer) and the masses rooted in the pool's front half ("front", drawFireFront after the figures), 16 steps
+// a loop at 10 a second, each flame sprite trimmed to what it holds. It catches over ~0.5 s, the flames shrink first as it dies.
+// The Hellburner's lava pool (fx.js poolSprite, kind "lava") gets a few small flames of the same make standing out of its cracks,
+// with a pale core and a darker rim so they stand off the crust: drawLavaFlames, a sprite of its own per (bucket, step).
 const HF = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
 const smt = (t) => t * t * (3 - 2 * t);
+const per = (a, n) => ((a % n) + n) % n;
 const vn = (x, y, s, sd = 0) => { const gx = x / s, gy = y / s, ix = Math.floor(gx), iy = Math.floor(gy), fx = smt(gx - ix), fy = smt(gy - iy);
   const a = HF(ix, iy + sd), b = HF(ix + 1, iy + sd), c = HF(ix, iy + 1 + sd), d = HF(ix + 1, iy + 1 + sd); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
 const blobEdge = (x, y, R, ry, sd) => { const a = Math.atan2(y / ry, x / R);
   const r = 1 + 0.16 * Math.sin(3 * a + sd) + 0.11 * Math.sin(5 * a + 2 * sd + 1) + 0.06 * Math.sin(9 * a + sd * 3) + (a > 2.2 || a < -2.6 ? 0.1 : 0);
   return Math.hypot(x / R, y / ry) / r; };
 const FS = [FIRE[0], FIRE[1], FIRE[2], FIRE[3], FIRE[4]];
-const FNF = 8;                                   // frames in the loop
+const BF = ["#fffbe0", "#ffe27a", "#ffb030", "#f26a1c", "#c03020"];   // Dragonbreath's tones (the flames)
+const RIM = "#8a2028", LRIM = "#4a1420";                               // the flames' tinted rim; the lava flames' darker one
+const FNF = 16, BNF = 8;                         // flame steps in the loop (10 a second); bed steps (every other flame step)
 const FLT = [0, 0.25, 0.55, 1];                  // flame strength by tier
 const PATCH = [[-12, -4, 0.0, 1.3, 4], [10, 7, 0.3, 1.1, 3], [24, -6, 0.62, 0.8, 3], [-30, 8, 0.8, 0.7, 2], [2, -14, 0.45, 0.8, 2]];
+const LOOK = { hk: 0.85, wk: 1.3, body: 0.8, see: 0.6, licks: 2, lean: 0.7 };  // B: lower, wider, see-through (hk 0.7 in the concept; 0.85 so they read at board size)
 const fireGeom = (rb) => { const R = rb * PX * 0.93, ry = R * 0.59, top = Math.ceil(R * 0.75) + 14, hx = Math.ceil(R * 1.5) + 3, hy = Math.ceil(ry * 1.5) + 3; return { R, ry, top, hx, hy }; };
 const ellA = (G, cx, cy, rx, ry, col, al, dens) => { for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
   const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry; if (nx * nx + ny * ny > 1 || bay(x, y) >= dens) continue; G.set(x, y, col, al * 255); } };
-const fireFlame = (G, x, y, h, w, ph, sway) => {
-  for (let j = 0; j < h; j++) {
-    const p = j / Math.max(1, h - 1), prof = p < 0.25 ? 0.62 + p * 1.5 : Math.pow(Math.cos(((p - 0.25) / 0.75) * (Math.PI / 2)), 0.85);
-    const hw = Math.max(0.6, (w / 2) * prof), off = Math.sin(ph + p * 3.2) * sway * p;
-    for (let dx = -Math.ceil(hw); dx <= Math.ceil(hw); dx++) {
-      if (Math.abs(dx) > hw + 0.2) continue;
-      const d = Math.abs(dx) / hw;
-      G.set(x + dx + off, y - j, d > 0.72 ? FS[3] : d > 0.42 || p > 0.8 ? FS[2] : p < 0.55 && d < 0.2 ? FS[0] : FS[1]);
+
+// ---- the flame painters: pixels go into a Map (one rim per mass), then onto a grid ------------------------------------------
+const SPD = 48;                                                          // rows the mottle rolls up per loop (3 a step)
+const mottle = (X, q, sd) => 0.55 * HF(per(X, 128), per(Math.floor(q / 4), SPD / 4) + sd * 31) + 0.45 * HF(per(X >> 1, 64) + 99, per(Math.floor((q + 1) / 3), SPD / 3) + sd * 17);
+const flameCol = (heat, m) => (heat > 0.82 && m > 0.5 ? BF[0] : heat > 0.62 ? BF[1] : heat > 0.44 ? BF[2] : heat > 0.26 ? BF[3] : BF[4]);
+// one patch: a low dome as wide as the patch rising into np licks of different heights and widths, leaning together
+const PEAKS = [[1, 0.0, 1.0], [0.62, -1, 0.8], [0.8, 1, 0.65], [0.45, -0.4, 0.55]];   // [height, side, width] of each lick, by rank
+const patchMass = (out, rx, ry, Hh, W, n, t, sd, o) => {
+  if (Hh < 4) return;
+  const s = Math.round(t * SPD), cyc = 1 + (sd & 1), lean = o.lean ?? 1, np = Math.max(1, Math.min(4, n - (n > 2 ? 1 : 0))), pk = [];
+  for (let k = 0; k < np; k++) { const q = PEAKS[(k + sd) % 4];
+    pk.push({ x: (q[1] * 0.5 + (HF(sd, k + 11) - 0.5) * 0.3) * W, h: q[0] * (0.85 + 0.3 * HF(sd, k + 12)) * Hh, w: Math.max(1.8, q[2] * W * 0.36), ph: HF(sd, k + 13) * TAU }); }
+  const sway = (j) => (Math.sin(TAU * t * cyc + sd * 2.3 + j * 0.18) * 1.4 + Math.sin(TAU * t * cyc * 2 + sd + j * 0.4) * 0.5) * Math.pow(j / Hh, 2) * lean * (Hh / 12);
+  const topOf = (x, j) => {
+    let tp = Hh * 0.34 * Math.pow(Math.max(0, 1 - (x / W) ** 2), 1.4);
+    for (const q of pk) { const lx = x - q.x - Math.sin(TAU * t * cyc + q.ph) * 0.8 * (j / Hh), v = q.h * Math.exp(-((lx / q.w) ** 2) * 1.6); if (v > tp) tp = v; }
+    return tp;
+  };
+  for (let j = 0; j < Hh * 1.1; j++) {
+    const q = j - s, rag = (HF(per(q, SPD), sd * 3 + 1) - 0.5) * 1.6 + (HF(per(q >> 2, SPD / 4), sd * 3 + 5) - 0.5) * 2, sw = sway(j);
+    for (let dx = -Math.ceil(W + 3); dx <= Math.ceil(W + 3); dx++) {
+      const x = dx - sw, tp = topOf(x + rag * 0.5, j) + (HF(per(dx + 64, 128), per(q >> 1, SPD / 2) + sd) - 0.5) * 2.2;
+      if (j >= tp || tp < 1.5) continue;
+      const X = Math.round(rx + dx), Y = ry - j, p = j / Math.max(tp, 1), d = Math.min(1, Math.abs(x) / (W + 1)), m = mottle(X, q, sd);
+      const heat = (1 - Math.pow(d, 1.5)) * 0.62 + (1 - p) * 0.42 - 0.1 * (j / Hh) + (m - 0.5) * 0.75 + (o.hot || 0);
+      let col = flameCol(heat, m);
+      if (j === 0 && d < 0.16) col = BF[0]; else if (j <= 2 && d < 0.3 && col !== BF[0]) col = BF[1];   // white-hot only at the very root
+      let a = 1;
+      if (o.see != null && p > 0.6) { a = p > 0.82 ? o.see * 0.75 : o.see; if (p > 0.82 && bay(X, Y) > 0.6) continue; }
+      if (o.body != null && j > 2) a = Math.min(a, p < 0.3 ? o.body : o.body * 0.85);
+      out.set(X + "," + Y, { x: X, y: Y, col, a });
     }
   }
+  const top = pk[0];                                                     // licks torn off the tallest lick's tip
+  for (let k = 0; k < (o.licks ?? 3); k++) {
+    const ph = (t * cyc * 2 + HF(k, sd + 50)) % 1; if (ph > 0.7) continue;
+    const j = top.h * (0.8 + 0.1 * HF(k, sd + 51)) + ph * (top.h * 0.4 + 3), X = Math.round(rx + top.x + sway(Math.min(j, Hh)) * (1 + ph * 0.5) + (HF(k, sd + 52) - 0.5) * top.w * 1.6), Y = Math.round(ry - j);
+    const a = o.see != null ? o.see : 1;
+    out.set(X + "," + Y, { x: X, y: Y, col: ph < 0.25 ? BF[1] : ph < 0.5 ? BF[2] : BF[3], a });
+    if (ph < 0.4) out.set(X + "," + (Y + 1), { x: X, y: Y + 1, col: BF[3], a });
+  }
 };
-const inkPass = (G) => { const { d, W, H } = G, out = new Uint8ClampedArray(d);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (d[i + 3] > 40) continue; let n = -1;
-    if (x > 0 && d[i - 1] > 40) n = i - 4; else if (x < W - 1 && d[i + 7] > 40) n = i + 4; else if (y > 0 && d[i - W * 4 + 3] > 40) n = i - W * 4; else if (y < H - 1 && d[i + W * 4 + 3] > 40) n = i + W * 4;
-    if (n < 0) continue; out[i] = d[n] * 0.4 + 10; out[i + 1] = d[n + 1] * 0.32 + 4; out[i + 2] = d[n + 2] * 0.46 + 18; out[i + 3] = 255; }
-  d.set(out); };
-const firePatches = (G, g, f, v, tier, front) => { const sc = g.R / 56, cx = G.cx, cy = G.cy;
-  PATCH.forEach(([x, y, ph, sz, n], k) => { y = Math.round(y * sc); if ((y > 5 * sc) !== front) return;
-    const env = Math.pow(Math.sin(((f / FNF + ph + v * 0.21) % 1) * Math.PI), 0.7) * FLT[tier]; if (env < 0.12) return;
-    for (let j = 0; j < n; j++) { const off = Math.round(((j - (n - 1) / 2) * 5 + (HF(k, j) - 0.5) * 2) * sc), h = Math.round((8 + 14 * HF(k, j + 3 + v)) * sz * env * (j === 1 ? 1.3 : 1) * 1.15 * sc); if (h < 4) continue;
-      fireFlame(G, cx + Math.round(x * sc) + off, cy + y - (j & 1), h, Math.max(3, Math.min(Math.round(h * 0.6), Math.round(7 * sc))), f * 0.9 + k * 2 + j, 1.2 * sc); } }); };
-// the ground: glow, char with its scorched fringe, fissures, embers
-const fireBaseS = (rb, v, f) => memo(`fb|${rb}|${v}|${f}`, () => {
-  const g = fireGeom(rb), { R, ry } = g, G = grid(2 * g.hx, 2 * g.hy + g.top), cx = g.hx, cy = g.hy + g.top, sd = 1.3 + v * 2.1;
-  G.cx = cx; G.cy = cy;
-  ellA(G, cx, cy, R * 1.1, ry * 1.1, FS[2], 0.1 + 0.02 * Math.sin(f * 0.8), 0.5); ellA(G, cx, cy, R * 0.66, ry * 0.66, FS[2], 0.2 + 0.04 * Math.sin(f * 0.8), 0.5);
+// one small tongue (the lava's): a flared root, a pointed tip leaning with a sway, ragged sides rolling up, licks off the tip
+const tongue = (out, x0, y0, h, w, t, sd, o) => {
+  if (h < 3) return;
+  const s = Math.round(t * SPD), cyc = 1 + (sd & 1), lean = o.lean ?? 1;
+  const tipX = (p) => (Math.sin(TAU * t * cyc + sd * 2.3 + p * 2.4) * 1.3 + Math.sin(TAU * t * cyc * 2 + sd * 1.7 + p * 4.5) * 0.55) * p * p * lean * (h / 12);
+  for (let j = 0; j < h; j++) {
+    const p = j / h, q = j - s, prof = p < 0.22 ? 1.25 - p * 1.2 : Math.pow(Math.cos(((p - 0.22) / 0.78) * (Math.PI / 2)), 1.5) * 0.99;
+    const rl = HF(per(q, SPD), sd * 3 + 1), rr = HF(per(q, SPD), sd * 3 + 2), rl2 = HF(per(q >> 2, SPD / 4), sd * 3 + 5), rr2 = HF(per(q >> 2, SPD / 4), sd * 3 + 6);
+    const hwL = Math.max(0.5, w * prof * (0.7 + 0.25 * rl + 0.35 * rl2)), hwR = Math.max(0.5, w * prof * (0.7 + 0.25 * rr + 0.35 * rr2)), mid = tipX(p);
+    for (let dx = -Math.ceil(hwL + 1); dx <= Math.ceil(hwR + 1); dx++) {
+      const rel = dx - mid, hw = rel < 0 ? hwL : hwR, d = Math.abs(rel) / hw;
+      if (d > 1) continue;
+      const X = Math.round(x0 + dx), Y = y0 - j, m = mottle(X, q, sd), heat = (1 - Math.pow(d, 1.4)) * (1 - 0.75 * p) + (m - 0.5) * 0.7 - 0.08 + (o.hot || 0);
+      let col = heat > 0.74 && m > 0.5 ? BF[0] : heat > 0.56 ? BF[1] : heat > 0.38 ? BF[2] : heat > 0.18 ? BF[3] : BF[4];
+      if (j <= 1 && d < 0.3) col = BF[0]; else if (j <= 2 && d < 0.5 && col !== BF[0]) col = BF[1];
+      let a = 1;
+      if (o.see != null && p > 0.55) { a = p > 0.8 ? o.see * 0.75 : o.see; if (p > 0.8 && bay(X, Y) > 0.6) continue; }
+      if (o.body != null && j > 2) a = Math.min(a, p < 0.3 ? o.body : o.body * 0.85);
+      out.set(X + "," + Y, { x: X, y: Y, col, a });
+    }
+  }
+  for (let k = 0; k < (o.licks ?? 3); k++) {
+    const ph = (t * cyc * 2 + HF(k, sd + 50)) % 1; if (ph > 0.7) continue;
+    const y = y0 - h * (0.72 + 0.12 * HF(k, sd + 51)) - ph * (h * 0.45 + 3), x = x0 + tipX(1) * (1 + ph * 0.6) + (HF(k, sd + 52) - 0.5) * w * 1.4;
+    const X = Math.round(x), Y = Math.round(y), a = o.see != null ? o.see : 1;
+    out.set(X + "," + Y, { x: X, y: Y, col: ph < 0.25 ? BF[1] : ph < 0.5 ? BF[2] : BF[3], a });
+    if (ph < 0.4) out.set(X + "," + (Y + 1), { x: X, y: Y + 1, col: BF[3], a });
+  }
+};
+// the rim on every open side of a mass (4-neighbours, fainter below), then the flame; stepped alphas
+const paintOut = (G, out, rimCol) => {
+  const rim = new Map();
+  for (const p of out.values()) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const k = (p.x + dx) + "," + (p.y + dy); if (out.has(k)) continue;
+    const r = rim.get(k); if (!r || r.a < p.a) rim.set(k, { x: p.x + dx, y: p.y + dy, a: p.a * (dy === 1 ? 0.6 : 0.9) });
+  }
+  for (const r of rim.values()) G.set(r.x, r.y, K(rimCol || RIM), (rimCol ? Math.max(0.8, r.a) : Math.round(r.a * 10) / 10) * 255);
+  for (const p of out.values()) G.set(p.x, p.y, K(p.col), Math.round(p.a * 20) / 20 * 255);
+};
+// a grid trimmed to what it holds (the flame sprites are mostly empty air)
+const trimmed = (G, ax, ay) => {
+  const { d, W, H } = G; let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return { cv: null, ax: 0, ay: 0, empty: true };
+  const cv = G.done(), t = document.createElement("canvas"); t.width = x1 - x0 + 1; t.height = y1 - y0 + 1;
+  t.getContext("2d").drawImage(cv, -x0, -y0);
+  return { cv: t, ax: ax - x0, ay: ay - y0, empty: false };
+};
+
+// ---- the burning ground ------------------------------------------------------------------------------------------------------
+// the bed: glow, char with its scorched fringe, the ember bed in its heart, fissures (a tone darker), embers. fb: bed step 0..7
+const fireBaseS = (rb, v, fb) => memo(`fb|${rb}|${v}|${fb}`, () => {
+  const g = fireGeom(rb), { R, ry } = g, G = grid(2 * g.hx, 2 * g.hy + g.top), cx = g.hx, cy = g.hy + g.top, sd = 1.3 + v * 2.1, t = fb / BNF;
+  ellA(G, cx, cy, R * 1.1, ry * 1.1, FS[2], 0.1 + 0.02 * Math.sin(fb * 0.8), 0.5); ellA(G, cx, cy, R * 0.66, ry * 0.66, FS[2], 0.2 + 0.04 * Math.sin(fb * 0.8), 0.5);
   for (let y = -g.hy; y <= g.hy; y++) for (let x = -g.hx; x <= g.hx; x++) {
     const d = blobEdge(x, y, R, ry, sd) + (vn(x, y, 5, 4) - 0.5) * 0.4 + (HF(x, y) - 0.5) * 0.12;
     if (d > 1.45) continue;
-    if (d < 0.62) { G.set(cx + x, cy + y, vn(x, y, 6, 2) > 0.6 ? "#2a1c20" : "#20161a"); continue; }
+    if (d < 0.62) {                              // the heart: embers glowing under the char, hottest in the middle, breathing
+      const deep = clamp01(1 - d / 0.62), br = vn(x + Math.cos(t * TAU) * 3, y * 1.6 + Math.sin(t * TAU) * 3, 4, 12), gl = deep * (0.55 + 0.6 * br) + (HF(x, y + 7) - 0.5) * 0.12, b0 = bay(x, y);
+      if (gl > 0.62) G.set(cx + x, cy + y, gl > 0.8 && b0 < 0.5 ? FS[2] : FS[3]);
+      else if (gl > 0.36) G.set(cx + x, cy + y, b0 < 0.75 ? FS[4] : FS[3]);
+      else if (gl > 0.18 && b0 < (gl - 0.18) * 3) G.set(cx + x, cy + y, FS[4]);
+      else G.set(cx + x, cy + y, vn(x, y, 6, 2) > 0.6 ? "#2a1c20" : "#20161a");
+      continue;
+    }
     const k = (d - 0.62) / 0.83;
     if (bay(x, y) >= Math.min(1, (1 - k) * 1.25 + 0.05)) continue;
     G.set(cx + x, cy + y, k < 0.25 ? "#2a1c1c" : k < 0.6 ? "#3a2a1e" : "#4a3a28", (k < 0.6 ? 0.95 : 0.7) * 255);
     if (k > 0.6 && HF(x * 3, y) > 0.7) G.set(cx + x, cy + y, "#1e1a16", 0.6 * 255);
   }
-  // fissures: random walks that fork, the same every frame; the embers in them breathe
+  // fissures: random walks that fork, the same every step; the embers in them breathe (a tone darker than before: under the flames)
   const sc = R / 56, walk = (x, y, ang, len, depth, my) => { for (let i = 0; i < len; i++) { ang += (HF(my * 7 + i, sd) - 0.5) * 0.9; x += Math.cos(ang); y += Math.sin(ang) * 0.6;
-    if (blobEdge(x, y, R, ry, sd) > 0.88) break; const X = Math.round(x), Y = Math.round(y), lit = 0.5 + 0.5 * Math.sin((f / FNF) * TAU + my * 2.1);
+    if (blobEdge(x, y, R, ry, sd) > 0.88) break; const X = Math.round(x), Y = Math.round(y), lit = 0.5 + 0.5 * Math.sin(t * TAU + my * 2.1);
     if ((X + Y) % 2 === 0) { G.set(cx + X, cy + Y - 1, FS[4], 0.45 * 255); G.set(cx + X + 1, cy + Y, FS[4], 0.35 * 255); }
-    G.set(cx + X, cy + Y, lit > 0.75 ? FS[1] : lit > 0.4 ? FS[2] : FS[3]); // warm, never white (the lead, 2026-11-16)
+    G.set(cx + X, cy + Y, lit > 0.75 ? FS[2] : lit > 0.4 ? FS[3] : FS[4]);
     if (depth < 2 && HF(my + i, sd + 5) > 0.93) walk(x, y, ang + (HF(i, my) > 0.5 ? 0.8 : -0.8), (len * 0.6) | 0, depth + 1, my * 3 + i); } };
   for (let k = 0; k < 8; k++) { const a = HF(k, sd + 1) * TAU, dd = 0.08 + 0.35 * HF(k, sd + 2); walk(Math.cos(a) * R * dd, Math.sin(a) * ry * dd, HF(k, sd + 3) * TAU, ((22 + 20 * HF(k, sd + 4)) * Math.max(0.6, sc)) | 0, 0, k); }
-  for (let y = -g.hy; y <= g.hy; y++) for (let x = -g.hx; x <= g.hx; x++) if (blobEdge(x, y, R, ry, sd) < 0.7 && HF(x * 2.1, y * 1.7) > 0.985) G.set(cx + x, cy + y, FS[(f + x) & 1 ? 2 : 3]);
+  for (let y = -g.hy; y <= g.hy; y++) for (let x = -g.hx; x <= g.hx; x++) if (blobEdge(x, y, R, ry, sd) < 0.7 && HF(x * 2.1, y * 1.7) > 0.985) G.set(cx + x, cy + y, FS[(fb * 2 + x) & 1 ? 2 : 3]);
   return { cv: G.done(), ax: cx, ay: cy };
 });
-// the flames (and, behind, the smoke): back = tongues rooted in the back half, front = the front half
+// the flames: back = the masses rooted in the back half, front = the front half; trimmed
 const fireFlamesS = (rb, v, f, tier, front) => memo(`ff|${rb}|${v}|${f}|${tier}|${front ? 1 : 0}`, () => {
-  const g = fireGeom(rb), G = grid(2 * g.hx, 2 * g.hy + g.top);
-  G.cx = g.hx; G.cy = g.hy + g.top;
-  firePatches(G, g, f, v, tier, front);
-  inkPass(G);
-  if (!front && tier > 0) PATCH.slice(0, 3).forEach(([x, y, ph], k) => { const q = (f / FNF * 0.8 + ph) % 1, sc = g.R / 56, sx = G.cx + Math.round(x * sc) + Math.sin(q * 6 + k) * 3, sy = G.cy + Math.round(y * sc) - (24 + q * 26) * sc;
-    const rx = (3 + q * 5) * sc, ry2 = (1.6 + q * 3) * sc, col = q < 0.5 ? "#9c969a" : "#6a666e", al = 0.55 * (1 - q) * FLT[tier], dn = 0.85 - q * 0.4;
-    for (let yy = Math.floor(sy - ry2); yy <= Math.ceil(sy + ry2); yy++) for (let xx = Math.floor(sx - rx); xx <= Math.ceil(sx + rx); xx++) { const nx = (xx + 0.5 - sx) / rx, ny = (yy + 0.5 - sy) / ry2;
-      if (nx * nx + ny * ny > 1 || bay(xx, yy) >= dn || G.at(xx, yy) > 0) continue; G.set(xx, yy, col, al * 255); } });
-  let any = false; for (let i = 3; i < G.d.length; i += 4) if (G.d[i]) { any = true; break; }
-  return { cv: G.done(), ax: G.cx, ay: G.cy, empty: !any };
+  const g = fireGeom(rb), G = grid(2 * g.hx, 2 * g.hy + g.top), cx = g.hx, cy = g.hy + g.top, sc = g.R / 56, t = f / FNF;
+  PATCH.forEach(([x, y, ph, sz, n], k) => {
+    y = Math.round(y * sc); if ((y > 5 * sc) !== front) return;
+    const env = Math.pow(Math.sin(((t + ph + v * 0.21) % 1) * Math.PI), 0.7) * FLT[tier]; if (env < 0.12) return;
+    const out = new Map(), Hh = Math.round((9 + 14 * HF(k, 4 + v)) * sz * env * 1.55 * 1.15 * sc * LOOK.hk), W = ((n - 1) / 2 * 5 + 4) * sc * LOOK.wk;
+    patchMass(out, cx + Math.round(x * sc), cy + y, Hh, W, n, t, k * 7 + 3 + v * 2, LOOK);
+    paintOut(G, out);
+  });
+  return trimmed(G, cx, cy);
 });
 
-const FG = new Float32Array(6 * 3);
 const fireState = (gr, time, tms) => {
   const left = gr.until - tms, age = gr.born != null ? tms - gr.born : 1e9;
   const a = stepA(Math.min(1, left / 900, age / 240), 4);
   const tier = Math.min(age < 250 ? 1 : age < 500 ? 2 : 3, left < 500 ? 0 : left < 1200 ? 1 : left < 2000 ? 2 : 3);
   const r = Math.max(12, gr.r || 36), rb = Math.round(r / 4) * 4;
   const v = ((Math.floor(gr.x) * 7 + Math.floor(gr.y) * 13) % 4 + 4) % 4;
-  const f = (Math.floor(time * 5 + (Math.floor(gr.x) * 3 + Math.floor(gr.y)) * 0.37) % FNF + FNF) % FNF;
+  const f = (Math.floor(time * 10 + (Math.floor(gr.x) * 3 + Math.floor(gr.y)) * 0.74) % FNF + FNF) % FNF;
   return { a, tier, r, rb, v, f };
 };
 export const drawFireGround = (ctx, gr, time, tms) => {
   const q = fireState(gr, time, tms);
   if (q.a <= 0) return;
   if (q.a < 1) { ctx.save(); ctx.globalAlpha *= q.a; }
-  put(ctx, fireBaseS(q.rb, q.v, q.f), gr.x, gr.y);
-  if (q.tier > 0) put(ctx, fireFlamesS(q.rb, q.v, q.f, q.tier, false), gr.x, gr.y);
-  // a few sparks lifting off it
-  let n = 0;
-  if (q.tier > 0) for (let i = 0; i < 5; i++) {
-    const ph = (time * 0.9 + i * 0.29 + gr.x * 0.013) % 1;
-    const an = i * 2.3 + gr.y * 0.07, d = q.r * (0.15 + 0.07 * i);
-    FG[n++] = gr.x + Math.cos(an) * d + Math.sin(time * 4 + i) * 1.5;
-    FG[n++] = gr.y + Math.sin(an) * d * 0.6 - 3 - ph * 22;
-    FG[n++] = ph < 0.35 ? 1 : 0.5;
-    if (q.tier < 3 && i >= 2) break;
-  }
-  dots(ctx, FG, n, ((time * 3) | 0) % 2 ? FIRE[2] : FIRE[3]);
+  put(ctx, fireBaseS(q.rb, q.v, q.f >> 1), gr.x, gr.y);
+  if (q.tier > 0) { const s = fireFlamesS(q.rb, q.v, q.f, q.tier, false); if (!s.empty) put(ctx, s, gr.x, gr.y); }
   if (q.a < 1) ctx.restore();
 };
-// the tongues rooted in the pool's front half: drawn after the figures (draw.js)
+// the masses rooted in the pool's front half: drawn after the figures (draw.js)
 export const drawFireFront = (ctx, gr, time, tms) => {
   const q = fireState(gr, time, tms);
   if (q.a <= 0 || q.tier <= 0) return;
@@ -370,3 +443,26 @@ export const drawFireFront = (ctx, gr, time, tms) => {
   put(ctx, s, gr.x, gr.y);
   if (q.a < 1) ctx.restore();
 };
+
+// ---- the lava pool's flames (fx.js drawGround, kind "lava", right after its bed) ---------------------------------------------
+// Five small tongues standing out of the cracks, each lit and dying on its own clock (2-3 times a loop), the same make and see-
+// through as the burning ground's, a pale core and the darker solid rim so they stand off the orange crust. One sprite per
+// (radius bucket, step): 16 steps at 10 a second, the loop the pool's bed runs on (fx.js LAVA_F).
+export const LAVA_STEPS = FNF;
+const LT = [[-16, -4], [9, -9], [20, 5], [-5, 9], [-26, 6]];             // roots, art px for a 48-px pool (the Hellburner's)
+const lavaFlamesS = (rb, f) => memo(`lf|${rb}|${f}`, () => {
+  const R = rb * PX, sc = R / 48, t = f / FNF, w = Math.ceil(R + 20), top = Math.ceil(30 * sc), G = grid(2 * w, top + R * 0.62 + 16), cx = w, cy = top + 4;
+  LT.forEach(([x, y], k) => {
+    const cyc = 2 + (k & 1), ph = (t * cyc + HF(k, 61)) % 1, env = ph < 0.65 ? Math.sin((ph / 0.65) * Math.PI) : 0;
+    const h = Math.round((13 + 8 * HF(k, 62)) * env * LOOK.hk * Math.sqrt(sc)); if (h < 3) return;
+    const out = new Map();
+    tongue(out, cx + Math.round(x * sc), cy + Math.round(y * sc), h, Math.max(2, h * 0.27) * LOOK.wk, t, 40 + k, { ...LOOK, licks: 2, hot: 0.14 });
+    paintOut(G, out, LRIM);
+  });
+  return trimmed(G, cx, cy);
+});
+export const drawLavaFlames = (ctx, gr, time, rb) => {
+  const f = (Math.floor(time * 10 + (gr.x + gr.y) * 0.1) % FNF + FNF) % FNF, s = lavaFlamesS(rb, f);
+  if (!s.empty) put(ctx, s, gr.x, gr.y);
+};
+export const fireGroundStats = () => { let n = 0, b = 0; for (const [k, s] of SPR) if (/^(fb|ff|lf)\|/.test(k) && s.cv) { n++; b += s.cv.width * s.cv.height * 4; } return { sprites: n, mb: +(b / 1048576).toFixed(2) }; };
