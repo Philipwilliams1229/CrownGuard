@@ -65,10 +65,10 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Pyromancer", cost: 455, stats: { dmg: 46, rate: 1200, range: 105, splash: 36, burn: 8, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
+        name: "Pyromancer", cost: 455, stats: { dmg: 46, rate: 1200, range: 105, splash: 31, burn: 8, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
         rank4: {
           // every 5th fireball (poolEvery) leaves the road burning behind it
-          a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 38, burn: 9, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
+          a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 32, burn: 9, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
           // a held gout of flame, not shots: dmg is per SECOND to everything
           // inside the cone (update.js breathe); fire it close to the road
           b: { name: "Dragonbreath", cost: 975, stats: { dmg: 60, range: 69, breath: true, cone: 0.42, burn: 13, burnDur: 1500 }, desc: "A flamethrower: a cone of dragonfire scorching EVERYTHING in it. Short reach — build it by the road." },

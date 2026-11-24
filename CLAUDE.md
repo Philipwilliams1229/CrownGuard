@@ -1287,6 +1287,8 @@ Bring these up with the owner; don't act on them unasked.
   (update.js); the Powder Keg Run, the trap bombs and the spores keep `boom`, the Powder Works' charge is `keg`.
   Shown as private Artifact "Crownguard Effects, Round 11: Fire Wizard Blast as Built" (slug
   bfb190bb-f3af-45c2-afe3-89c8c667a8a9; row `fireblast11`, `build-fx-concepts.mjs round11`, `threeCols`).
+  The owner approved it and (same day) cut its blast area 15%: Pyromancer `splash` 36 -> 31, Inferno Throne 38 -> 32
+  (the picture follows the damage circle; the Inferno's every-fifth fire pool, `poolR` 36, unchanged). Not simmed.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
