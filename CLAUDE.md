@@ -2651,16 +2651,15 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   140 ms, holds taut while the foe walks in place at half pace, straining (enemies.js `strain`), then
   SNAPS (a flash at the break, the stake's half drops, the bolt's half whips back, links fly) (`src/render/chains.js` `drawPinnedChains`, over the crowd).
   **Bosses are never pinned** (owner: "the dragon was just completely nullified").
-- **The hero, Masons and militia stand on the battlefield** (owner, same day, after mockups A-F; picked E
-  "with the hero name"): one row at the board's bottom right, beside the castle band (CrownguardGame.jsx,
-  the "bottom right" block after the bottom-left horn group; `right` = WALL_W at the board's scale + 8,
-  `scaleAt("bottom right")`). The hero box is 150 wide: portrait, name (title dropped: "Aldric"), level,
-  health and xp bars; the Masons and the horn are 56 px squares (`SQUARE`), an icon over a small label
-  that turns into the recharge countdown. The Masons' icon is the castle's pix mason (`ui/CrewIcon.jsx`,
-  tight-cropped like EnemyIcon), not the old flat hammer; the horn's is the man the Levy's tier raises
-  (`militiaStats().rig`). The tray holds only the tower list now; the hero's menu still opens in it.
-  Checked with real clicks at 1180x820 (arm, tap the road, a row and the 60 s countdown); the owner will
-  check it on a phone.
+- **The hero, Masons and militia are back in the tray's foot** (owner, 2026-11-24, option A of three).
+  From 11-18 they stood on the board's bottom right beside the castle band; on a phone that row covered the
+  road's end and the gate on the 13 campaign maps whose road ends low (Barrowfields, Grave Road, Cairnfields,
+  Crowstair, Ice-Fjord, Barrowdowns, Drakesfell, Foxmere, Oakmere, Goblin Warrens, Reedmaze, Lantern Fen,
+  Drownholm), so keep them off the board. The foot (CrownguardGame.jsx, "foot", after `talentPanel`): the hero
+  on a full-width row (portrait, name without title, level, health and xp bars), Masons and militia sharing the
+  row under him half each (`HALF`, 44 tall: icon beside a label that turns into the recharge countdown). The
+  Masons' icon is a sculpted pix hammer (`ui/PixHammer.jsx`, pix.js with a fixed upper-left sun); the horn's is
+  the man the Levy's tier raises (`militiaStats().rig`). `ui/CrewIcon.jsx` (the pix mason) is unused now.
 - Any new tray aim (`g.rallyFor` string) must be added to the game loop's keep-list in
   CrownguardGame.jsx (the line that clears an unknown `rallyFor` every frame): "barricade" was missing
   at first, so the Masons' button did nothing.
