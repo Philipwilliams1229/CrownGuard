@@ -84,7 +84,7 @@ export default function SaveFilesModal({ short, resume, onClose }) {
           })}
         </div>
         <div style={{ fontSize: 10, lineHeight: 1.4, opacity: 0.7, marginTop: 10, flexShrink: 0 }}>
-          Each file is a whole game of its own. Sound and display settings are shared by all three. Erasing a file takes two taps and can't be undone.
+          Each file keeps its own campaign, tower and hero progress.
         </div>
       </div>
     </div>
