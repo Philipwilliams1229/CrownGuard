@@ -1289,6 +1289,13 @@ Bring these up with the owner; don't act on them unasked.
   bfb190bb-f3af-45c2-afe3-89c8c667a8a9; row `fireblast11`, `build-fx-concepts.mjs round11`, `threeCols`).
   The owner approved it and (same day) cut its blast area 15%: Pyromancer `splash` 36 -> 31, Inferno Throne 38 -> 32
   (the picture follows the damage circle; the Inferno's every-fifth fire pool, `poolR` 36, unchanged). Not simmed.
+- **Dragonbreath's flame, Round 12** (2026-11-24, owner: "fixing the dragons breath as well ... 3 options, animated"):
+  today (flames.js `drawBreath`) reads as a smoky hose of lumpy balls. Brief `art/briefs/fx-round12.md`, row `breath12`
+  in `concept/fx-r12-breath.js` (the real spire, a 16-frame held, sweeping loop; the hall's time held still),
+  `build-fx-concepts.mjs round12`. Two drafts were sent back (a thin rope dropping onto a carpet of identical spikes;
+  then a flat striped triangle): variations of today work, new constructions did not. Shown: A today cleaned (no smoke,
+  warm far end), B streaked flame, C A + a fire ring at the staff and a broken arc on the far edge. Private Artifact
+  "Crownguard Effects Concepts, Round 12: Dragonbreath" (slug 8de5408a-e422-4184-ad27-7f6adbed86bd). Awaiting the pick.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
