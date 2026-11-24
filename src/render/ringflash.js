@@ -16,6 +16,7 @@ const RY_BLAST = 0.7;     // fx.js RY: a blast's ring is a circle seen at 3/4
 // type -> [life ms (if the effect has no `life`), squash, front(p) as a fraction of r, p where it stops growing]
 const RING = {
   boom: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.72), 0.72],
+  fireboom: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.72), 0.72],
   arcane: [320, RY_BLAST, (p) => 0.25 + 0.75 * easeOut(p / 0.7), 0.7],
   keg: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],
   frost: [320, RY_BLAST, (p) => 0.3 + 0.7 * easeOut(p / 0.7), 0.7],

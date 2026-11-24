@@ -342,7 +342,7 @@ const dissolveCorpses = (g, tms) => {
 // momentum (towers.js), and at LOG_STALL it stops and breaks apart (owner,
 // 2026-11-10: "Log roller is so op" against the Hollow's floods)
 // how fast a blast effect plays: 0.6 = it lasts 1/0.6 as long (see the effects tick)
-const BLAST_PACE = { boom: 0.6, keg: 0.6, arcane: 0.6, frost: 0.6, dust: 0.6 };
+const BLAST_PACE = { boom: 0.6, fireboom: 0.6, keg: 0.6, arcane: 0.6, frost: 0.6, dust: 0.6 };
 // ...and its damage lands as the ring's front reaches each foe (owner, same day):
 // the front runs 0.3 -> 1 of the blast's reach over the first 0.72 of the effect's
 // life, eased out (ringflash.js RING), so a foe dd from the centre is struck this
@@ -3322,7 +3322,7 @@ export function updateGame(g, dt) {
         if (p.kind === "shell") burstCharge(g, p, target, tms);
         else if (p.splash > 0) {
           if (!p.mini) sfx.play(p.kind === "rock" ? "rock" : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane");
-          g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
+          g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.kind === "shell" ? "boom" : p.burn ? "fireboom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
           // a mark on the ground that outlives the blast: soot, or a rime of frost
           // (owner, 2026-11-17: a catapult's stone leaves no mark; its dust is enough)
           if (!p.mini && p.kind !== "rock") {

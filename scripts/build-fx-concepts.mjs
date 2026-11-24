@@ -9,7 +9,9 @@ import { ROWS7 } from "../concept/fx-r7.js";
 import { ROWS8 } from "../concept/fx-r8.js";
 import { ROWS9 } from "../concept/fx-r9.js";
 import { ROWS10 } from "../concept/fx-r10.js";
-const ROWS = [...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+import { ROWS11 } from "../concept/fx-r11.js";
+const ROWS = [...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+const ROUND11 = process.argv.includes("round11"); // -> only the Round 11 rows, in .shots/fx-concepts-round11/
 const ROUND10 = process.argv.includes("round10"); // -> only the Round 10 rows, in .shots/fx-concepts-round10/
 const ROUND9 = process.argv.includes("round9");   // -> only the Round 9 rows, in .shots/fx-concepts-round9/
 const ROUND8 = process.argv.includes("round8");   // -> only the Round 8 rows, in .shots/fx-concepts-round8/
@@ -19,11 +21,12 @@ const ROUND5 = process.argv.includes("round5");   // -> only the Round 5 rows, i
 const ROUND4 = process.argv.includes("round4");   // -> only the Round 4 rows, in .shots/fx-concepts-round4/
 const ROUND2 = process.argv.includes("round2");   // node scripts/build-fx-concepts.mjs round2 -> only the Round 2 rows, in .shots/fx-concepts-round2/
 const ROUND3 = process.argv.includes("round3");   // -> only the Round 3 rows, in .shots/fx-concepts-round3/
-const OUT = ROUND10 ? ".shots/fx-concepts-round10" : ROUND9 ? ".shots/fx-concepts-round9" : ROUND8 ? ".shots/fx-concepts-round8" : ROUND7 ? ".shots/fx-concepts-round7" : ROUND6 ? ".shots/fx-concepts-round6" : ROUND5 ? ".shots/fx-concepts-round5" : ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
+const OUT = ROUND11 ? ".shots/fx-concepts-round11" : ROUND10 ? ".shots/fx-concepts-round10" : ROUND9 ? ".shots/fx-concepts-round9" : ROUND8 ? ".shots/fx-concepts-round8" : ROUND7 ? ".shots/fx-concepts-round7" : ROUND6 ? ".shots/fx-concepts-round6" : ROUND5 ? ".shots/fx-concepts-round5" : ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
 fs.mkdirSync(OUT, { recursive: true });
 const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", D: "D  wild card", Bdark: "B on dark ground", Adark: "A on dark ground", Cdark: "C on dark ground" };
 const rows = [];
 for (const r of ROWS) {
+  if (ROUND11 && r.group !== "Round 11") continue;
   if (ROUND10 && r.group !== "Round 10") continue;
   if (ROUND9 && r.group !== "Round 9") continue;
   if (ROUND8 && r.group !== "Round 8") continue;
@@ -33,7 +36,7 @@ for (const r of ROWS) {
   if (ROUND4 && r.group !== "Round 4") continue;
   if (ROUND3 && r.group !== "Round 3") continue;
   if (ROUND2 && r.group !== "Round 2") continue;
-  const cols = r.cols2 ? ["today", "today2"] : r.twoToday ? ["today", "today2", "A", "B", "C", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])] : ["today", "A", "B", "C", "D", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])];
+  const cols = r.threeCols ? ["today", "A", "C", "Bdark"] : r.cols2 ? ["today", "today2"] : r.twoToday ? ["today", "today2", "A", "B", "C", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])] : ["today", "A", "B", "C", "D", "Bdark", ...(r.darkAll ? ["Adark", "Cdark"] : [])];
   const strips = [];
   for (const k of cols) {
     const src = `.shots/fxc_${r.id}_${k}.png`;
@@ -63,7 +66,7 @@ h2{margin:22px 16px 6px;font-size:13px;letter-spacing:.08em;text-transform:upper
 <h1>Crownguard combat effects: concept options<span>One row per effect. TODAY is the game's own code; A clean, B worked, C bold. The box at the end of each strip plays it. Zoom 3, grass ground (and B on a Hollow dark ground).</span></h1>
 <div id="bar"><span id="cnt">0 picked</span><button id="cp">Copy my picks</button><textarea id="fb" readonly></textarea></div><div id="root"></div>
 <script>
-const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND4 || ROUND5 || ROUND6 || ROUND7 || ROUND8 || ROUND9 || ROUND10};
+const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND4 || ROUND5 || ROUND6 || ROUND7 || ROUND8 || ROUND9 || ROUND10 || ROUND11};
 let picks={};try{picks=JSON.parse(localStorage.getItem("cg-fx-picks")||"{}")}catch(e){}
 const cnt=document.getElementById("cnt"),save=()=>{try{localStorage.setItem("cg-fx-picks",JSON.stringify(picks))}catch(e){}cnt.textContent=Object.keys(picks).length+" picked";};
 document.getElementById("cp").onclick=()=>{const t=Object.entries(picks).map(([k,v])=>k+": "+v).join("\\n");const fb=document.getElementById("fb");const fail=()=>{fb.style.display="block";fb.value=t;fb.select();};try{navigator.clipboard.writeText(t).then(()=>{document.getElementById("cp").textContent="Copied";setTimeout(()=>document.getElementById("cp").textContent="Copy my picks",1200)},fail)}catch(e){fail()}};

@@ -23,6 +23,7 @@ const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), pa
 const pal = (...hs) => hs.map(col);
 const CREAM = col("#fff3d2");
 const FIRE = pal("#fff3d2", "#f8d868", "#f0a040", "#d8683a", "#9a3a30", "#5a2430");
+const INNER = pal("#ffe27a", "#ffb030", "#f26a1c");   // the fire wizard's inner ring
 const ARC = pal("#fff3d2", "#e4d0fc", "#b890e8", "#8a64c8", "#5a3a8a");
 const ICE = pal("#ffffff", "#d4f2fa", "#9fd4e8", "#62a4cc", "#3a6a98");
 const DUST = pal("#eee0bc", "#cdb68a", "#a48a64", "#766048");
@@ -262,11 +263,11 @@ const BLAST = {
         }
       }
     },
-    a(G, cx, cy, R, ry, p, seed) {
+    a(G, cx, cy, R, ry, p, seed, smoke = true) {
       const Rf = Math.min(R * 0.5, 44), f = Math.floor(p * NF);
       const base = cy - Rf * 0.55;
       // smoke first: it boils up out of the fireball and thins away
-      if (p > 0.2) {
+      if (smoke && p > 0.2) {
         const q = (p - 0.2) / 0.8;
         const puffs = lobes(cx, base - Rf * 0.35 - q * R * 0.4, Rf * (0.62 + 0.3 * q), 7, seed + 3, 1, 0.8);
         cloud(G, wane(puffs, q, 0.35, seed), q < 0.4 ? SMOKE_NEW : SMOKE_OLD, seed + 5, { dens: q > 0.9 ? 0.6 : 1 });
@@ -295,6 +296,41 @@ const BLAST = {
         const X = cx + x, Y = cy - Rf * 0.3 + y;
         if (i % 3 === 0) { G.rect(X - 1, Y - 1, 3, 3, k); G.set(X + 1, Y + 1, FIRE[4]); }
         else { G.rect(X - 1, Y - 1, 2, 2, k); G.set(X, Y, FIRE[3]); }
+      }
+    },
+  },
+  // The fire wizard's blast (owner, 2026-11-24, Round 10 "A with D's inner ring"): the bomb's ground ring
+  // exactly, plus a faint broken inner ring of fire a little behind it; above the ground the bomb's
+  // fireball and embers with NO smoke, burning out into a few sparks that lift off. The Powder Works keeps `boom`.
+  fireboom: {
+    g(G, cx, cy, R, ry, p, seed) {
+      BLAST.boom.g(G, cx, cy, R, ry, p, seed);
+      const q = clamp01((p - 0.132) / 0.725);                 // 70 ms behind the outer front, out to 0.6 of the reach
+      if (q <= 0) return;
+      const fa = p > 0.623 ? 1 - (p - 0.623) / 0.283 : 1;
+      if (fa <= 0) return;
+      const r = R * 0.6 * easeOut(q), n = Math.round(r * 6.6), f = Math.floor(p * NF);   // a point every pixel or so: a line, not dots
+      const t0 = q < 0.4 ? INNER[0] : INNER[1], t1 = q < 0.4 ? INNER[1] : INNER[2];   // Round 10's brighter tones
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        if (hash(seed + 9, Math.floor(a * 9)) < 0.18) continue;   // a broken line of fire, not a solid band
+        if (bay(i, f) > 0.95 * fa) continue;
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * (ry / R);
+        G.set(x, y, t0); G.set(x, y + 1, t1);
+        if (a > 0.1 && a < Math.PI - 0.1) G.set(x, y + 2, FIRE[4], 150);
+      }
+    },
+    a(G, cx, cy, R, ry, p, seed) {
+      BLAST.boom.a(G, cx, cy, R, ry, p, seed, false);
+      const ms = p * 530, sc = R / 74;                        // drawn on Round 10's 37-unit blast; sized with the reach
+      for (let s = 0; s < 9; s++) {
+        const t0 = ms - 190 - s * 22;
+        if (t0 < 0 || t0 > 230) continue;
+        const x = cx + ((hash(seed + 31, s) - 0.5) * 22 + Math.sin(t0 * 0.03 + s) * 2) * sc;
+        const y = cy + (-26 - t0 * 0.2 * (0.6 + hash(seed + 37, s))) * sc;
+        const al = Math.round(255 * (1 - t0 / 230));
+        if (s % 3 === 0) { G.set(x, y, FIRE[0], al); G.set(x + 1, y, FIRE[2], al); G.set(x, y + 1, FIRE[2], al); }
+        else G.set(x, y, FIRE[1], al);
       }
     },
   },
@@ -571,7 +607,7 @@ BLAST.keg = {
     }
   },
 };
-const SEEDS = { boom: 3, arcane: 5, frost: 7, dust: 11, shrapnelhit: 13, keg: 17 };
+const SEEDS = { boom: 3, fireboom: 3, arcane: 5, frost: 7, dust: 11, shrapnelhit: 13, keg: 17 };
 
 const bucket = (r) => (r <= 16 ? Math.max(6, Math.round(r / 4) * 4) : Math.round(r / 8) * 8);
 

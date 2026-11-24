@@ -1280,7 +1280,13 @@ Bring these up with the owner; don't act on them unasked.
   `boom` ground layer (the ring) drawn by the game's own drawBlast, only the "a" layer softened (brief
   `art/briefs/fx-round10.md`, row `fireblast10`, `build-fx-concepts.mjs round10`): A no smoke, B a smaller flame,
   C a flare (no fireball), D C + a faint inner ring. Private Artifact "Crownguard Effects Concepts, Round 10: Fire
-  Wizard Blast, Softer" (slug 8c0d04cd-f73d-4634-aad8-feb7b7dcbb25). Awaiting the owner's pick; the bomb keeps `boom`.
+  Wizard Blast, Softer" (slug 8c0d04cd-f73d-4634-aad8-feb7b7dcbb25). **The owner picked A with D's inner ring**: IN THE
+  GAME (not pushed until the owner has seen it) as its own blast type `fireboom` (fx.js `BLAST.fireboom`: boom's ground
+  ring + a broken inner ring of fire at 0.6 of the reach, `INNER` tones; boom's fireball and embers with `smoke` off and
+  nine sparks lifting off; `BLAST_PACE`, ringflash `RING` and SEEDS entries). Only a fireball with `p.burn` uses it
+  (update.js); the Powder Keg Run, the trap bombs and the spores keep `boom`, the Powder Works' charge is `keg`.
+  Shown as private Artifact "Crownguard Effects, Round 11: Fire Wizard Blast as Built" (slug
+  bfb190bb-f3af-45c2-afe3-89c8c667a8a9; row `fireblast11`, `build-fx-concepts.mjs round11`, `threeCols`).
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
