@@ -1275,7 +1275,12 @@ Bring these up with the owner; don't act on them unasked.
   (then the page's labels were renamed by hand). Private Artifact "Crownguard Effects Concepts, Round 9: Fire Wizard
   Blast" (slug d450c58e-8640-47a8-83db-4693dc44cadc): A flame bloom, B fire sigil (no star: rejected as a
   religious symbol), C fire vortex, D molten splash; all smokeless, wave at the rim by 384 ms, gone by 530 ms.
-  Weak: D's pools a little heart-shaped, C's glow a bit ribbon-like. Awaiting the owner's pick; the bomb keeps `boom`.
+  Weak: D's pools a little heart-shaped, C's glow a bit ribbon-like. The owner turned all four down.
+  **Round 10** (owner: "keep its cool magic rings around the outer edge ... less smoke, less explosivity"): today's
+  `boom` ground layer (the ring) drawn by the game's own drawBlast, only the "a" layer softened (brief
+  `art/briefs/fx-round10.md`, row `fireblast10`, `build-fx-concepts.mjs round10`): A no smoke, B a smaller flame,
+  C a flare (no fireball), D C + a faint inner ring. Private Artifact "Crownguard Effects Concepts, Round 10: Fire
+  Wizard Blast, Softer" (slug 8c0d04cd-f73d-4634-aad8-feb7b7dcbb25). Awaiting the owner's pick; the bomb keeps `boom`.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
