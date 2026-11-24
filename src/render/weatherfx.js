@@ -276,6 +276,44 @@ const fogArt = () => B.bakeFog(realmKey(), landAt);
 // laid OVER it as the night's are, at FOG_LAMP whatever the fog's thickness, for as long as there is any
 // fog (owner: "always have them on for the fog, once its clear they turn off").
 const FOG_THIN = 0.6, FOG_LAMP = 0.8, FOG_POOL = 0.45;
+// How bright the finished picture is round each lamp: the board's canvas shrunk to LUM_W wide and read
+// back every LUM_EVERY s (one small read, never per lamp), its mapping from the board kept with it
+// (the camera's transform). A lamp keeps full strength up to LUM_LO and falls to LUM_MIN of it at LUM_HI.
+const LUM_W = 160, LUM_EVERY = 0.4, LUM_LO = 0.6, LUM_HI = 0.72, LUM_MIN = 0.3;
+let LUM = null, LUM_AT = -1e9, LUM_CV = null;
+const sampleLum = (ctx, t) => {
+  if (Math.abs(t - LUM_AT) < LUM_EVERY && LUM) return;
+  LUM_AT = t;
+  const src = ctx.canvas;
+  if (!src || !src.width) return;
+  const w = LUM_W, h = Math.max(1, Math.round((LUM_W * src.height) / src.width));
+  if (!LUM_CV) LUM_CV = B.mk(w, h);
+  if (LUM_CV.width !== w || LUM_CV.height !== h) { LUM_CV.width = w; LUM_CV.height = h; }
+  const c = LUM_CV.getContext("2d");   // GPU-side: the shrink runs there and only the small canvas is read back
+  c.imageSmoothingEnabled = true;
+  c.clearRect(0, 0, w, h);
+  c.drawImage(src, 0, 0, w, h);
+  let d;
+  try { d = c.getImageData(0, 0, w, h).data; } catch { LUM = null; return; }
+  const L = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) L[i] = (0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]) / 255;
+  const m = ctx.getTransform(), s = w / src.width;
+  LUM = { L, w, h, a: m.a * s, b: m.b * s, c: m.c * s, d: m.d * s, e: m.e * s, f: m.f * s };
+};
+// the mean brightness of the 3 x 3 cells round a board point (the fog's dither averaged out)
+const lumAt = (x, y) => {
+  const Q = LUM;
+  if (!Q) return 0;
+  const px = Math.round(Q.a * x + Q.c * y + Q.e), py = Math.round(Q.b * x + Q.d * y + Q.f);
+  let sum = 0, n = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const X = px + i, Y = py + j;
+    if (X < 0 || Y < 0 || X >= Q.w || Y >= Q.h) continue;
+    sum += Q.L[Y * Q.w + X]; n++;
+  }
+  return n ? sum / n : 0;
+};
+const lampWeight = (L) => 1 - (1 - LUM_MIN) * clamp01((lumAt(L.x, L.y) - LUM_LO) / (LUM_HI - LUM_LO));
 const thinHalls = (c, g) => {
   c.globalCompositeOperation = "destination-out"; c.globalAlpha = FOG_THIN;
   for (const t of g.towers) {
@@ -330,8 +368,12 @@ const fog = (ctx, g, w, def) => {
   // lights brighter for denser fog"); the pools at half: on the pale fog a full one burns to a white smear
   fogLampTick(t);
   const pa = ctx.globalAlpha;
-  ctx.globalAlpha = FOG_LAMP * FOG_POOL; drawLampPools(ctx, t);
-  ctx.globalAlpha = FOG_LAMP; drawLampBloom(ctx, t);
+  // each lamp dimmed by how bright the picture already is behind it (lampWeight): over pale fog or the
+  // golden hour's bright west edge a full lamp burned to a white blob (owner, 2026-11-24: "the lanterns
+  // in the golden glow ... look too bright. On the right I like the way they look")
+  sampleLum(ctx, t);
+  ctx.globalAlpha = FOG_LAMP * FOG_POOL; drawLampPools(ctx, t, "lighter", lampWeight);
+  ctx.globalAlpha = FOG_LAMP; drawLampBloom(ctx, t, "lighter", lampWeight);
   ctx.globalAlpha = pa;
   swapLamps();
 };

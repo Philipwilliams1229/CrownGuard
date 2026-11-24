@@ -10,6 +10,8 @@
 //   drawLampPools(ctx)                    UNDER the actors: each lamp's pool on the ground, a flat
 //                                         ellipse (0.55 tall, the board's 3-D squash)
 //   drawLampBloom(ctx)                    OVER the board: the glow round each flame itself
+//                                         (both take an optional blend, default 'lighter', and weight(L), a
+//                                         per-lamp strength: the fog's dims lamps over bright ground)
 //
 // Both are stepped, Bayer-dithered stamps baked once per radius, colour and kind, laid with
 // 'lighter' so they ADD light to what is under them; nothing is a flat translucent disc.
@@ -78,27 +80,27 @@ const bucket = (r) => Math.max(4, Math.round(r / 2) * 2);
 const FLICK = [1, 0.84, 0.94, 0.78, 1, 0.9, 0.74, 0.96];
 
 // time: g.time, for the flicker (each lamp keeps its own phase from where it stands)
-export const drawLampPools = (ctx, time) => {
+export const drawLampPools = (ctx, time, op = "lighter", weight = null) => {
   if (!PREV.length) return;
   const prev = ctx.globalCompositeOperation, pa = ctx.globalAlpha;
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = op;
   for (const L of PREV) {
     const fl = FLICK[Math.floor(time * 12 + L.x * 0.37) & 7], high = Math.max(0.35, 1 - L.ground / 46);
     const s = sprite(bucket(L.r * 2.5 + 6), L.col, "ground", L.cool);
-    ctx.globalAlpha = pa * Math.min(1, L.k * fl * high * 1.15);
+    ctx.globalAlpha = pa * Math.min(1, L.k * fl * high * 1.15) * (weight ? weight(L) : 1);
     // the pool sits on the ground below the flame, a touch toward the viewer
     ctx.drawImage(s.cv, Math.round(L.x * PX) / PX - s.w / PX / 2, Math.round((L.y + L.ground * 0.9 + 3) * PX) / PX - s.h / PX / 2, s.w / PX, s.h / PX);
   }
   ctx.globalCompositeOperation = prev; ctx.globalAlpha = pa;
 };
-export const drawLampBloom = (ctx, time) => {
+export const drawLampBloom = (ctx, time, op = "lighter", weight = null) => {
   if (!CUR.length) return;
   const prev = ctx.globalCompositeOperation, pa = ctx.globalAlpha;
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = op;
   for (const L of CUR) {
     const fl = FLICK[Math.floor(time * 12 + L.x * 0.37) & 7];
     const s = sprite(bucket(L.r * 0.9 + 2), L.col, "bloom", L.cool);
-    ctx.globalAlpha = pa * Math.min(1, L.k * fl);
+    ctx.globalAlpha = pa * Math.min(1, L.k * fl) * (weight ? weight(L) : 1);
     ctx.drawImage(s.cv, Math.round(L.x * PX) / PX - s.w / PX / 2, Math.round(L.y * PX) / PX - s.h / PX / 2, s.w / PX, s.h / PX);
   }
   ctx.globalCompositeOperation = prev; ctx.globalAlpha = pa;
