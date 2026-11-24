@@ -93,7 +93,7 @@ export default function HomeScreen({ progress, profile, resume, onContinue, onFr
   // where NEW CAMPAIGN used to be: a new game goes in an empty save file, so
   // no campaign is ever wiped by it (owner, 2026-11-24)
   const filesBtn = (
-    <button style={compact ? smallBtn : bigBtn(false)} onClick={() => setFilesOpen(true)}>
+    <button style={smallBtn} onClick={() => setFilesOpen(true)}>
       SAVE FILES
       <div style={sub}>file {fileNo} of 3</div>
     </button>
@@ -140,7 +140,6 @@ export default function HomeScreen({ progress, profile, resume, onContinue, onFr
       ) : (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>
       )}
-      {!compact && filesBtn}
       {/* where the crown spends what it has won: stars on the heroes and
           the towers' skills, gold on the castle */}
       <div style={{ ...span, display: "flex", gap: compact ? 8 : 10 }}>
@@ -157,20 +156,25 @@ export default function HomeScreen({ progress, profile, resume, onContinue, onFr
           </div>
         </button>
       </div>
+      {/* the small buttons two by two (owner, 2026-11-24): Free Play | Field Guide, then Save Files | Settings */}
       {compact ? (
-        // a two-wide grid: SAVE FILES joins the small buttons
         <>
-          {filesBtn}
           <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
           <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
+          {filesBtn}
           <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
         </>
       ) : (
-        <div style={{ display: "flex", gap: 10 }}>
-          <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
-          <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
-        </div>
+        <>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
+            <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            {filesBtn}
+            <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
+          </div>
+        </>
       )}
       <div style={{ ...span, fontSize: 10, letterSpacing: 1.5, textAlign: "center", color: "#d8c8a0", marginTop: compact ? 0 : 2 }}>
         {rankName(profile.xp)} · {profile.xp.toLocaleString()} XP
