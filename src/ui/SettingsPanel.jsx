@@ -127,7 +127,7 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {inBattle && <div style={{ ...say, color: "var(--gold-lt)" }}>Restore, Start over and Erase end this battle.</div>}
       {head("Back up")}
-      <div style={note}>Your progress is kept on this device only. A save code carries all of it (levels, stars, heroes, settings) to another device.</div>
+      <div style={note}>Your progress is kept on this device only. A save code carries all of it (all three save files and the settings) to another device.</div>
       <div style={{ display: "flex", gap: 8 }}>
         <button className="cg-btn" style={{ flex: 1, minHeight: 44 }} onClick={copy}>Copy save code</button>
         {typeof navigator !== "undefined" && navigator.share && <button className="cg-btn" style={{ flex: 1, minHeight: 44 }} onClick={share}>Share…</button>}
@@ -161,12 +161,12 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
         onClick={() => arm.tap("campaign", () => { onCampaignReset(resetProgress()); setMsg({ text: "The campaign starts fresh. Your stars and heroes are kept." }); })}>
         {arm.is("campaign") ? "Tap again to start over" : "Start the campaign over"}
       </button>
-      <div style={note}>Forgets every level held, the castle works and the treasury. Stars, xp and heroes stay.</div>
+      <div style={note}>Forgets this save file’s levels held, castle works and treasury. Its stars, xp and heroes stay. The other save files are untouched.</div>
       <button className={cls("cg-btn cg-btn--slate", arm.is("erase") && "cg-btn--gold")} style={{ minHeight: 44 }}
         onClick={() => arm.tap("erase", () => { eraseAll(); location.reload(); })}>
         {arm.is("erase") ? "Tap again to erase it all" : "Erase everything"}
       </button>
-      <div style={note}>Everything this device remembers: the campaign, stars, xp, heroes and settings. Copy a save code first if you may want it back.</div>
+      <div style={note}>Everything this device remembers: all three save files and the settings. Copy a save code first if you may want it back.</div>
     </div>
   );
 }

@@ -21,6 +21,8 @@ import { starsFree, rankName } from "../data/profile.js";
 import { Star } from "./Glyphs.jsx";
 import { CastleIcon, CoinIcon } from "./hud/icons.jsx";
 import CastleWorksModal from "./CastleWorksModal.jsx";
+import SaveFilesModal from "./SaveFilesModal.jsx";
+import { readSlots } from "../data/saveSlots.js";
 import BuildTag from "./BuildTag.jsx";
 import { titleVistaAsync, VW, VH } from "./titleArt.js";
 import { startCrowd } from "./titleCrowd.js";
@@ -28,20 +30,13 @@ import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, resume, onNewCampaign, onContinue, onFreePlay, onCouncil, onBuyWork, onRefundAll, onCampaignReset }) {
+export default function HomeScreen({ progress, profile, resume, onContinue, onFreePlay, onCouncil, onBuyWork, onRefundAll, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [worksOpen, setWorksOpen] = useState(false);
-  // NEW CAMPAIGN over a save is two taps: the first only warns, the second wipes
-  const [armNew, setArmNew] = useState(false);
-  const armTimer = useRef(0);
-  useEffect(() => () => clearTimeout(armTimer.current), []);
-  const tapNew = () => {
-    clearTimeout(armTimer.current);
-    if (armNew) { setArmNew(false); onNewCampaign(); return; }
-    setArmNew(true);
-    armTimer.current = setTimeout(() => setArmNew(false), 4000);
-  };
+  // SAVE FILES (data/saveSlots.js): three whole games; a new one starts in an empty file
+  const [filesOpen, setFilesOpen] = useState(false);
+  const fileNo = readSlots().active;
   const saved = hasProgress(progress) || !!resume;   // a battle left on the first level is a save too
   const upTo = currentLevel(progress);
   const cleared = LEVELS.filter((l) => progress.cleared[l.id]).length;
@@ -95,11 +90,12 @@ export default function HomeScreen({ progress, profile, resume, onNewCampaign, o
   const pairBtn = { ...bigBtn(false), flex: 1, minWidth: 0, padding: compact ? "8px 6px" : "12px 6px", fontSize: compact ? 12 : 13, letterSpacing: 1 };
   const span = compact ? { gridColumn: "1 / -1" } : null;
   const sub = { fontSize: 9, letterSpacing: 1, opacity: 0.85, marginTop: compact ? 2 : 4, fontWeight: "normal" };
-  // over a save NEW CAMPAIGN takes two taps: the first only warns
-  const newBtn = (
-    <button style={compact ? smallBtn : bigBtn(armNew)} onClick={tapNew}>
-      {armNew ? "TAP AGAIN" : "NEW CAMPAIGN"}
-      {armNew && <div style={sub}>forgets the {cleared} held</div>}
+  // where NEW CAMPAIGN used to be: a new game goes in an empty save file, so
+  // no campaign is ever wiped by it (owner, 2026-11-24)
+  const filesBtn = (
+    <button style={compact ? smallBtn : bigBtn(false)} onClick={() => setFilesOpen(true)}>
+      SAVE FILES
+      <div style={sub}>file {fileNo} of 3</div>
     </button>
   );
 
@@ -134,8 +130,7 @@ export default function HomeScreen({ progress, profile, resume, onNewCampaign, o
       ...(compact ? { display: "grid", gridTemplateColumns: "1fr 1fr" } : { display: "flex", flexDirection: "column" }),
     }}>
       <Studs />
-      {/* over a save, CONTINUE leads and NEW CAMPAIGN takes two taps (it
-          wipes the levels held); with no save there is nothing to wipe */}
+      {/* over a save, CONTINUE leads; SAVE FILES holds the other games */}
       {saved ? (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>
           CONTINUE CAMPAIGN
@@ -145,7 +140,7 @@ export default function HomeScreen({ progress, profile, resume, onNewCampaign, o
       ) : (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>
       )}
-      {saved && !compact && newBtn}
+      {!compact && filesBtn}
       {/* where the crown spends what it has won: stars on the heroes and
           the towers' skills, gold on the castle */}
       <div style={{ ...span, display: "flex", gap: compact ? 8 : 10 }}>
@@ -163,13 +158,12 @@ export default function HomeScreen({ progress, profile, resume, onNewCampaign, o
         </button>
       </div>
       {compact ? (
-        // a two-wide grid: over a save NEW CAMPAIGN joins the small buttons
-        // (it is the one that wipes things, so it sits low)
+        // a two-wide grid: SAVE FILES joins the small buttons
         <>
-          {saved && newBtn}
+          {filesBtn}
           <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
           <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          <button style={{ ...smallBtn, ...(saved ? null : span) }} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
+          <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
         </>
       ) : (
         <div style={{ display: "flex", gap: 10 }}>
@@ -236,6 +230,7 @@ export default function HomeScreen({ progress, profile, resume, onNewCampaign, o
       {/* outside the <Fit>: a fixed modal inside a transform would pin to it */}
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onCampaignReset={onCampaignReset} />}
+      {filesOpen && <SaveFilesModal short={compact} resume={resume} onClose={() => setFilesOpen(false)} />}
       {worksOpen && <CastleWorksModal treasury={treasury} short={compact} onBuy={onBuyWork} onRefundAll={onRefundAll} onClose={() => setWorksOpen(false)} />}
     </div>
   );

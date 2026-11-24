@@ -2022,6 +2022,21 @@ and zeroes it, so the replayed wave is not counted twice; a killed app keeps the
 the record. `g.ckLevel` names the level a battle keeps (null in Free Play and once left). Checked in
 headless Chromium: reload mid-wave, hide-then-reload in a build phase, leave mid-wave for the map.
 
+## Three save files (2026-11-24, owner request)
+
+"Start fresh games on my phone without losing all my campaign progress." The title screen's NEW
+CAMPAIGN button is now SAVE FILES (`ui/SaveFilesModal.jsx`): three files, each a whole game (levels,
+stars, xp, heroes, hall XP, castle works, a kept battle); PLAY another file or NEW GAME in an empty one
+reloads into it; ERASE takes two taps. `src/data/saveSlots.js`: the file in use lives in the ordinary
+keys (every store unchanged; an old save is File 1), the others packed in `crownguard.slots.v1`. A file
+is every `crownguard.*` key except `DEVICE` (sound, prefs, sandbox, the iOS copy): a new progress key
+joins the files with no change, a new DEVICE-wide setting must be added there. A switch writes both
+files first, and `settleSlots()` (main.jsx, after keepSaves, before boot) finishes one cut off by a
+reload. The save code carries all three files; a code from before files restores into the file in use
+and keeps the other two (backup.js `restoreSave`). Settings' "Start the campaign over" still resets
+only the file in use. Checked in a built copy (desktop and 844x390): switch, round trip byte-identical,
+cut-off recovery, erase. Not yet tried in the iOS app.
+
 ## Restarting takes two taps (2026-11-09, owner request)
 
 Every restart button now arms on the first tap and acts on the second (the

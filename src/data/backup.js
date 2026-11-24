@@ -8,6 +8,8 @@
 // Restoring replaces this device's save whole; the caller reloads the page,
 // since every store reads its key once at load.
 
+import { SLOTS } from "./saveSlots.js";
+
 const HEAD = "CROWNGUARD-SAVE:";
 const own = (k) => k.startsWith("crownguard.") || k === "cg-type";
 
@@ -51,12 +53,15 @@ export function readSaveCode(text) {
   return { at: data.at, keys };
 }
 
+// A code made before save files (no SLOTS in it) goes into the file in use
+// and leaves the other two save files alone (data/saveSlots.js).
 export function restoreSave(save) {
-  for (const k of ownKeys()) localStorage.removeItem(k);
+  const keepFiles = !(SLOTS in save.keys);
+  for (const k of ownKeys()) if (!(keepFiles && k === SLOTS)) localStorage.removeItem(k);
   for (const [k, v] of Object.entries(save.keys)) localStorage.setItem(k, v);
 }
 
-// Everything the game remembers, gone: progress, stars, settings.
+// Everything the game remembers, gone: progress, stars, settings, all three save files.
 export function eraseAll() {
   for (const k of ownKeys()) localStorage.removeItem(k);
 }

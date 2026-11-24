@@ -1075,7 +1075,6 @@ export default function Crownguard() {
         profile={profile}
         onContinue={() => (kept ? startLevel(kept.lv, kept.ck) : openMap())}
         resume={kept && { name: kept.lv.name, wave: kept.wave }}
-        onNewCampaign={() => { setProgress(resetProgress()); setScreen("map"); }}
         onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
         onCouncil={() => setScreen("council")}
         onBuyWork={(key, next) => buyTreasuryWork("crown", key, next)}
