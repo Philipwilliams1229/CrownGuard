@@ -11,6 +11,15 @@ What the owner has already said that bears on Iron (art/briefs/overhaul-round2.m
 - Ground A (terraces and scarps) is parked for the Greenwood; farmland is parked.
 - Trees: options per chapter BEFORE any building; treatment 4 was the Greenwood's answer.
 
+**The owner, 2026-11-23, after the Greenwood went live ("It looks so good!"): "Keep your notes/suggestions for
+ironmarches. Next session i start with that I want you to bring it up first." So: open the next session with
+this survey.** The lead's suggested answers (given to the owner as bracketed defaults): 1 a mix by level (moor
+early, camps near the Citadel); 2 darker, sparser trees and a late-autumn season; 3 Iron's own edges (stone
+embankments near camps, rocky gorge banks) and one truly wide river; 4 all three humpback variants; 5 try
+terraces / cliff steps here; 6 the war camp as Iron's recurring place, plus a beacon and a quarry; 7 paving with
+no obvious ruts; 8 fires always lit, more glow at low sun; 9 yes, a stronger storm; 10 concepts, then Ironford
+to play, then the rest.
+
 ## Questions
 
 1. **Mood.** Iron today is cold turf, paved road, crags, war camps. Should the overhaul push it toward
