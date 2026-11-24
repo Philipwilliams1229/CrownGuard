@@ -57,6 +57,7 @@ const make = (s) => (px, F, o = {}) => {
   const hipY = sk.P[1], chestY = sk.C[1], hy = sk.N[1], hx = Math.round(sx * 0.7), tx = sx * 0.6;
   const a = Math.cos(ph * TAU), vx = cl((sx - sxL) * 1.4, -2.4, 2.4), vx2 = cl((sxL - sxL2) * 1.4, -2.4, 2.4);
   const hemY = hipY + 3.6;
+  const spin = p.level != null, sxs = spin ? (p.level < Math.PI / 2 ? 1 : -1) : 0, spy = sk.hdN[1] + 0.2;   // the whirlwind: his blade swung to screen right (+1) or left (-1)
 
   // the cloak behind him: navy, down past the knee, its edge showing beyond the arms and swinging a beat late
   const t1 = -vx * 1.2, t2 = -vx * 1.6 - vx2 * 1.4;
@@ -101,7 +102,7 @@ const make = (s) => (px, F, o = {}) => {
 
   // the far arm (his LEFT, screen side ls): the hand on his hip, the elbow out; a pauldron with one spike
   const PX = 8.2, PY = chestY + 1;   // the pauldrons sit OUT past the head (never over the face)
-  const shL = [tx + ls * 7.4, chestY + 0.8], elL = s > 0 ? [tx + ls * 10.8, chestY + 7.4] : [tx + ls * 9.6, chestY + 7.4], hpL = s > 0 ? [hx + ls * 4.9, hipY - 4] : [tx + ls * 9.7, chestY + 13.6 - a * 0.6 * s];
+  const shL = [tx + ls * 7.4, chestY + 0.8], elL = s > 0 ? [tx + ls * 10.8, chestY + 7.4] : [tx + ls * 9.6, chestY + 7.4], hpL = spin ? [tx + ls * 2.6, spy + (s > 0 ? 0.4 : 1)] : s > 0 ? [hx + ls * 4.9, hipY - 4] : [tx + ls * 9.7, chestY + 13.6 - a * 0.6 * s];
   px.part();
   const azL = s > 0 ? 4.6 : 4.3, bL = s > 0 ? { bias: -1, cast: 0 } : { cast: 0 };
   px.capsule(shL[0], shL[1], 2.3, elL[0], elL[1], 2.2, STEEL_D, azL, bL);
@@ -119,30 +120,57 @@ const make = (s) => (px, F, o = {}) => {
   // shoulder. The head is drawn at its full side-view size from the tip; only the haft shortens. LEN / GRIP are fig-captain's.
   const G = 1.2 / 1.1, LENT = 58 * G - 20 * G, BUTT = 20 * G, HK = 0.72 * G;
   const sh = [tx + rs * 7.4, chestY + 0.8];
-  const hd = [tx + rs * 10.8, sk.hdN[1] + 0.2], elb = [tx + rs * 9.4, hd[1] + 1.6];
-  const am = haftAngle(F.sk), C = carry(damp(am, 0.47), s, { rs, hand: hd, len: LENT, butt: BUTT });
-  const Hh = (tt, w = 0) => C.head(LENT, (tt - 31) * HK, rs * w * HK);
-  const zT = C.zTip, zB = C.zButt, bz = zT, e = s > 0;
-  px.part(); px.tag("halb");
-  px.capsule(...C.at(-BUTT), 1.1, ...hd, 1.1, WOOD, zB, { edge: e });
-  px.capsule(...C.at(-BUTT), 1.5, ...C.at(-BUTT + 1.4), 1.5, STEEL_D, zB + 0.02);
-  px.capsule(...hd, 1.1, ...Hh(22), 1.05, WOOD, zT, { edge: e });
-  px.part();
-  px.capsule(...Hh(18), 1.5, ...Hh(21.4), 1.4, STEEL_D, bz + 0.05);
-  px.capsule(...Hh(21), 1.2, ...Hh(31), 0.2, STEEL, bz + 0.06, { edge: e });                      // the spike
-  px.poly([Hh(23.6, 0.8), Hh(25.4, 4), Hh(24.4, 7.6), Hh(20.8, 9), Hh(16.6, 7.4), Hh(18.8, 6), Hh(20.6, 5.2), Hh(20.6, 3.4), Hh(18.6, 1)], STEEL, bz + 0.07, { round: 0.5, edge: e });   // the crescent, turned outboard so it shows
-  px.line(...Hh(23.8, 2.4), ...Hh(23.6, 6.6), STEEL, bz + 0.1, { fix: 4, noLine: true });
-  px.line(...Hh(21, 8.2), ...Hh(17.6, 6.9), STEEL, bz + 0.1, { fix: 1, noLine: true });
-  px.poly([Hh(19.4, -0.8), Hh(21.8, -0.8), Hh(21.4, -4.6), Hh(19.6, -6), Hh(19.6, -3.2)], STEEL, bz + 0.07, { round: 0.5, edge: e });   // the back hook, inboard
-  {
-    const w = cl(-vx * 1.4, -3, 3), t0 = Hh(14.4, 0.4);
+  const hd = spin ? [tx + rs * 2.6, spy] : [tx + rs * 10.8, sk.hdN[1] + 0.2], elb = [tx + rs * 9.4, hd[1] + 1.6];
+  let C;
+  if (spin) {
+    // WHIRLWIND: the same halberd held out level, pointed at us (FRONT) or away (BACK), its head swung to screen side sxs.
+    // Foreshortened along the pole (FC), the head at its full width; the butt stubs out behind the hands on the other side.
+    const FC = 0.45, u = [sxs * 0.92, s * 0.3], un = Math.hypot(u[0], u[1]), uu = [u[0] / un, u[1] / un], W = [-uu[1] * sxs * s, uu[0] * sxs * s], M = [tx, spy];
+    const SOC = 20, Hs = (t, w = 0) => { const d = SOC + (t - 22) * HK * 0.85; return [M[0] + uu[0] * d + W[0] * w * HK, M[1] + uu[1] * d + W[1] * w * HK]; };
+    const zH = s > 0 ? 7.6 : 1.0, zBt = s > 0 ? 1.5 : 4.6, e = s > 0, bz2 = zH;
+    const bt = [M[0] - uu[0] * 26 * FC, M[1] - uu[1] * 26 * FC];
+    px.part(); px.tag("halb");
+    px.capsule(bt[0], bt[1], 1.1, M[0] - uu[0] * 2.5, M[1] - uu[1] * 2.5, 1.1, WOOD, zBt, { edge: false });
+    px.capsule(bt[0], bt[1], 1.4, bt[0] + uu[0] * 1.2, bt[1] + uu[1] * 1.2, 1.4, STEEL_D, zBt + 0.02);
+    px.capsule(M[0], M[1], 1.1, ...Hs(22), 1.05, WOOD, zH, { edge: e });
     px.part();
-    px.capsule(...t0, 0.9, t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, RED, bz + 0.1);
-    px.capsule(t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, t0[0] + w * 1.1, t0[1] + 7, 0.7, RED_D, bz + 0.1);
+    px.capsule(...Hs(18), 1.5, ...Hs(21.4), 1.4, STEEL_D, bz2 + 0.05);
+    px.capsule(...Hs(21), 1.2, ...Hs(31), 0.2, STEEL, bz2 + 0.06, { edge: e });
+    px.poly([Hs(23.6, 0.8), Hs(25.4, 4), Hs(24.4, 7.6), Hs(20.8, 9), Hs(16.6, 7.4), Hs(18.8, 6), Hs(20.6, 5.2), Hs(20.6, 3.4), Hs(18.6, 1)], STEEL, bz2 + 0.07, { round: 0.5, edge: e });
+    px.line(...Hs(23.8, 2.4), ...Hs(23.6, 6.6), STEEL, bz2 + 0.1, { fix: 4, noLine: true });
+    px.line(...Hs(21, 8.2), ...Hs(17.6, 6.9), STEEL, bz2 + 0.1, { fix: 1, noLine: true });
+    px.poly([Hs(19.4, -0.8), Hs(21.8, -0.8), Hs(21.4, -4.6), Hs(19.6, -6), Hs(19.6, -3.2)], STEEL, bz2 + 0.07, { round: 0.5, edge: e });
+    { const w = cl(-vx * 1.4 + sxs * 1.2, -3, 3), t0 = Hs(14.4, 0.4);
+      px.part();
+      px.capsule(...t0, 0.9, t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, RED, bz2 + 0.1);
+      px.capsule(t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, t0[0] + w * 1.1, t0[1] + 7, 0.7, RED_D, bz2 + 0.1); }
+    C = { zTip: zH, zButt: zBt };
+  } else {
+    const am = haftAngle(F.sk);
+    C = carry(damp(am, 0.47), s, { rs, hand: hd, len: LENT, butt: BUTT });
+    const Hh = (tt, w = 0) => C.head(LENT, (tt - 31) * HK, rs * w * HK);
+    const zT = C.zTip, zB = C.zButt, bz = zT, e = s > 0;
+    px.part(); px.tag("halb");
+    px.capsule(...C.at(-BUTT), 1.1, ...hd, 1.1, WOOD, zB, { edge: e });
+    px.capsule(...C.at(-BUTT), 1.5, ...C.at(-BUTT + 1.4), 1.5, STEEL_D, zB + 0.02);
+    px.capsule(...hd, 1.1, ...Hh(22), 1.05, WOOD, zT, { edge: e });
+    px.part();
+    px.capsule(...Hh(18), 1.5, ...Hh(21.4), 1.4, STEEL_D, bz + 0.05);
+    px.capsule(...Hh(21), 1.2, ...Hh(31), 0.2, STEEL, bz + 0.06, { edge: e });                      // the spike
+    px.poly([Hh(23.6, 0.8), Hh(25.4, 4), Hh(24.4, 7.6), Hh(20.8, 9), Hh(16.6, 7.4), Hh(18.8, 6), Hh(20.6, 5.2), Hh(20.6, 3.4), Hh(18.6, 1)], STEEL, bz + 0.07, { round: 0.5, edge: e });   // the crescent, turned outboard so it shows
+    px.line(...Hh(23.8, 2.4), ...Hh(23.6, 6.6), STEEL, bz + 0.1, { fix: 4, noLine: true });
+    px.line(...Hh(21, 8.2), ...Hh(17.6, 6.9), STEEL, bz + 0.1, { fix: 1, noLine: true });
+    px.poly([Hh(19.4, -0.8), Hh(21.8, -0.8), Hh(21.4, -4.6), Hh(19.6, -6), Hh(19.6, -3.2)], STEEL, bz + 0.07, { round: 0.5, edge: e });   // the back hook, inboard
+    {
+      const w = cl(-vx * 1.4, -3, 3), t0 = Hh(14.4, 0.4);
+      px.part();
+      px.capsule(...t0, 0.9, t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, RED, bz + 0.1);
+      px.capsule(t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, t0[0] + w * 1.1, t0[1] + 7, 0.7, RED_D, bz + 0.1);
+    }
   }
   px.tag(null);
   // the right arm: vambrace, gauntlet closed over the haft (FRONT: over the shaft; BACK: the fist sits just above the butt side)
-  const fz = Math.max(zT, zB) + 0.1, az = s > 0 ? 6.2 : 4.3;
+  const fz = Math.max(C.zTip, C.zButt) + 0.1, az = s > 0 ? 6.2 : 4.3;
   px.part(); px.tag("nearArm");
   px.capsule(sh[0], sh[1] + 0.5, 2.3, elb[0], elb[1], 2.2, STEEL_D, az, { cast: 0 });
   px.capsule(elb[0], elb[1], 2.2, hd[0], hd[1], 1.9, STEEL, az, { cast: 0 });
@@ -176,6 +204,6 @@ const make = (s) => (px, F, o = {}) => {
   return {};
 };
 
-const walk = { ...SIDE.walk };
-export const FRONT = { NAME: "captain-front", BOX: { w: 108, h: 98, ox: 40, oy: 86 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk } };
-export const BACK = { NAME: "captain-back", BOX: { w: 108, h: 98, ox: 40, oy: 86 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk } };
+const walk = { ...SIDE.walk }, spinC = { ...SIDE.spin };
+export const FRONT = { NAME: "captain-front", BOX: { w: 108, h: 98, ox: 40, oy: 86 }, BONES: SIDE_BONES, draw: make(1), CLIPS: { walk, spin: spinC } };
+export const BACK = { NAME: "captain-back", BOX: { w: 108, h: 98, ox: 40, oy: 86 }, BONES: SIDE_BONES, draw: make(-1), CLIPS: { walk, spin: spinC } };

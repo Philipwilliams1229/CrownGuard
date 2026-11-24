@@ -81,10 +81,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.toneLine(C[0] - 4.8, C[1] + 4, P[0] - 6 + t2 * 0.8, -8, -1, cp);
 
   // the halberd's line: grounded at rest, in two hands when it swings
-  const a = haftAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
+  const a = p.level != null ? p.level : haftAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
   const plantedButt = cl(hdN[1] / Math.max(0.3, Math.cos(a)) + 0.6, -30, -8), pl0 = cl(p.plant || 0, 0, 1);
-  const butt = -GRIP + (plantedButt + GRIP) * pl0, tipT = butt + LEN;
+  const butt = p.buttT != null ? p.buttT : -GRIP + (plantedButt + GRIP) * pl0, tipT = butt + LEN;
   const Z = CZ({}), bz = Z.halb;
   const H = (t, s = 0) => B(tipT - (31 - t) * HK, s * HK);
 
@@ -193,6 +193,11 @@ const SWEEP = [
 // poses were drawn for the 51 px Hale: their lengths grow with the skeleton
 const SKL = ["rx", "drop", "rise", "hx", "hy", "grip"];
 const grow = (p) => { const o = { ...p }; for (const k of SKL) if (typeof o[k] === "number") o[k] *= G; if (o.fN) o.fN = o.fN.map((v) => v * G); if (o.fF) o.fF = o.fF.map((v) => v * G); return o; };
+const SPN = { rx: 0, drop: 2.6, lean: 0.05, plant: 0, hip: 0, grip: -11, buttT: -26, aN: [0.8, 0.88, 0], aF: [0.8, 0.88, 0] };
+const SPIN = [
+  { ...SPN, twist: -0.55, fN: [-4.8, 0], fF: [5.6, 0], level: 1.4, sway: -2.2 },
+  { ...SPN, twist: 0.55, fN: [-4.2, 0], fF: [5, 1], level: 1.74, sway: -2.8, rx: 0.4 },
+];
 const RAW = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.1,
@@ -228,6 +233,14 @@ const RAW = {
   },
   // the Halberd Sweep's six poses (frame i is sheet frame i)
   sweep: { n: 6, ms: 600, loop: false, lag: 0.2, pose: (ph) => ({ ...SWEEP[Math.round(ph * 5)] }) },
+  // the whirlwind (2026-11-24, owner: three full spins): the halberd held OUT LEVEL in both hands at the waist, the blade
+  // leading, his feet planted wide on the pivot. Two frames, ~65 ms each: frame 0 the blade out on the FAR side (a touch
+  // higher on screen), frame 1 on the NEAR side (a touch lower). `level` sets the haft's angle directly (only here) and
+  // `buttT` where its butt lies; the cloak, crest and tassel trail behind the turn (`sway`).
+  spin: {
+    n: 2, ms: 130, loop: false, lag: 1,
+    pose: (ph) => { const far = ph < 0.5; return SPIN[far ? 0 : 1]; },
+  },
 };
 export const CLIPS = {};
 for (const k in RAW) CLIPS[k] = { ...RAW[k], pose: (ph) => grow(RAW[k].pose(ph)) };
