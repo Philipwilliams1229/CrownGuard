@@ -5,6 +5,8 @@
 
     /fog-lab.html?realm=cinderholt&faction=greenwood&ks=1,0.5,0.3&towers=archer@0.3:3,wizard@0.6:2&tag=x
       ks=        the fog's k for each frame (1 = a Fierce fog at its thickest)
+      labels=    a caption per frame, split by |
+      cols=      frames to a row in the crop sheet (default 2)
       box=x0,y0,x1,y1   also save a crop of each frame, zoomed (zoom=, default 2)
       sun=       a time of day (data/sun.js), default the level's
   Saved to .shots/fog_<tag>.png (and fog_<tag>_crop.png).
@@ -60,7 +62,8 @@
       const frames = [], crops = [];
       const box = q.get("box") ? q.get("box").split(",").map(Number) : null, Z = Number(q.get("zoom") || 2);
       const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-      for (const k of (q.get("ks") || "1,0.5,0.25").split(",").map(Number)) {
+      const LABELS = (q.get("labels") || "").split("|");
+      for (const [ki, k] of (q.get("ks") || "1,0.5,0.25").split(",").map(Number).entries()) {
         // two frames at this k (the lamps are noted one frame and lit the next)
         for (let i = 0; i < 3; i++) {
           updateGame(g, DT); g.lives = 9999;
@@ -70,14 +73,14 @@
         const c = document.createElement("canvas"); c.width = W; c.height = H + 14;
         const o = c.getContext("2d"); o.fillStyle = "#20242c"; o.fillRect(0, 0, c.width, c.height);
         o.drawImage(cv, 0, 0, cv.width, cv.height, 0, 14, W, H);
-        o.fillStyle = "#e8e0c8"; o.font = "10px monospace"; o.fillText(`${realm}  fog k ${k}`, 4, 11);
+        o.fillStyle = "#e8e0c8"; o.font = "10px monospace"; o.fillText(`${realm}  fog k ${k}${LABELS[ki] ? "  " + LABELS[ki] : ""}`, 4, 11);
         frames.push(c);
         if (box) {
           const bw = box[2] - box[0], bh = box[3] - box[1], s = cv.width / W;
           const cc = document.createElement("canvas"); cc.width = bw * Z; cc.height = bh * Z + 14;
           const oc = cc.getContext("2d"); oc.imageSmoothingEnabled = false; oc.fillStyle = "#20242c"; oc.fillRect(0, 0, cc.width, cc.height);
           oc.drawImage(cv, box[0] * s, box[1] * s, bw * s, bh * s, 0, 14, bw * Z, bh * Z);
-          oc.fillStyle = "#e8e0c8"; oc.font = "10px monospace"; oc.fillText(`k ${k}`, 4, 11);
+          oc.fillStyle = "#e8e0c8"; oc.font = "10px monospace"; oc.fillText(`k ${k}${LABELS[ki] ? "  " + LABELS[ki] : ""}`, 4, 11);
           crops.push(cc);
         }
       }
@@ -89,7 +92,7 @@
         await fetch(`/__shot?name=${name}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
       };
       await save(frames, `fog_${TAG}`, 2);
-      if (crops.length) await save(crops, `fog_${TAG}_crop`, crops.length > 2 ? 2 : crops.length);
+      if (crops.length) await save(crops, `fog_${TAG}_crop`, Math.min(crops.length, Number(q.get("cols") || 2)));
       document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/fog_${TAG}.png`;
     </script>
   </body>

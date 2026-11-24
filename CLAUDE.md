@@ -595,8 +595,8 @@ of 13" on Cinderholt). **Since 2026-11-24 (owner: "just lightening up the fog wh
 no hole is cut:** the fog THINS over each hall (weatherfx.js `thinHalls`, a smooth ellipse the
 hall's footing size, `FOG_THIN` 0.6 taken away at its middle; `B.thinning`), and the LAMPS come on:
 `lampsOn` (nightlight.js) is true under the night OR while the fog painter ticks `fogLampTick`
-(k >= `FOG_LAMP_FROM` 0.12), so every hall's torches, the garrison's lantern, the overhaul farms'
-windows and lanterns and the bridges' lamps glow through it (blooms at `FOG_LAMP` 0.8 x thickness,
+(any fog at all: the owner, "always have them on for the fog, once its clear they turn off"), so every hall's torches, the garrison's lantern, the overhaul farms'
+windows and lanterns and the bridges' lamps glow through it (blooms at `FOG_LAMP` 0.8 whatever the thickness,
 pools at `FOG_POOL` 0.45 of that, laid over the fog). The moon's eyes still read `nightOn`.
 `fog-lab.html?realm=&sun=&ks=1,0.5&towers=&box=` holds the fog at any thickness (wx-lab can't). The painter's sun reads `w.thick` (0..1 from floor to
 peak), so a Mild fog opens thinner, never as if lifting. The forecast says Thick fog / Fog

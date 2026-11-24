@@ -273,8 +273,9 @@ const fogArt = () => B.bakeFog(realmKey(), landAt);
 // smooth ellipse the hall's size, taking FOG_THIN of the fog away at its middle, so the banks still drift
 // over the hall, paler there. And the lamps come on (lampsOn, render/nightlight.js): every hall's torches
 // and lanterns, the overhaul's farm windows and lanterns and the bridges' lamps glow through the fog,
-// laid OVER it as the night's are, as strong as FOG_LAMP x how thick it is.
-const FOG_THIN = 0.6, FOG_LAMP = 0.8, FOG_POOL = 0.45, FOG_LAMP_FROM = 0.12;
+// laid OVER it as the night's are, at FOG_LAMP whatever the fog's thickness, for as long as there is any
+// fog (owner: "always have them on for the fog, once its clear they turn off").
+const FOG_THIN = 0.6, FOG_LAMP = 0.8, FOG_POOL = 0.45;
 const thinHalls = (c, g) => {
   c.globalCompositeOperation = "destination-out"; c.globalAlpha = FOG_THIN;
   for (const t of g.towers) {
@@ -325,16 +326,13 @@ const fog = (ctx, g, w, def) => {
   thinHalls(c, g);
   showWide(ctx, 1);
   EDGE = { a: 1 };
-  // the lamps, glowing through it
-  if (k >= FOG_LAMP_FROM) {
-    fogLampTick(t);
-    const pa = ctx.globalAlpha;
-    const a = FOG_LAMP * clamp01((k - FOG_LAMP_FROM) / 0.4);
-    // the pools at half: on the pale fog a full one burns to a white smear
-    ctx.globalAlpha = a * FOG_POOL; drawLampPools(ctx, t);
-    ctx.globalAlpha = a; drawLampBloom(ctx, t);
-    ctx.globalAlpha = pa;
-  }
+  // the lamps, glowing through it, the same strength in any fog (owner, 2026-11-24: "dont make the
+  // lights brighter for denser fog"); the pools at half: on the pale fog a full one burns to a white smear
+  fogLampTick(t);
+  const pa = ctx.globalAlpha;
+  ctx.globalAlpha = FOG_LAMP * FOG_POOL; drawLampPools(ctx, t);
+  ctx.globalAlpha = FOG_LAMP; drawLampBloom(ctx, t);
+  ctx.globalAlpha = pa;
   swapLamps();
 };
 
