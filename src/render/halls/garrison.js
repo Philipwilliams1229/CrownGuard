@@ -30,7 +30,7 @@
 // runes and the rally flag are live.
 
 import { pennant, rgba, soft, shadow } from "../buildkit.js";
-import { nightOn, noteLamp } from "../nightlight.js";
+import { lampsOn, noteLamp } from "../nightlight.js";
 import { prefs } from "../../data/prefs.js";
 import * as knightHall from "../pix/hall-knight.js";
 import { hallPix, drawHallBack } from "../pix/halls.js";
@@ -108,7 +108,7 @@ export const drawGarrison = (ctx, t, time) => {
       ctx.fillRect(lx, ly, 1.5, 2.5);                      // the lit pane
       ctx.fillStyle = "#fff4c8";
       ctx.fillRect(lx + 0.5, ly + 1, 0.5, 1);              // the flame's heart
-      if (nightOn(time) && prefs.spellLight !== false) noteLamp(lx + 0.75, ly + 1.25, 11, "#ffb84a", 0.7 * fl, 5);
+      if (lampsOn(time) && prefs.spellLight !== false) noteLamp(lx + 0.75, ly + 1.25, 11, "#ffb84a", 0.7 * fl, 5);
     }
   }
 };

@@ -11,8 +11,8 @@
 // engine never reads anything here.
 //
 //   fog        drifting banks with dithered, lit edges (the land's own field
-//              thick over the wood and the water), a small ragged pocket of
-//              clearer air round every hall; as it burns off it
+//              thick over the wood and the water), thinner where it drifts
+//              over a hall, the halls' and farms' lamps lit; as it burns off it
 //              breaks into patches and warms, with shafts of morning light
 //   storm      a cooler, darker sky with cloud shadow racing over; a downpour
 //              in depths (far and mid sheets, three sizes of near drops) that
@@ -57,6 +57,8 @@ import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
 ovhDefaults({ drawnSpans });
 import { bloodmoonPaint, bloodmoonGround } from "./bloodmoon.js";
 import { sunCurves } from "./sunset.js";
+import { fogLampTick, drawLampPools, drawLampBloom, swapLamps, clearLamps } from "./nightlight.js";
+import { footOf } from "../engine/footing.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const frac = (v) => v - Math.floor(v);
@@ -237,7 +239,7 @@ const warm = (kind) => {
   WARMING = key;
   // one bake per idle slice, so no slice runs long
   const jobs = {
-    fog: [fogArt, B.fogShafts, ...RUNGS.slice(4).map((r) => () => B.clearing(r)),
+    fog: [fogArt, B.fogShafts,
       () => { if (NEED.some((v) => v > 0)) fogLandWide(); }, () => { if (NEED.some((v) => v > 0)) B.fogShafts(B.FOG_WIDE); }],
     storm: [B.stormShade, () => { B.rainFar(0); B.rainMid(0); B.rainMid(3); }, () => [0, 1, 2].forEach((v) => [0, 1, 2, 3].forEach((l) => B.rainDrop(v, l))),
       B.rainSpray, B.rainCurtain, B.floodTex, wetRoadArt, () => { if (RIVERS.length) siltArt(); }, waterSpots, riverLines,
@@ -266,7 +268,22 @@ const landAt = (x, y) => {
   return v;
 };
 const fogArt = () => B.bakeFog(realmKey(), landAt);
-const FOG_POCKET = 48;   // units, the clearing round each hall (a RUNGS size)
+// Over each hall the fog THINS rather than opening a hole (owner, 2026-11-24: "just lightening up the fog
+// when it goes over them"; before, a ragged clearing FOG_POCKET 48 across was cut round every hall): a
+// smooth ellipse the hall's size, taking FOG_THIN of the fog away at its middle, so the banks still drift
+// over the hall, paler there. And the lamps come on (lampsOn, render/nightlight.js): every hall's torches
+// and lanterns, the overhaul's farm windows and lanterns and the bridges' lamps glow through the fog,
+// laid OVER it as the night's are, as strong as FOG_LAMP x how thick it is.
+const FOG_THIN = 0.6, FOG_LAMP = 0.8, FOG_POOL = 0.45, FOG_LAMP_FROM = 0.12;
+const thinHalls = (c, g) => {
+  c.globalCompositeOperation = "destination-out"; c.globalAlpha = FOG_THIN;
+  for (const t of g.towers) {
+    const f = footOf(t.kind), rx = Math.round(f.rx + 8), ry = Math.round(f.rx * 1.15 + 12);
+    const s = B.thinning(rx, ry);
+    c.drawImage(s.cv, Math.round(t.x - s.ax), Math.round(t.y - ry * 0.7 - s.ay));
+  }
+  c.globalCompositeOperation = "source-over"; c.globalAlpha = 1;
+};
 const fogLandWide = () => B.bakeFogWide(realmKey(), landAt);
 
 // A Fierce fog's lingering light fog (engine/weather.js FOG_FLOOR, k ~0.14)
@@ -278,7 +295,7 @@ const fog = (ctx, g, w, def) => {
   const floor = def?.floor || 0;
   const k = floor > 0 && w.k < LINGER_LOOK ? w.k + (LINGER_LOOK - floor) * clamp01((LINGER_LOOK - w.k) / (LINGER_LOOK - floor)) : w.k;
   const t = g.time;
-  if (k < 0.02) return;
+  if (k < 0.02) { clearLamps(); return; }
   const F = fogArt(), c = wideLayer();
   if (!c) return;
   const wide = isWide();
@@ -304,13 +321,21 @@ const fog = (ctx, g, w, def) => {
     const m = wide ? B.FOG_WIDE : 0;
     c.globalAlpha = sun * 0.85; c.drawImage(B.fogShafts(m), -80 - m + Math.sin(t * 0.07) * 50, -m);
   }
-  // every hall sees out to `sight`: the fog thins round it as far
-  // each hall stands in a small pocket of clearer air. (Until 2026-11-07 the
-  // pocket grew as the fog thinned, from the old fixed sight, and below ~40%
-  // thickness it cleared the whole layer: the fog looked gone waves early.)
-  clearHalls(c, g, FOG_POCKET);
+  // the fog thins over each hall (thinHalls, above)
+  thinHalls(c, g);
   showWide(ctx, 1);
   EDGE = { a: 1 };
+  // the lamps, glowing through it
+  if (k >= FOG_LAMP_FROM) {
+    fogLampTick(t);
+    const pa = ctx.globalAlpha;
+    const a = FOG_LAMP * clamp01((k - FOG_LAMP_FROM) / 0.4);
+    // the pools at half: on the pale fog a full one burns to a white smear
+    ctx.globalAlpha = a * FOG_POOL; drawLampPools(ctx, t);
+    ctx.globalAlpha = a; drawLampBloom(ctx, t);
+    ctx.globalAlpha = pa;
+  }
+  swapLamps();
 };
 
 // ================= STORM =================

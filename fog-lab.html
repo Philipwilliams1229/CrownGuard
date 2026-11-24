@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  Fog lab: the REAL engine and draw() on a level's board under the morning fog, held at the
+  thicknesses you ask for (the fog fades with the level's waves, so wx-lab's ?rise= does not apply).
+
+    /fog-lab.html?realm=cinderholt&faction=greenwood&ks=1,0.5,0.3&towers=archer@0.3:3,wizard@0.6:2&tag=x
+      ks=        the fog's k for each frame (1 = a Fierce fog at its thickest)
+      box=x0,y0,x1,y1   also save a crop of each frame, zoomed (zoom=, default 2)
+      sun=       a time of day (data/sun.js), default the level's
+  Saved to .shots/fog_<tag>.png (and fog_<tag>_crop.png).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>fog lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", DT = 1 / 60;
+      const realm = q.get("realm") || "cinderholt";
+      selectRealm(realm);
+      selectFaction(q.get("faction") || "greenwood");
+      setWaveWindow(null);
+      setDay(q.get("sun") || "noon");
+      setLevelWeather({ kind: "fog", strength: Number(q.get("str") ?? 1) });
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 0, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, freeplay: true,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (const spec of (q.get("towers") ?? "archer@0.3:3,knight@0.45:3,wizard@0.6:2").split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      startWave(g);
+      for (let i = 0; i < 60 * 5; i++) { updateGame(g, DT); g.lives = 9999; }
+      const frames = [], crops = [];
+      const box = q.get("box") ? q.get("box").split(",").map(Number) : null, Z = Number(q.get("zoom") || 2);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      for (const k of (q.get("ks") || "1,0.5,0.25").split(",").map(Number)) {
+        // two frames at this k (the lamps are noted one frame and lit the next)
+        for (let i = 0; i < 3; i++) {
+          updateGame(g, DT); g.lives = 9999;
+          Object.assign(g.weather, { k, thick: k, phase: k > 0.9 ? "thick" : "easing" });
+          draw(g, cv, { current: null });
+        }
+        const c = document.createElement("canvas"); c.width = W; c.height = H + 14;
+        const o = c.getContext("2d"); o.fillStyle = "#20242c"; o.fillRect(0, 0, c.width, c.height);
+        o.drawImage(cv, 0, 0, cv.width, cv.height, 0, 14, W, H);
+        o.fillStyle = "#e8e0c8"; o.font = "10px monospace"; o.fillText(`${realm}  fog k ${k}`, 4, 11);
+        frames.push(c);
+        if (box) {
+          const bw = box[2] - box[0], bh = box[3] - box[1], s = cv.width / W;
+          const cc = document.createElement("canvas"); cc.width = bw * Z; cc.height = bh * Z + 14;
+          const oc = cc.getContext("2d"); oc.imageSmoothingEnabled = false; oc.fillStyle = "#20242c"; oc.fillRect(0, 0, cc.width, cc.height);
+          oc.drawImage(cv, box[0] * s, box[1] * s, bw * s, bh * s, 0, 14, bw * Z, bh * Z);
+          oc.fillStyle = "#e8e0c8"; oc.font = "10px monospace"; oc.fillText(`k ${k}`, 4, 11);
+          crops.push(cc);
+        }
+      }
+      const save = async (list, name, cols) => {
+        const fw = list[0].width, fh = list[0].height, rows = Math.ceil(list.length / cols);
+        const out = document.createElement("canvas"); out.width = fw * Math.min(cols, list.length); out.height = fh * rows;
+        const ox = out.getContext("2d");
+        list.forEach((c, i) => ox.drawImage(c, (i % cols) * fw, Math.floor(i / cols) * fh));
+        await fetch(`/__shot?name=${name}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      };
+      await save(frames, `fog_${TAG}`, 2);
+      if (crops.length) await save(crops, `fog_${TAG}_crop`, crops.length > 2 ? 2 : crops.length);
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/fog_${TAG}.png`;
+    </script>
+  </body>
+</html>

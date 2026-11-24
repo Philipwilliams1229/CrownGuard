@@ -21,7 +21,7 @@ import { register, OVH } from "./index.js";
 import { BRIDGES, RIVERS, riverPast } from "../../data/terrain.js";
 import { REALM } from "../../data/maps.js";
 import { DAY, onDay } from "../../data/sun.js";
-import { nightOn, noteLamp } from "../nightlight.js";
+import { lampsOn, noteLamp } from "../nightlight.js";
 import { prefs } from "../../data/prefs.js";
 import { planSpan, bakeSpan, LAMP } from "./bridge-bake.js";
 
@@ -75,7 +75,7 @@ const spriteOf = (pl, k) => {
 export const bridgeMB = () => { let n = 0; for (const s of SPR.values()) n += s.bytes; return n / 1048576; };
 
 let NOW = 0;
-const NIGHT = () => nightOn(NOW) && prefs.spellLight !== false;
+const NIGHT = () => lampsOn(NOW) && prefs.spellLight !== false;
 
 // ---- the slots -------------------------------------------------------------------------------------
 register("bridgesBack", (ctx, g) => {

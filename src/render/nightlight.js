@@ -20,6 +20,13 @@ const PX = 2;                               // art pixels to a board unit
 let STAMP = -1e9;
 export const nightTick = (time) => { STAMP = time; };
 export const nightOn = (time) => time - STAMP < 0.3 && time - STAMP > -0.3;
+// lamps lit in the FOG too (owner, 2026-11-24: "turn lights on if the tower has them, villages and stuff
+// like that too"): the fog painter ticks it while the fog is thick enough to want them. Halls, the
+// overhaul's farms, bridges and the garrison's lantern note their lamps while lampsOn; the moon's eyes
+// stay on nightOn.
+let FOG_STAMP = -1e9;
+export const fogLampTick = (time) => { FOG_STAMP = time; };
+export const lampsOn = (time) => nightOn(time) || (time - FOG_STAMP < 0.3 && time - FOG_STAMP > -0.3);
 
 let CUR = [], PREV = [];
 // cool: a magic light (an orb, a crystal) glows in its own colour, its edge darkening into it, not into red

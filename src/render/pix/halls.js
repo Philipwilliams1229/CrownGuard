@@ -16,7 +16,7 @@
 // each light's overlay, and the frames of what moves (a pennant, a flame). One form bakes in
 // a few milliseconds the first time it is drawn (three stonework variants a form, t.id % 3).
 import { prefs } from "../../data/prefs.js";
-import { nightOn, noteLamp } from "../nightlight.js";
+import { lampsOn, noteLamp } from "../nightlight.js";
 import { noteHall, hallRim } from "../sunset.js";
 import { toCanvas } from "./pix.js";
 import { onDay, DAY } from "../../data/sun.js";
@@ -116,7 +116,7 @@ export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
   // as warm pools, magic ones (orbs, crystals, coils) in their own colour, smaller and softer; reach capped
   // so a big torch matches the rest (the River Watch's beacon was a huge square of light)
   // the Covert stays dark: assassins don't light their camp (owner, 2026-11-22)
-  if (nightOn(time) && prefs.spellLight !== false && H.name !== "assassin") for (const l of H.spec.lights || []) {
+  if (lampsOn(time) && prefs.spellLight !== false && H.name !== "assassin") for (const l of H.spec.lights || []) {
     const on = o.k && o.k[l.key] != null ? o.k[l.key] : l.k ?? 1;
     if (on < 0.05) continue;
     const warm = isWarm(l.col);

@@ -190,6 +190,22 @@ export const clearing = (r) => memo(`clr|${r}`, () => {
   return { cv: G.done(), r: c };
 });
 
+// a hall's thinning in the fog (owner, 2026-11-24: the fog "lightens up" where it drifts over a hall
+// instead of a ragged hole being cut round it): a smooth, round-shouldered ellipse rx x ry (units),
+// full in its middle, easing out over its outer half in eight Bayer-dithered steps (no ragged rim)
+export const thinning = (rx, ry) => memo(`thin|${rx}|${ry}`, () => {
+  const w = Math.ceil(rx) * 2 + 2, h = Math.ceil(ry) * 2 + 2, G = grid(w, h), cx = w / 2, cy = h / 2, k = [0, 0, 0];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const d = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry);
+    if (d >= 1) continue;
+    const v = 1 - sstep(0.4, 1, d);
+    let b = Math.floor(v * 8);
+    if (v * 8 - b > bay(x, y)) b++;
+    if (b > 0) G.set(x, y, k, Math.round((Math.min(8, b) / 8) * 255));
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+
 // ---- periodic drift layers (snow drifts, ash, storm-cloud shadow) -----------
 // texel 2 units, tile tw x th texels, periodic both ways; cells cx x cy texels
 const drift = (key, tw, th, cx, cy, lo, hi, al, cols, seed) => memo(key, () => {
