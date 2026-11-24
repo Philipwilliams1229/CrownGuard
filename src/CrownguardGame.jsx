@@ -1249,7 +1249,7 @@ export default function Crownguard() {
   // (owner, 2026-11-18: the hero, the Masons and the militia stand on the battlefield's bottom
   // right, beside the castle; the Masons and the horn are squares the size of the speed button)
   // the Masons and the militia share the row under the hero in the tray's foot, half each
-  const HALF = { flex: 1, minWidth: 0, minHeight: 44, height: 44, gap: 6, padding: "2px 6px", overflow: "hidden", justifyContent: "center" };
+  const HALF = { flex: 1, minWidth: 0, minHeight: 50, height: 50, gap: 6, padding: "2px 6px", overflow: "hidden", justifyContent: "center" };
   // (the Levy works change how many answer, for how long, and how soon again)
   const militiaSt = militiaStats(ui.castle, ui.castleRanks);
   const militiaBtn = ui.result == null && !(mode === "free" && SANDBOX?.militia === false) && (
@@ -1291,7 +1291,7 @@ export default function Crownguard() {
     return (
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
         className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", ui.hero.dead && "is-off", anyReady && !talentsOpen && "cg-horn")}
-        style={{ flex: 1, minWidth: 0, minHeight: 52, height: 52, padding: "3px 8px 3px 4px", gap: 7, justifyContent: "flex-start" }}
+        style={{ flex: 1, minWidth: 0, minHeight: 56, height: 56, padding: "4px 8px 4px 4px", gap: 7, justifyContent: "flex-start" }}
         onClick={() => {
           const g = G.current;
           if (!g) return;

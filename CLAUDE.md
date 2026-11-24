@@ -2672,7 +2672,7 @@ the owner's playtest; costs, the Levy's too: 5k / 10k / 15k / 25k):
   Crowstair, Ice-Fjord, Barrowdowns, Drakesfell, Foxmere, Oakmere, Goblin Warrens, Reedmaze, Lantern Fen,
   Drownholm), so keep them off the board. The foot (CrownguardGame.jsx, "foot", after `talentPanel`): the hero
   on a full-width row (portrait, name without title, level, health and xp bars), Masons and militia sharing the
-  row under him half each (`HALF`, 44 tall: icon beside a label that turns into the recharge countdown). The
+  row under him half each (`HALF`, 50 tall; the hero 56: icon beside a label that turns into the recharge countdown). The
   Masons' icon is a sculpted pix hammer (`ui/PixHammer.jsx`, pix.js with a fixed upper-left sun); the horn's is
   the man the Levy's tier raises (`militiaStats().rig`). `ui/CrewIcon.jsx` (the pix mason) is unused now.
 - Any new tray aim (`g.rallyFor` string) must be added to the game loop's keep-list in
