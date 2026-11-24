@@ -2838,8 +2838,10 @@ own, so several sessions can work on heroes side by side:
   fore/backhand) plus a dotted reach ring. **Since 2026-11-24 a WHIRLWIND**
   (owner: "3 full spins, same timing as now, but they hit 360 around him"):
   `full` on u.brace strikes all round him (the Gate Guard's sweep, which
-  shares `swing`, stays a half-circle); he turns one revolution a `gap`, each
-  blow at the middle of its turn (`spinAt`, render/heroes/hale.js, the one
+  shares `swing`, stays a half-circle); he turns one revolution a `gap`, and
+  each foe in reach is struck as the blade passes its bearing, once a turn
+  (owner, same day: "only get hit as the circle spins past them";
+  `spinStrikes`) (`spinAt`, render/heroes/hale.js, the one
   clock for body and trail). `pose` shows him from the side (sheet `spin`,
   mirrored by `face` as the blade goes left), front (`spinFront`) or back
   (`spinBack`) by where the blade is; a hero's `pose` may now return `face`

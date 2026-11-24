@@ -20,7 +20,8 @@
 //   (owner, 2026-11-24): each swing is one full turn of him, the halberd held
 //   out, and strikes every foe on the ground all round him (`full`: 360
 //   degrees, reach `r` on the ground ellipse; render/heroes/hale.js turns him
-//   one revolution per `gap`, the blow at the middle of each): `dmg`
+//   one revolution per `gap`), each foe as the blade passes it, once a turn
+//   (`spinStrikes`): `dmg`
 //   physical and a `stun`-ms stun, `mounted` times the blow for riders and
 //   tramplers. A rider's trample within the swing's reach is spent on the
 //   halberd (`trampleLeft` 0; the Lord Marshal's re-arms on its own clock).
@@ -137,7 +138,46 @@ const runSwings = (g, b, u, tms) => {
       if (e.trampleEvery) e.trampleCd = e.trampleEvery;
     }
   }
+  if (br.full) { spinStrikes(g, b, u, br, tms); return; }
   while (br.done < br.beats && tms >= br.t0 + (br.lead + br.done * br.gap) * br.k) swing(g, b, u, br, br.done++, tms);
+};
+
+// The whirlwind's blows ride the blade (owner, 2026-11-24: "enemies only get hit as the circle
+// spins past them"). The blade turns `th` radians since the spin began: one turn a `gap`, from
+// `lead - gap/2` to `lead + (beats - 1) * gap + gap/2` (render/heroes/hale.js `spinAt` draws the
+// same clock). A foe in reach at bearing `a` (in the blade's own turning: 0 = the side he faced) is
+// struck as `th` passes `a + 2 PI n`, once in each of the `beats` turns.
+const TAU = Math.PI * 2;
+const spinTh = (br, tms) => {
+  const rel = (tms - br.t0) / br.k, S0 = br.lead - br.gap / 2;
+  return Math.max(0, Math.min(br.beats * br.gap, rel - S0)) / br.gap * TAU;
+};
+const spinStrikes = (g, b, u, br, tms) => {
+  if ((tms - br.t0) / br.k < br.lead - br.gap / 2) return;      // (the wind-up: the blade not moving yet)
+  const th = spinTh(br, tms), th0 = br.th ?? -1e-6;
+  if (th <= th0) return;
+  br.th = th;
+  const f = br.face, turnOf = br.turnOf ||= new Map();
+  let hit = 0;
+  for (const e of g.enemies) {
+    if (e.dead || e.flying || e.swimming || isRising(e, tms)) continue;
+    const dx = e.x - u.x, dy = (e.y - u.y) / FLAT;
+    if (Math.hypot(dx, dy) > br.r) continue;
+    const a = ((Math.atan2(dy, f * dx) % TAU) + TAU) % TAU;
+    // the turn in which the blade last reached this bearing, if it did since the last tick
+    const n = Math.floor((th - a) / TAU);
+    if (n < 0 || n >= br.beats || a + n * TAU <= th0 || turnOf.get(e.id) === n) continue;
+    turnOf.set(e.id, n);
+    const rider = e.mounted || e.trampleMax > 0;
+    dealDamage(g, e, br.dmg * (rider ? br.mounted : 1), "phys", false, false, b.id);
+    if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + br.stun);
+    g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 240 });
+    hit++;
+  }
+  if (hit) { g.shake = Math.max(g.shake, 1.5); sfx.play("crunch"); }
+  // a whistle as each turn begins
+  const turn = Math.floor(th / TAU);
+  if (turn < br.beats && turn !== br.whistled) { br.whistled = turn; sfx.play("whistle"); }
 };
 
 // while he swings he takes `harm` of every blow

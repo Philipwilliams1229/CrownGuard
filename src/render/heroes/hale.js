@@ -2,8 +2,8 @@
 // (see ./index.js for the hooks; engine/heroes/hale.js keeps the state.)
 //
 //   u.brace      Halberd Sweep, a WHIRLWIND (owner, 2026-11-24): he turns
-//                three full times, one revolution a `gap`, each blow at the
-//                middle of its turn. `spinAt` is the one clock for both his
+//                three full times, one revolution a `gap`; each foe is struck
+//                as the blade passes it (engine spinStrikes, same clock). `spinAt` is the one clock for both his
 //                body and the trail: `pose` shows him from the side (the
 //                figure's "spin" frames, mirrored as he faces left), from the
 //                front ("spinFront") and from behind ("spinBack") by where
@@ -141,16 +141,15 @@ const spinTrail = (ctx, br, tms, near) => {
   if (rel <= S1 && (Math.sin(th) >= 0) === near) { ctx.globalAlpha = fade; const [x, y] = at(th); star(ctx, x, y, 3.5, STEEL[1], STEEL[0]); }
   ctx.restore();
 };
-// the reach, a dotted ring on the ground all round him while he spins; it flashes as each blow lands
+// the reach, a dotted ring on the ground all round him while he spins (the blows land
+// as the blade passes each foe: engine/heroes/hale.js spinStrikes, on the same clock)
 const spinGround = (ctx, br, tms) => {
   const sp = spinAt(br, tms);
   if (!sp) return;
-  const { rel, cx, cy } = sp, R = sp.r;
-  let flash = 0;
-  for (let i = 0; i < br.beats; i++) { const d = rel - (br.lead + i * br.gap); if (d >= 0 && d < 160) flash = Math.max(flash, 1 - d / 160); }
+  const { cx, cy } = sp, R = sp.r;
   ctx.save();
-  ctx.globalAlpha *= 0.45 + 0.4 * stepA(flash, 3);
-  ctx.fillStyle = flash > 0.3 ? STEEL[0] : STEEL[3];
+  ctx.globalAlpha *= 0.45;
+  ctx.fillStyle = STEEL[3];
   ctx.beginPath();
   const N = 36, turn = sp.th * 0.25;
   for (let i = 0; i < N; i++) {
