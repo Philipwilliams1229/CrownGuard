@@ -1266,6 +1266,14 @@ Bring these up with the owner; don't act on them unasked.
   All keep the engine's timing. The owner picked **A** (2026-11-22): IN THE GAME (rings.js `gbGobs`:
   4 big gobbets low and short near the middle, 8 middling mid-way, 56 flecks with satellites to the
   rim; swell, flash and timing unchanged; 10 bursts at once ~0.19 ms a frame). Pending their look.
+- **The fire wizard's blast, Round 9** (2026-11-24, owner: the fire mage's explosion is "the same or very close to
+  the bombardier throw ... good for a bomb, bad for a wizard"): it IS the same: a fireball with `p.burn` and the
+  Powder Works' shell both push `{ type: "boom" }` (update.js ~3325, fx.js `BLAST.boom`). Brief
+  `art/briefs/fx-round9.md`, row `fireblast9` in `concept/fx-r9-fireblast.js`, `build-fx-concepts.mjs round9`
+  (then the page's labels were renamed by hand). Private Artifact "Crownguard Effects Concepts, Round 9: Fire Wizard
+  Blast" (slug d450c58e-8640-47a8-83db-4693dc44cadc): A flame bloom, B fire sigil (no star: rejected as a
+  religious symbol), C fire vortex, D molten splash; all smokeless, wave at the rim by 384 ms, gone by 530 ms.
+  Weak: D's pools a little heart-shaped, C's glow a bit ribbon-like. Awaiting the owner's pick; the bomb keeps `boom`.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
