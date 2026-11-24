@@ -1350,6 +1350,14 @@ Bring these up with the owner; don't act on them unasked.
   streaming back, C A + sparks and a white-hot root). Found: statusBurn bakes 12 steps but plays 8 (`frameOf` mod `FX_N`
   then `BN`), so the outline's roll jumps each loop; the concept uses 16. Private Artifact "Crownguard Effects Concepts,
   Round 18: flame rings and foes on fire". Awaiting the picks.
+  The owner on Round 18: burn **A** ("looks great": being built into statusfx.js); the ring: "I don't want it to go
+  across the ground. I like the direction in B, but can we have it go through the air? And make it start a little bit
+  further out, so we're not burning our operator." **Round 19** (row `firering19`, `concept/fx-r19-ring.js`, first strip
+  Round 18's B): a hoop of fire flying outward at a height, nothing on the ground but a faint light under it, first seen
+  at half the reach (the operator stands ~19 units out), reaching the rim on today's clock: A at a goblin's chest, B
+  thinner at head height and more see-through, C thrown from the wheel's rim, rising as it flies and guttering. Weak: on
+  screen the near half still crosses the operator in the first frames (clear on screen would need A 38 / B 49 units).
+  Private Artifact "Crownguard Effects Concepts, Round 19: the ring of fire through the air". Awaiting the pick.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
