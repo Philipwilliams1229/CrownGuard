@@ -1327,6 +1327,14 @@ Bring these up with the owner; don't act on them unasked.
   2 the foot 1.4x, a little flattened along the road, the glow 1.2x (reads slightly bell-shaped on frames 2-6). Private
   Artifact "Crownguard Effects Concepts, Round 16: Dragonbreath, a wider foot". Awaiting the pick, then build it into
   flames.js `drawBreath` (bake the jet per aim step and frame) and show it before pushing.
+  The owner picked Round 16's **version 2** ("2 for sure") and asked for the flare "just a bit more transparent", two
+  options. **Round 17** (row `breath17`, `concept/fx-r17-{a,b}.js`, copies of fx-r16-b.js; each flame pixel carries an
+  opacity in steps of 0.05, eased in with dithered steps from where the flare starts, the 1-px outline kept near solid):
+  1 the head evenly ~80% (`HEAD_A`); 2 centre ~95%, rim ~60%, the foot partway (`CENTRE_A`, `RIM_A`, `FOOT_THIN`).
+  Weak: see-through deep red over the tan road turns salmon. Private Artifact "Crownguard Effects Concepts, Round 17:
+  Dragonbreath, a see-through flare". Awaiting the pick.
+  **Next, owner's ask (2026-11-24):** once Dragonbreath is settled, look at the OTHER fire effects with the same look and
+  the same concept loop ("this actually looks so much better than what we have everywhere else").
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
@@ -1459,6 +1467,15 @@ Fable 5.2 (up to ~140 calls each). From now on:
   look-fix passes, the browser once at the end. The lead checks shots before the owner sees
   them; only finished work goes to the owner.
 - Fewer leads: one Opus lead per area at a time; archive finished lead sessions.
+- **The concept loop that works** (owner, 2026-11-24, after the Dragonbreath rounds 14-17: "this work flow is so good,
+  mark this down for the future. We are getting good quality results fast"): (1) get the owner's REFERENCE picture
+  (`art/briefs/ref/`) and brief what to copy plus every look already turned down; (2) a WIDE round: the lead writes a
+  shared cell kit (`concept/fx-r14-kit.js`), one file per option, one artist per file in parallel (the owner may name
+  the models: two Opus + one Fable won with an Opus option); (3) NARROWING rounds: the owner picks one and names a small
+  change; copy the pick into 2-3 files, the page's first strip is the pick as the owner saw it, each variation turns
+  one clear dial, and the SAME artist is resumed with SendMessage (~20-30 calls a round); (4) the lead checks a
+  side-by-side sheet (ffmpeg hstack of crops) before each publish, one private Artifact page per round. Offering
+  all-new constructions (rounds 9-13) failed; from the reference on, each round converged in minutes.
 - **Studio rules from the views pass** (2026-11-18, the advisor's study of every owner note,
   art/briefs/views-notes-log.md): every artist follows the standing rules now in
   `.claude/agents/artist.md` (hide by drawing never deleting; one pose read from the approved
