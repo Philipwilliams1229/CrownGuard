@@ -2994,6 +2994,15 @@ chiptune.
   of the SETTINGS window (see "The Settings window" below).
 - `sfx.js`: the effects (`LIB`), unchanged recipes; shares its AudioContext
   with the music (`sfx.audio()`).
+- **Every sound is unplugged once it has played** (2026-11-25, owner: frames fell to ~10 on the
+  level after a won one, a restart fixed it): WebKit (Safari, the iOS app) never frees a CONNECTED
+  AudioNode and its audio thread keeps working through all of them, so every note and effect ever
+  played stayed in the graph (~60-120 new nodes a second of battle). `src/audio/tidy.js`: play a
+  voice or drum through `voiced(ctx, (c) => VOICES.x(c, out, ...))` (it notes every node made and
+  unplugs them all when the last source ends), or `letGo([nodes])` for hand-built ones; a dropped
+  track unplugs its whole strip (out, each part's gain, panner and reverb send). Any NEW way of
+  making sound must go through one of them. Measured in Chromium: connected nodes stay ~90-140
+  through a battle and the next level (before: every node ever made). Not yet seen on a device.
 - `music.js`: the sequencer + mixer (reverb, compressor), crossfades, pauses
   with the tab, starts on the first tap. `instruments.js`: the voices and the
   drum kit (`VOICES`, `DRUMS`); one owner. `notation.js`: the text notation

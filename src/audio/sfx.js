@@ -19,6 +19,7 @@
 import { settings, saveSettings, effectOff } from "./settings.js";
 import { VOICES, DRUMS } from "./instruments.js";
 import { midiToFreq } from "./notation.js";
+import { voiced, letGo } from "./tidy.js";
 
 const HEADLESS = typeof window === "undefined" || !(window.AudioContext || window.webkitAudioContext);
 
@@ -84,6 +85,7 @@ function tone({ type = "square", f = 440, to = null, dur = 0.15, gain = 0.2, att
   o.onended = () => { voices--; };
   o.start(t);
   o.stop(t + dur + 0.02);
+  letGo([o, g]);   // unplugged once it has played (tidy.js: WebKit never frees a connected node)
 }
 
 // A burst of filtered noise: the game's thuds, booms and squelches.
@@ -113,6 +115,7 @@ function noise({ dur = 0.2, gain = 0.2, type = "lowpass", from = 2000, to = 300,
   src.onended = () => { voices--; };
   src.start(t, Math.random());
   src.stop(t + dur + 0.02);
+  letGo([src, fl, g]);
 }
 
 // A bell: a fundamental and two inharmonic partials, left to ring.
@@ -127,11 +130,11 @@ function bell(f, dur = 1.1, gain = 0.2) {
 // pitched by MIDI note, so the fanfares match the score's instruments.
 function inst(name, midi, dur = 0.3, gain = 0.7, delay = 0) {
   if (!ctx || voices > 28) return;
-  VOICES[name]?.(ctx, master, midiToFreq(midi), ctx.currentTime + t0 + delay, dur, gain);
+  voiced(ctx, (c) => VOICES[name]?.(c, master, midiToFreq(midi), ctx.currentTime + t0 + delay, dur, gain));
 }
 function drum(hit, gain = 0.8, delay = 0) {
   if (!ctx || voices > 28) return;
-  DRUMS[hit]?.(ctx, master, ctx.currentTime + t0 + delay, gain);
+  voiced(ctx, (c) => DRUMS[hit]?.(c, master, ctx.currentTime + t0 + delay, gain));
 }
 
 // ---- the library -------------------------------------------------------

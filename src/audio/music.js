@@ -26,6 +26,7 @@ import { settings, onSettings } from "./settings.js";
 import { compileTrack, midiToFreq } from "./notation.js";
 import { VOICES, DRUMS } from "./instruments.js";
 import { TRACKS } from "./tracks/index.js";
+import { voiced } from "./tidy.js";
 
 const HEADLESS = typeof window === "undefined" || !(window.AudioContext || window.webkitAudioContext);
 
@@ -80,8 +81,9 @@ function chain(ctx, dest) {
 
 // ---- the sequencer -------------------------------------------------------
 
+// (every node made here is listed in nodes.all, so a track that is dropped can unplug its whole strip: tidy.js)
 function partNodes(ctx, track, c, trackOut) {
-  const nodes = {};
+  const nodes = {}, all = [];
   for (const [name, p] of Object.entries(track.parts)) {
     const g = ctx.createGain();
     g.gain.value = p.gain ?? 1;
@@ -97,7 +99,9 @@ function partNodes(ctx, track, c, trackOut) {
     send.gain.value = p.send ?? 0.18;
     tail.connect(send).connect(c.verbIn);
     nodes[name] = g;
+    all.push(g, send); if (tail !== g) all.push(tail);
   }
+  Object.defineProperty(nodes, "all", { value: all });
   return nodes;
 }
 
@@ -162,13 +166,13 @@ class Sequencer {
     const out = this.nodes[e.part];
     const vel = e.vel * (part.vel ?? 1);
     if (part.inst === "drums") {
-      DRUMS[e.hit]?.(this.ctx, out, time, vel);
+      voiced(this.ctx, (c) => DRUMS[e.hit]?.(c, out, time, vel));
       return;
     }
     const voice = VOICES[part.inst];
     if (!voice) return;
     const dur = e.dur * this.song.stepSec * (e.legato ? 1.06 : 0.97);
-    for (const m of e.notes) voice(this.ctx, out, midiToFreq(m + (part.transpose || 0)), time, dur, vel);
+    for (const m of e.notes) voiced(this.ctx, (c) => voice(c, out, midiToFreq(m + (part.transpose || 0)), time, dur, vel));
   }
 }
 
@@ -221,7 +225,12 @@ function fadeAndDrop(cur) {
   cur.out.gain.linearRampToValueAtTime(0, t + FADE_OUT);
   fading.add(cur);
   cur.seq.done = true;
-  setTimeout(() => { try { cur.out.disconnect(); } catch { /* gone */ } fading.delete(cur); }, (FADE_OUT + 0.3) * 1000);
+  // then the track's whole strip is unplugged: its out AND each part's gain, panner and reverb send (the sends fed
+  // the shared reverb, so before 2026-11-25 every track ever played stayed in WebKit's audio graph: tidy.js)
+  setTimeout(() => {
+    for (const n of [cur.out, ...cur.seq.nodes.all]) { try { n.disconnect(); } catch { /* gone */ } }
+    fading.delete(cur);
+  }, (FADE_OUT + 0.3) * 1000);
 }
 
 function begin(id) {
