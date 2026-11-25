@@ -26,7 +26,7 @@ import { weatherFor } from "./data/weather-plan.js";
 import { setDay, sunFor, DAY } from "./data/sun.js";
 import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, hallRank, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import CastleWorksModal from "./ui/CastleWorksModal.jsx";
 import PixHammer from "./ui/PixHammer.jsx";
@@ -1245,6 +1245,7 @@ export default function Crownguard() {
     </div>
   );
   // the sandbox decides which halls Free Play offers; the campaign, what's won
+  const hallsInOrder = Object.entries(TOWERS).sort(([a], [b]) => hallRank(a) - hallRank(b));
   const hallAvail = (key) => (mode === "free" && SANDBOX ? hallOpen(key) : towerUnlocked(key, progress));
   // "12/18", or "∞" once the run is past its cap (or has none)
   const capOf = (n) => { const c = victoryWave(); return Number.isFinite(c) && n <= c ? c : "∞"; };
@@ -2310,7 +2311,7 @@ export default function Crownguard() {
                   <>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
-                Object.entries(TOWERS).filter(([key]) => hallAvail(key) && masterPlans(key).some((pl) => tierGate(key, pl.rank4 ? 5 : 4, G.current).open)).map(([key, def]) => (
+                hallsInOrder.filter(([key]) => hallAvail(key) && masterPlans(key).some((pl) => tierGate(key, pl.rank4 ? 5 : 4, G.current).open)).map(([key, def]) => (
                   <div key={key} style={{ marginBottom: 12 }}>
                     <div className="cg-label" style={{ fontSize: 11, margin: "2px 0 6px" }}>{def.name}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
@@ -2353,8 +2354,8 @@ export default function Crownguard() {
                 ))
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${buildCols}, 1fr)`, gap: 7 }}>
-              {/* the halls you can raise first, in their usual order; the locked ones after */}
-              {Object.entries(TOWERS).sort(([a], [b]) => hallAvail(b) - hallAvail(a))
+              {/* the halls in the order they are learned, so none ever moves; in Free Play the ones left out go last */}
+              {hallsInOrder.slice().sort(([a], [b]) => hallAvail(b) - hallAvail(a))
                 .filter(([key]) => !compact || showLocked || hallAvail(key)).map(([key, def]) => {
                 const open = hallAvail(key);
                 const can = open && ui.gold >= def.cost;

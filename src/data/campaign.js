@@ -314,6 +314,15 @@ export const towerUnlocked = (kind, p) => {
   const at = LEVELS.findIndex((l) => l.id === need);
   return at >= 0 && LEVELS.some((l, i) => i > at && p?.cleared?.[l.id]);
 };
+// The tray's order: the starting halls first, then each in the order the
+// campaign teaches it (owner, 2026-11-25: the grid never reshuffles as halls
+// are learned). Sorting by this rank, a hall's place never changes.
+export const hallRank = (kind) => {
+  const need = TOWER_UNLOCKS[kind];
+  if (!need) return -1;
+  const at = LEVELS.findIndex((l) => l.id === need);
+  return at < 0 ? LEVELS.length : at;
+};
 // What a level's clearing opens, for the victory card.
 export const unlocksFor = (levelId) => Object.keys(TOWER_UNLOCKS).filter((k) => TOWER_UNLOCKS[k] === levelId);
 // The level a locked hall is waiting on.

@@ -517,7 +517,9 @@ Provisional, pending the owner's playtest.
   ravenscar (12), Gold Works gw5 (15) (swapped 2026-11-07, owner: the
   Gold Works waits until the first region is won), Falconry brinewick (19), Assassin's
   Covert kestrel (23), Powder Works wardenmoor (27), Sunforge hl1 (31), King's Band stillmere (35). The
-  Warden Mage is locked on the first levels now. `towerUnlocked` also opens a
+  Warden Mage is locked on the first levels now. The tray's grid lists the halls in that order (the three
+  starting halls, then by unlock level: `hallRank`, campaign.js; owner, 2026-11-25), so a newly
+  learned hall joins the end and none moves; the master menu uses the same order. `towerUnlocked` also opens a
   hall once ANY later level is cleared, so an old save keeps what it had.
 - **Tower XP, per hall TYPE** (`src/data/towerxp.js`, header has the rules):
   levels 1-3 are free; the PATHS (tier 4) need `TIER_XP[4]` 2500 and the FINALS
