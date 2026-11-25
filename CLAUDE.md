@@ -2407,6 +2407,25 @@ Fable's audit: most likely iOS killed the page for memory. Fixed the same day (n
   Measured the same day in Chromium, the win -> map -> next level path allocates canvases: the title's map
   warm-up ~236 MB made (31 kept), the campaign map ~45 MB, a level ~60-80 MB; ~235 MB alive at the next
   level's start before a GC. No canvas is ever released explicitly (width = 0) anywhere in src/.
+  **Tested on the owner's iPhone the same day, NOT reproduced** (iOS 18.7, Safari tab and home-screen app, dev and
+  production builds, the old sound code put back): leftover connected sound nodes up to 170,000, ~200-270 MB of live
+  canvases, forced and real 20-wave wins then March On by the real buttons, and a level won by hand then the next one
+  played: all held 60 fps (~4-6 ms of game code). The owner: it struck at once on the next level, before any hall or
+  wave; it did not come back that day, even in the live app. So it is an intermittent state of the phone (a restart
+  clears it), not something the game does every time. The recorder above went live so the next one is caught: ask for
+  Settings > Progress > Crash reports (a `slow` entry; low fps with few ms = the browser's own work). Its sample also
+  keeps `domNodes`, `audioLeft` (sound nodes still plugged in), `upS` (seconds since launch) and `standalone`.
+  **The phone test harness** (dev, or a build made with `VITE_REPRO=1`; nothing of it ships otherwise):
+  `src/dev/canvaswatch.js` notes every canvas made (live count and MB); `src/dev/repro.js` shows buttons in the top
+  left: Start old / fixed sound (plays a level to a real win at 3x, taps March On and the map card's button, measures
+  the next level), Play by hand (posts a reading every 5 s), Sound stress (piles up dead sound nodes 10,000 at a time).
+  Readings go to POST /__perf, written to `.shots/perf.jsonl` (vite.config.js `perfSink`, dev and `vite preview`). It
+  drives the game through `window.__cg` (CrownguardGame.jsx) and must import nothing from the engine: a static import
+  there split the engine into other chunks in a build and broke its load order (an import cycle). `?untidy` / the old
+  sound button turns tidy.js's unplugging off. Serve to a phone: `npx vite --host` (add `VITE_REPRO=1` for a
+  home-screen icon, which opens the bare address), or build with `VITE_REPRO=1` and `npx vite preview --host --outDir`.
+  Found on the way, not fixed: the campaign map's first open froze the phone ~30 s; in Safari with its toolbars (a
+  292-pt tall page) CampaignMap's view / `far` effects loop ("Maximum update depth") and the screen crashes.
 - **First report from the recorder** (same day, Whalebone wave 3, "screen": `l.ms` undefined): the
   wave preview's foe icon (`pixIcon`) asks for the `idle` clip, and the sea serpent has none.
   pixrigs.js `clipFrame` now falls back to the walk for a missing idle (or attack) clip. Settings'
