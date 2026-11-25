@@ -493,6 +493,7 @@ The Knight Garrison's path `b` (ids unchanged, so saves keep their forms):
 
 ## Home screen: Skills & Heroes, Castle Works (2026-10-05, owner request)
 
+(Superseded 2026-11-25 by "The War Room" above: the pair is WAR ROOM | STATS now.)
 Provisional, pending the owner's look (not yet seen in a browser by the session that wrote it).
 - The title menu has a row of two under CONTINUE: **SKILLS & HEROES** (the old
   War Council; the name is `COUNCIL_NAME` in `ui/theme.js`, read by the button and
@@ -506,6 +507,26 @@ Provisional, pending the owner's look (not yet seen in a browser by the session 
   (phone on its side) or toggle (upright), as the towers' tab does; before, the
   wide layout showed every hero's sheet at once.
 - Other names offered to the owner: Training Grounds, Barracks, Upgrades, War Room.
+
+## The War Room: one upgrades screen (2026-11-25, owner request)
+
+"The separated upgrades menus (towers, heroes, castle) is confusing." `ui/WarRoom.jsx` (was
+WarCouncil.jsx) is ONE screen laid over whatever opened it (render it outside any `<Fit>`), with tabs
+CASTLE / TOWERS / HEROES. It ALWAYS opens on CASTLE (owner: no guessing what the player wants). A tab with
+something affordable wears a slow gold rim glow (`cgRimGlow`; `castleCan` / `towersCan` / `heroesCan`).
+The header shows the tab's own money (treasury gold, the towers' shared stars, the shown hero's stars)
+and every tab's REFUND in the same spot, two taps, full price back: every castle work, the tower shown,
+the hero shown (the hero sheet's Reset cell and the tree's one-tap Refund are gone). TOWERS shows each
+hall's HALL EXPERIENCE (bar to the finals, a tick at the paths; a thin line under each picker tile; a
+hall not yet learned says which level teaches it); the picker follows the tray's order (`hallRank`).
+Opened from: the title's WAR ROOM button (its line shows stars and gold waiting), the campaign map's
+header (WAR ROOM + treasury) and the victory card (castle works bought through the battle's own
+`buyWork`, as before); `roomOpen` in CrownguardGame.jsx. The name is `WAR_ROOM` in ui/theme.js.
+CastleWorksModal.jsx is gone; `CastleWorksList` takes `noPurse` when the caller shows the purse.
+The all-time stats are their own **STATS** button beside it on the title (`ui/StatsPanel.jsx`: rank,
+the reckoning, the wipe), so the title keeps its button layout. **The hero is no longer chosen on the
+map's level card** (owner: on a phone the row hid the weather): he is changed in battle before the
+first horn (the hero's menu, "Change hero") or in the pause menu. Pending the owner's look.
 
 ## Tower XP and the hall unlocks (2026-10-05, owner request)
 

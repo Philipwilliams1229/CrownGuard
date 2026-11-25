@@ -1,18 +1,18 @@
-// ============ HERO TALENTS (War Council, HEROES tab) ============
+// ============ HERO TALENTS (the War Room's HEROES tab) ============
 // The ONLY place a hero's stars are spent. Heroes start every map at level 1
 // and level up in battle from kills; the level they end a WON map's scripted
 // waves at is paid out as that hero's own stars (data/profile.js
 // bankHeroStars: a new best in full, the rest at half). Each hero has two
 // abilities (fired in battle from the hero's menu) with an upgrade line each,
 // and five stat talents — five ranks apiece at TALENT_COSTS (data/bands.js).
-// A reset is free and hands every star back.
+// A reset is free and hands every star back (the War Room's header Refund).
 //
 // Also home to the War Council's two-tap confirm (`useArm` + `ArmBand`):
 // the first tap arms a button — it turns gold and says what the next tap
 // will spend — and the second tap on the same button does it. A tap anywhere
 // else, or three seconds, disarms it. Works by touch; nothing needs hover.
 //
-// Layouts (chosen by the War Council, which passes `layout`):
+// Layouts (chosen by the War Room, which passes `layout`):
 //  - "wide": iPads and desktops. The heroes are a row across the top, the
 //    chosen hero's sheet below it, sizes times `z`.
 //  - "rail": a phone on its side. The heroes are a rail down the left;
@@ -24,9 +24,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  HEROES, HERO_TALENTS, TALENT_RANKS, talentCost, talentsSpent, heroStats, heroAbilities,
+  HEROES, HERO_TALENTS, TALENT_RANKS, talentCost, heroStats, heroAbilities,
 } from "../data/bands.js";
-import { heroRecord, buyHeroTalent, resetHeroTalents } from "../data/profile.js";
+import { heroRecord, buyHeroTalent } from "../data/profile.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { btn, panel, DISPLAY, FONT, GOLD, INK, NUM as NUM_FACE } from "./theme.js";
 
@@ -138,16 +138,13 @@ function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId, meta, desc
   );
 }
 
-function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note }) {
+function HeroSheet({ hkey, profile, onBuy, arm, cols, z, portrait, note }) {
   const h = HEROES[hkey];
   const { points, talents, bestBy } = heroRecord(profile, hkey);
   const bests = Object.values(bestBy);
   const best = bests.length ? Math.max(...bests) : 0;
   const st = heroStats(hkey, SHOW_LEVEL, talents);
   const base = heroStats(hkey, SHOW_LEVEL, null);
-  const spent = talentsSpent(talents);
-  const resetId = `reset:${hkey}`;
-  const resetArmed = arm.is(resetId);
 
   return (
     <div style={{ ...panel, boxSizing: "border-box", width: "100%", display: "flex", flexDirection: "column", gap: 8 * z }}>
@@ -209,7 +206,7 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
         </div>
       </div>
 
-      {/* five talents and, in the sixth cell, the free reset */}
+      {/* five talents (the refund is in the War Room's header, as every tab's is) */}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridAutoRows: "1fr", gap: 6 * z }}>
         {HERO_TALENTS[hkey].filter((t) => !t.ability).map((t) => {
           const id = `tal:${hkey}:${t.id}`;
@@ -222,20 +219,6 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
               onTap={() => ok && arm.tap(id, () => onBuy(hkey, t.id))} />
           );
         })}
-        <button data-arm={resetId} disabled={!spent}
-          onClick={() => spent && arm.tap(resetId, () => onReset(hkey))}
-          style={{
-            ...btn, position: "relative", overflow: "hidden", padding: 7 * z, minHeight: 44,
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 * z,
-            textAlign: "center", cursor: spent ? "pointer" : "default", opacity: spent ? 1 : 0.45,
-            ...(resetArmed ? ARMED : {}),
-          }}>
-          <b style={{ ...LABEL, fontSize: 11 * z }}>Reset talents</b>
-          <span style={{ fontFamily: FONT, fontSize: 9.5 * z, opacity: 0.7, lineHeight: 1.35 }}>
-            {spent ? <>Free · <span style={NUM}>{spent}</span> {spent === 1 ? "star" : "stars"} back</> : "Nothing spent yet"}
-          </span>
-          {resetArmed && <ArmBand z={z}>TAP AGAIN · RESET</ArmBand>}
-        </button>
       </div>
       {note}
     </div>
@@ -243,17 +226,18 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
 }
 
 // ---- the tab ----
-export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, fitted }) {
-  const [pick, setPick] = useState(HERO_KEYS[0]);
+export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, fitted, pick: pickIn, onPick }) {
+  // the War Room holds the pick (its header refunds the hero shown); alone, the tab keeps its own
+  const [own, setOwn] = useState(HERO_KEYS[0]);
+  const pick = pickIn ?? own, setPick = onPick ?? setOwn;
 
   // both write to storage themselves and hand back the new profile
   const buy = (key, id) => { const p = buyHeroTalent(key, id); if (p) setProfile({ ...p }); };
-  const reset = (key) => setProfile({ ...resetHeroTalents(key) });
   const deps = HERO_KEYS.map((k) => JSON.stringify(heroRecord(profile, k))).join("|");
 
   const line = "Heroes level up from kills in battle. Win a map and the hero's level at the end of its waves becomes their stars — a new best on that map pays in full, the rest at half. Spend them here.";
   const sheet = (k, cols, portrait, note) => (
-    <HeroSheet key={k} hkey={k} profile={profile} onBuy={buy} onReset={reset} arm={arm} cols={cols} z={z} portrait={portrait} note={note} />
+    <HeroSheet key={k} hkey={k} profile={profile} onBuy={buy} arm={arm} cols={cols} z={z} portrait={portrait} note={note} />
   );
   const smallNote = <div style={{ fontSize: 9.5, opacity: 0.55, lineHeight: 1.4 }}>{line}</div>;
 

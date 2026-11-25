@@ -32,16 +32,12 @@ import { useViewport } from "./fit.jsx";
 import { music } from "../audio/music.js";
 import { mapScore } from "../audio/score.js";
 import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel } from "../data/campaign.js";
-import CastleWorksModal from "./CastleWorksModal.jsx";
 import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
 import { coastOutline } from "../data/terrain.js";
-import EnemyIcon from "./EnemyIcon.jsx";
 import WeatherBrief from "./WeatherBrief.jsx";
 import { sunFor, SUN_POS } from "../data/sun.js";
 import { weatherFor } from "../data/weather-plan.js";
-import { HEROES } from "../data/bands.js";
-import { hasRig } from "../render/rigs.js";
 import { Star } from "./Glyphs.jsx";
 import { MAX_STARS } from "../data/profile.js";
 import { FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
@@ -133,14 +129,16 @@ function Banner({ ch, open }) {
   );
 }
 
-// `heroKey`/`onHero`: the hero who rides out, chosen on the level's card.
+// The hero is no longer chosen on the level's card (owner, 2026-11-25: on a
+// phone the row hid the weather): he is changed in the battle before the
+// first horn (the hero's menu, "Change hero"). `onWarRoom` opens the War Room
+// (the game lays it over the map).
 // `arrive` ({ from, to } level ids): a level was just won — the map opens on
 // the site just left, the camera travels the road to the next, and its card
-// (hero, castle works, march) is there to choose from again.
-export default function CampaignMap({ progress, profile, resume, onResume, onStart, onBack, onBuyWork, onRefundAll, heroKey, onHero, arrive }) {
+// is there to choose from again.
+export default function CampaignMap({ progress, profile, resume, onResume, onStart, onBack, onWarRoom, arrive }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => (arrive && levelById(arrive.to) ? arrive.to : currentLevel(progress).id));
-  const [worksOpen, setWorksOpen] = useState(false);
   const [painted, setPainted] = useState(false);
   const sel = levelById(selId);
   // the open card's realm sets the music; March runs it on into the level
@@ -537,32 +535,6 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
       <rect x={selRealm.path[selRealm.path.length - 1][0] * 10 - 1} y={selRealm.path[selRealm.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
     </svg>
   );
-  // the hero who rides out: a portrait tile per hero (five no longer fit as
-  // named planks), the chosen one lit and named on the line beneath
-  const heroOn = HEROES[heroKey];
-  const heroPick = onHero && (
-    <div style={{ background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: compact ? "4px 7px" : "6px 8px" }}>
-      <div style={{ fontSize: 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>HERO</div>
-      <div style={{ display: "flex", gap: 5 }}>
-        {Object.entries(HEROES).map(([key, h]) => {
-          const on = key === heroKey;
-          return (
-            <button key={key} aria-pressed={on} aria-label={`${h.name} ${h.title}`} title={h.blurb} onClick={() => onHero(key)}
-              style={{ ...(on ? goldBtn : woodBtn), flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 2, minHeight: compact ? 38 : 46 }}>
-              {hasRig(h.rig) && <EnemyIcon type={h.rig} box={compact ? 28 : 34} />}
-            </button>
-          );
-        })}
-      </div>
-      {heroOn && (
-        <div style={{ marginTop: 4, lineHeight: 1.2 }}>
-          <b style={{ fontSize: compact ? 11 : 12 }}>{heroOn.name}</b>
-          <span style={{ fontSize: 9, opacity: 0.85 }}> {heroOn.title}</span>
-          {!compact && <div style={{ fontSize: 9.5, opacity: 0.85, marginTop: 2 }}>{heroOn.blurb}</div>}
-        </div>
-      )}
-    </div>
-  );
   const marchStyle = {
     ...goldBtn, width: "100%", textAlign: "center", padding: "14px 10px", fontSize: 14, letterSpacing: 1, minHeight: 52,
     ...(selUnlocked ? {} : { background: "#8a8274", boxShadow: "inset -3px -3px 0 #6a6258, inset 3px 3px 0 #a8a092", color: "#4a4450", cursor: "not-allowed" }),
@@ -603,7 +575,6 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
         {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
       </div>
       {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} hour={selHour} />}
-      {selUnlocked && heroPick}
       </div>
       <div style={{ flexShrink: 0, padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
         {resumeHere && <button style={marchStyle} onClick={onResume}>Resume at wave {resume.wave}</button>}
@@ -642,7 +613,6 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
         </div>
         {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} hour={selHour} compact />}
       </div>
-      {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         {resumeHere && <button style={{ ...marchStyle, flex: 2, padding: "10px 8px", fontSize: 13, minHeight: 48 }} onClick={onResume}>Resume at wave {resume.wave}</button>}
         <button style={resumeHere ? { ...woodBtn, flex: 1, minHeight: 48, fontSize: 12, textAlign: "center" } : { ...marchStyle, flex: 1, padding: "10px 8px", fontSize: 13, minHeight: 48 }} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
@@ -651,7 +621,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
   );
   const card = compact ? compactCard : fullCard;
 
-  // ---- the header: back to the menu, the tally, the castle works ----
+  // ---- the header: back to the menu, the tally, the War Room ----
   const header = (
     <div style={{ width: "100%", maxWidth: short ? "none" : wide ? 1400 : 780, display: "flex", alignItems: "center", gap: short ? 6 : 10, flexShrink: 0 }}>
       <button style={{ ...woodBtn, padding: compact ? "0 11px" : "0 14px", fontSize: compact ? 12 : 13, flexShrink: 0 }} onClick={onBack}>◀ Menu</button>
@@ -659,21 +629,15 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
         <div style={{ fontFamily: HEAD, fontSize: compact ? 13 : 17, fontWeight: "bold", letterSpacing: compact ? 2 : 4, color: "#e8c65a", textShadow: `2px 2px 0 ${INK}`, whiteSpace: "nowrap" }}>THE CAMPAIGN</div>
         <div style={{ fontSize: compact ? 9 : 9.5, letterSpacing: 1.5, opacity: 0.7, marginTop: 2 }}>{clearedCount} of {LEVELS.length} held</div>
       </div>
-      <button title="The crown's treasury and the castle's works" aria-label="Castle works"
-        style={{ ...woodBtn, padding: compact ? "0 10px" : "0 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }} onClick={() => setWorksOpen(true)}>
+      <button title="The War Room: the castle's works, the towers' skills, the heroes' talents" aria-label="War Room"
+        style={{ ...woodBtn, padding: compact ? "0 10px" : "0 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }} onClick={onWarRoom}>
         <CastleIcon size={18} />
         <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
-          <span style={{ fontSize: 8, letterSpacing: 1.5, opacity: 0.8 }}>WORKS</span>
+          <span style={{ fontSize: 8, letterSpacing: 1.5, opacity: 0.8 }}>WAR ROOM</span>
           <b style={{ color: "#f2cf4a" }}>{(progress.treasury || 0).toLocaleString("en-US")}</b>
         </span>
       </button>
     </div>
-  );
-
-  // ---- the castle works, bought here between levels from the treasury ----
-  const works = worksOpen && sel && (
-    <CastleWorksModal treasury={progress.treasury} short={short} onClose={() => setWorksOpen(false)}
-      onBuy={(key, next) => onBuyWork(sel.chapter.id, key, next)} onRefundAll={() => onRefundAll(sel.chapter.id)} />
   );
 
   return (
@@ -682,7 +646,6 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
       padding: short ? safePad(6, 8, 6, 8) : wide ? safePad(10, 12, 12, 12) : safePad(8, 10, 10, 10), boxSizing: "border-box", overflow: wide ? "hidden" : "auto",
       display: "flex", flexDirection: "column", alignItems: "center", gap: wide ? 10 : 8,
     }}>
-      {works}
       {short ? (
         // a phone on its side: the map the full height, the header over the card
         <div ref={bodyRef} style={{ flex: 1, minHeight: 0, width: "100%", display: "flex", gap: GAP, justifyContent: "center" }}>

@@ -15,16 +15,17 @@ const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIc
 
 const gold = (n) => n.toLocaleString("en-US");
 
-export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, onRefundAll, note }) {
+// `noPurse`: the caller shows the purse itself (the War Room's header)
+export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, noPurse = false, onBuy, onRefundAll, note }) {
   // two taps to buy: the first arms the button (gold, CONFIRM), the second pays
   const arm = useArm(3000);
   return (
     <div className="cg-hud" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div className="cg-well" style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+      {!noPurse && <div className="cg-well" style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 8 }}>
         <span className="cg-label" style={{ fontSize: 11, flex: 1 }}>{purseLabel}</span>
         <CoinIcon size={16} />
         <b className="cg-num" style={{ color: "var(--gold-lt)", fontSize: 18 }}>{gold(Math.floor(purse))}</b>
-      </div>
+      </div>}
       {note && <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, padding: "0 2px" }}>{note}</div>}
       {/* one refund for everything built, at the full price paid (owner, 2026-11-18); two taps */}
       {onRefundAll && (() => {

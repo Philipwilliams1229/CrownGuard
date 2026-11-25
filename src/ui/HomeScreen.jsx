@@ -11,16 +11,17 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Fit, useViewport } from "./fit.jsx";
-import { FONT, MARK, COUNCIL_NAME } from "./theme.js";
+import { FONT, MARK, WAR_ROOM } from "./theme.js";
 import { woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import FieldGuide from "./FieldGuide.jsx";
 import SettingsPanel from "./SettingsPanel.jsx";
 import { LEVELS, hasProgress, currentLevel } from "../data/campaign.js";
-import { starsFree, rankName } from "../data/profile.js";
+import { starsFree, rankName, heroRecord } from "../data/profile.js";
+import { HEROES } from "../data/bands.js";
 import { Star } from "./Glyphs.jsx";
 import { CastleIcon, CoinIcon } from "./hud/icons.jsx";
-import CastleWorksModal from "./CastleWorksModal.jsx";
+import StatsPanel from "./StatsPanel.jsx";
 import SaveFilesModal from "./SaveFilesModal.jsx";
 import { readSlots } from "../data/saveSlots.js";
 import BuildTag from "./BuildTag.jsx";
@@ -30,17 +31,18 @@ import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, resume, onContinue, onFreePlay, onCouncil, onBuyWork, onRefundAll, onCampaignReset }) {
+export default function HomeScreen({ progress, profile, setProfile, resume, onContinue, onFreePlay, onWarRoom, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [worksOpen, setWorksOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   // SAVE FILES (data/saveSlots.js): three whole games; a new one starts in an empty file
   const [filesOpen, setFilesOpen] = useState(false);
   const fileNo = readSlots().active;
   const saved = hasProgress(progress) || !!resume;   // a battle left on the first level is a save too
   const upTo = currentLevel(progress);
   const cleared = LEVELS.filter((l) => progress.cleared[l.id]).length;
-  const free = starsFree(profile);
+  // every star waiting to be spent: the towers' shared pool and each hero's own
+  const free = starsFree(profile) + Object.keys(HEROES).reduce((n, k) => n + heroRecord(profile, k).points, 0);
   const treasury = progress.treasury || 0;
   const vp = useViewport();
   const compact = vp.short && vp.landscape;                      // phone on its side
@@ -140,19 +142,20 @@ export default function HomeScreen({ progress, profile, resume, onContinue, onFr
       ) : (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>
       )}
-      {/* where the crown spends what it has won: stars on the heroes and
-          the towers' skills, gold on the castle */}
+      {/* the War Room: every upgrade, stars and gold (owner, 2026-11-25); the all-time record beside it */}
       <div style={{ ...span, display: "flex", gap: compact ? 8 : 10 }}>
-        <button style={pairBtn} onClick={onCouncil}>
-          {COUNCIL_NAME}
-          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11 }}>
-            {free > 0 ? <><Star size={11} /> {free} to spend</> : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>stars buy upgrades</span>}
+        <button style={pairBtn} onClick={onWarRoom}>
+          {WAR_ROOM}
+          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11, whiteSpace: "nowrap" }}>
+            {free > 0 || treasury > 0 ? (
+              <>{free > 0 && <><Star size={11} /> {free}</>}{free > 0 && treasury > 0 && <span style={{ opacity: 0.6 }}>·</span>}{treasury > 0 && <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</>}</>
+            ) : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>castle, towers, heroes</span>}
           </div>
         </button>
-        <button style={pairBtn} onClick={() => setWorksOpen(true)}>
-          CASTLE WORKS
-          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11 }}>
-            {treasury > 0 ? <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</> : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>gold builds the wall</span>}
+        <button style={pairBtn} onClick={() => setStatsOpen(true)}>
+          STATS
+          <div style={{ ...sub, color: "#e8e0c8", opacity: 0.75, minHeight: 11, whiteSpace: "nowrap" }}>
+            {profile.stats.kills > 0 ? `${profile.stats.kills.toLocaleString("en-US")} foes slain` : "the all-time record"}
           </div>
         </button>
       </div>
@@ -235,7 +238,7 @@ export default function HomeScreen({ progress, profile, resume, onContinue, onFr
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onCampaignReset={onCampaignReset} />}
       {filesOpen && <SaveFilesModal short={compact} resume={resume} onClose={() => setFilesOpen(false)} />}
-      {worksOpen && <CastleWorksModal treasury={treasury} short={compact} onBuy={onBuyWork} onRefundAll={onRefundAll} onClose={() => setWorksOpen(false)} />}
+      {statsOpen && <StatsPanel profile={profile} setProfile={setProfile} onClose={() => setStatsOpen(false)} />}
     </div>
   );
 }

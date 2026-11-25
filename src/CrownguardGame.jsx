@@ -28,7 +28,6 @@ import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, hallRank, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
-import CastleWorksModal from "./ui/CastleWorksModal.jsx";
 import PixHammer from "./ui/PixHammer.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
@@ -60,7 +59,7 @@ import EnemyTooltip from "./ui/EnemyTooltip.jsx";
 import useTap from "./ui/useTap.js";
 import HomeScreen from "./ui/HomeScreen.jsx";
 import CampaignMap from "./ui/CampaignMap.jsx";
-import WarCouncil from "./ui/WarCouncil.jsx";
+import WarRoom from "./ui/WarRoom.jsx";
 import FieldGuide, { describe } from "./ui/FieldGuide.jsx";
 import { BookIcon, Star } from "./ui/Glyphs.jsx";
 import { hasRig } from "./render/rigs.js";
@@ -158,7 +157,8 @@ export default function Crownguard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);   // the pause menu's Settings window
-  const [winWorks, setWinWorks] = useState(false);   // the victory card's Castle Works box (owner, 2026-11-25)
+  // the War Room (ui/WarRoom.jsx: castle, towers, heroes), laid over the title, the map or the victory card
+  const [roomOpen, setRoomOpen] = useState(false);
   const [hoverEnemy, setHoverEnemy] = useState(null);
   const chipTap = useTap();
   const [buildOpen, setBuildOpen] = useState(false);
@@ -567,7 +567,7 @@ export default function Crownguard() {
   // and on a win the stars, the XP and the next stretch of road. g.run is
   // zeroed afterwards so retrying a lost wave can't count its kills twice.
   useEffect(() => {
-    setWinWorks(false);   // the victory card's Castle Works box never carries over to the next battle's end
+    setRoomOpen(false);   // the War Room never carries over to the next battle's end
     if (!ui.result) return;
     // the hero's menu folds away with the battle, so a retried wave or the
     // Endless March doesn't open with it still showing
@@ -1117,44 +1117,48 @@ export default function Crownguard() {
     sfx.play("sell");
   };
 
+  // The War Room over the title or the map: castle works paid from the treasury.
+  const treasuryRoom = roomOpen && (
+    <WarRoom profile={profile} setProfile={setProfile} progress={progress} treasury={progress.treasury || 0}
+      onBuyWork={(key, next) => buyTreasuryWork("crown", key, next)} onRefundAll={() => refundTreasuryAll("crown")}
+      onClose={() => setRoomOpen(false)} />
+  );
+
   // Title screen: the campaign goes through the map, Free Play through realm select.
   if (screen === "home") {
     return (
-      <HomeScreen
-        progress={progress}
-        profile={profile}
-        onContinue={() => (kept ? startLevel(kept.lv, kept.ck) : openMap())}
-        resume={kept && { name: kept.lv.name, wave: kept.wave }}
-        onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
-        onCouncil={() => setScreen("council")}
-        onBuyWork={(key, next) => buyTreasuryWork("crown", key, next)}
-        onRefundAll={() => refundTreasuryAll("crown")}
-        onCampaignReset={setProgress}
-      />
+      <>
+        <HomeScreen
+          progress={progress}
+          profile={profile}
+          setProfile={setProfile}
+          onContinue={() => (kept ? startLevel(kept.lv, kept.ck) : openMap())}
+          resume={kept && { name: kept.lv.name, wave: kept.wave }}
+          onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
+          onWarRoom={() => setRoomOpen(true)}
+          onCampaignReset={setProgress}
+        />
+        {treasuryRoom}
+      </>
     );
-  }
-
-  // Where stars are spent: the permanent per-tower skill trees.
-  if (screen === "council") {
-    return <WarCouncil profile={profile} setProfile={setProfile} onBack={() => setScreen("home")} />;
   }
 
   // The continent: where the campaign is chosen from and returned to.
   if (screen === "map") {
     return (
-      <CampaignMap
-        progress={progress}
-        profile={profile}
-        onStart={(lv) => startLevel(lv)}
-        resume={kept && { levelId: kept.lv.id, wave: kept.wave }}
-        onResume={() => kept && startLevel(kept.lv, kept.ck)}
-        heroKey={heroKey}
-        onHero={pickHero}
-        arrive={arrive}
-        onBack={() => setScreen("home")}
-        onBuyWork={buyTreasuryWork}
-        onRefundAll={refundTreasuryAll}
-      />
+      <>
+        <CampaignMap
+          progress={progress}
+          profile={profile}
+          onStart={(lv) => startLevel(lv)}
+          resume={kept && { levelId: kept.lv.id, wave: kept.wave }}
+          onResume={() => kept && startLevel(kept.lv, kept.ck)}
+          arrive={arrive}
+          onBack={() => setScreen("home")}
+          onWarRoom={() => setRoomOpen(true)}
+        />
+        {treasuryRoom}
+      </>
     );
   }
 
@@ -1924,11 +1928,11 @@ export default function Crownguard() {
         })()}
 
         {guideOpen && <FieldGuide start={guideStart} onClose={closeGuide} />}
-        {/* the victory card's Castle Works: the treasury's box, bought through the battle's own
-            castle (buyWork) so an Endless March after it fights with what was raised */}
-        {winWorks && ui.result === "won" && mode === "campaign" && (
-          <CastleWorksModal treasury={progress.treasury} short={compact} onClose={() => setWinWorks(false)}
-            onBuy={(key) => buyWork(key)} onRefundAll={refundAllWorks} />
+        {/* the victory card's War Room: castle works bought through the battle's own castle
+            (buyWork) so an Endless March after it fights with what was raised */}
+        {roomOpen && ui.result === "won" && mode === "campaign" && (
+          <WarRoom profile={profile} setProfile={setProfile} progress={progress} treasury={progress.treasury || 0}
+            onBuyWork={(key) => buyWork(key)} onRefundAll={refundAllWorks} onClose={() => setRoomOpen(false)} />
         )}
         {/* over the pause menu, outside its <Fit> (a fixed box inside a transform pins to it) */}
         {menuOpen && settingsOpen && (
@@ -2147,8 +2151,8 @@ export default function Crownguard() {
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                     {campaign && won && (
-                      <button className="cg-btn cg-btn--slate" onClick={() => setWinWorks(true)}>
-                        <CastleIcon size={14} /> Castle Works
+                      <button className="cg-btn cg-btn--slate" onClick={() => setRoomOpen(true)}>
+                        <CastleIcon size={14} /> War Room
                       </button>
                     )}
                     {campaign
