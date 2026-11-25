@@ -25,6 +25,25 @@ const shotSink = {
   },
 };
 
+// POST /__perf with a JSON body appends one line to .shots/perf.jsonl (the phone's slow-level test,
+// src/dev/repro.js, reports there).
+const perfWrite = (req, res) => {
+  let body = "";
+  req.on("data", (c) => (body += c));
+  req.on("end", () => {
+    const dir = path.resolve(".shots");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, "perf.jsonl"), body.replace(/\n/g, " ") + "\n");
+    res.end("ok");
+  });
+};
+// (also on `vite preview`, for a test build made with VITE_REPRO=1)
+const perfSink = {
+  name: "perf-sink",
+  configureServer(server) { server.middlewares.use("/__perf", perfWrite); },
+  configurePreviewServer(server) { server.middlewares.use("/__perf", perfWrite); },
+};
+
 // The version shown on the title screen (ui/BuildTag.jsx): the day, a build
 // number that counts the commits made that day (build 1, build 2, ... and
 // back to 1 tomorrow; a * when the tree has uncommitted work on top), a time
@@ -83,7 +102,7 @@ export default defineConfig({
   // a second dev server (a worktree with a symlinked node_modules) must keep its own cache, or it
   // rewrites the shared node_modules/.vite under the main one: CG_VITE_CACHE=<dir> npm run dev
   ...(process.env.CG_VITE_CACHE ? { cacheDir: process.env.CG_VITE_CACHE } : {}),
-  plugins: [react(), shotSink, versionSink, versionFile],
+  plugins: [react(), shotSink, perfSink, versionSink, versionFile],
   define: { __BUILD__: JSON.stringify(BUILD) },
   // lab screenshots land in .shots/; a write there must not reload every page
   server: { watch: { ignored: ["**/.shots/**"] } },

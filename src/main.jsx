@@ -7,6 +7,7 @@
 import { keepSaves } from "./native/keep.js";
 import { freshen } from "./native/fresh.js";
 import { settleSlots } from "./data/saveSlots.js";
+import "./dev/canvaswatch.js";   // dev only, ?repro: the slow-level test (does nothing otherwise)
 
 // (if the game's own code can't be fetched, a page kept from before the
 // last push asked for files that push replaced: index.html's rescue reloads)

@@ -8,7 +8,9 @@ import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE } from "./d
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { noteCrash, heartbeat, quietBeat } from "./native/crashlog.js";
 import { bakeStats } from "./render/pix/bake.js";
-import { perfFrame } from "./render/perfmark.js";
+import { perfFrame, PERF } from "./render/perfmark.js";
+import { TIDY } from "./audio/tidy.js";
+import { canvasStats } from "./dev/canvaswatch.js";
 import { prefs } from "./data/prefs.js";
 import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
@@ -45,7 +47,7 @@ const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade", 
 // a crew whose members are told apart by trade, not number: [short label, full name]
 const CREW_LABELS = { gunpowder: [["Bombs", "The bombardier"], ["Musket", "The musketeer"]] };
 import {
-  towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
+  towerNear, buildableAt, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
   startWave, restartWave, takeSnapshot, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, lowerAllWorks, callMilitia, placeBarricade, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
@@ -500,6 +502,8 @@ export default function Crownguard() {
     setProgress(loadProgress());
     setScreen("map");
   };
+  // dev only: the self-running slow-level test (dev/repro.js, ?repro) drives the game through these
+  if (import.meta.env.DEV || import.meta.env.VITE_REPRO) window.__cg = { startLevel, marchOn, openMap, G, screen, startWave, placeTower, upgradeTower, buildableAt, levelById, PERF, TIDY, W, H, sfx };
 
   // The side menu IS the pause screen: opening it halts the battle, and every
   // way out of it (Resume, ✕, tapping the board) starts things moving again.
@@ -652,6 +656,11 @@ export default function Crownguard() {
       bakeMB: Math.round(bakeStats().bytes / 1048576), domCanvases: document.getElementsByTagName("canvas").length,
       sun: DAY.id, weather: g.weather?.paint || null, fpsSetting: prefs.fps,
       screen: `${window.innerWidth}x${window.innerHeight}@${window.devicePixelRatio || 1}`,
+      // what else is alive: the page's elements, sound nodes still plugged in (tidy.js), how long the page has run,
+      // and (in a test build, dev/canvaswatch.js) every canvas made and still alive
+      domNodes: document.getElementsByTagName("*").length, audioLeft: TIDY.made - TIDY.unplugged,
+      upS: Math.round(performance.now() / 1000), standalone: !!window.navigator.standalone,
+      canvases: window.__cgWatch ? canvasStats() : null,
     });
 
     const step = (now) => {

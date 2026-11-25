@@ -16,9 +16,16 @@ const isNode = (n) => typeof AudioNode !== "undefined" && n instanceof AudioNode
 // a node that plays and then ends (oscillator, buffer source): it says when ("ended")
 const plays = (n) => typeof n.stop === "function" && "onended" in n;
 
-const unplug = (nodes) => { for (const n of nodes) { try { n.disconnect(); } catch { /* already gone */ } } };
+// dev only: ?untidy turns the unplugging off (the game as it was before this file), so the phone test
+// (src/dev/repro.js) can compare the two; TIDY counts the nodes noted and unplugged
+const UNTIDY = import.meta.env.DEV && typeof window !== "undefined" && /[?&]untidy/.test(window.location.search);
+export const TIDY = { made: 0, unplugged: 0, untidy: UNTIDY };   // (the test may flip untidy before it starts)
+
+const unplug = (nodes) => { TIDY.unplugged += nodes.length; for (const n of nodes) { try { n.disconnect(); } catch { /* already gone */ } } };
 
 export function letGo(nodes) {
+  TIDY.made += nodes.length;
+  if (TIDY.untidy) return;
   const src = nodes.filter(plays);
   // nothing in it ever sounds: unplug it now
   if (!src.length) { unplug(nodes); return; }
