@@ -309,7 +309,7 @@ function Basics() {
       Selling returns <b>70%</b> of everything you put in.
 
       <Heading>KNIGHTS</Heading>
-      Knights march out and each pin <i>one</i> enemy in melee — the rest push past. Fallen knights respawn in 7 seconds. They muster just south of their hall; select the hall and click inside its circle to move the rally flag.
+      Knights march out and each pin <i>one</i> enemy in melee — the rest push past. Fallen knights respawn in 7 seconds. They muster just south of their hall; select the hall, press Move Rally Flag, then tap where they should stand.
 
       <Heading>STANDING ORDERS</Heading>
       Select any shooting tower and it shows a <b>TARGETS</b> row. <b>First</b> takes whoever is closest to your castle — the default. <b>Last</b> hits the tail of the column, <b>Strong</b> the healthiest foe, <b>Weak</b> the one nearest death. Towers that splash also get <b>Most</b>, which aims wherever the blast will catch the biggest crowd.<br /><br />

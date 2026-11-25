@@ -954,12 +954,9 @@ export default function Crownguard() {
       const u = b?.units[0];
       if (u && u.state !== "dead" && Math.hypot(x - u.x, y - (u.y - 6)) < 16) { openHeroMenu(); return; }
     }
-    // selected garrison: click inside its circle to move the rally flag
-    const selT = g.towers.find((tt) => tt.id === g.selectedId);
-    if (selT && (selT.kind === "knight" || (selT.kind === "catapult" && getStats(selT).roller)) && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE * 1.6) {
-      postRally(g, selT, x, y);
-      return;
-    }
+    // a tap on the field only closes a selected hall's menu: its rally flag
+    // (or a Log Roller's aim) moves only after "Move Rally Flag" / "Aim the
+    // Roll" is pressed (owner, 2026-11-25: soldiers kept being moved by accident)
     g.selectedId = null;
   };
   // ---- pointer input: mouse, pen and touch through one door ----
