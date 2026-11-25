@@ -2108,17 +2108,17 @@ export default function Crownguard() {
                       ))}
                     </div>
                   )}
-                  <div style={{ fontSize: 12, color: "var(--text)", opacity: 0.9, maxWidth: 380, lineHeight: 1.5 }}>
+                  {!(won && campaign && nxt && !lastOfChapter) && <div style={{ fontSize: 12, color: "var(--text)", opacity: 0.9, maxWidth: 380, lineHeight: 1.5 }}>
                     {!won
                       ? `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or take the level again from the start.`
                       : campaign
                         ? (nxt
                             ? (lastOfChapter
                                 ? `The chapter is closed — but word of it travels. ${nxt.chapter.name} is stirring, and ${nxt.name} lies ahead. Or dig in here and see how long this ground can hold.`
-                                : `The road is yours as far as ${nxt.name}. March on — or hold this ground against the Endless March.`)
+                                : null)   // an ordinary win says nothing here: the buttons say it (owner, 2026-11-25)
                             : "The Iron throne is taken and the whole continent is yours. The war is won — unless you'd rather see how long you can hold it.")
                         : "The dragon is slain and the road is quiet... for now. Beyond the pass, the horde has no end — march on if you dare."}
-                  </div>
+                  </div>}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                     {won && campaign && nxt && (
                       <button className="cg-btn cg-btn--gold" style={big} onClick={() => marchOn(nxt)}>
