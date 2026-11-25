@@ -25,6 +25,7 @@ import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
+import CastleWorksModal from "./ui/CastleWorksModal.jsx";
 import PixHammer from "./ui/PixHammer.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
@@ -154,6 +155,7 @@ export default function Crownguard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);   // the pause menu's Settings window
+  const [winWorks, setWinWorks] = useState(false);   // the victory card's Castle Works box (owner, 2026-11-25)
   const [hoverEnemy, setHoverEnemy] = useState(null);
   const chipTap = useTap();
   const [buildOpen, setBuildOpen] = useState(false);
@@ -560,6 +562,7 @@ export default function Crownguard() {
   // and on a win the stars, the XP and the next stretch of road. g.run is
   // zeroed afterwards so retrying a lost wave can't count its kills twice.
   useEffect(() => {
+    setWinWorks(false);   // the victory card's Castle Works box never carries over to the next battle's end
     if (!ui.result) return;
     // the hero's menu folds away with the battle, so a retried wave or the
     // Endless March doesn't open with it still showing
@@ -1879,6 +1882,12 @@ export default function Crownguard() {
         })()}
 
         {guideOpen && <FieldGuide start={guideStart} onClose={closeGuide} />}
+        {/* the victory card's Castle Works: the treasury's box, bought through the battle's own
+            castle (buyWork) so an Endless March after it fights with what was raised */}
+        {winWorks && ui.result === "won" && mode === "campaign" && (
+          <CastleWorksModal treasury={progress.treasury} short={compact} onClose={() => setWinWorks(false)}
+            onBuy={(key) => buyWork(key)} onRefundAll={refundAllWorks} />
+        )}
         {/* over the pause menu, outside its <Fit> (a fixed box inside a transform pins to it) */}
         {menuOpen && settingsOpen && (
           <SettingsPanel inBattle onClose={() => setSettingsOpen(false)}
@@ -2020,7 +2029,7 @@ export default function Crownguard() {
                     <div className="cg-well" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.4 }}>
                       <CoinIcon size={22} />
                       <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{gift.toLocaleString("en-US")}</b> gold, a gift from the crown<br />
-                        <span style={{ color: "var(--muted)" }}>for your first victory: raise your first Castle Work from the campaign map</span></span>
+                        <span style={{ color: "var(--muted)" }}>for your first victory: raise your first Castle Work below, or from the campaign map</span></span>
                     </div>
                   )}
                   {/* what the halls learned in this battle (data/towerxp.js) */}
@@ -2095,6 +2104,11 @@ export default function Crownguard() {
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                    {campaign && won && (
+                      <button className="cg-btn cg-btn--slate" onClick={() => setWinWorks(true)}>
+                        <CastleIcon size={14} /> Castle Works
+                      </button>
+                    )}
                     {campaign
                       ? <button className="cg-btn cg-btn--slate" onClick={openMap}>Campaign Map</button>
                       : <button className="cg-btn cg-btn--slate" onClick={() => openRealmSelect("game")}>Choose Realm...</button>}
