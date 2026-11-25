@@ -2372,6 +2372,19 @@ Fable's audit: most likely iOS killed the page for memory. Fixed the same day (n
   thinning, baked another, up to 60 kept). rangering.js now skips a ring wholly off the board or
   over `WHOLE_MAP` 500 (real reaches end near 320), holds its bakes to `RING_BUDGET` 24 MB, and
   paints only the band round the line (pixel-identical, 48 rings compared; a 316 ring 25 -> 5 ms).
+- **Frame timings on the device** (2026-11-25, owner: ~10 fps on the level after a won one, iPhone only;
+  a restart fixed it, muting did NOT, a 20 s pause did NOT; nothing carries over in headless Chromium:
+  draw time, script time, canvas memory, DOM all flat across levels). `src/render/perfmark.js`: draw.js
+  marks its passes (`pm("ground" | "under" | "prep" | "actors" | "castle" | "fx" | "light" | "weather" |
+  "grade")`), the main loop times the engine, the draw and its whole run; `PERF.now` holds a second's
+  averages. The frame counter reads `fps · ms` (ms of the game's own code a frame). The crash log keeps a
+  `perf` sample after 15 s of combat in every battle and a `slow` one when a battle stays under 20 fps for
+  5 s (fps, loop rate, js / upd / draw ms, the passes, longest gap, battle number since launch, foes, halls,
+  bake MB, DOM canvases, sun, screen). Low fps with few ms of game code = the browser's own work (GPU,
+  compositing), not our painters. Headless Chromium here runs ~20 fps on 3-6 ms (software compositing).
+  Measured the same day in Chromium, the win -> map -> next level path allocates canvases: the title's map
+  warm-up ~236 MB made (31 kept), the campaign map ~45 MB, a level ~60-80 MB; ~235 MB alive at the next
+  level's start before a GC. No canvas is ever released explicitly (width = 0) anywhere in src/.
 - **First report from the recorder** (same day, Whalebone wave 3, "screen": `l.ms` undefined): the
   wave preview's foe icon (`pixIcon`) asks for the `idle` clip, and the sea serpent has none.
   pixrigs.js `clipFrame` now falls back to the walk for a missing idle (or attack) clip. Settings'

@@ -10,6 +10,7 @@
 // actual pixels. Sprites that opt into `px: 1` (see sprites.js) now get four
 // times the pixels inside the same footprint.
 
+import { pmStart, pm } from "./perfmark.js";
 import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, RES } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { PTS, posAt, angleAt } from "../engine/path.js";
@@ -126,6 +127,7 @@ export function draw(g, canvas, bufRef) {
   // copied across, a whole board of pixels a frame for nothing; the browser shows a canvas only once
   // the frame's work is done, so nothing half-drawn is ever seen). `bufRef` is no longer used.
   const ctx = cv.getContext("2d");
+  pmStart();   // where the frame's time goes (perfmark.js; the frame counter and the crash log read it)
   if (ovhOn()) OVH.frame(g);   // the overhaul's per-frame bookkeeping (overhaul/index.js)
   // how packed the road is this frame, for the crowd's small extras (render/lod.js)
   lodFrame(g, typeof performance !== "undefined" ? performance.now() : g.time * 1000);
@@ -164,6 +166,7 @@ export function draw(g, canvas, bufRef) {
   if (watch) drawWatchWater(ctx, g, watch[0], watch[1], watch[2], "edge");
   // the castle's apron and the cobbled threshold go UNDER the foes, who walk right into the gate
   drawCastleGround(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
+  pm("ground");
 
   // a River Watch skiff in under a bridge is drawn with the water, so the
   // span passes over it; everywhere else it sorts with the other actors
@@ -234,6 +237,7 @@ export function draw(g, canvas, bufRef) {
   drawHeroUnder(ctx, g);
 
   drawSpawn(ctx, g.time, REALM.spawn);
+  pm("under");
 
   // A range ring, drawn as a slowly turning ring of ticks rather than a solid
   // hairline. It reads as a live area of control instead of a drawn-on circle,
@@ -460,7 +464,9 @@ export function draw(g, canvas, bufRef) {
   }
   if (ovhOn()) OVH.bridgeFronts(drawables, ctx); else pushBridgeFronts(drawables, ctx);   // a span's near rail, in front of the walkers on its deck (bridge.js)
   drawables.sort((a, b) => a.y - b.y);
+  pm("prep");
   for (const d of drawables) d.fn();
+  pm("actors");
   drawBandNotes(ctx, g);   // the King's Band: a note over every hall it plays for, on the beat
   // the Masons' barricades' health, over the foes hacking at them (barricade.js)
   drawBarricadeBars(ctx, g);
@@ -555,6 +561,7 @@ export function draw(g, canvas, bufRef) {
   drawCastle(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
   drawCastleWorks(ctx, g);
   if (ovhOn()) OVH.overCastle(ctx, g);   // (the overhaul: a crown standing in front of the wall face)
+  pm("castle");
 
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)
@@ -779,11 +786,14 @@ export function draw(g, canvas, bufRef) {
   // ---- ambient weather (per realm, purely cosmetic) ----
   // Snow, embers, fireflies, leaves, blown grit — all of it derived from
   // g.time in render/atmosphere.js, so there is no state to keep.
+  pm("fx");
   dayOver(ctx, g);   // the hour's colour over everything standing (daylight.js)
   if (ovhOn()) OVH.over(ctx, g);
+  pm("light");
   drawAmbient(ctx, g.time);
   // a realm's battle weather over it (engine/weather.js; weatherfx.js painters)
   drawWeather(ctx, g);
+  pm("weather");
   if (overWeather) { ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; drawRanges(); }
   ctx.restore();
 
@@ -794,6 +804,7 @@ export function draw(g, canvas, bufRef) {
   drawGrade(ctx);
   drawBanner(ctx, g);
   ctx.restore();
+  pm("grade");
 
   const sc = ctx;
   sc.setTransform(1, 0, 0, 1, 0, 0);

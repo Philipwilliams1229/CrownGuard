@@ -8,6 +8,7 @@ import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE } from "./d
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { noteCrash, heartbeat, quietBeat } from "./native/crashlog.js";
 import { bakeStats } from "./render/pix/bake.js";
+import { perfFrame } from "./render/perfmark.js";
 import { prefs } from "./data/prefs.js";
 import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
@@ -20,7 +21,7 @@ import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
 import { setLevelWeather } from "./engine/weather.js";
 import { weatherFor } from "./data/weather-plan.js";
-import { setDay, sunFor } from "./data/sun.js";
+import { setDay, sunFor, DAY } from "./data/sun.js";
 import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
@@ -641,6 +642,17 @@ export default function Crownguard() {
     meter.style.cssText = "position:fixed;top:calc(env(safe-area-inset-top, 0px) + 2px);right:calc(env(safe-area-inset-right, 0px) + 3px);z-index:9999;pointer-events:none;font:700 9px/1 ui-monospace,Menlo,monospace;color:#5cff5c;text-shadow:0 0 2px #000,0 1px 0 #000;display:none";
     document.body.appendChild(meter);
     let painted = 0, meterAt = 0, meterOn = false;
+    // where the time goes (render/perfmark.js), and a sample of it kept in the crash log once per battle, plus
+    // one more if the battle runs under 20 frames a second for 5 s (owner, 2026-11-25: ~10 fps on the level
+    // after a won one, on an iPhone only): Settings > Progress > Crash reports > Copy reads them off the phone
+    let lastStep = 0, perfG = null, battleNo = 0, combatS = 0, slowS = 0, perfLogged = false, slowLogged = false;
+    const perfSample = (kind, g, p) => noteCrash(kind, { message: `${p.fps} fps, ${p.js} ms of game code a frame (battle ${battleNo} since launch)` }, {
+      perf: p, battleNo, realm: REALM.id, level: g.ckLevel || null, wave: g.wave, phase: g.phase,
+      foes: g.enemies.length, halls: g.towers.length, effects: g.effects.length, shots: g.projectiles.length,
+      bakeMB: Math.round(bakeStats().bytes / 1048576), domCanvases: document.getElementsByTagName("canvas").length,
+      sun: DAY.id, weather: g.weather?.paint || null, fpsSetting: prefs.fps,
+      screen: `${window.innerWidth}x${window.innerHeight}@${window.devicePixelRatio || 1}`,
+    });
 
     const step = (now) => {
       raf = requestAnimationFrame(step);
@@ -648,6 +660,8 @@ export default function Crownguard() {
       if (!g) return;
       const every = 1000 / (prefs.fps || 60);
       if (now < due - SLACK) return;
+      const tStep = performance.now(), gap = lastStep ? now - lastStep : 0;
+      lastStep = now;
       due = Math.max(due + every, now - every);
       // (a long frame is cut short so a hitch never leaps the battle forward: 70 ms, since 24 a second
       // on a 60 Hz screen has honest 50 ms frames and the old 50 ms cap would have run it slow)
@@ -658,8 +672,10 @@ export default function Crownguard() {
 
       // an engine fault must cost one tick, never the picture: log it once
       // per message and carry on drawing
+      const tUpd = performance.now();
       try { updateGame(g, dt); }
       catch (err) { const k = String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("updateGame failed", err); noteCrash("update", err); } }
+      const updMs = performance.now() - tUpd;
       try { tickCheckpoint(g); } catch (err) { console.error("checkpoint failed", err); }
       // a garrison sold mid-move takes its rally prompt with it
       const abAim = typeof g.rallyFor === "string" && g.rallyFor.startsWith("ab:");
@@ -679,9 +695,13 @@ export default function Crownguard() {
       if (paint) shown = now;
       { const on = prefs.showFps && screenRef.current === "game" && !!canvasRef.current;
         if (on !== meterOn) { meterOn = on; meter.style.display = on ? "block" : "none"; painted = 0; meterAt = now; }
-        if (on) { if (paint) painted++; if (now - meterAt >= 1000) { meter.textContent = String(Math.round((painted * 1000) / (now - meterAt))); painted = 0; meterAt = now; } } }
+        if (on) { if (paint) painted++; if (now - meterAt >= 1000) { const pf = Math.round((painted * 1000) / (now - meterAt)), pn = (perfG === g) && lastPerf;
+          // the frame rate, then (once a second's numbers are in) the ms of the game's own code a frame
+          meter.textContent = pn ? `${pf} · ${pn.js} ms` : String(pf); painted = 0; meterAt = now; } } }
+      const tDraw = performance.now();
       try { if (paint) draw(g, canvasRef.current, bufRef); }
       catch (err) { const k = "draw:" + String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("draw failed", err); noteCrash("draw", err); } }
+      const drawMs = performance.now() - tDraw;
       // the crash recorder's heartbeat (native/crashlog.js): only while a battle is on screen
       if (screenRef.current === "game" && g.phase !== "lost") { const b = bakeStats(); heartbeat(now, { realm: REALM.id, faction: FACTION.id, wave: g.wave, phase: g.phase, bakeMB: Math.round(b.bytes / 1048576), clips: b.clips }); }
       else quietBeat();
@@ -737,7 +757,22 @@ export default function Crownguard() {
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
         });
       }
+      // this frame's timings (render/perfmark.js) and, in a battle, the crash log's samples
+      // (a battle counts once it is on screen: the idle game made at launch is not one)
+      if (g !== perfG && screenRef.current === "game") { perfG = g; battleNo++; combatS = 0; slowS = 0; perfLogged = false; slowLogged = false; lastPerf = null; }
+      const pn = perfFrame(now, { painted: paint, upd: updMs, draw: paint ? drawMs : 0, js: performance.now() - tStep, gap });
+      if (pn) {
+        lastPerf = pn;
+        const live = perfG === g && screenRef.current === "game" && !g.paused && g.phase !== "won" && g.phase !== "lost";
+        if (live && g.phase === "combat") combatS++;
+        slowS = live && pn.fps < 20 ? slowS + 1 : 0;
+        try {
+          if (!perfLogged && combatS >= 15) { perfLogged = true; perfSample("perf", g, pn); }
+          if (!slowLogged && slowS >= 5) { slowLogged = true; perfSample("slow", g, pn); }
+        } catch { /* the log is a nicety */ }
+      }
     };
+    let lastPerf = null;
     raf = requestAnimationFrame(step);
     return () => { cancelAnimationFrame(raf); meter.remove(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
