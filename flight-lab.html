@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  Fire in flight (Round 20 A, src/render/flightfire.js): a busy screen of 30 fireballs (every fifth big), 6 Comet Sling
+  stones and 10 fire pots flying about, drawn with today's old look (FLIGHT.on false) and the new one, timed side by side.
+    /flight-lab.html[?balls=30&stones=6&pots=10&frames=300&tag=x]
+  Saves .shots/flight_<tag>_{old,new}.png (the board at x1) and prints the numbers on the page.
+-->
+<html><head><meta charset="utf-8" /><title>flight lab</title></head>
+<body style="background:#20242c;color:#e8e0c8;font-family:monospace;margin:12px"><pre id="out">running</pre>
+<script type="module">
+import { drawProjectile } from "/src/render/fx.js";
+import { drawMusketShot } from "/src/render/musketfx.js";
+import { FLIGHT, flightStats, flightClear } from "/src/render/flightfire.js";
+import { PX } from "/src/render/paint.js";
+const q = new URLSearchParams(location.search), out = document.getElementById("out");
+const NB = +(q.get("balls") || 30), NS = +(q.get("stones") || 6), NP = +(q.get("pots") || 10), NF = +(q.get("frames") || 300), TAG = q.get("tag") || "x";
+const W = 840, Hh = 560, cv = document.createElement("canvas"); cv.width = W * PX; cv.height = Hh * PX; document.body.appendChild(cv);
+const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+const R = (k, s) => { const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
+// each shot loops its flight; a new flight is a new projectile object (its birth is stamped afresh)
+const balls = [...Array(NB)].map((_, k) => ({ k, sx: 60 + R(k, 1) * 700, sy: 60 + R(k, 2) * 440, a: R(k, 3) * Math.PI * 2, ph: R(k, 4) * 350, big: k % 5 === 4 }));
+const stones = [...Array(NS)].map((_, k) => ({ k, sx: 40 + R(k, 5) * 300, sy: 120 + R(k, 6) * 380, ph: R(k, 7) * 700, dir: k % 2 ? 1 : -1 }));
+const pots = [...Array(NP)].map((_, k) => ({ k, x: 60 + R(k, 8) * 600, y: 60 + R(k, 9) * 440, a: R(k, 10) * Math.PI * 2, ph: R(k, 11) * 900 }));
+const objs = new Map();
+const frame = (tms) => {
+  c.setTransform(PX, 0, 0, PX, 0, 0); c.fillStyle = "#7eab54"; c.fillRect(0, 0, W, Hh);
+  const t0 = performance.now(), time = tms / 1000;
+  for (const b of balls) {
+    const cyc = Math.floor((tms + b.ph) / 350), age = (tms + b.ph) % 350, key = "b" + b.k + "|" + cyc;
+    let p = objs.get(key); if (!p) { p = { id: b.k, kind: "orb", burn: 8, big: b.big, poolDps: b.big ? 24 : 0 }; objs.set(key, p); }
+    const d = age * 0.3; p.x = b.sx + Math.cos(b.a) * d; p.y = b.sy + Math.sin(b.a) * d; p.tx = b.sx + Math.cos(b.a) * 105; p.ty = b.sy + Math.sin(b.a) * 105;
+    drawProjectile(c, p, time);
+  }
+  for (const s of stones) {
+    const cyc = Math.floor((tms + s.ph) / 700), age = (tms + s.ph) % 700, key = "s" + s.k + "|" + cyc, tot = 168, k = age / 700;
+    let p = objs.get(key); if (!p) { p = { id: s.k + 4, kind: "rock", burn: 9, sx: s.sx, sy: s.sy, tx: s.sx + s.dir * tot, ty: s.sy + 30, total: Math.hypot(tot, 30) }; objs.set(key, p); }
+    p.x = p.sx + (p.tx - p.sx) * k; p.y = p.sy + (p.ty - p.sy) * k;
+    drawProjectile(c, p, time);
+  }
+  for (const s of pots) {
+    const age = (tms + s.ph) % 900;
+    drawMusketShot(c, { type: "musket", x: s.x, y: s.y, tx: s.x + Math.cos(s.a) * 150, ty: s.y + Math.sin(s.a) * 150, ttl: 900 - age, life: 900, fire: true, splash: 54 });
+  }
+  return performance.now() - t0;
+};
+const lines = [], wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// cold start: bakes as they come (4 a frame at most), frames 16 ms apart
+FLIGHT.on = true; flightClear(); objs.clear();
+let coldMax = 0, coldSum = 0;
+for (let i = 0; i < 90; i++) { const ms = frame(i * 16.7); coldMax = Math.max(coldMax, ms); coldSum += ms; await wait(17); }
+const st0 = flightStats();
+lines.push(`cold start, 90 frames: worst frame ${coldMax.toFixed(2)} ms, mean ${(coldSum / 90).toFixed(2)} ms; ${JSON.stringify(st0)} (ms per bake ${(st0.bakeMs / Math.max(1, st0.bakes)).toFixed(2)})`);
+for (let i = 90; i < 1200; i++) { frame(i * 16.7); if (i % 4 === 0) await wait(13); }
+lines.push(`after 20 s of play: ${JSON.stringify(flightStats())}`);
+// steady state, old vs new, in alternating blocks
+const tot = { old: 0, new: 0 }, n = { old: 0, new: 0 };
+for (let r = 0; r < 6; r++) for (const mode of ["old", "new"]) {
+  FLIGHT.on = mode === "new";
+  for (let i = 0; i < NF / 6; i++) { tot[mode] += frame(20000 + (r * 400 + i) * 16.7); n[mode]++; if (i % 10 === 0) await wait(14); }
+}
+lines.push(`steady, ${NB} fireballs + ${NS} stones + ${NP} pots, per frame: old ${(tot.old / n.old).toFixed(3)} ms, new ${(tot.new / n.new).toFixed(3)} ms`);
+lines.push(`after: ${JSON.stringify(flightStats())}`);
+for (const mode of ["old", "new"]) { FLIGHT.on = mode === "new"; frame(30000); await fetch("/__shot?name=flight_" + TAG + "_" + mode, { method: "POST", body: cv.toDataURL("image/png").slice(22) }); }
+FLIGHT.on = true;
+window.LAB = { frame, FLIGHT, flightStats, cv, wait };
+out.textContent = lines.join("\n"); document.title = "DONE";
+</script></body></html>

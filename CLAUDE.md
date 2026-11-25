@@ -1371,6 +1371,28 @@ Bring these up with the owner; don't act on them unasked.
   ranges ~9.4 MB); ringflash.js's `firenova` front now `0.5 + 0.5 * easeOut(p * 1.15)`. Six halls firing together 1.30 ->
   0.093 ms a frame once baked. `flameS`, `charS`, `behindHall`, `clipFront` and the old centre burst are unused now.
   Weak: foes outside the ring draw in the wrong order against it (two layers only); foes in the inner half never flash.
+  The three above were pushed (2026-11-24). **Round 20** (owner: "lets work with the other fire effects"; brief
+  `art/briefs/fx-round20.md`, four Opus artists, `build-fx-concepts.mjs round20`): `fireball20` (`concept/fx-r20-
+  fireball.js`: the Pyromancer fireball, the Comet Sling's stone (today it flies with NO fire on it) and the fire pot,
+  one shared flame painter keyed on heading and age; the pot's muzzle flash and landing burst redone too), `logs20`
+  (`fx-r20-logs.js`: calls the real `drawLog` with `burn` off and adds the flames; only the Powder Keg Run carries
+  `logBurn` in the game), `pools20` (`fx-r20-pools.js`: beds kept line for line, flames redone; WEAK after a fix pass:
+  still small spikes over a busy crack web, the lava's flames hard to see), `torch20` (`fx-r20-torch.js`: real halls by
+  day and under the Blood Moon, hall `live` "flame" entries replaced; at night the new flames are drawn over the shade,
+  so building it changes draw order in pix/halls.js and castle.js). Lab lesson: use literal `import("/src/...")` in a
+  concept file; a variable import is a second copy of the module with its own caches. Private Artifact "Crownguard
+  Effects Concepts, Round 20: the rest of the fire". Awaiting the picks.
+  The owner's Round 20 picks, IN THE GAME (2026-11-24): **fire in flight A** (`src/render/flightfire.js`: fireball per
+  normal / big x 32 headings x 12 age steps, the Comet Sling's BIG stone wrapped in flame (two layers round the game's own
+  stone), the fire pot's shot / flash / burst; LRU 8 MB, 4 bakes a frame; fx.js `drawOrb` / "rock" branch and musketfx.js
+  `drawMusketShot` call it; `?oldfire=1` shows today's for labs; `flight-lab.html`); **logs A + the burning outline**
+  (logs.js: statusBurn's recipe on the barrel's silhouette, baked per kind / width / 64 headings / step, LRU 12 MB,
+  `logBurnStats()`); **ground fire B** (flames.js `fireBaseS` / `fireFlamesS` / `patchMass`, flame height `LOOK.hk` raised
+  0.7 -> 0.85 to read at board size, 16 steps, no sparks; `drawLavaFlames` in fx.js's lava path, under foes on the pool);
+  **torches A** (`src/render/torchflame.js` `torchSprite` / `stampTorch`; pix/halls.js `live` "flame", halls/spiker.js pots,
+  castle.js gate torches, buildkit.js `flame`; under the Blood Moon they queue and `bloodmoonPaint` flushes them over the
+  shade, `drawTorchesLate`). Not yet: the Inferno Throne's crown flames (hall-wizard.js `crownFlame`, old look); the fire
+  pot not seen in a live battle; shotlab with `warm=0` throws (`g.grounds` not iterable), use `warm=0.02`.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

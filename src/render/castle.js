@@ -15,6 +15,8 @@ import { ballistaPix, PITCHES } from "./pix/castle-ballista.js";
 import { pixSprite, stampPix } from "./pix/halls.js";
 import { SUN, SUN_DIR, SUN_SHEAR } from "./sunset.js";
 import { DAY } from "../data/sun.js";
+import { nightOn } from "./nightlight.js";
+import { stampTorch, torchLate } from "./torchflame.js";
 import { wallFeet } from "../engine/muzzles.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
@@ -2114,7 +2116,14 @@ const flame = (ctx, x, y, h, w, time, k) => {
 const torch = (ctx, x, y, time, k, dark) => {
   const flick = 1 + Math.sin(time * 7.3 + k * 2) * 0.08 + Math.sin(time * 13.1 + k) * 0.05;
   glow(ctx, x, y - 2, (dark ? 13 : 7) * flick, "#ffb050", dark ? 0.42 : 0.3);
-  flame(ctx, x, y + 0.5, 5, 3, time, k);
+  torchFlame(ctx, x, y + 0.5, 5, 3, time, k);
+};
+// a torch's or brazier's flame (h, w in units, as `flame`): the owner's Round 20 A (render/torchflame.js); under the
+// Blood Moon drawn over the night's shade (a fire is a light)
+const torchFlame = (ctx, x, y, h, w, time, k) => {
+  const sd = ((Math.round(k * 3) % 7) + 7) % 7, id = Math.round(k * 5);
+  if (nightOn(time)) torchLate(ctx, (c) => stampTorch(c, x, y, w * 2, h * 2, time, sd, id));
+  else stampTorch(ctx, x, y, w * 2, h * 2, time, sd, id);
 };
 
 // ---- the setting sun on the castle (render/sunset.js; owner, 2026-11-22: "we should also see shadows
@@ -2429,7 +2438,7 @@ export const drawCastle = (ctx, time, hpPct) => {
     const flick = 1 + Math.sin(time * 6.1 + i * 3) * 0.1 + Math.sin(time * 11.7 + i) * 0.06;
     glow(ctx, x, y + 3, 22 * flick, "#ff9848", 0.2);
     glow(ctx, x, y - 2, 8 * flick, "#ffc070", 0.4);
-    flame(ctx, x, y + 0.5, 6, 5, time, i * 2.3 + 1);
+    torchFlame(ctx, x, y + 0.5, 6, 5, time, i * 2.3 + 1);
   });
   // pennants on the towers still standing: gold on the wall, the crown's blue at the gate
   CASTLE.flags.forEach(([x, y, gate], i) => (gate === 2 ? royalStandard(ctx, x, y, time) : pennant(ctx, x, y - 1.5, time, i * 1.7, BANNER)));

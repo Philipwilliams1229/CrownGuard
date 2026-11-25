@@ -102,7 +102,9 @@ export const drawLog = (ctx, lg, time) => {
   const P = drum ? DRUM : keg ? KEG : LOG;
   const R = drum ? 7.5 : keg ? 7.2 : 6.6;           // radius (the keg's is its bulge)
   const id = lg.id || 0;
-  const a = lg.a, ca = Math.cos(a), sa = Math.sin(a);
+  // a burning barrel turns to its heading bucket (BURN_NB a turn, under 3 degrees off), so its baked fire fits its outline
+  const sil = !!lg._sil, burning = !!lg.burn && !sil;
+  const a = burning ? bucketA(lg.a) : lg.a, ca = Math.cos(a), sa = Math.sin(a);
   // local x runs along the barrel (world u), local y points backward (world v)
   const ux = -sa, uy = ca, vx = -ca, vy = -sa;
   // how far the barrel's end turns toward the camera. A log rolling straight up
@@ -122,7 +124,7 @@ export const drawLog = (ctx, lg, time) => {
   // ---- on the road: the dust it leaves behind (the shadow is hard-stepped, in composeNew) ----
   const W = (lx, back, lift) => [X + ux * lx - ca * back, Y + uy * lx - sa * back - lift];
   const dot = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(snap(x), snap(y), w, h); };
-  {
+  if (!sil) {
     const gap = drum ? 4 : 6, life = keg ? 34 : 40;
     for (let k = Math.floor(dist / gap); k >= 0 && dist - k * gap < life; k--) {
       const back = dist - k * gap, age = back / life;
@@ -301,7 +303,7 @@ export const drawLog = (ctx, lg, time) => {
 
   // ---- back in the world: fuse and sparks, flames, flying bits ----
   const toW = (lx, ly) => [X + ux * lx + vx * ly, Y + uy * lx + vy * ly];
-  if (keg) {
+  if (keg && !sil) {
     // the fuse leaves the bung and curls up and out; its tip spits sparks
     const [bx, by] = toW(xe - K * R * ue, cy);
     const ox = ux * sg, oy = uy * sg;                   // outward along the barrel
@@ -318,29 +320,8 @@ export const drawLog = (ctx, lg, time) => {
       dot(tx + Math.cos(ang) * d, ty + Math.sin(ang) * d * 0.8 + ph * ph * 2, 0.5, 0.5, ph < 0.35 ? "#fff3d2" : ph < 0.7 ? "#f8d868" : "#f09838");
     }
   }
-  if (lg.burn) {
-    // flames off the top and the back of the barrel, streaming back as it rolls
-    const n = keg ? 3 : 2;
-    for (let i = 0; i < n; i++) {
-      const lx = ((i + 0.5) / n - 0.5) * L * 0.8 + Math.sin(time * 2 + i) * 0.5, ps = 0.35;
-      const [fx, fy] = toW(lx + xo0(ps, R, ue, K), yOf0(ps, R, cy, M, dl));
-      const hgt = 5.5 + 2 * Math.sin(time * 9 + i * 2.1) + hash(i + Math.floor(time * 12)) * 2;
-      const lean = 0.45;
-      for (let pass = 0; pass < 2; pass++) {
-        for (let j = 0; j < hgt; j += 0.5) {
-          const f = j / hgt;
-          const wd = pass ? (1 - f) * 2 : (1 - f * 0.85) * (keg ? 3.8 : 3);
-          if (pass && f > 0.6) break;
-          const wob = Math.sin(time * 14 + j * 0.9 + i * 2) * 0.5 * f;
-          const x = fx - ca * j * lean + wob, y = fy - sa * j * lean * 0.5 - j;
-          const c = pass ? (f < 0.25 ? "#fff3d2" : "#f8d868") : (f < 0.45 ? "#f09838" : f < 0.8 ? "#d0502e" : "#8a2e2a");
-          dot(x - wd / 2, y, snap(Math.max(0.5, wd)), 0.5, c);
-        }
-      }
-    }
-  }
   // flying bits, laid down by distance rolled so they hang in the air behind
-  {
+  if (!sil) {
     const gap = keg ? 4 : drum ? 7 : 8, life = keg ? 0.7 : 0.24;
     for (let k = Math.floor(dist / gap); k >= 0; k--) {
       const back0 = dist - k * gap, t = back0 / sp;
@@ -358,8 +339,192 @@ export const drawLog = (ctx, lg, time) => {
       if (!keg && !drum && h > 0.5) dot(wx + 0.5, wy - 0.5, 0.5, 0.5, c);
     }
   }
+  // the fire (Round 20 A + the burning outline of a foe on fire): one baked stamp, over everything
+  if (burning) stampBurn(ctx, lg, X, Y, a, drum ? "drum" : keg ? "keg" : "log", time);
 };
 
 // flame bases need the barrel's geometry outside its frame
 const xo0 = (ps, R, ue, K) => -K * (R + R * Math.cos(ps)) * ue;
 const yOf0 = (ps, R, cy, M, dl) => cy + R * M * Math.sin(ps - dl);
+
+// ============ A BURNING BARREL (Round 20 A + the burning outline, owner 2026-11-24) ============
+// "Logs A ... can you also give them the glowy outline like from foes on fire?" The flames are the
+// owner's pick from concept/fx-r20-logs.js (row logs20, A): today's flames (two on a log, three on a
+// keg) as clusters of Dragonbreath tongues (flames.js drawBreath's look: one mottled mass of gold,
+// orange and red-orange cells stretched along the flame's motion, a broken pale core, a wine-red 1-px
+// root rim, ragged licks torn off the tips, a few sparks, no smoke), dragged BACK along the road and
+// up, curling up at the tip. Under them, what a foe on fire gets (statusfx.js statusBurn, Round 5 B):
+// the barrel's own silhouette edge burns in fire tones rolling round it (hotter low), a warm ring just
+// outside on its trailing side, a warm wash low on the barrel and a stepped warm glow on the road
+// under it. All of it is baked per (kind, width, heading bucket, step of a BURN_N loop at 12 a second)
+// into one canvas anchored on the barrel's ground point and stamped with one drawImage; a burning
+// barrel is drawn at its bucket's heading so the outline fits. The silhouette is read once per (kind,
+// width, bucket) by painting the barrel unturned-in-spin with `_sil` (no dust, fuse or bits).
+// Bakes: at most BURN_PER_FRAME a frame (a missing step shows the last baked one), BURN_BUDGET bytes
+// kept, least recently used dropped first. Only the Powder Keg Run carries `logBurn` today.
+const BURN_NB = 64, BURN_N = 16, BURN_PER_FRAME = 2, BURN_BUDGET = 12 * 1024 * 1024;
+const bucketA = (a) => { const k = Math.round((a / TAU) * BURN_NB); return (k / BURN_NB) * TAU; };
+const bucketOf = (a) => ((Math.round((a / TAU) * BURN_NB) % BURN_NB) + BURN_NB) % BURN_NB;
+const FIRE = ["#fff3d2", "#f8d868", "#f0a040", "#d8683a"];                              // statusfx's tones (outline, ring, glow)
+const BFIRE = ["#fffbe0", "#ffe27a", "#ffb030", "#f26a1c", "#c03020", "#7a2050"];     // Dragonbreath's tones (the flames)
+const BINK = "#8a2028";
+const RANK = { [BFIRE[0]]: 0, [BFIRE[1]]: 1, [BFIRE[2]]: 2, [BFIRE[3]]: 3, [BFIRE[4]]: 4, [BINK]: 5, [BFIRE[5]]: 5 };
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const bay = (x, y) => (BAYER[((y & 3) << 2) | (x & 3)] + 0.5) / 16;
+const H2 = (a, b = 0) => frac(Math.sin(a * 127.1 + b * 311.7) * 43758.5453);
+const cl = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+const per = (i, n) => ((i % n) + n) % n;
+const cellP = (a, b, n) => H2(per(a, n), b);
+const FIFTH = (v) => Math.ceil(cl(v) * 5 - 1e-6) / 5;
+const pxA = (c, x, y, col, al = 1) => { if (al <= 0) return; c.globalAlpha = al; c.fillStyle = col; c.fillRect(Math.floor(x), Math.floor(y), 1, 1); c.globalAlpha = 1; };
+
+// the barrel's ridge (where today's flames stood: ps 0.35) and the stream, in art px from the ground point
+const flameGeom = (kind, w, a) => {
+  const drum = kind === "drum", keg = kind === "keg", R = drum ? 7.5 : keg ? 7.2 : 6.6;
+  const ca = Math.cos(a), sa = Math.sin(a), ux = -sa, uy = ca, vx = -ca, vy = -sa;
+  const ue = Math.abs(uy) >= 0.35 ? uy : uy >= 0 ? 0.35 : -0.35;
+  const L = w - 1 - K * R * Math.abs(ue), dl = Math.atan2(K * vy, 1), M = Math.hypot(1, K * vy), cy = -K * R * vy;
+  const ridge = (lx) => { const px = lx + xo0(0.35, R, ue, K), py = yOf0(0.35, R, cy, M, dl); return [(ux * px + vx * py) * 2, (uy * px + vy * py) * 2]; };
+  // (rolling across the screen this is exactly the concept's stream; rolling up or down it the flames would stand in a
+  // row like candles, or pour down the barrel's front, so they rise more and lean aside a little there)
+  const vert = 1 - Math.abs(vx);
+  let dx = vx + 0.45 * vert, dy = vy - 0.6 - Math.max(0, vy); const dn = Math.hypot(dx, dy); dx /= dn; dy /= dn;
+  let nx = -dy, ny = dx; if (ny > 0) { nx = -nx; ny = -ny; }
+  return { keg, vert, ca, sa, vx, vy, ux, uy, R, hl: L / 2, P0: ridge(-0.42 * L), P1: ridge(0.42 * L), d: [dx, dy], n: [nx, ny] };
+};
+const along = (g, u) => [g.P0[0] + (g.P1[0] - g.P0[0]) * u, g.P0[1] + (g.P1[1] - g.P0[1]) * u];
+// the flame buffer: the hottest pixel wins, so overlapping tongues merge into one mass
+const putB = (B, x, y, col, al = 1) => {
+  x = Math.floor(x); y = Math.floor(y); const k = x * 8192 + y, r = RANK[col] ?? 3, o = B.get(k);
+  if (o && (o.r < r || (o.r === r && o.a >= al))) return;
+  B.set(k, { x, y, col, a: al, r });
+};
+// a Dragonbreath tongue along unit d from (rx, ry): h long, w half-width at the root, curling toward n
+const tongue = (B, rx, ry, g, h, w, f, sd, curl = 0.32, hot = 0, see = false) => {
+  const [dx, dy] = g.d, [nx, ny] = g.n, sway = 0.8;
+  const ex = rx + dx * h + nx * curl * h, ey = ry + dy * h + ny * curl * h, pad = w + 3;
+  const x0 = Math.floor(Math.min(rx, ex) - pad), x1 = Math.ceil(Math.max(rx, ex) + pad), y0 = Math.floor(Math.min(ry, ey) - pad), y1 = Math.ceil(Math.max(ry, ey) + pad);
+  for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) {
+    const qx = X + 0.5 - rx, qy = Y + 0.5 - ry, s = qx * dx + qy * dy;
+    if (s < -w * 0.7 || s > h + 0.5) continue;
+    const t = cl(s / h);
+    const qc = qx * nx + qy * ny - curl * t * t * h - Math.sin((TAU * 2 * f) / BURN_N + sd + t * 3) * sway * t * (1 + h / 14);
+    let hw = w * (t < 0.2 ? 0.72 + 1.4 * t : Math.pow((1 - t) / 0.8, 1.05));
+    if (s < 0) hw = w * 0.72 * Math.sqrt(Math.max(0, 1 - (s / (w * 0.7)) ** 2));
+    const j = Math.floor(s), rows = Math.floor((j - 2 * f) / 2);
+    const rag = cellP(rows, sd * 13 + (qc < 0 ? 0 : 7) + 3, 16);
+    const e = hw * (1 + (0.12 + 0.6 * t) * (rag * rag * 1.8 - 0.5)) + 0.35;
+    if (Math.abs(qc) > e) continue;
+    const q = Math.abs(qc) / Math.max(0.6, e);
+    const mot = cellP(rows, Math.floor(qc) + sd * 31 + 50, 16) * 0.6 + cellP(Math.floor((j - 2 * f) / 4), Math.floor(qc / 2) + sd * 17 + 90, 8) * 0.4;
+    const hh = (1 - q) * 0.4 + (1 - t) * 0.36 + (mot - 0.5) * 0.75 + hot - 0.05;
+    let col = hh > 0.95 ? BFIRE[0] : hh > 0.76 ? BFIRE[1] : hh > 0.54 ? BFIRE[2] : hh > 0.34 ? BFIRE[3] : BFIRE[4];
+    if (Math.abs(qc) < 0.8 && t < 0.55 && mot > 0.55 && hw > 1.4) col = t < 0.22 ? BFIRE[0] : BFIRE[1];
+    const rim = Math.abs(qc) > e - 1 || s > h - 0.5;
+    if (rim) col = hw < 1.3 ? BFIRE[3] : t < 0.22 ? BINK : BFIRE[4];
+    else if (Math.abs(qc) > e - 2 && t > 0.45 && bay(X + 64, Y + 64) < 0.5) col = BFIRE[3];
+    let al = 1;
+    if (see && t > 0.5) { const eq = Math.min(2, Math.floor(((t - 0.5) / 0.5) * 2 + bay(X + 64, Y + 64))); al = rim ? 0.9 : [1, 0.8, 0.6][eq]; }
+    putB(B, X, Y, col, al);
+  }
+};
+const sliver = (B, x, y, g, len, age, a0) => {
+  for (let j = 0; j < len; j++) putB(B, x + g.d[0] * j * 0.8, y + g.d[1] * j * 0.8 - j * 0.5, j === 0 ? BFIRE[Math.min(4, 2 + age)] : BFIRE[Math.min(4, 3 + (age >> 1))], a0 * (1 - j * 0.15));
+};
+const flamesA = (B, g, f) => {
+  const n = g.keg ? 3 : 2, S = g.keg ? 1.12 : 1, ph = (TAU * f) / BURN_N;
+  for (let i = 0; i < n; i++) {
+    const u = (i + 0.5) / n, [rx, ry] = along(g, u + Math.sin(ph + i * 2.1) * 0.03);
+    const br = 1 + 0.16 * Math.sin(ph + i * 2.3) + 0.08 * Math.sin(ph * 3 + i);
+    const h = Math.round(20 * S * br * (1 - 0.24 * g.vert * [0, 1, 0.5][i])), w = 3.9 * S, [bx, by] = along(g, u + 0.11);
+    tongue(B, Math.round(bx), Math.round(by), g, Math.round(h * (0.62 + 0.1 * Math.sin(ph + i * 4))), w * 0.72, f, i + 40, 0.42);
+    tongue(B, Math.round(rx), Math.round(ry), g, h, w, f, i + 1, 0.32, 0.06, true);
+    const age = per(f + i * 3, 8);
+    if (age < 4) sliver(B, rx + g.d[0] * (h + 2 + age * 2) + g.n[0] * 0.4 * h, ry + g.d[1] * (h + 2 + age * 2) + g.n[1] * 0.4 * h - age, g, 3 - (age >> 1), age, 0.85 - age * 0.12);
+  }
+};
+
+// the barrel's silhouette (art px from its ground point), painted once per (kind, width, bucket)
+let SIL = null, SILC = null;
+const silOf = (kind, w, a) => {
+  const S = 200, o = S / 2;
+  if (!SIL) { SIL = document.createElement("canvas"); SIL.width = SIL.height = S; SILC = SIL.getContext("2d", { willReadFrequently: true }); }
+  SILC.setTransform(1, 0, 0, 1, 0, 0); SILC.clearRect(0, 0, S, S); SILC.setTransform(2, 0, 0, 2, 0, 0);
+  drawLog(SILC, { id: 0, a, w, spin: 0, x: o / 2, y: o / 2, speed: 118, burn: 0, blast: kind === "keg" ? 1 : 0, stun: kind === "drum" ? 1 : 0, _sil: true }, 0);
+  SILC.setTransform(1, 0, 0, 1, 0, 0);
+  const d = SILC.getImageData(0, 0, S, S).data, set = new Set(), list = [];
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (d[(y * S + x) * 4 + 3] > 200) {
+    const X = x - o, Y = y - o; set.add(X * 8192 + Y); list.push([X, Y]);
+    x0 = Math.min(x0, X); x1 = Math.max(x1, X); y0 = Math.min(y0, Y); y1 = Math.max(y1, Y);
+  }
+  const has = (x, y) => set.has(x * 8192 + y);
+  const open = list.filter(([x, y]) => !has(x - 1, y) || !has(x + 1, y) || !has(x, y - 1) || !has(x, y + 1));
+  return { has, list, open, x0, x1, y0, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+};
+
+const burnBake = (m, g, f) => {
+  const ph = (f / BURN_N) * TAU, amp = 0.9 + 0.1 * Math.sin(ph * 2), Hm = Math.max(8, m.y1 - m.y0);
+  const PAD = 44, ox = PAD - m.x0, oy = PAD - m.y0, cw = m.x1 - m.x0 + PAD * 2, ch = m.y1 - m.y0 + PAD * 2;
+  const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+  const c = cv.getContext("2d"); c.translate(ox, oy);
+  const { has } = m;
+  // 1. the ground glow: a stepped warm pool round the barrel's footprint on the road (fifths, dithered rim), never over it
+  const au = (g.hl + 4) * 2 + 12, av = g.R * 2 + 12, rr = Math.ceil(Math.max(au, av));
+  for (let y = -rr; y <= rr; y++) for (let x = -rr; x <= rr; x++) {
+    if (has(x, y)) continue;
+    const r = Math.hypot((x * g.ux + y * g.uy) / au, (x * g.vx + y * g.vy) / av); if (r > 1) continue;
+    const s = FIFTH((1 - r) * 1.6 * amp); if (s <= 0 || (s < 0.4 && bay(x + 64, y + 64) > s * 2.5)) continue;
+    pxA(c, x, y, r < 0.35 ? FIRE[1] : FIRE[2], s * 0.55);
+  }
+  // 2. the edge pixels burn: a hot band, colours rolling round it, hotter low
+  for (const [x, y] of m.open) {
+    const v = (Math.sin(ph + x * 0.9 + y * 0.6) + Math.sin(ph * 2 - y * 0.7)) * 0.25 + 0.5 + (H2(x, y) - 0.5) * 0.4;
+    const s = v * (cl(1 - (m.y1 - y) / (Hm + 2)) * 0.5 + 0.5);
+    pxA(c, x, y, s > 0.62 ? FIRE[0] : s > 0.45 ? FIRE[1] : s > 0.3 ? FIRE[2] : FIRE[3]);
+  }
+  // 3. a warm ring just outside, on the trailing side (where the fire is dragged)
+  const sx = Math.max(-1, Math.min(1, Math.round(g.vx * 1.4))), sy = Math.max(-1, Math.min(1, Math.round(g.vy * 1.4)));
+  for (const [x, y] of m.list) {
+    if (has(x + sx, y + sy) || (x - m.cx) * g.vx + (y - m.cy) * g.vy < 0) continue;
+    pxA(c, x + sx, y + sy, bay(x + 64, y + 64) < 0.6 * amp ? FIRE[1] : FIRE[2], 0.8);
+    if (bay(x + 66, y + 64) < 0.5 * amp && !has(x + 2 * sx, y + 2 * sy)) pxA(c, x + 2 * sx, y + 2 * sy, FIRE[3], 0.6);
+  }
+  // 4. a warm wash low on the barrel, dithered
+  for (const [x, y] of m.list) { const k = cl(1 - (m.y1 - y) / (Hm * 0.7)); if (k > 0 && bay(x + (f & 1) + 64, y + 64) < FIFTH(k * 0.35 * amp)) pxA(c, x, y, FIRE[3], 0.28); }
+  // 5. the flames (Round 20 A) and a few sparks lifting off them
+  const B = new Map(); flamesA(B, g, f);
+  for (const p of B.values()) pxA(c, p.x, p.y, p.col, p.a);
+  for (let k = 0; k < 3; k++) {
+    const q = frac(f / BURN_N + k / 3), [rx, ry] = along(g, 0.2 + 0.6 * H2(k, 4));
+    pxA(c, rx + g.d[0] * (8 + q * 22) + Math.sin(q * 6 + k) * 1.5, ry + g.d[1] * (8 + q * 22) - q * 14, q < 0.3 ? BFIRE[0] : q < 0.6 ? BFIRE[1] : q < 0.85 ? BFIRE[2] : BFIRE[4]);
+  }
+  return { cv, ox, oy, bytes: cw * ch * 4 };
+};
+
+const BURNS = new Map();                // "kind|w|bucket" -> { m, g, steps: [], last }
+let burnBytes = 0, bakedAt = -1, bakedN = 0, burnBakes = 0, burnMs = 0;
+export const logBurnStats = () => ({ keys: BURNS.size, bytes: burnBytes, bakes: burnBakes, ms: burnMs });
+const dropOldest = () => { const k = BURNS.keys().next().value, e = BURNS.get(k); BURNS.delete(k); for (const s of e.steps) if (s) burnBytes -= s.bytes; };
+function stampBurn(ctx, lg, X, Y, a, kind, time) {
+  if (time !== bakedAt) { bakedAt = time; bakedN = 0; }
+  const key = kind + "|" + lg.w + "|" + bucketOf(a);
+  let e = BURNS.get(key);
+  if (e) { BURNS.delete(key); BURNS.set(key, e); }
+  else {
+    if (bakedN >= BURN_PER_FRAME) return;            // over this frame's budget: the fire comes in a frame later
+    bakedN++; const t0 = performance.now();
+    e = { m: silOf(kind, lg.w, a), g: flameGeom(kind, lg.w, a), steps: [], last: -1 };
+    burnMs += performance.now() - t0; BURNS.set(key, e);
+  }
+  const f = per(Math.floor(time * 12 + (lg.id || 0) * 5), BURN_N);
+  let s = e.steps[f];
+  if (!s && bakedN < BURN_PER_FRAME) {
+    bakedN++; const t0 = performance.now(); s = e.steps[f] = burnBake(e.m, e.g, f); burnMs += performance.now() - t0; burnBakes++;
+    burnBytes += s.bytes; while (burnBytes > BURN_BUDGET && BURNS.size > 1 && BURNS.keys().next().value !== key) dropOldest();
+  }
+  if (!s && e.last >= 0) s = e.steps[e.last];       // not baked yet: the last step shown stands in
+  if (!s) return;
+  if (e.steps[f]) e.last = f;
+  ctx.drawImage(s.cv, X - s.ox / 2, Y - s.oy / 2, s.cv.width / 2, s.cv.height / 2);
+}

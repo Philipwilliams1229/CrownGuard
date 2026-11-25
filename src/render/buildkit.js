@@ -9,6 +9,7 @@
 // subtracting their heights.
 
 import { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, tuft, lin, rad, part } from "./paint.js";
+import { stampTorch } from "./torchflame.js";
 
 export const TIMBER = "#8a6238";
 export const OAKWOOD = "#6f4a2a";
@@ -454,18 +455,9 @@ export const flame = (ctx, x, y, s, time, seed = 0, cols = ["#fff0a8", "#f8a83a"
   const f = Math.sin(time * 11 + seed * 1.7) * 0.5 + Math.sin(time * 17.3 + seed) * 0.5;
   const hgt = (5 + f * 1.2) * s, lean = Math.sin(time * 5 + seed) * 0.8 * s;
   glow(ctx, x, y - hgt * 0.4, 5.5 * s, cols[1], 0.32);
-  const tongue = (w, h, col) => {
-    ctx.fillStyle = col;
-    ctx.beginPath();
-    ctx.moveTo(x - w, y);
-    ctx.quadraticCurveTo(x - w, y - h * 0.55, x + lean, y - h);
-    ctx.quadraticCurveTo(x + w, y - h * 0.55, x + w, y);
-    ctx.closePath();
-    ctx.fill();
-  };
-  tongue(2.4 * s, hgt, cols[2]);
-  tongue(1.6 * s, hgt * 0.72, cols[1]);
-  tongue(0.8 * s, hgt * 0.42, cols[0]);
+  // the tongue itself: the owner's Round 20 A (render/torchflame.js), as wide and tall as the old one (lean unused)
+  void lean;
+  stampTorch(ctx, x, y, 7.7 * s, 11 * s, time, Math.round(seed * 3), Math.round(seed));
 };
 
 // A torch in an iron bracket on a wall (baked); light it with `flame`.

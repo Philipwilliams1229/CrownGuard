@@ -12,11 +12,12 @@
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
 import { inkTint } from "./inktint.js";
-import { drawFireGround } from "./flames.js";
+import { drawFireGround, drawLavaFlames } from "./flames.js";
 import { hasRig, rigFrame } from "./rigs.js";
 import { canvasFont, typeEpoch } from "../ui/fonts.js";
 import * as PJ from "./pix/proj-sprites.js";
 import { statusBurn, statusPoison, statusSlow, statusMist, statusStun, statusCrack } from "./statusfx.js";   // look B
+import { FLIGHT, drawFireball, drawStoneFire } from "./flightfire.js";   // fire in flight, Round 20 A
 
 // ---- palette ---------------------------------------------------------
 const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -1029,7 +1030,7 @@ export const drawProjectile = (ctx, p, time) => {
     const r = ROCK_R[size];
     groundShadow(ctx, p.x + 1, p.y + 1, r * (1.3 - 0.4 * (h / (hMax || 1))));
     // a thin trail of grit on the way up
-    if (!p.mini) {
+    if (!p.mini && !(p.burn && FLIGHT.on)) {   // (a burning stone trails flame instead)
       for (let i = 1; i <= 3; i++) {
         const u = prog - i * 0.035;
         if (u <= 0.02) break;
@@ -1038,7 +1039,12 @@ export const drawProjectile = (ctx, p, time) => {
         speck(ctx, px, py, i === 1 ? 1 : 0.5, i === 1 ? "#a48a64" : "#cdb68a");
       }
     }
+    // the Comet Sling's burning stone (Round 20 A): wrapped in flame streaming back along its arc, pitch burning on its back
+    const fire = p.burn && !p.mini && FLIGHT.on;
+    let fa = 0;
+    if (fire) { const sx = p.sx ?? p._sx, sy = p.sy ?? p._sy; fa = Math.atan2(p.ty - sy - Math.PI * Math.cos(prog * Math.PI) * hMax, p.tx - sx); drawStoneFire(ctx, p, time, p.x, p.y - h, fa, "back"); }
     put(ctx, PJ.rockSprite(size, Math.floor(prog * 12 + (p.id || 0)) & 3), p.x, p.y - h);
+    if (fire) drawStoneFire(ctx, p, time, p.x, p.y - h, fa, "front");
     return;
   }
   if (p.kind === "arrow") {
@@ -1070,6 +1076,8 @@ export const drawProjectile = (ctx, p, time) => {
 };
 const drawOrb = (ctx, p, time, dx, dy) => {
   const el = orbElement(p), T = TRAIL[el];
+  // the fireball (Round 20 A): flightfire.js; a frame whose bake must wait shows nothing (its first frame at most)
+  if (el === "fire" && FLIGHT.on) { drawFireball(ctx, p, time, Math.atan2(dy, dx)); return; }
   for (let i = 1; i <= 8; i++) {
     const wob = Math.sin(time * 14 + i * 1.3 + (p.id || 0)) * i * 0.4;
     const rise = el === "fire" ? -i * 0.6 : el === "frost" ? i * 0.25 : 0;
@@ -1586,6 +1594,7 @@ const groundSprite = (kind, rb, f) => memo(`gr|${kind}|${rb}|${f}`, () => {
 // scum plates over sludge (plague), a lobed haze with puffs (spores); every
 // edge breathes and bubbles of many sizes swell and pop. Six looping frames.
 const POOL_F = 6;
+const LAVA_F = 16;           // = flames.js LAVA_STEPS (a literal: no top-level read across the import); the lava pool: 16 steps at 10 a second, the loop its flames run on (Effects Round 20 B, flames.js drawLavaFlames)
 const vor = (x, y, s, seed) => {
   const gx = Math.floor(x / s), gy = Math.floor(y / s);
   let d1 = 1e9, d2 = 1e9, id = 0, cx = 0, cy = 0;
@@ -1609,7 +1618,7 @@ const poolBubble = (G, x, y, ph, rm, K, big) => {
   }
 };
 const poolSprite = (kind, rb, f) => memo(`gr|${kind}|${rb}|${f}`, () => {
-  const R = rb * PX, ry = R * 0.62, seed = kind === "lava" ? 3 : kind === "plague" ? 8 : 4, t = f / POOL_F, TOP = 18;
+  const R = rb * PX, ry = R * 0.62, seed = kind === "lava" ? 3 : kind === "plague" ? 8 : 4, t = f / (kind === "lava" ? LAVA_F : POOL_F), TOP = 18;
   const G = grid(2 * R + 14, 2 * ry + 10 + TOP), cx = G.W >> 1, cy = Math.round(ry + 5 + TOP);
   const ox = Math.cos(t * 6.283) * 2.6, oy = Math.sin(t * 6.283) * 2.6;
   const edgeOf = (x, y, breath) => {
@@ -1667,22 +1676,17 @@ export const drawGround = (ctx, gr, time, tms) => {
   const r = Math.max(8, gr.r || 30);
   const rb = r <= 24 ? Math.round(r / 4) * 4 : Math.round(r / 6) * 6;
   const kind = gr.kind === "plague" || gr.kind === "spores" || gr.kind === "caltrops" ? gr.kind : "lava";
-  const f = kind === "caltrops" ? Math.floor(time * 3 + (gr.x + gr.y) * 0.1) & 3 : Math.floor(time * (kind === "lava" ? 6 : 3.6) + (gr.x + gr.y) * 0.1) % POOL_F;
+  const f = kind === "caltrops" ? Math.floor(time * 3 + (gr.x + gr.y) * 0.1) & 3 : kind === "lava" ? Math.floor(time * 10 + (gr.x + gr.y) * 0.1) % LAVA_F : Math.floor(time * 3.6 + (gr.x + gr.y) * 0.1) % POOL_F;
   const a = stepA(Math.min(1, (gr.until - tms) / 600), 4);
   if (a <= 0) return;
   if (a < 1) { ctx.save(); ctx.globalAlpha *= a; }
   put(ctx, kind === "caltrops" ? groundSprite(kind, rb, f) : poolSprite(kind, rb, f), gr.x, gr.y);
   if (a < 1) ctx.restore();
-  // a lava pool breathes a little light and throws the odd flame-tongue
+  // a lava pool's flames: small tongues standing out of its cracks (Effects Round 20 B, flames.js)
   if (kind === "lava") {
-    for (let i = 0; i < 3; i++) {
-      const ph = (time * 2.2 + i * 0.37 + gr.x * 0.01) % 1;
-      if (ph > 0.6) continue;
-      const ang = i * 2.1 + gr.y * 0.05, d = r * 0.4;
-      const x = Math.round((gr.x + Math.cos(ang) * d) * 2) / 2, y = Math.round((gr.y + Math.sin(ang) * d * 0.6 - ph * 7) * 2) / 2;
-      ctx.fillStyle = ph < 0.25 ? "#f8d868" : ph < 0.45 ? "#f09838" : "#d0502e";
-      ctx.fillRect(x, y, 0.5, ph < 0.3 ? 1.5 : 1);
-    }
+    if (a < 1) { ctx.save(); ctx.globalAlpha *= a; }
+    drawLavaFlames(ctx, gr, time, rb);
+    if (a < 1) ctx.restore();
   }
 };
 

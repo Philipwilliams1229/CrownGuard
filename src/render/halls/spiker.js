@@ -15,6 +15,7 @@
 // sparks and chains are painted live.
 
 import { canBake } from "../buildkit.js";
+import { stampTorch } from "../torchflame.js";
 import { pxArc, pxRing } from "./pixrings.js";
 import { readiness, glint, rgba, glow } from "./kitB.js";
 import * as engineerFig from "../pix/fig-engineer.js";
@@ -95,7 +96,9 @@ export const drawBladewheel = (ctx, t, time) => {
     const pots = [];
     for (let i = 0; i < n; i++) { const a = ph + i * step; pots.push([x + Math.cos(a) * (rr + 0.5), wy + Math.sin(a) * (rr + 0.5) * SQ - 0.8, i]); }
     pots.sort((a, b) => a[1] - b[1]);
-    for (const [px, py, i] of pots) if ((py >= wy - 0.8) === front) flame(ctx, px, py, 0.9 * swell, time, i + t.id, col, core);
+    // each pot's flame: the owner's Round 20 A (render/torchflame.js), sized as the old tongue; left under the night's
+    // shade (not queued) so the back half still passes behind the wheel
+    for (const [px, py, i] of pots) if ((py >= wy - 0.8) === front) { const s = 0.9 * swell; stampTorch(ctx, px, py + 0.5, s * 4.16, s * 6.9, time, (i + t.id) % 7, i + t.id); }
     if (anim > 0.4) {
       const rg = rr + 4 + (1 - anim) * 14;
       pxArc(ctx, x, wy, rg, rg * SQ, `rgba(255,200,110,${anim * 0.8})`, front ? { th: 2, a0: 0, a1: Math.PI } : { th: 2, a0: Math.PI, a1: Math.PI * 2 });

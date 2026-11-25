@@ -18,6 +18,7 @@ import { W, H } from "../data/constants.js";
 import { ENEMIES } from "../data/enemies.js";
 import { pixRec, hasPix, isViewSheet } from "./pix/pixrigs.js";
 import { nightTick, nightOn, drawLampPools, drawLampBloom, swapLamps } from "./nightlight.js";
+import { drawTorchesLate } from "./torchflame.js";
 import { sunCurves, drawLongShadows, drawHallShadows, sunFrame, SUN_KEY, SUN_RIM } from "./sunset.js";
 
 const PX = 2;
@@ -174,6 +175,8 @@ export const bloodmoonPaint = (ctx, g, w) => {
   // the undead's eyes, over the shade: they are the brightest thing on the board
   drawEyes(ctx, t, Math.min(1, c.red * 1.4));
   ctx.globalAlpha = pa;
+  // the halls' and the castle's flames, queued while the night was on: a fire is a light, not shaded (torchflame.js)
+  drawTorchesLate(ctx);
 };
 export const bloodmoonGround = (ctx, g, w) => {
   const k = clamp01(w.k);
