@@ -23,7 +23,7 @@ import { weatherFor } from "./data/weather-plan.js";
 import { setDay, sunFor } from "./data/sun.js";
 import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import PixHammer from "./ui/PixHammer.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./data/castle.js";
@@ -186,6 +186,7 @@ export default function Crownguard() {
     return () => clearTimeout(t);
   }, [armed]);
   const [banked, setBanked] = useState(0);   // gold carried home from the last won level
+  const [gift, setGift] = useState(0);       // the crown's gift for a first win of the first level (FIRST_WIN_GIFT)
   // which hero rides with the crown; chosen in the pause menu, kept in the browser
   const [heroKey, setHeroKey] = useState(() => { try { return HEROES[localStorage.getItem("crownguard.hero")] ? localStorage.getItem("crownguard.hero") : "aldric"; } catch { return "aldric"; } });
   const pickHero = (key) => { setHeroKey(key); try { localStorage.setItem("crownguard.hero", key); } catch { /* private mode */ } };
@@ -608,7 +609,12 @@ export default function Crownguard() {
     if (won) markCleared(levelId);
     payHero();
     // the gold left in the purse goes home to the crown's treasury
-    if (won && g) { const carried = Math.floor(g.gold) + Math.floor((g.run?.goldEarned || 0) * 0.15); setBanked(carried); setProgress(bankTreasury(carried)); }
+    // (and the first win of the campaign's first level brings the crown's gift: data/campaign.js)
+    if (won && g) {
+      const carried = Math.floor(g.gold) + Math.floor((g.run?.goldEarned || 0) * 0.15);
+      const bonus = firstWinGift(levelId, first);
+      setBanked(carried); setGift(bonus); setProgress(bankTreasury(carried + bonus));
+    } else setGift(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.result, mode, levelId]);
 
@@ -2008,6 +2014,13 @@ export default function Crownguard() {
                       <CoinIcon size={22} />
                       <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>{banked.toLocaleString("en-US")}</b> gold to the treasury<br />
                         <span style={{ color: "var(--muted)" }}>what was left, and a tithe of what was earned · {(progress.treasury || 0).toLocaleString("en-US")} banked</span></span>
+                    </div>
+                  )}
+                  {campaign && won && gift > 0 && (
+                    <div className="cg-well" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.4 }}>
+                      <CoinIcon size={22} />
+                      <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{gift.toLocaleString("en-US")}</b> gold, a gift from the crown<br />
+                        <span style={{ color: "var(--muted)" }}>for your first victory: raise your first Castle Work from the campaign map</span></span>
                     </div>
                   )}
                   {/* what the halls learned in this battle (data/towerxp.js) */}

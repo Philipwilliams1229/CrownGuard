@@ -169,6 +169,12 @@ export const LEVELS = CHAPTERS.flatMap((ch, ci) =>
 );
 
 export const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
+// The crown's gift (owner, 2026-11-25): the FIRST time a campaign's first level is won, the
+// treasury gets this much on top of what the battle carried home, enough for a first castle work
+// (every work's first tier costs 5000). Paid once a save file: a replay pays nothing, and a save
+// that had already won the first level before this gift existed never gets it.
+export const FIRST_WIN_GIFT = 5000;
+export const firstWinGift = (levelId, firstClear) => (firstClear && levelId === LEVELS[0]?.id ? FIRST_WIN_GIFT : 0);
 
 // ---- saved progress ----
 // One small record in localStorage: which levels have been cleared. Kept

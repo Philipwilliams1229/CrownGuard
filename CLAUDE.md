@@ -2158,6 +2158,15 @@ and keeps the other two (backup.js `restoreSave`). Settings' "Start the campaign
 only the file in use. Checked in a built copy (desktop and 844x390): switch, round trip byte-identical,
 cut-off recovery, erase. Not yet tried in the iOS app.
 
+## The crown's gift after the first level (2026-11-25, owner request)
+
+"After the first level a new campaign player is rewarded 5000 extra gold so they can buy their first
+upgrade for the castle." The FIRST win of the campaign's first level (gw1, The Vale Road) banks
+`FIRST_WIN_GIFT` 5000 into the treasury on top of the gold carried home (data/campaign.js
+`firstWinGift`, paid in CrownguardGame.jsx's end-of-battle effect); the victory card shows it as its
+own line. Once per save file (it reads the level's `cleared`): a replay pays nothing, and a save that
+won gw1 before the gift existed never gets it. Every castle work's first tier costs 5000.
+
 ## Restarting takes two taps (2026-11-09, owner request)
 
 Every restart button now arms on the first tap and acts on the second (the
