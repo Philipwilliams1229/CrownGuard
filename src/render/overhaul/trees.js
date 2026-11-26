@@ -32,6 +32,8 @@ const KINDS = new Set(["tree", "pine", "willow"]);
 const FOOT = 10;                 // the trunk's foot below the DECOR anchor, board units (today's sprites stand there too)
 const LONE = ["roundoak", "oak", "beech", "hawthorn", "birches"];
 export const STATS = { bakes: 0, bakeMs: 0, poses: 0, ghosts: 0, bytes: 0, woodKeys: new Set(), firstFrameMs: 0, shrunk: [] };
+// (read by the crash report's sample through the window, so the game component needs no import of this module)
+if (typeof window !== "undefined") window.__cgTrees = STATS;
 if (typeof window !== "undefined") window.__ovhTrees = STATS;   // (labs read it)
 
 // ---- the plan for one piece (cached on the piece) ----

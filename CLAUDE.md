@@ -1309,6 +1309,18 @@ Bring these up with the owner; don't act on them unasked.
   `audioState` and `audioSwept`: swept > 0 means "ended" was lost and the sweep saved it. WebGL stays the plan if
   slow reports keep coming with audioLeft low. Not done: rebuilding a context that stays stopped (the game is then
   silent until relaunched, but no longer slows).
+  **A friend's iPhone the same evening** (852x393@3, home-screen app): on the OLD build audioLeft climbed 399 ->
+  7,894 -> 14,951 over three levels and the frame rate fell 60 -> 5 (85 ms of our code a frame, 3 foes): the pile-up
+  confirmed. After reopening on the fixed build: 60 fps at Gullwick wave 13, audioLeft 418, audioSwept 1,841 in
+  133 s (so "ended" really is lost on iOS, often). Then, BATTLE 2 since launch (Millrace, before wave 1), a `slow`
+  sample with sound fine: 7 fps, 31 ms of our code, prep 21.9 and castle 7.6 (both 20-70x their usual) while actors
+  1.3 and ground 0.4 were normal; it stayed slow through a tower placed, and he closed the app. The battle-2-after-
+  launch pattern matches the owner's first report. Suspect: image memory left over from the last level (iOS is slow
+  to free canvas buffers; nothing in src/ releases one with width = 0), slowing every NEW canvas made at a level's
+  opening. Not reproduced in Chromium (live canvases held ~95 MB across four level loads with a forced GC). Added
+  for the next report: canvaswatch.js COUNTS canvases in every build now (`canvases` in the sample: alive, MB,
+  made), the overhaul's tree bakes (`trees`), the scenery pass split out of "prep" (`parts.scenery`), and a
+  `still-slow` sample if a battle stays under 20 fps for 30 s.
 - **A new name for the game** (2026-11-26, owner: "I still don't like crownguard"; "we'll come back to
   this"). Ruled out: Siegebreaker / Siege Breaker(s) / Siege Break (a 2024 tower defense on Steam is
   "Siegebreaker"; Halfbrick's iOS "Siege Breakers"; a "Siege Break" app; several more). The owner turned

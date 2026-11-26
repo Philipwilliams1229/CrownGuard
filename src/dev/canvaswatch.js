@@ -7,14 +7,19 @@
 
 export const WATCH = { on: false, made: 0, madeBytes: 0, freed: 0, refs: [] };
 
-// (VITE_REPRO=1 on the dev server turns it on without the ?repro: a home-screen icon opens the bare address)
-if ((import.meta.env.DEV || import.meta.env.VITE_REPRO) && typeof window !== "undefined" && (/[?&]repro/.test(window.location.search) || import.meta.env.VITE_REPRO)) {
+// The COUNTING runs in every build since 2026-11-26 (a friend's iPhone crawled at 7 fps opening the second level
+// after a launch, the castle and scenery passes 20-70x their usual time while the figures drew at normal speed:
+// image memory left over from the last level is the suspect). The crash report's sample keeps canvasStats().
+// Cost: a WeakRef a canvas made, the list pruned every 500. The test page below still needs ?repro.
+const REPRO = (import.meta.env.DEV || import.meta.env.VITE_REPRO) && typeof window !== "undefined" && (/[?&]repro/.test(window.location.search) || import.meta.env.VITE_REPRO);
+if (typeof window !== "undefined" && typeof WeakRef !== "undefined") {
   WATCH.on = true;
   const reg = typeof FinalizationRegistry !== "undefined" ? new FinalizationRegistry(() => { WATCH.freed++; }) : null;
   const note = (cv) => {
     WATCH.made++;
-    if (typeof WeakRef !== "undefined") WATCH.refs.push(new WeakRef(cv));
+    WATCH.refs.push(new WeakRef(cv));
     reg?.register(cv, 0);
+    if (WATCH.refs.length % 500 === 0) WATCH.refs = WATCH.refs.filter((r) => r.deref());
     return cv;
   };
   const make = document.createElement.bind(document);
@@ -29,6 +34,8 @@ if ((import.meta.env.DEV || import.meta.env.VITE_REPRO) && typeof window !== "un
     window.OffscreenCanvas = class extends OC { constructor(w, h) { super(w, h); note(this); } };
   }
   window.__cgWatch = WATCH;
+}
+if (REPRO) {
   // the test's own imports wait until the game has booted (window.__cg), or they would load the engine's
   // modules out of their order (an import cycle there breaks at load)
   const start = () => { if (!window.__cg) { setTimeout(start, 250); return; } import("./repro.js").then((m) => m.showStart()).catch((e) => console.error("repro failed", e)); };

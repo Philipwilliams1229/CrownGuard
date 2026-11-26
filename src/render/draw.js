@@ -376,7 +376,9 @@ export function draw(g, canvas, bufRef) {
   // ...and a foe on fire is a small warm light (the status burn, statusfx.js): at most 12 a frame
   if (prefs.spellLight !== false) { let nb = 0, tb = g.time * 1000; for (const e of g.enemies) if (!e.dead && e.burnUntil > tb && !(e.guard > 0) && nb < 12) { nb++; addLight(e.x, e.y, 24 + e.size * 0.4, "#ff9a3c", 0.55 * [1, 0.85, 0.95, 0.8][Math.floor(g.time * 12 + e.id) & 3]); } }
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
+  pm("prep");
   if (ovhOn()) OVH.drawables(drawables, ctx, g);   // the overhaul's standing things, sorted with the actors
+  pm("scenery");   // (its own mark since 2026-11-26: a phone's slow "prep" at a level's start was this or the rest)
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;

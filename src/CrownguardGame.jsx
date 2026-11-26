@@ -649,7 +649,7 @@ export default function Crownguard() {
     // where the time goes (render/perfmark.js), and a sample of it kept in the crash log once per battle, plus
     // one more if the battle runs under 20 frames a second for 5 s (owner, 2026-11-25: ~10 fps on the level
     // after a won one, on an iPhone only): Settings > Progress > Crash reports > Copy reads them off the phone
-    let lastStep = 0, perfG = null, battleNo = 0, combatS = 0, slowS = 0, perfLogged = false, slowLogged = false;
+    let lastStep = 0, perfG = null, battleNo = 0, combatS = 0, slowS = 0, perfLogged = false, slowLogged = false, stillLogged = false;
     const perfSample = (kind, g, p) => noteCrash(kind, { message: `${p.fps} fps, ${p.js} ms of game code a frame (battle ${battleNo} since launch)` }, {
       perf: p, battleNo, realm: REALM.id, level: g.ckLevel || null, wave: g.wave, phase: g.phase,
       foes: g.enemies.length, halls: g.towers.length, effects: g.effects.length, shots: g.projectiles.length,
@@ -661,7 +661,7 @@ export default function Crownguard() {
       domNodes: document.getElementsByTagName("*").length, audioLeft: TIDY.made - TIDY.unplugged,
       audioSwept: TIDY.swept, audioState: sfx.state,
       upS: Math.round(performance.now() / 1000), standalone: !!window.navigator.standalone,
-      canvases: window.__cgWatch ? canvasStats() : null,
+      canvases: window.__cgWatch ? canvasStats() : null, trees: (() => { const t = window.__cgTrees; return t ? { bakes: t.bakes, poses: t.poses, ghosts: t.ghosts, lazy: t.lazyN || 0, lazyWorst: Math.round(t.lazyWorst || 0), mb: Math.round((t.bytes || 0) / 1048576) } : null; })(),
     });
 
     const step = (now) => {
@@ -769,7 +769,7 @@ export default function Crownguard() {
       }
       // this frame's timings (render/perfmark.js) and, in a battle, the crash log's samples
       // (a battle counts once it is on screen: the idle game made at launch is not one)
-      if (g !== perfG && screenRef.current === "game") { perfG = g; battleNo++; combatS = 0; slowS = 0; perfLogged = false; slowLogged = false; lastPerf = null; }
+      if (g !== perfG && screenRef.current === "game") { perfG = g; battleNo++; combatS = 0; slowS = 0; perfLogged = false; slowLogged = false; stillLogged = false; lastPerf = null; }
       const pn = perfFrame(now, { painted: paint, upd: updMs, draw: paint ? drawMs : 0, js: performance.now() - tStep, gap });
       if (pn) {
         lastPerf = pn;
@@ -779,6 +779,8 @@ export default function Crownguard() {
         try {
           if (!perfLogged && combatS >= 15) { perfLogged = true; perfSample("perf", g, pn); }
           if (!slowLogged && slowS >= 5) { slowLogged = true; perfSample("slow", g, pn); }
+          // and again if it is still under 20 frames a second 30 s on: did it pass (a level's opening bakes) or stay?
+          if (!stillLogged && slowS >= 30) { stillLogged = true; perfSample("still-slow", g, pn); }
         } catch { /* the log is a nicety */ }
       }
     };
