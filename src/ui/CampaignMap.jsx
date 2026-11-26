@@ -90,7 +90,7 @@ const safePad = (t, r, b, l) =>
 // The stars under a won waypoint (owner, 2026-11-26: the map's canvas stars "look terrible"; make them
 // the War Room's small star): the game's own star (starArt.js) at 15 art px, laid in the SVG over the
 // map so it stays crisp at every zoom, as two symbols (won, unwon) every waypoint reuses.
-const MAP_STAR_N = 15, MAP_STAR_W = 6.2, MAP_STAR_STEP = 5.7;
+const MAP_STAR_N = 13, MAP_STAR_W = 5.4, MAP_STAR_STEP = 6.1;   // a small gap between, as on every other row of stars
 function StarSymbols() {
   const sym = (lit) => {
     const pix = starPixels(MAP_STAR_N, lit), rects = [];
@@ -113,7 +113,7 @@ function WaypointStars({ lv, n }) {
   return (
     <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
       {STAR_SLOTS.map((i) => (
-        <use key={i} href={i <= n ? "#cg-map-star" : "#cg-map-star-off"} x={x0 + (i - 1) * MAP_STAR_STEP} y={y + 0.5} width={MAP_STAR_W} height={MAP_STAR_W} />
+        <use key={i} href={i <= n ? "#cg-map-star" : "#cg-map-star-off"} x={x0 + (i - 1) * MAP_STAR_STEP} y={y + 1} width={MAP_STAR_W} height={MAP_STAR_W} />
       ))}
     </g>
   );

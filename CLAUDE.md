@@ -544,7 +544,7 @@ its crown, a one-pixel tinted outline; unearned, the same star sunk into slate (
 StarIcon draws 1.12x its box with negative margins so layouts keep the old footprint. The map's
 marker stars are NOT on the map canvas (its coarse art grid made them blobs: owner, "they look terrible
 in the map"): they are SVG symbols in the map's overlay (CampaignMap.jsx `StarSymbols` / `WaypointStars`,
-15 art px, 6.2 map units wide, 5.7 apart), crisp at every zoom. `starPixels(n, lit, socket)`: an unearned
+13 art px, 5.4 map units wide, 6.1 apart: a small gap, as every other row; overlapping, their outlines merged into one fat band), crisp at every zoom. `starPixels(n, lit, socket)`: an unearned
 star on the level card's parchment is sunk into a parchment ramp (`socket="parch"`), not the dark slate. Concepts (A bevelled, B pillowy, C thick, then B1-B3)
 were drawn from a scratch lab; A was turned down for its dead dark bottom-right point.
 
