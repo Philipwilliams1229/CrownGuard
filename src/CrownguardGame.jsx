@@ -659,6 +659,7 @@ export default function Crownguard() {
       // what else is alive: the page's elements, sound nodes still plugged in (tidy.js), how long the page has run,
       // and (in a test build, dev/canvaswatch.js) every canvas made and still alive
       domNodes: document.getElementsByTagName("*").length, audioLeft: TIDY.made - TIDY.unplugged,
+      audioSwept: TIDY.swept, audioState: sfx.state,
       upS: Math.round(performance.now() / 1000), standalone: !!window.navigator.standalone,
       canvases: window.__cgWatch ? canvasStats() : null,
     });

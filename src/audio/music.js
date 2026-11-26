@@ -203,7 +203,8 @@ function ensureLive() {
 function tick() {
   if (!live) return;
   const { ctx } = live;
-  if (current && !current.seq.done) current.seq.advance(ctx.currentTime + LOOKAHEAD);
+  // only while the context runs: a stopped one's clock stands still, so nothing would ever end (sfx.js `wake`)
+  if (current && !current.seq.done && ctx.state === "running") current.seq.advance(ctx.currentTime + LOOKAHEAD);
   // (a finished jingle stays as `current`, so a settings change doesn't replay it)
   if ((!current || current.seq.done) && !fading.size && timer) { clearInterval(timer); timer = null; }
 }
@@ -238,7 +239,7 @@ function begin(id) {
   const lv = ensureLive();
   if (!track || !lv) return;
   const { ctx } = lv;
-  if (ctx.state === "suspended" && unlocked) ctx.resume();
+  if (ctx.state !== "running" && unlocked) sfx.audio();   // (sfx.js wakes a suspended or interrupted context)
   const out = ctx.createGain();
   const t0 = ctx.currentTime + 0.06;
   out.gain.setValueAtTime(0.0001, t0);
@@ -268,7 +269,9 @@ function apply() {
 }
 
 function unlock() {
-  if (unlocked || HEADLESS) return;
+  if (HEADLESS) return;
+  // a later tap wakes a context iOS stopped (it may only agree to during a gesture)
+  if (unlocked) { if (live && live.ctx.state !== "running") sfx.audio(); return; }
   unlocked = true;
   sfx.audio();
   apply();
@@ -279,7 +282,7 @@ if (!HEADLESS) {
   for (const ev of ["pointerdown", "keydown", "touchend"]) window.addEventListener(ev, unlock, { passive: true });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { live?.ctx.suspend?.(); }
-    else { live?.ctx.resume?.(); apply(); }
+    else { live?.ctx.resume?.()?.catch?.(() => { /* iOS may refuse: sfx.js asks again on the next sound */ }); apply(); }
   });
 }
 

@@ -1296,9 +1296,12 @@ Bring these up with the owner; don't act on them unasked.
   samples 339-426): sound nodes made but never unplugged. tidy.js only unplugs once a source fires "ended", and a
   stuck AudioContext (suspended / interrupted; an earlier launch that day logged "Failed to start the audio
   device") freezes currentTime, so every effect built while it's stuck never ends and piles up (muting doesn't
-  help: it zeroes the gain but still builds nodes). Suspect #1, to fix BEFORE WebGL: build no sound while
-  `ctx.state !== "running"`, cap the nodes waiting to be unplugged, rebuild a context that stays stuck; then
-  watch `audioLeft` in the next reports. WebGL stays the plan if slow reports keep coming with audioLeft low.
+  help: it zeroes the gain but still builds nodes). A second way the same pile-up happens: WebKit may collect a
+  playing source's JS side, and its "ended" listener with it, while the node stays wired in.
+  **Fixed 2026-11-26 (see "Sound and music", the pile-up guard); pending a phone check.** The next reports carry
+  `audioState` and `audioSwept`: swept > 0 means "ended" was lost and the sweep saved it. WebGL stays the plan if
+  slow reports keep coming with audioLeft low. Not done: rebuilding a context that stays stopped (the game is then
+  silent until relaunched, but no longer slows).
 - **A new name for the game** (2026-11-26, owner: "I still don't like crownguard"; "we'll come back to
   this"). Ruled out: Siegebreaker / Siege Breaker(s) / Siege Break (a 2024 tower defense on Steam is
   "Siegebreaker"; Halfbrick's iOS "Siege Breakers"; a "Siege Break" app; several more). The owner turned
@@ -3135,6 +3138,17 @@ chiptune.
   track unplugs its whole strip (out, each part's gain, panner and reverb send). Any NEW way of
   making sound must go through one of them. Measured in Chromium: connected nodes stay ~90-140
   through a battle and the next level (before: every node ever made). Not yet seen on a device.
+  **The pile-up guard** (2026-11-26, the owner's first `slow` report: 23,174 nodes still plugged in
+  with tidy.js in place): tidy.js HOLDS every waiting group (a strong reference, so WebKit can't
+  collect a source and its "ended" listener) and SWEEPS one whose "ended" hasn't come 20 s of audio
+  time (or 45 s of real time) after it was made (the longest note in any track is 8 s), counting it
+  in `TIDY.swept`; `letGo(nodes, done)` calls `done` once either way (sfx.js counts its voices with
+  it, so a lost "ended" can't silence the effects). sfx.js builds NOTHING unless the context is
+  `running` and `wake`s a "suspended" or iOS "interrupted" one (at most once a second, the refusal
+  caught; every tap tries too, music.js `unlock`); music.js schedules notes only while it runs. The
+  crash report's sample keeps `audioState` and `audioSwept`. Checked in headless Chromium: 200 groups
+  with no "ended" all swept; a stopped context refusing to wake built 0 nodes for 100 effects; a
+  Ravenscar battle stayed at 50-115 waiting nodes with 0 swept.
 - `music.js`: the sequencer + mixer (reverb, compressor), crossfades, pauses
   with the tab, starts on the first tap. `instruments.js`: the voices and the
   drum kit (`VOICES`, `DRUMS`); one owner. `notation.js`: the text notation
