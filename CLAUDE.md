@@ -553,7 +553,17 @@ scrolls: "I like this! Could we use that for the map level labels?", of A's chap
 chapter's name is the same folded ribbon (CampaignMap.jsx `Ribbon`: red cloth edged in gold, both ends tucked under,
 dropped and cut in a V; slate while sealed; `Scroll` and `Banner` size it). The level ribbons' tails (`tail` 5.5) are
 held short so no two names touch with every level open (checked by bounding boxes on the real map: 64 labels, no
-overlap; at 7 Brinewick and Ironmouth touched). The won level's flag and the shields are unchanged.
+overlap; at 7 Brinewick and Ironmouth touched).
+**The map's markers are sculpted** (owner, same day: B, the swallowtail, "but in the newer style", then "Flags from 2
+shields from 3"): `src/ui/markerArt.js` sculpts them pixel by pixel like the star (lit from the upper left, tinted
+one-pixel line): `flagPixels(style, frame)` (the ribbons' red, gold edged, a gold crown, a gold ball on the pole; style 2
+WAVES over `FLAG_FRAMES` 6 frames) and `shieldPixels(style, kind)` (open sword / boss skull / locked padlock / locked
+boss; style 3 has gold studs). Drawn crisp in the map's SVG overlay (CampaignMap.jsx `MarkerSymbols` /
+`WaypointMarkers`, `FLAG_STYLE` 2, `SHIELD_STYLE` 3), not on the map canvas (it keeps only their ground shadows): the
+flag at the stars' 2.42 art px a unit, the shield at 2.1 to stand as wide as the old one. Each won flag is its own
+small nested `<svg>` whose frame strip slides in CSS `steps()` (an animation inside a shared `<symbol>` may not play
+through `<use>` in WebKit), each at its own point in the ripple. Styles 1 (still) and 3 (spear point, fringe, cord and
+tassel) of the flag, 1 of the shield, are drawn and unused. Seen animating in Chromium only, not yet on an iPhone.
 
 ## Tower XP and the hall unlocks (2026-10-05, owner request)
 
