@@ -39,6 +39,7 @@ import WeatherBrief from "./WeatherBrief.jsx";
 import { sunFor, SUN_POS } from "../data/sun.js";
 import { weatherFor } from "../data/weather-plan.js";
 import { Star } from "./Glyphs.jsx";
+import { starPixels } from "./starArt.js";
 import { MAX_STARS } from "../data/profile.js";
 import { FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
@@ -85,6 +86,38 @@ const posOf = (lv) => {
 // padding that keeps clear of a notch or the home bar
 const safePad = (t, r, b, l) =>
   `max(${t}px, env(safe-area-inset-top)) max(${r}px, env(safe-area-inset-right)) max(${b}px, env(safe-area-inset-bottom)) max(${l}px, env(safe-area-inset-left))`;
+
+// The stars under a won waypoint (owner, 2026-11-26: the map's canvas stars "look terrible"; make them
+// the War Room's small star): the game's own star (starArt.js) at 15 art px, laid in the SVG over the
+// map so it stays crisp at every zoom, as two symbols (won, unwon) every waypoint reuses.
+const MAP_STAR_N = 15, MAP_STAR_W = 6.2, MAP_STAR_STEP = 5.7;
+function StarSymbols() {
+  const sym = (lit) => {
+    const pix = starPixels(MAP_STAR_N, lit), rects = [];
+    pix.px.forEach((row, y) => {
+      for (let x = 0; x < row.length;) {
+        const col = row[x];
+        if (!col) { x++; continue; }
+        let x2 = x + 1;
+        while (x2 < row.length && row[x2] === col) x2++;
+        rects.push(<rect key={`${x}.${y}`} x={x} y={y} width={x2 - x} height={1} fill={col} />);
+        x = x2;
+      }
+    });
+    return <symbol key={lit ? "on" : "off"} id={lit ? "cg-map-star" : "cg-map-star-off"} viewBox={`0 0 ${pix.w} ${pix.h}`}>{rects}</symbol>;
+  };
+  return <defs>{sym(true)}{sym(false)}</defs>;
+}
+function WaypointStars({ lv, n }) {
+  const [x, y] = lv.pos, x0 = x - ((MAX_STARS - 1) * MAP_STAR_STEP) / 2 - MAP_STAR_W / 2;
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      {STAR_SLOTS.map((i) => (
+        <use key={i} href={i <= n ? "#cg-map-star" : "#cg-map-star-off"} x={x0 + (i - 1) * MAP_STAR_STEP} y={y + 0.5} width={MAP_STAR_W} height={MAP_STAR_W} />
+      ))}
+    </g>
+  );
+}
 
 // A name scroll: parchment with curled ends, the name in ink.
 function Scroll({ lv, open, sel }) {
@@ -432,6 +465,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated" }} />
           <svg viewBox={`${MAP.x} ${MAP.y} ${MAP.w} ${MAP.h}`} preserveAspectRatio="none"
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: painted ? 1 : 0 }}>
+            <StarSymbols />
             {CHAPTERS.map((ch) => <Banner key={ch.id} ch={ch} open={isUnlocked(ch.levels[0].id, progress)} />)}
 
             {/* will-o'-wisps drifting over the fen, once the war gets there */}
@@ -476,6 +510,9 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
                 </g>
               );
             })()}
+
+            {/* the stars won at every level held */}
+            {PLACED.filter((lv) => progress.cleared[lv.id]).map((lv) => <WaypointStars key={`st${lv.id}`} lv={lv} n={rating(lv.id)} />)}
 
             {/* names, for every country the war has reached */}
             {PLACED.filter((lv) => isUnlocked(lv.chapter.levels[0].id, progress)).map((lv) => (
@@ -565,7 +602,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
             {sel.name}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            {STAR_SLOTS.map((i) => <Star key={i} size={15} lit={i <= rating(sel.id)} />)}
+            {STAR_SLOTS.map((i) => <Star key={i} size={15} lit={i <= rating(sel.id)} socket="parch" />)}
             {selCleared && <span style={{ fontSize: 9, letterSpacing: 1, color: "#3e6a2a", fontWeight: "bold", marginLeft: 6 }}>✓ HELD</span>}
           </div>
         </div>
@@ -603,7 +640,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
               {sel.name}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              {STAR_SLOTS.map((i) => <Star key={i} size={13} lit={i <= rating(sel.id)} />)}
+              {STAR_SLOTS.map((i) => <Star key={i} size={13} lit={i <= rating(sel.id)} socket="parch" />)}
               {selCleared && <span style={{ fontSize: 8.5, letterSpacing: 1, color: "#3e6a2a", fontWeight: "bold", marginLeft: 5 }}>✓ HELD</span>}
             </div>
           </div>

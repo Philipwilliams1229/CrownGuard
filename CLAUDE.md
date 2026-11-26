@@ -541,8 +541,11 @@ Free Play) and the map's marker stars (mapArt.js `star`) all come from ONE gener
 `src/ui/starArt.js` `starPixels(n, lit)`: a rounded gold dome lit from the upper left, a cream shine on
 its crown, a one-pixel tinted outline; unearned, the same star sunk into slate (light turned round).
 `starArtSize` picks the art size (1 art px a CSS px on small icons, 2 on the victory card's big ones);
-StarIcon draws 1.12x its box with negative margins so layouts keep the old footprint. The map's are
-9 art px (7 read as bells), 4.9 units apart. Concepts (A bevelled, B pillowy, C thick, then B1-B3)
+StarIcon draws 1.12x its box with negative margins so layouts keep the old footprint. The map's
+marker stars are NOT on the map canvas (its coarse art grid made them blobs: owner, "they look terrible
+in the map"): they are SVG symbols in the map's overlay (CampaignMap.jsx `StarSymbols` / `WaypointStars`,
+15 art px, 6.2 map units wide, 5.7 apart), crisp at every zoom. `starPixels(n, lit, socket)`: an unearned
+star on the level card's parchment is sunk into a parchment ramp (`socket="parch"`), not the dark slate. Concepts (A bevelled, B pillowy, C thick, then B1-B3)
 were drawn from a scratch lab; A was turned down for its dead dark bottom-right point.
 
 ## Tower XP and the hall unlocks (2026-10-05, owner request)

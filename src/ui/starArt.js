@@ -10,6 +10,10 @@ const GOLD = ["#4a2c10", "#6e4a18", "#93681f", "#b8902e", "#d8b34a", "#f0d27a", 
 const GOLD_INK = "#3a200c";
 const SLATE = ["#1f1924", "#2a2230", "#342a3a", "#3e3346", "#4a3e52", "#5a4d60", "#6a5c70"];
 const SLATE_INK = "#17111a";
+// an unearned star sunk into PARCHMENT (the campaign map's level card), so it reads as a pressed socket
+// on the light card rather than a dark blot
+const PARCH = ["#8c7452", "#9c845e", "#ac946a", "#bca476", "#c8b282", "#d4c090", "#e0cea0"];
+const PARCH_INK = "#7a6040";
 
 // the game's sun: upper left, and toward the viewer
 const LIGHT = (() => { const v = [-0.55, -0.75, 0.9]; const m = Math.hypot(...v); return v.map((x) => x / m); })();
@@ -43,11 +47,12 @@ function edgeDist(x, y, v) {
 }
 
 const CACHE = new Map();
-// n: the star's width in art pixels (odd reads best); the grid is n + 2 square with its outline
-export function starPixels(n, lit = true) {
-  const key = `${n}|${lit ? 1 : 0}`;
+// n: the star's width in art pixels (odd reads best); the grid is n + 2 square with its outline.
+// socket: what an unearned star is sunk into, "slate" (dark panels) or "parch" (the map's card)
+export function starPixels(n, lit = true, socket = "slate") {
+  const key = `${n}|${lit ? 1 : 0}|${socket}`;
   if (CACHE.has(key)) return CACHE.get(key);
-  const ramp = lit ? GOLD : SLATE, ink = lit ? GOLD_INK : SLATE_INK;
+  const ramp = lit ? GOLD : socket === "parch" ? PARCH : SLATE, ink = lit ? GOLD_INK : socket === "parch" ? PARCH_INK : SLATE_INK;
   const W = n + 2, H = n + 2;
   const cx = 1 + n / 2, cy = 1 + n / 2 + n * 0.06;
   const R = n / 2 + 0.35, r = R * 0.52;

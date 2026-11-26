@@ -40,8 +40,8 @@ export function FlagIcon({ size = 12 }) {
 
 // The campaign star lives with the HUD's icons now (hud/icons.jsx): one
 // star everywhere, the victory card, the map card and the War Council alike.
-export function Star({ size = 16, lit = true }) {
-  return <StarIcon size={size} lit={lit} />;
+export function Star({ size = 16, lit = true, socket }) {
+  return <StarIcon size={size} lit={lit} socket={socket} />;
 }
 
 // The universal two-bar pause mark.

@@ -277,8 +277,8 @@ export const InfoIcon = icon([
 // step larger than its box (the outline sits inside the grid) with the overflow taken back by margins,
 // so every layout keeps the footprint the old 17 x 16 star had.
 const STAR_GROW = 1.12;
-export function StarIcon({ size = 16, lit = true, style }) {
-  const pix = starPixels(starArtSize(size * STAR_GROW), lit);
+export function StarIcon({ size = 16, lit = true, socket, style }) {
+  const pix = starPixels(starArtSize(size * STAR_GROW), lit, socket);
   const rects = [];
   pix.px.forEach((row, y) => {
     for (let x = 0; x < row.length;) {

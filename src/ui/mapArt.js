@@ -9,8 +9,6 @@
 // that is redrawn whenever progress changes (see drawMapState).
 
 import { CHAPTERS, LEVELS as ALL_LEVELS, isUnlocked } from "../data/campaign.js";
-import { starPixels } from "./starArt.js";
-import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
 import { inkTint } from "../render/inktint.js";
 import { canvasFont, typeEpoch } from "./fonts.js";
@@ -3315,20 +3313,6 @@ const shield = (boss, lit) => spr(`shield${boss}${lit}`, 11 * MK, 15 * MK, (c) =
     c.fillStyle = "#3a3640"; c.fillRect(5.2, 6, 0.7, 1.4);
   }
 });
-// the campaign star under a won marker: the game's own star (../starArt.js), 9 art px across plus its
-// outline (7 read as bells), spread 4.9 apart so they never overlap; the map and the cards show one star
-const star = (lit) => {
-  const key = `star${lit}`;
-  if (!SPR.has(key)) {
-    const pix = starPixels(9, lit);
-    const cv = mk(pix.w, pix.h), c = cv.getContext("2d", RF);
-    pix.px.forEach((row, y) => row.forEach((col, x) => { if (col) { c.fillStyle = col; c.fillRect(x, y, 1, 1); } }));
-    SPR.set(key, cv);
-  }
-  return SPR.get(key);
-};
-
-
 // The progress layer: gold over walked road, and every waypoint's marker.
 export function drawMapState(ctx, { progress, stars = {} }) {
   const T = mapTerrain();
@@ -3368,10 +3352,7 @@ export function drawMapState(ctx, { progress, stars = {} }) {
     ctx.globalAlpha = 1;
     if (won) stamp(ctx, flag(), x, y, 3.2 * MK, 15.4 * MK);
     else stamp(ctx, shield(boss, open), x, y, 5.5 * MK, 14.6 * MK);
-    if (won) {
-      const n = stars[lv.id] || 0;
-      for (let k = 0; k < MAX_STARS; k++) stamp(ctx, star(k < n), x - 12.3 + k * 4.9, y + 0.6, 0, 0);
-    }
+    // the stars under a won marker are drawn crisp in the map's SVG overlay (CampaignMap.jsx WaypointStars)
   }
 }
 let LANDMASK = null;
