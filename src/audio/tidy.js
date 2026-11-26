@@ -18,7 +18,7 @@ const plays = (n) => typeof n.stop === "function" && "onended" in n;
 
 // dev only: ?untidy turns the unplugging off (the game as it was before this file), so the phone test
 // (src/dev/repro.js) can compare the two; TIDY counts the nodes noted and unplugged
-const UNTIDY = import.meta.env.DEV && typeof window !== "undefined" && /[?&]untidy/.test(window.location.search);
+const UNTIDY = import.meta.env?.DEV && typeof window !== "undefined" && /[?&]untidy/.test(window.location.search);
 export const TIDY = { made: 0, unplugged: 0, untidy: UNTIDY };   // (the test may flip untidy before it starts)
 
 const unplug = (nodes) => { TIDY.unplugged += nodes.length; for (const n of nodes) { try { n.disconnect(); } catch { /* already gone */ } } };

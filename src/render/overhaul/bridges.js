@@ -31,12 +31,12 @@ OVH.flags.bridgeCast = false;
 //   thornbrook: its one span sits in the bottom of a U (the road turns within ~30 of each end): no room
 //               for a trestle's ramps, so today's bridge, updated, with lanterns (the board's only crossing)
 //   millrace:   toll (Foxwater) / mill (the race's north span) / today's bridge on the race's skew span up the screen (it read better at board size than the farm trestle: ?bk=2:farm shows that)
-//   wolfrun:    four fords up the screen, varied: today's bridge / farm trestle / today's bridge with
-//               lanterns / the toll trestle at the ford nearest the castle (the last crossing)
+//   wolfrun:    four fords up the screen, all toll trestles (owner, 2026-11-26: "make them all like the
+//               bridge closest to the castle"; they were today's bridge / farm / lit bridge / toll)
 const KINDS = {
   thornbrook: ["flatlamp"],
   millrace: ["toll", "mill", "flat"],
-  wolfrun: ["flat", "farm", "flatlamp", "toll"],
+  wolfrun: ["toll", "toll", "toll", "toll"],
 };
 // lab only: ?bk=2:flat,0:toll overrides span kinds by index (never set in the game's own URL)
 const labKinds = () => {

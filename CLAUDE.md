@@ -1221,7 +1221,7 @@ apply to the whole first area"; brief `art/briefs/overhaul-greenwood-rollout.md`
   ellipse; coast boards keep today's sea. River bank faces lie on the LAND side of the engine's waterline (owner:
   rivers "wider only"; visible water measured >= today's), so a hall at the water's edge stands over the bank face.
 - Bridges: `KINDS` per realm in overhaul/bridges.js (toll / mill / farm trestle, `flat` / `flatlamp` = today's
-  bridge updated); Wolfrun's four differ; Millrace's up-screen crossing is `flat` now (`?bk=2:farm` in a lab).
+  bridge updated); Wolfrun's four are all toll trestles (owner, 2026-11-26), a hut and `blocks` entry at each; Millrace's up-screen crossing is `flat` now (`?bk=2:farm` in a lab).
 - Places (`decor-layout.js` `LAYOUTS`): Millrace farm, Gullwick village details + the ruined tower, the croft on the
   first board, Bramblewick's steading, Foxmere's chapel; each has `blocks` + `layout: 1` in its realm data. Rocks by
   the rock rule everywhere. The pale clumps on the meadow are its tall-grass stands, not old bushes.
