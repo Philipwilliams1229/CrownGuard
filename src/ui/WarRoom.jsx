@@ -47,7 +47,7 @@ import { HEROES, HERO_TALENTS, talentCost, talentsSpent } from "../data/bands.js
 import TowerPortrait from "./TowerPortrait.jsx";
 import CastleWorksList from "./CastleWorks.jsx";
 import { Star } from "./Glyphs.jsx";
-import { CoinIcon } from "./hud/icons.jsx";
+import { CoinIcon, ValorIcon } from "./hud/icons.jsx";
 import { btn, panel, title, FONT, WAR_ROOM } from "./theme.js";
 import { useViewport, Fit } from "./fit.jsx";
 import HeroTalents, { useArm, ArmBand, ARMED } from "./HeroTalents.jsx";
@@ -273,7 +273,7 @@ export default function WarRoom({ profile, setProfile, progress, treasury = 0, o
       ) : tab === "towers" ? (
         <><Star size={16} /> <b style={{ color: "#e8d47a" }}>{free}</b><span style={{ fontSize: 10, opacity: 0.5 }}>/ {earned}</span></>
       ) : (
-        <><Star size={16} /> <b style={{ color: "#e8d47a" }}>{heroRec.points}</b><span style={{ fontSize: 10, opacity: 0.6 }}>{HEROES[hero].name}</span></>
+        <><ValorIcon size={16} /> <b style={{ color: "#e8d47a" }}>{heroRec.points}</b><span style={{ fontSize: 10, opacity: 0.6 }}>{HEROES[hero].name}</span></>
       )}
     </div>
   );
@@ -302,7 +302,7 @@ export default function WarRoom({ profile, setProfile, progress, treasury = 0, o
         <span>Refund</span>
       )}
       <span style={{ fontSize: 9, opacity: 0.8, display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
-        {back ? <>+{tab === "castle" ? <><CoinIcon size={10} />{num(back)}</> : <>{back}★</>}</> : "nothing yet"}
+        {back ? <>+{tab === "castle" ? <><CoinIcon size={10} />{num(back)}</> : tab === "heroes" ? <>{back}<ValorIcon size={10} /></> : <>{back}★</>}</> : "nothing yet"}
       </span>
     </button>
   );

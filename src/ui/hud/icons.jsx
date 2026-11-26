@@ -297,6 +297,24 @@ export function StarIcon({ size = 16, lit = true, style }) {
   return <Grid rows={STAR} size={size} pal={lit ? PAL : { ...PAL, ...STAR_EMPTY }} style={style} />;
 }
 
+// a hero's medal of valor: a red ribbon over a steel disc with a gold boss. A hero's own
+// currency (their level at a won map's end), never the campaign's gold star (owner, 2026-11-26)
+export const ValorIcon = icon([
+  "kkkk...kkkk",
+  "kRRrk.kRRrk",
+  ".kRRrkRRrk.",
+  "..kRRrRrk..",
+  "...kRRrk...",
+  "...kkkkk...",
+  "..kbcbbBk..",
+  ".kbcbbbbBk.",
+  ".kbbbYbbBk.",
+  ".kbbYyobBk.",
+  ".kbbbobBBk.",
+  "..kBbbBBk..",
+  "...kkkkk...",
+]);
+
 // a wizard's staff, its forked head holding a glowing orb: the Court Wizards
 export const StaffIcon = icon([
   "...kkkkk..",

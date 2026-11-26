@@ -3319,10 +3319,11 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   (`syncRetinue`, update.js) and follow the hero's rally. A campaign hero
   reaches 10 only near the end of the script, so it barely moves the sims;
   it pays off in long maps and the Endless March.
-- Hero stars: a WON map pays the hero's level at the end of the scripted
+- Hero stars, shown to the player as **VALOR** with a medal icon (`ValorIcon`, ui/hud/icons.jsx; owner,
+  2026-11-26: the same star as the levels' was confusing; code names still say stars/points): a WON map pays the hero's level at the end of the scripted
   waves (never Endless) as that hero's own stars (`profile.bankHeroStars`:
   a new best on that map pays the gain in full plus half the rest; a replay
-  pays half). Spent ONLY on the Home Screen (Skills & Heroes → Heroes), never in
+  pays half). Spent ONLY in the War Room's HEROES tab, never in
   battle: five stat talents + one upgrade line per ability, five ranks at
   `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; 45 maps since 2026-10 ×
   ~9-10 per first run). Bank the stars AFTER `bankLevel`, which saves the profile it's given.

@@ -20,7 +20,7 @@ import { LEVELS, hasProgress, currentLevel } from "../data/campaign.js";
 import { starsFree, rankName, heroRecord } from "../data/profile.js";
 import { HEROES } from "../data/bands.js";
 import { Star } from "./Glyphs.jsx";
-import { CastleIcon, CoinIcon } from "./hud/icons.jsx";
+import { CastleIcon, CoinIcon, ValorIcon } from "./hud/icons.jsx";
 import StatsPanel from "./StatsPanel.jsx";
 import SaveFilesModal from "./SaveFilesModal.jsx";
 import { readSlots } from "../data/saveSlots.js";
@@ -41,8 +41,9 @@ export default function HomeScreen({ progress, profile, setProfile, resume, onCo
   const saved = hasProgress(progress) || !!resume;   // a battle left on the first level is a save too
   const upTo = currentLevel(progress);
   const cleared = LEVELS.filter((l) => progress.cleared[l.id]).length;
-  // every star waiting to be spent: the towers' shared pool and each hero's own
-  const free = starsFree(profile) + Object.keys(HEROES).reduce((n, k) => n + heroRecord(profile, k).points, 0);
+  // what waits to be spent: the towers' shared stars and the heroes' valor
+  const free = starsFree(profile);
+  const valor = Object.keys(HEROES).reduce((n, k) => n + heroRecord(profile, k).points, 0);
   const treasury = progress.treasury || 0;
   const vp = useViewport();
   const compact = vp.short && vp.landscape;                      // phone on its side
@@ -127,8 +128,9 @@ export default function HomeScreen({ progress, profile, setProfile, resume, onCo
     <button key="war" style={smallBtn} onClick={onWarRoom}>
       {WAR_ROOM}
       <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11, whiteSpace: "nowrap" }}>
-        {free > 0 || treasury > 0 ? (
-          <>{free > 0 && <><Star size={11} /> {free}</>}{free > 0 && treasury > 0 && <span style={{ opacity: 0.6 }}>·</span>}{treasury > 0 && <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</>}</>
+        {free > 0 || valor > 0 || treasury > 0 ? (
+          [free > 0 && <><Star size={11} /> {free}</>, valor > 0 && <><ValorIcon size={11} /> {valor}</>, treasury > 0 && <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</>]
+            .filter(Boolean).flatMap((x, i) => (i ? [<span key={`d${i}`} style={{ opacity: 0.6 }}>·</span>, <span key={i} style={{ display: "contents" }}>{x}</span>] : [<span key={i} style={{ display: "contents" }}>{x}</span>]))
         ) : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>castle, towers, heroes</span>}
       </div>
     </button>

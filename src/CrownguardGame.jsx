@@ -74,7 +74,7 @@ import { TowerBanner, TargetsBar, UpgradeTree, nodeOf } from "./ui/TowerEdit.jsx
 import {
   CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
   LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon, ArrowIcon, TargetIcon,
-  HeartIcon, MagicIcon, ShieldIcon, PitchforkIcon,
+  HeartIcon, MagicIcon, ShieldIcon, PitchforkIcon, ValorIcon,
 } from "./ui/hud/icons.jsx";
 
 // Aggregate a wave's spawn list into { type, count } entries, keeping the
@@ -165,7 +165,7 @@ export default function Crownguard() {
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
   const [castleOpen, setCastleOpen] = useState(false);
-  // the hero's menu (move, abilities), and what a hero's win paid in stars
+  // the hero's menu (move, abilities), and what a hero's win paid in valor
   const [talentsOpen, setTalentsOpen] = useState(false);
   // the menu folding away (by any road) calls off the hero's armed move (openHeroMenu)
   useEffect(() => {
@@ -2055,12 +2055,12 @@ export default function Crownguard() {
                   )}
                   {!won && <SkullIcon size={40} />}
 
-                  {/* the hero's level at the end of the waves, paid in their own stars */}
+                  {/* the hero's level at the end of the waves, paid in their own valor */}
                   {won && heroAward && (
                     <div className="cg-well" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.4 }}>
                       {hasRig(HEROES[heroAward.key]?.rig) ? <EnemyIcon type={HEROES[heroAward.key].rig} box={26} /> : <Star size={20} lit />}
-                      <span><b style={{ color: "var(--gold-lt)" }}>{heroAward.name}</b> finished at level <b className="cg-num">{heroAward.level}</b> · <b className="cg-num" style={{ fontSize: 14, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{heroAward.paid}</b> hero ★<br />
-                        <span style={{ color: "var(--muted)" }}>{heroAward.prev ? (heroAward.level > heroAward.prev ? `a new best here (was ${heroAward.prev}) · ` : `best here is ${heroAward.prev}: a replay pays half · `) : "first win here · "}{heroAward.total} to spend on the Home Screen</span></span>
+                      <span><b style={{ color: "var(--gold-lt)" }}>{heroAward.name}</b> finished at level <b className="cg-num">{heroAward.level}</b> · <b className="cg-num" style={{ fontSize: 14, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{heroAward.paid}</b> <ValorIcon size={13} style={{ display: "inline-block", verticalAlign: "-2px" }} /> valor<br />
+                        <span style={{ color: "var(--muted)" }}>{heroAward.prev ? (heroAward.level > heroAward.prev ? `a new best here (was ${heroAward.prev}) · ` : `best here is ${heroAward.prev}: a replay pays half · `) : "first win here · "}{heroAward.total} to spend in the War Room</span></span>
                     </div>
                   )}
 

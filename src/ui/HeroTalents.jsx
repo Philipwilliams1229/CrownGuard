@@ -28,6 +28,7 @@ import {
 } from "../data/bands.js";
 import { heroRecord, buyHeroTalent } from "../data/profile.js";
 import EnemyIcon from "./EnemyIcon.jsx";
+import { ValorIcon } from "./hud/icons.jsx";
 import { btn, panel, DISPLAY, FONT, GOLD, INK, NUM as NUM_FACE } from "./theme.js";
 
 const HERO_KEYS = Object.keys(HEROES);
@@ -126,14 +127,14 @@ function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId, meta, desc
             <>
               <span style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.6 }}>next</span>
               <span style={{ ...NUM, fontSize: 9 * z, color: buyable ? "#e8d47a" : RED }}>{cost}</span>
-              <span style={{ ...LABEL, fontSize: 8.5 * z, color: buyable ? "#e8e0c8" : RED, opacity: buyable ? 0.7 : 1 }}>★</span>
+              <span style={{ alignSelf: "center", opacity: buyable ? 1 : 0.55 }}><ValorIcon size={Math.round(9 * z)} /></span>
             </>
           )}
         </span>
       </span>
       {meta && <span style={{ ...LABEL, fontSize: 8.5 * z, color: GOLD.lt, opacity: 0.85 }}>{meta}</span>}
       <span style={{ fontFamily: FONT, fontSize: 10 * z, opacity: 0.8, lineHeight: 1.4 }}>{desc || t.desc}</span>
-      {armed && <ArmBand z={z}>TAP AGAIN · {cost} ★</ArmBand>}
+      {armed && <ArmBand z={z}>TAP AGAIN · {cost} <ValorIcon size={Math.round(10 * z)} /></ArmBand>}
     </button>
   );
 }
@@ -170,7 +171,7 @@ function HeroSheet({ hkey, profile, onBuy, arm, cols, z, portrait, note }) {
           background: points ? "#5a4f2c" : "#262b35", boxShadow: points ? "inset 0 0 0 2px #7a6a3c" : "none",
         }}>
           <div style={{ ...NUM, fontSize: 17 * z, color: points ? GOLD.lt : "#8a8f9a" }}>{points}</div>
-          <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.8, marginTop: 3 }}>{points === 1 ? "★ STAR" : "★ STARS"}</div>
+          <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.8, marginTop: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}><ValorIcon size={Math.round(10 * z)} /> VALOR</div>
         </div>
       </div>
 
@@ -235,7 +236,7 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
   const buy = (key, id) => { const p = buyHeroTalent(key, id); if (p) setProfile({ ...p }); };
   const deps = HERO_KEYS.map((k) => JSON.stringify(heroRecord(profile, k))).join("|");
 
-  const line = "Heroes level up from kills in battle. Win a map and the hero's level at the end of its waves becomes their stars — a new best on that map pays in full, the rest at half. Spend them here.";
+  const line = "Heroes level up from kills in battle. Win a map and the hero's level at the end of its waves becomes their valor — a new best on that map pays in full, the rest at half. Spend it here.";
   const sheet = (k, cols, portrait, note) => (
     <HeroSheet key={k} hkey={k} profile={profile} onBuy={buy} arm={arm} cols={cols} z={z} portrait={portrait} note={note} />
   );
@@ -270,7 +271,7 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
                 ...(can ? { background: GOLD.face, color: INK } : { background: "#262b35" }),
               }}>
                 <span style={{ ...NUM, fontSize: 8.5 }}>{points}</span>
-                <span style={{ ...LABEL, fontSize: 8.5, fontWeight: "bold" }}>★</span>
+                <span style={{ alignSelf: "center" }}><ValorIcon size={9} /></span>
               </span>
             </span>
           </button>
