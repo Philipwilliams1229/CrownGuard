@@ -524,7 +524,7 @@ header (WAR ROOM + treasury) and the victory card (castle works bought through t
 `buyWork`, as before); `roomOpen` in CrownguardGame.jsx. The name is `WAR_ROOM` in ui/theme.js.
 CastleWorksModal.jsx is gone; `CastleWorksList` takes `noPurse` when the caller shows the purse.
 The all-time stats are their own **STATS** button beside it on the title (`ui/StatsPanel.jsx`: rank,
-the reckoning, the wipe), so the title keeps its button layout. **The hero is no longer chosen on the
+the reckoning, the wipe), so the title keeps six buttons two by two (owner, 2026-11-26: War Room | Free Play, Stats | Field Guide, Save Files | Settings; `menuPairs` in HomeScreen.jsx). **The hero is no longer chosen on the
 map's level card** (owner: on a phone the row hid the weather): he is changed in battle before the
 first horn (the hero's menu, "Change hero") or in the pause menu. Pending the owner's look.
 

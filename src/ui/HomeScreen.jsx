@@ -88,8 +88,6 @@ export default function HomeScreen({ progress, profile, setProfile, resume, onCo
     fontSize: compact ? 13 : 14, letterSpacing: compact ? 1.5 : 2, fontWeight: "bold",
   });
   const smallBtn = { ...bigBtn(false), fontSize: compact ? 12 : 12.5, letterSpacing: 1.5 };
-  // the two halves of the stars-and-gold row
-  const pairBtn = { ...bigBtn(false), flex: 1, minWidth: 0, padding: compact ? "8px 6px" : "12px 6px", fontSize: compact ? 12 : 13, letterSpacing: 1 };
   const span = compact ? { gridColumn: "1 / -1" } : null;
   const sub = { fontSize: 9, letterSpacing: 1, opacity: 0.85, marginTop: compact ? 2 : 4, fontWeight: "normal" };
   // where NEW CAMPAIGN used to be: a new game goes in an empty save file, so
@@ -124,6 +122,32 @@ export default function HomeScreen({ progress, profile, setProfile, resume, onCo
     </div>
   );
 
+  // the War Room: every upgrade, stars and gold (owner, 2026-11-25); its line shows what waits to be spent
+  const warRoomBtn = (
+    <button key="war" style={smallBtn} onClick={onWarRoom}>
+      {WAR_ROOM}
+      <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11, whiteSpace: "nowrap" }}>
+        {free > 0 || treasury > 0 ? (
+          <>{free > 0 && <><Star size={11} /> {free}</>}{free > 0 && treasury > 0 && <span style={{ opacity: 0.6 }}>·</span>}{treasury > 0 && <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</>}</>
+        ) : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>castle, towers, heroes</span>}
+      </div>
+    </button>
+  );
+  // the all-time record (it was the War Council's third tab)
+  const statsBtn = (
+    <button key="stats" style={smallBtn} onClick={() => setStatsOpen(true)}>
+      STATS
+      <div style={{ ...sub, minHeight: 11, whiteSpace: "nowrap" }}>
+        {profile.stats.kills > 0 ? `${profile.stats.kills.toLocaleString("en-US")} foes slain` : "the all-time record"}
+      </div>
+    </button>
+  );
+  const menuPairs = [
+    [warRoomBtn, <button key="free" style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>],
+    [statsBtn, <button key="guide" style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>],
+    [<span key="files" style={{ display: "contents" }}>{filesBtn}</span>, <button key="set" style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>],
+  ];
+
   const board = (
     <div style={{
       ...frame, background: "rgba(46,32,22,0.92)", padding: compact ? 13 : 16, width: "100%", maxWidth: compact ? 400 : 380,
@@ -142,43 +166,11 @@ export default function HomeScreen({ progress, profile, setProfile, resume, onCo
       ) : (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>
       )}
-      {/* the War Room: every upgrade, stars and gold (owner, 2026-11-25); the all-time record beside it */}
-      <div style={{ ...span, display: "flex", gap: compact ? 8 : 10 }}>
-        <button style={pairBtn} onClick={onWarRoom}>
-          {WAR_ROOM}
-          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11, whiteSpace: "nowrap" }}>
-            {free > 0 || treasury > 0 ? (
-              <>{free > 0 && <><Star size={11} /> {free}</>}{free > 0 && treasury > 0 && <span style={{ opacity: 0.6 }}>·</span>}{treasury > 0 && <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</>}</>
-            ) : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>castle, towers, heroes</span>}
-          </div>
-        </button>
-        <button style={pairBtn} onClick={() => setStatsOpen(true)}>
-          STATS
-          <div style={{ ...sub, color: "#e8e0c8", opacity: 0.75, minHeight: 11, whiteSpace: "nowrap" }}>
-            {profile.stats.kills > 0 ? `${profile.stats.kills.toLocaleString("en-US")} foes slain` : "the all-time record"}
-          </div>
-        </button>
-      </div>
-      {/* the small buttons two by two (owner, 2026-11-24): Free Play | Field Guide, then Save Files | Settings */}
-      {compact ? (
-        <>
-          <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
-          <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          {filesBtn}
-          <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
-        </>
-      ) : (
-        <>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
-            <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            {filesBtn}
-            <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
-          </div>
-        </>
-      )}
+      {/* six buttons two by two (owner, 2026-11-26): War Room | Free Play, Stats | Field Guide,
+          Save Files | Settings; a grid on a phone on its side, rows of two elsewhere */}
+      {compact ? menuPairs.flat() : menuPairs.map((row, i) => (
+        <div key={i} style={{ display: "flex", gap: 10 }}>{row}</div>
+      ))}
       <div style={{ ...span, fontSize: 10, letterSpacing: 1.5, textAlign: "center", color: "#d8c8a0", marginTop: compact ? 0 : 2 }}>
         {rankName(profile.xp)} · {profile.xp.toLocaleString()} XP
       </div>
