@@ -3264,7 +3264,60 @@ export function terrainFor(progress) {
 // ---- waypoints ---------------------------------------------------------
 // The crown's banner, planted where a level has been won.
 const MK = 1.3;
-const flag = () => spr("flag", 10 * MK, 16 * MK, (c) => {
+const MAPLOOK = (typeof location !== "undefined" && new URLSearchParams(location.search).get("maplook")) || "";
+// the ribbon's cloth (CampaignMap.jsx OPEN_CLOTH)
+const RB = { cloth: "#a8505c", lt: "#c46a70", dk: "#7a3440", gold: "#d8b34a", hi: "#f2dc8a" };
+const crownAt = (c, x, y) => {
+  c.fillStyle = "#e8c65a"; c.fillRect(x, y + 1.6, 3, 1.4);
+  c.fillRect(x, y + 0.4, 0.8, 1.2); c.fillRect(x + 1.1, y, 0.8, 1.6); c.fillRect(x + 2.2, y + 0.4, 0.8, 1.2);
+  c.fillStyle = "#b8902e"; c.fillRect(x, y + 2.5, 3, 0.5);
+};
+const flagBase = (c) => {
+  c.fillStyle = "#8a8474"; c.fillRect(0.6, 13.6, 5.4, 2.2);
+  c.fillStyle = "#b4ad9c"; c.fillRect(0.6, 13.6, 3, 1);
+};
+const flagPole = (c, top) => {
+  c.fillStyle = "#6b4a2e"; c.fillRect(2.6, top, 1.2, 14 - top);
+  c.fillStyle = "#8a6440"; c.fillRect(2.6, top, 0.5, 14 - top);
+};
+const finial = (c, y = 0) => { c.fillStyle = "#e8c65a"; c.fillRect(2.4, y, 1.6, 1.3); c.fillStyle = "#fff3d2"; c.fillRect(2.4, y, 0.6, 0.6); };
+// A: a gonfalon hung from a crossbar, three tails, gold hem
+const flagA = () => spr("flagA", 11 * MK, 16 * MK, (c) => {
+  c.scale(MK, MK);
+  flagBase(c); flagPole(c, 1.2); finial(c, 0);
+  c.fillStyle = "#6b4a2e"; c.fillRect(3.8, 1.5, 6.4, 0.9);
+  c.fillStyle = "#e8c65a"; c.fillRect(9.8, 1.2, 1, 1.5);
+  const cloth = [[4.3, 2.4], [9.7, 2.4], [9.7, 10], [8.8, 8.8], [7.9, 10], [7, 8.8], [6.1, 10], [5.2, 8.8], [4.3, 10]];
+  c.fillStyle = RB.cloth; poly(c, cloth); c.fill();
+  c.fillStyle = RB.lt; c.fillRect(4.3, 2.4, 1, 6.4);
+  c.fillStyle = RB.dk; c.fillRect(8.8, 2.4, 0.9, 6.4);
+  c.fillStyle = RB.gold; c.fillRect(4.3, 2.4, 5.4, 0.6); c.fillRect(4.3, 7.6, 5.4, 0.6);
+  crownAt(c, 5.5, 3.7);
+});
+// B: a swallowtail flag cut like the ribbon's ends, gold edged top and bottom
+const flagB = () => spr("flagB", 12 * MK, 16 * MK, (c) => {
+  c.scale(MK, MK);
+  flagBase(c); flagPole(c, 1.2); finial(c, 0);
+  const cloth = [[3.8, 1.6], [11.2, 1.6], [9.2, 4.7], [11.2, 7.8], [3.8, 7.8]];
+  c.fillStyle = RB.cloth; poly(c, cloth); c.fill();
+  c.fillStyle = RB.gold; poly(c, [[3.8, 1.6], [11.2, 1.6], [10.8, 2.2], [3.8, 2.2]]); c.fill();
+  poly(c, [[3.8, 7.2], [10.8, 7.2], [11.2, 7.8], [3.8, 7.8]]); c.fill();
+  c.fillStyle = RB.lt; c.fillRect(3.8, 2.2, 6.6, 0.8);
+  c.fillStyle = RB.dk; poly(c, [[8.4, 6.4], [9.9, 6.4], [10.4, 7.2], [8.4, 7.2]]); c.fill();
+  crownAt(c, 5.2, 3.2);
+});
+// C: a long pennant streaming from the post, gold edged
+const flagC = () => spr("flagC", 13 * MK, 16 * MK, (c) => {
+  c.scale(MK, MK);
+  flagBase(c); flagPole(c, 1.2); finial(c, 0);
+  c.fillStyle = RB.gold; poly(c, [[3.8, 1.4], [8, 2.2], [12.6, 4.4], [8, 6.2], [3.8, 7.6]]); c.fill();
+  c.fillStyle = RB.cloth; poly(c, [[3.8, 2.1], [8, 2.8], [11, 4.4], [8, 5.6], [3.8, 6.9]]); c.fill();
+  c.fillStyle = RB.lt; poly(c, [[3.8, 2.1], [8, 2.8], [9.6, 3.4], [3.8, 3]]); c.fill();
+  c.fillStyle = RB.dk; poly(c, [[6.4, 5.8], [8, 5.6], [9.6, 5], [8.2, 6.1]]); c.fill();
+  crownAt(c, 4.6, 2.9);
+});
+const flag = () => MAPLOOK === "a" ? flagA() : MAPLOOK === "b" ? flagB() : MAPLOOK === "c" ? flagC() : flagToday();
+const flagToday = () => spr("flag", 10 * MK, 16 * MK, (c) => {
   c.scale(MK, MK);
   c.fillStyle = "#8a8474"; c.fillRect(0.6, 13.6, 5.4, 2.2);
   c.fillStyle = "#b4ad9c"; c.fillRect(0.6, 13.6, 3, 1);
