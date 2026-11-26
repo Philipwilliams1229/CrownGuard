@@ -3262,59 +3262,7 @@ export function terrainFor(progress) {
 }
 
 // ---- waypoints ---------------------------------------------------------
-// The crown's banner, planted where a level has been won.
-const MK = 1.3;
-const MAPLOOK = (typeof location !== "undefined" && new URLSearchParams(location.search).get("maplook")) || "";
-const flag = () => spr("flag", 10 * MK, 16 * MK, (c) => {
-  c.scale(MK, MK);
-  c.fillStyle = "#8a8474"; c.fillRect(0.6, 13.6, 5.4, 2.2);
-  c.fillStyle = "#b4ad9c"; c.fillRect(0.6, 13.6, 3, 1);
-  c.fillStyle = "#6b4a2e"; c.fillRect(2.6, 0.6, 1.2, 13.4);
-  c.fillStyle = "#d8b34a"; c.fillRect(2.4, 0, 1.6, 1.2);
-  c.fillStyle = "#a8505c"; poly(c, [[3.8, 1.4], [9.8, 1.4], [8.4, 4.2], [9.8, 7], [3.8, 7]]); c.fill();
-  c.fillStyle = "#c46a70"; c.fillRect(3.8, 1.4, 5.6, 1.1);
-  // the crown, in gold
-  c.fillStyle = "#e8c65a"; c.fillRect(4.8, 4, 3, 1.4);
-  c.fillRect(4.8, 2.8, 0.8, 1.2); c.fillRect(5.9, 2.4, 0.8, 1.6); c.fillRect(7, 2.8, 0.8, 1.2);
-});
-// A shield on a post: the next battle. Boss fights carry a skull.
-const shield = (boss, lit) => spr(`shield${boss}${lit}`, 11 * MK, 15 * MK, (c) => {
-  c.scale(MK, MK);
-  c.fillStyle = lit ? "#6b4a2e" : "#4a4450"; c.fillRect(4.8, 9, 1.4, 6);
-  const rim = lit ? "#d8b34a" : "#7a7680", field = !lit ? "#5a5664" : boss ? "#3a2a3a" : "#a8505c";
-  const heater = (inset) => {
-    c.beginPath();
-    c.moveTo(0.4 + inset, 0.4 + inset); c.lineTo(10.6 - inset, 0.4 + inset); c.lineTo(10.6 - inset, 5 + inset * 0.2);
-    c.quadraticCurveTo(10.4 - inset, 9.6 - inset * 0.4, 5.5, 12.2 - inset * 1.2);
-    c.quadraticCurveTo(0.6 + inset, 9.6 - inset * 0.4, 0.4 + inset, 5 + inset * 0.2);
-    c.closePath(); c.fill();
-  };
-  c.fillStyle = rim; heater(0);
-  c.fillStyle = field; heater(1.2);
-  // the lit half of the field
-  c.save(); c.beginPath(); c.rect(0, 0, 5.5, 13); c.clip();
-  c.fillStyle = lit ? (boss ? "#4e3a4c" : "#c46a70") : "#66626e"; heater(1.2);
-  c.restore();
-  if (lit) { c.fillStyle = "#f2dc8a"; c.fillRect(0.4, 0.4, 10.2, 0.9); }
-  if (boss) {
-    // a skull: dome, eyes, jaw
-    c.fillStyle = lit ? "#ece4d0" : "#9a96a0";
-    ball(c, 5.5, 5, 2.6, 2.3, lit ? "#ece4d0" : "#9a96a0", { hi: 0.3, lo: 0.25 });
-    c.fillRect(4, 6.2, 3, 2);
-    c.fillStyle = "#2a1c2c"; c.fillRect(4.1, 4.6, 1.1, 1.2); c.fillRect(5.9, 4.6, 1.1, 1.2); c.fillRect(4.8, 7.4, 0.5, 0.8); c.fillRect(5.8, 7.4, 0.5, 0.8);
-  } else if (lit) {
-    // a sword, point down
-    c.fillStyle = "#eef0f4"; c.fillRect(5, 2.6, 1.1, 6.2);
-    c.fillStyle = "#c4c8d0"; c.fillRect(5.6, 2.6, 0.5, 6.2);
-    c.fillStyle = "#e8c65a"; c.fillRect(3.4, 3.8, 4.2, 1); c.fillRect(5, 1.6, 1.1, 1.1);
-  } else {
-    // a padlock
-    c.strokeStyle = "#8e8a96"; c.lineWidth = 0.9; c.beginPath(); c.arc(5.5, 5.2, 1.5, Math.PI, 0); c.stroke();
-    c.fillStyle = "#8e8a96"; c.fillRect(3.6, 5.2, 3.8, 3);
-    c.fillStyle = "#3a3640"; c.fillRect(5.2, 6, 0.7, 1.4);
-  }
-});
-// The progress layer: gold over walked road, and every waypoint's marker.
+// The progress layer: gold over walked road, and every waypoint's ground shadow.
 export function drawMapState(ctx, { progress, stars = {} }) {
   const T = mapTerrain();
   // the walked road, gilded
@@ -3351,10 +3299,8 @@ export function drawMapState(ctx, { progress, stars = {} }) {
     ctx.fillRect(artX(x - 4), artY(y - 0.6), 9 * U, 2 * U);
     ctx.fillRect(artX(x - 5.5), artY(y - 0.1), 12 * U, 1 * U);
     ctx.globalAlpha = 1;
-    if (MAPLOOK) continue;   // (trial: the sculpted markers are drawn in the overlay)
-    if (won) stamp(ctx, flag(), x, y, 3.2 * MK, 15.4 * MK);
-    else stamp(ctx, shield(boss, open), x, y, 5.5 * MK, 14.6 * MK);
-    // the stars under a won marker are drawn crisp in the map's SVG overlay (CampaignMap.jsx WaypointStars)
+    // the flag or shield on it, and the stars under a won one, are drawn crisp in the map's SVG overlay
+    // (CampaignMap.jsx WaypointMarkers / WaypointStars, sculpted in markerArt.js)
   }
 }
 let LANDMASK = null;

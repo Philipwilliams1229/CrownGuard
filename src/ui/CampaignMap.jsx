@@ -125,8 +125,8 @@ const SHUT_CLOTH = { cloth: "#5c5c6c", lt: "#74748a", dk: "#44444f", fold: "#2e2
 const GOLDL = "#f2cf4a";
 
 // The waypoint markers, sculpted (markerArt.js) and drawn crisp here: a won level's flag, a shield
-// on a post for one still to fight. Trial looks 1-3 behind ?maplook= (the map canvas skips its own).
-const MARKLOOK = (typeof location !== "undefined" && Number(new URLSearchParams(location.search).get("maplook"))) || 0;
+// on a post for one still to fight (owner's picks, 2026-11-26: the waving flag, the studded shields).
+const FLAG_STYLE = 2, SHIELD_STYLE = 3;
 const symRects = (pix) => {
   const rects = [];
   pix.px.forEach((row, y) => {
@@ -142,26 +142,19 @@ const symRects = (pix) => {
   return rects;
 };
 const SHIELD_KINDS = ["open", "boss", "shut", "bossShut"];
-const WAVING = MARKLOOK === 2;
 function MarkerSymbols() {
-  if (!MARKLOOK) return null;
-  const flags = WAVING ? Array.from({ length: FLAG_FRAMES }, (_, f) => flagPixels(2, f)) : [flagPixels(MARKLOOK, 0)];
+  const flags = Array.from({ length: FLAG_FRAMES }, (_, f) => flagPixels(FLAG_STYLE, f));
   const fp = flags[0];
   return (
     <defs>
       <style>{`@keyframes cgWave { from { transform: translateX(0); } to { transform: translateX(-${FLAG_FRAMES * fp.w}px); } }
         .cg-wave { animation: cgWave ${FLAG_FRAMES * 0.16}s steps(${FLAG_FRAMES}) infinite; animation-delay: var(--d, 0s); }`}</style>
-      <symbol id="cg-mk-flag" viewBox={`0 0 ${fp.w} ${fp.h}`} overflow="hidden">
-        <g className={WAVING ? "cg-wave" : undefined}>
-          {flags.map((p, f) => <g key={f} transform={`translate(${f * fp.w} 0)`}>{symRects(p)}</g>)}
-        </g>
-      </symbol>
-      {SHIELD_KINDS.map((k) => { const p = shieldPixels(MARKLOOK, k); return <symbol key={k} id={`cg-mk-${k}`} viewBox={`0 0 ${p.w} ${p.h}`}>{symRects(p)}</symbol>; })}
+      {flags.map((p, f) => <symbol key={f} id={`cg-mk-flag-${f}`} viewBox={`0 0 ${p.w} ${p.h}`}>{symRects(p)}</symbol>)}
+      {SHIELD_KINDS.map((k) => { const p = shieldPixels(SHIELD_STYLE, k); return <symbol key={k} id={`cg-mk-${k}`} viewBox={`0 0 ${p.w} ${p.h}`}>{symRects(p)}</symbol>; })}
     </defs>
   );
 }
 function WaypointMarkers({ progress }) {
-  if (!MARKLOOK) return null;
   const order = [...PLACED].sort((a, b) => a.pos[1] - b.pos[1]);
   return (
     <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
@@ -169,10 +162,19 @@ function WaypointMarkers({ progress }) {
         const won = !!progress.cleared[lv.id], open = isUnlocked(lv.id, progress);
         const boss = lv.index === lv.chapter.levels.length - 1;
         const kind = won ? "flag" : boss ? (open ? "boss" : "bossShut") : open ? "open" : "shut";
-        const p = won ? flagPixels(MARKLOOK, 0) : shieldPixels(MARKLOOK, kind);
-        const [x, y] = lv.pos;
-        return <use key={lv.id} href={`#cg-mk-${kind}`} x={x - p.ax / p.sc} y={y - p.ay / p.sc} width={p.w / p.sc} height={p.h / p.sc}
-          style={won && WAVING ? { "--d": `${-((i * 0.37) % 1) * FLAG_FRAMES * 0.16}s` } : undefined} />;
+        const p = won ? flagPixels(FLAG_STYLE, 0) : shieldPixels(SHIELD_STYLE, kind);
+        const [x, y] = lv.pos, X = x - p.ax / p.sc, Y = y - p.ay / p.sc, w = p.w / p.sc, h = p.h / p.sc;
+        if (!won) return <use key={lv.id} href={`#cg-mk-${kind}`} x={X} y={Y} width={w} height={h} />;
+        // a won flag waves: its frames side by side in a window one frame wide, slid along in steps,
+        // each flag at its own point in the ripple (the animation runs on a real element, not inside
+        // a shared symbol, so WebKit plays it too)
+        return (
+          <svg key={lv.id} x={X} y={Y} width={w} height={h} viewBox={`0 0 ${p.w} ${p.h}`} overflow="hidden">
+            <g className="cg-wave" style={{ "--d": `${-((i * 0.37) % 1) * FLAG_FRAMES * 0.16}s` }}>
+              {Array.from({ length: FLAG_FRAMES }, (_, f) => <use key={f} href={`#cg-mk-flag-${f}`} x={f * p.w} y={0} width={p.w} height={p.h} />)}
+            </g>
+          </svg>
+        );
       })}
     </g>
   );
