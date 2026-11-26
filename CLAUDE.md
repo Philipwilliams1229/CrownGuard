@@ -513,7 +513,8 @@ Provisional, pending the owner's look (not yet seen in a browser by the session 
 "The separated upgrades menus (towers, heroes, castle) is confusing." `ui/WarRoom.jsx` (was
 WarCouncil.jsx) is ONE screen laid over whatever opened it (render it outside any `<Fit>`), with tabs
 CASTLE / TOWERS / HEROES. It ALWAYS opens on CASTLE (owner: no guessing what the player wants). A tab with
-something affordable wears a slow gold rim glow (`cgRimGlow`; `castleCan` / `towersCan` / `heroesCan`).
+something affordable wears a slow gold rim glow (`cgRimGlow`; `castleCan` / `towersCan` / `heroesCan`), and gold
+means ONLY that (owner, 2026-11-26): the open tab is a lighter slate with a cream underline (`PICKED`), no gold.
 The header shows the tab's own money (treasury gold, the towers' shared stars, the shown hero's stars)
 and every tab's REFUND in the same spot, two taps, full price back: every castle work, the tower shown,
 the hero shown (the hero sheet's Reset cell and the tree's one-tap Refund are gone). TOWERS shows each

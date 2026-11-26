@@ -81,8 +81,13 @@ const hallXp = (profile, kind) => Math.max(Math.floor(profile.towerXp?.[kind] ||
 const num = (n) => Math.floor(n).toLocaleString("en-US");
 
 // the slow gold rim on a tab with something to buy
-const GLOW_CSS = "@keyframes cgRimGlow{0%,100%{box-shadow:inset 0 0 0 2px #d8b34a,0 0 3px 1px rgba(240,210,122,.35)}50%{box-shadow:inset 0 0 0 2px #f0d27a,0 0 9px 3px rgba(240,210,122,.75)}}";
+const GLOW_CSS = "@keyframes cgRimGlow{0%,100%{box-shadow:inset 0 0 0 2px #d8b34a,0 0 3px 1px rgba(240,210,122,.35)}50%{box-shadow:inset 0 0 0 2px #f0d27a,0 0 9px 3px rgba(240,210,122,.75)}}"
+  + "@keyframes cgRimGlowOn{0%,100%{box-shadow:inset 0 -3px 0 #e8e0c8,inset 0 0 0 2px #d8b34a,0 0 3px 1px rgba(240,210,122,.35)}50%{box-shadow:inset 0 -3px 0 #e8e0c8,inset 0 0 0 2px #f0d27a,0 0 9px 3px rgba(240,210,122,.75)}}";
 const GLOW = { animation: "cgRimGlow 2.2s ease-in-out infinite" };
+const GLOW_ON = { animation: "cgRimGlowOn 2.2s ease-in-out infinite" };
+// the open tab: lighter, with a cream underline and NO gold, so gold on a tab always means
+// "something here can be bought" (owner, 2026-11-26)
+const PICKED = { background: "#4a5162", color: "#fff3d2", boxShadow: "inset 0 -3px 0 #e8e0c8" };
 
 
 
@@ -315,7 +320,7 @@ export default function WarRoom({ profile, setProfile, progress, treasury = 0, o
           title={can[id] ? "Something here can be bought" : undefined}
           style={{
             ...btn, flex: upright ? 1 : "0 0 auto", textAlign: "center", fontSize: 11, letterSpacing: 1,
-            padding: phone ? "6px 10px" : "8px 14px", minHeight: 40, ...(tab === id ? { ...ON, color: "#f0d27a" } : {}), ...(can[id] ? GLOW : {}),
+            padding: phone ? "6px 10px" : "8px 14px", minHeight: 40, ...(tab === id ? PICKED : {}), ...(can[id] ? (tab === id ? GLOW_ON : GLOW) : {}),
           }}>
           {label}
         </button>
