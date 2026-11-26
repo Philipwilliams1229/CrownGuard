@@ -1273,6 +1273,32 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **NEXT: a WebGL renderer behind a switch** (2026-11-26, owner: "the webgl sounds like the right move
+  right now"; start when the owner says, planned after their usage resets on Saturday 2026-11-28). The
+  owner asked whether the ~10 fps slowdown (see "Frame timings on the device") means moving off the web to
+  a native app. The answer given: not yet. Our own code is ~4-6 ms a frame and the slowdown was intermittent
+  and cleared by a phone restart, so it points at WebKit's own drawing, not the game. Capacitor runs the same
+  WKWebView, so the app build alone changes nothing. A native rewrite (Swift can't be built or checked in a
+  cloud container; Godot can, headless on Linux) was put at ~3-6 weeks of agent sessions for parity plus the
+  owner replaying everything, so it's held back until WebGL has been tried. The plan agreed: (1) keep the engine,
+  the bakes, UI and art untouched; hand only the final compositing to the GPU: the baked canvases become
+  textures drawn from a per-frame list, and the whole-board passes (Blood Moon shade / rake, daygrade, grade layer,
+  fog) become shaders. That's the part that should help most (the Blood Moon's three blended full-board passes are
+  the biggest pixel cost left, "A cooler phone"). (2) A Display switch, old Canvas 2D vs WebGL, so the owner can
+  feel the difference on their iPhone; must look identical (compare side by side in a lab before the owner sees it).
+  (3) It ships in the Capacitor app unchanged (WebGL2 is on iOS 17+). (4) Only if it still stutters, talk about Godot
+  again; WebGL's texture + draw list and shaders carry over to it. Estimated a few days. Explain things to the owner
+  in plain words, no jargon (the owner asked for that).
+  **The first `slow` report came in the same day and points elsewhere** (home-screen app, Ravenscar wave 24,
+  25 min after launch): 19 fps with 18.9 ms of OUR code a frame (draw 17.4: actors 10.5, castle 4.7), against
+  2.5 ms / castle 0.3 in the same build's normal samples, with only 45 foes and 13 halls. The castle's work hardly
+  changes, so a 15x jump means the phone was doing the same work much slower. And `audioLeft` was 23,174 (normal
+  samples 339-426): sound nodes made but never unplugged. tidy.js only unplugs once a source fires "ended", and a
+  stuck AudioContext (suspended / interrupted; an earlier launch that day logged "Failed to start the audio
+  device") freezes currentTime, so every effect built while it's stuck never ends and piles up (muting doesn't
+  help: it zeroes the gain but still builds nodes). Suspect #1, to fix BEFORE WebGL: build no sound while
+  `ctx.state !== "running"`, cap the nodes waiting to be unplugged, rebuild a context that stays stuck; then
+  watch `audioLeft` in the next reports. WebGL stays the plan if slow reports keep coming with audioLeft low.
 - **A new name for the game** (2026-11-26, owner: "I still don't like crownguard"; "we'll come back to
   this"). Ruled out: Siegebreaker / Siege Breaker(s) / Siege Break (a 2024 tower defense on Steam is
   "Siegebreaker"; Halfbrick's iOS "Siege Breakers"; a "Siege Break" app; several more). The owner turned
