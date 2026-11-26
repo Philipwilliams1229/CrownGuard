@@ -119,23 +119,44 @@ function WaypointStars({ lv, n }) {
   );
 }
 
-// A name scroll: parchment with curled ends, the name in ink.
+const OPEN_CLOTH = { cloth: "#a8505c", lt: "#c46a70", dk: "#7a3440", fold: "#3e1820", gold: "#d8b34a", ink: "#f2dc8a" };
+const SHUT_CLOTH = { cloth: "#5c5c6c", lt: "#74748a", dk: "#44444f", fold: "#2e2e38", gold: "#8a8a98", ink: "#c8c8d4" };
+const GOLDL = "#f2cf4a";
+
+// A ribbon (owner's pick, 2026-11-26): red cloth edged in gold, its two ends tucked under the band,
+// dropped a little and cut in a V. Slate cloth while sealed. `drop` / `tail` / `cut` size the ends.
+function Ribbon({ x, y, w, h, k, drop, tail, cut, edge, line = 0.8, sel }) {
+  const end = (s) => {
+    const e = s < 0 ? x : x + w, t = e + s * tail, ins = e - s * 3;   // e: the band's edge, t: the tail's tip, ins: tucked under
+    return (
+      <g>
+        <path d={`M${ins},${y + drop} L${t},${y + drop} L${t - s * cut},${y + drop + h / 2} L${t},${y + h + drop} L${ins},${y + h + drop} Z`}
+          fill={k.dk} stroke={LINE} strokeWidth={line} strokeLinejoin="round" />
+        <path d={`M${e},${y + h} L${ins},${y + h + drop} L${ins},${y + h} Z`} fill={k.fold} stroke={LINE} strokeWidth={line * 0.65} />
+      </g>
+    );
+  };
+  return (
+    <>
+      {end(-1)}{end(1)}
+      <rect x={x} y={y} width={w} height={h} fill={k.cloth} stroke={sel ? GOLDL : LINE} strokeWidth={sel ? 1.1 : line} />
+      <rect x={x + 0.7} y={y + 0.7} width={w - 1.4} height={edge} fill={k.gold} />
+      <rect x={x + 0.7} y={y + h - 0.7 - edge} width={w - 1.4} height={edge} fill={k.gold} />
+      <rect x={x + 0.7} y={y + 0.7 + edge} width={w - 1.4} height={edge} fill={k.lt} />
+    </>
+  );
+}
+
+// A level's name on a ribbon, the name in gold; one hung over its waypoint gets a tab pointing down at it.
 function Scroll({ lv, open, sel }) {
-  const b = labelBox(lv);
-  const face = open ? PARCH.face : "#9c968a", curl = open ? PARCH.dk : "#77716a";
-  // a name hung over its waypoint gets a little tab pointing down at it
+  const b = labelBox(lv), k = open ? OPEN_CLOTH : SHUT_CLOTH;
   const cx = b.x + b.w / 2, above = b.y < lv.pos[1];
   return (
     <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
-      {above && <path d={`M${cx - 2.6},${b.y + b.h - 0.4} h5.2 l-2.6,2.8 z`} fill={sel ? "#f2cf4a" : face} stroke={LINE} strokeWidth="0.7" />}
-      <rect x={b.x - 1.6} y={b.y + 1.6} width={2.6} height={b.h - 1.2} fill={curl} stroke={LINE} strokeWidth="0.6" />
-      <rect x={b.x + b.w - 1} y={b.y + 1.6} width={2.6} height={b.h - 1.2} fill={curl} stroke={LINE} strokeWidth="0.6" />
-      <rect x={b.x} y={b.y} width={b.w} height={b.h} fill={face} stroke={sel ? "#f2cf4a" : LINE} strokeWidth={sel ? 1.1 : 0.7} />
-      <rect x={b.x + 0.6} y={b.y + 0.6} width={b.w - 1.2} height={0.8} fill={open ? PARCH.lt : "#aca698"} />
-      <text x={b.x + b.w / 2} y={b.y + b.h / 2 + LABEL_FONT * 0.36} textAnchor="middle"
-        fontSize={LABEL_FONT} fontWeight="bold" fontFamily={MAP_FONT} fill={open ? PARCH.ink : "#46424c"}>
-        {lv.short || lv.name}
-      </text>
+      {above && <path d={`M${cx - 2.6},${b.y + b.h - 0.4} h5.2 l-2.6,${2.8 + 2.4} z`} fill={sel ? GOLDL : k.dk} stroke={LINE} strokeWidth="0.7" />}
+      <Ribbon x={b.x} y={b.y} w={b.w} h={b.h} k={k} drop={2.4} tail={5.5} cut={2.2} edge={0.7} line={0.7} sel={sel} />
+      <text x={cx} y={b.y + b.h / 2 + LABEL_FONT * 0.36} textAnchor="middle" fontSize={LABEL_FONT} fontWeight="bold" fontFamily={MAP_FONT}
+        fill={k.ink} stroke={LINE} strokeWidth="1.3" paintOrder="stroke">{lv.short || lv.name}</text>
     </g>
   );
 }
@@ -144,20 +165,12 @@ function Scroll({ lv, open, sel }) {
 function Banner({ ch, open }) {
   const [cx, cy] = BANNER_AT[ch.id];
   const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
-  const w = text.length * 5.6 + 14, h = 11, x = cx - w / 2, y = cy - h / 2;
-  const cloth = open ? "#a8505c" : "#5c5c6c", dk = open ? "#7a3440" : "#44444f", lt = open ? "#c46a70" : "#74748a";
+  const w = text.length * 5.6 + 12, h = 12, k = open ? OPEN_CLOTH : SHUT_CLOTH;
   return (
     <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
-      {/* the swallow tails, tucked behind */}
-      <path d={`M${x - 8},${y + 3} h10 v${h} h-10 l3,${-h / 2} z`} fill={dk} stroke={LINE} strokeWidth="0.8" />
-      <path d={`M${x + w + 8},${y + 3} h-10 v${h} h10 l-3,${-h / 2} z`} fill={dk} stroke={LINE} strokeWidth="0.8" />
-      <rect x={x} y={y} width={w} height={h} fill={cloth} stroke={LINE} strokeWidth="0.9" />
-      <rect x={x + 0.8} y={y + 0.8} width={w - 1.6} height={1.2} fill={lt} />
-      <rect x={x + 0.8} y={y + h - 2} width={w - 1.6} height={1.2} fill={dk} />
+      <Ribbon x={cx - w / 2} y={cy - h / 2} w={w} h={h} k={k} drop={4} tail={15} cut={4} edge={0.9} line={0.9} />
       <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
-        fill={open ? "#f2dc8a" : "#c8c8d4"} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">
-        {text}
-      </text>
+        fill={k.ink} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">{text}</text>
     </g>
   );
 }
