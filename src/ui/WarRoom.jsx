@@ -33,7 +33,7 @@
 // node — it turns gold and its foot reads "TAP AGAIN · SPEND n★" — and the
 // second tap on it buys. A tap anywhere else, or 3 seconds, disarms it.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   SKILLS, RANKS, nodeUnlocked, spentOn, treeCost, rankOf as nodeRank,
   nextCost, isMaxed, modSummary,
@@ -85,6 +85,15 @@ const GLOW_CSS = "@keyframes cgRimGlow{0%,100%{box-shadow:inset 0 0 0 2px #d8b34
   + "@keyframes cgRimGlowOn{0%,100%{box-shadow:inset 0 -3px 0 #e8e0c8,inset 0 0 0 2px #d8b34a,0 0 3px 1px rgba(240,210,122,.35)}50%{box-shadow:inset 0 -3px 0 #e8e0c8,inset 0 0 0 2px #f0d27a,0 0 9px 3px rgba(240,210,122,.75)}}";
 const GLOW = { animation: "cgRimGlow 2.2s ease-in-out infinite" };
 const GLOW_ON = { animation: "cgRimGlowOn 2.2s ease-in-out infinite" };
+
+// The glow is a NOTIFICATION (owner, 2026-11-26): a tab looked at and left (another tab, or the room
+// closed) goes quiet, and lights again only once there is MORE of its money than when it was last
+// looked at. Each tab remembers that amount (the purse when it was left, lowered whenever the purse
+// falls, so spending never lights it but the next earning does). Kept with the save file.
+const SEEN_KEY = "crownguard.warroom.v1";
+const loadSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY)) || {}; } catch { return {}; } };
+const saveSeen = (s) => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(s)); } catch { /* private mode */ } };
+const heroValor = (profile) => HERO_KEYS.reduce((n, k) => n + heroRecord(profile, k).points, 0);
 // the open tab: lighter, with a cream underline and NO gold, so gold on a tab always means
 // "something here can be bought" (owner, 2026-11-26)
 const PICKED = { background: "#4a5162", color: "#fff3d2", boxShadow: "inset 0 -3px 0 #e8e0c8" };
@@ -230,10 +239,11 @@ function HallXp({ kind, profile, progress, z }) {
 
 const TABS = [["castle", "CASTLE"], ["towers", "TOWERS"], ["heroes", "HEROES"]];
 
-export default function WarRoom({ profile, setProfile, progress, treasury = 0, onBuyWork, onRefundAll, onClose }) {
+export default function WarRoom({ profile, setProfile, progress, treasury = 0, onBuyWork, onRefundAll, onClose: close }) {
   const [kind, setKind] = useState(KINDS[0]);
   const [hero, setHero] = useState(HERO_KEYS[0]);
   const [tab, setTab] = useState("castle");   // always opens on the castle (owner)
+  const [seen, setSeen] = useState(loadSeen);
   const [helpOn, setHelp] = useState(false);
   const vp = useViewport();
 
@@ -256,6 +266,16 @@ export default function WarRoom({ profile, setProfile, progress, treasury = 0, o
   const heroRec = heroRecord(profile, hero);
 
   const tiers = [1, 2, 3].map((t) => tree.nodes.filter((n) => n.tier === t));
+
+  // a tab left goes quiet until its money grows past what it held then; a falling purse lowers the mark
+  const liveAmt = { castle: Math.floor(treasury), towers: free, heroes: heroValor(profile) };
+  const leave = (id) => setSeen((sn) => { const nx = { ...sn, [id]: liveAmt[id] }; saveSeen(nx); return nx; });
+  const onClose = () => { leave(tab); close?.(); };
+  useEffect(() => {
+    const low = Object.keys(liveAmt).filter((k) => seen[k] != null && liveAmt[k] < seen[k]);
+    if (!low.length) return;
+    setSeen((sn) => { const nx = { ...sn }; for (const k of low) nx[k] = liveAmt[k]; saveSeen(nx); return nx; });
+  }, [liveAmt.castle, liveAmt.towers, liveAmt.heroes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // two taps to spend: the first arms the node, the second buys
   const arm = useArm();
@@ -311,16 +331,19 @@ export default function WarRoom({ profile, setProfile, progress, treasury = 0, o
       </span>
     </button>
   );
+  const tabW = big ? 150 : phone ? 96 : 120;   // wider tabs (owner, 2026-11-26)
   const can = { castle: castleCan(treasury), towers: towersCan(profile), heroes: heroesCan(profile) };
+  // what each tab holds now, and the glow only while there is more than when it was last left
+  const glows = Object.fromEntries(TABS.map(([id]) => [id, can[id] && liveAmt[id] > (seen[id] ?? -1)]));
   const tabs = (
     <div style={{ display: "flex", gap: 6, flexShrink: 0, ...(upright ? { width: "100%" } : {}) }}>
       <style>{GLOW_CSS}</style>
       {TABS.map(([id, label]) => (
-        <button key={id} onClick={() => { setTab(id); setHelp(false); arm.clear(); }} aria-pressed={tab === id}
-          title={can[id] ? "Something here can be bought" : undefined}
+        <button key={id} onClick={() => { if (id !== tab) leave(tab); setTab(id); setHelp(false); arm.clear(); }} aria-pressed={tab === id}
+          title={glows[id] ? "Something here can be bought" : undefined}
           style={{
-            ...btn, flex: upright ? 1 : "0 0 auto", textAlign: "center", fontSize: 11, letterSpacing: 1,
-            padding: phone ? "6px 10px" : "8px 14px", minHeight: 40, ...(tab === id ? PICKED : {}), ...(can[id] ? (tab === id ? GLOW_ON : GLOW) : {}),
+            ...btn, flex: upright ? 1 : "0 0 auto", width: upright ? "auto" : tabW, textAlign: "center", fontSize: phone ? 11 : 12, letterSpacing: 1,
+            padding: phone ? "6px 8px" : "8px 14px", minHeight: 40, ...(tab === id ? PICKED : {}), ...(glows[id] ? (tab === id ? GLOW_ON : GLOW) : {}),
           }}>
           {label}
         </button>
@@ -449,13 +472,11 @@ export default function WarRoom({ profile, setProfile, progress, treasury = 0, o
             {tabs}
           </>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: phone ? 10 : 14, flexShrink: 0 }}>
-            {backBtn}
-            {heading}
+          // the tabs sit in the middle of the screen, the back and title to their left, the purse and refund to their right
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: phone ? 8 : 14, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: phone ? 8 : 14, minWidth: 0 }}>{backBtn}{heading}</div>
             {tabs}
-            <div style={{ flex: 1 }} />
-            {purse}
-            {refund}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: phone ? 8 : 14, minWidth: 0 }}>{purse}{refund}</div>
           </div>
         )}
 

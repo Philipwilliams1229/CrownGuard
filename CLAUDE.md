@@ -515,6 +515,11 @@ WarCouncil.jsx) is ONE screen laid over whatever opened it (render it outside an
 CASTLE / TOWERS / HEROES. It ALWAYS opens on CASTLE (owner: no guessing what the player wants). A tab with
 something affordable wears a slow gold rim glow (`cgRimGlow`; `castleCan` / `towersCan` / `heroesCan`), and gold
 means ONLY that (owner, 2026-11-26): the open tab is a lighter slate with a cream underline (`PICKED`), no gold.
+The glow is a NOTIFICATION (owner, 2026-11-26): a tab looked at and LEFT (another tab, or the room closed)
+goes quiet, and lights again only when its money (treasury / free tower stars / all heroes' valor) is above
+what it held when last left; the mark falls with the purse, so spending never relights it and the next
+earning does. `crownguard.warroom.v1` (per save file). The tabs are wider (`tabW`) and centred on the
+screen (a 1fr | auto | 1fr header).
 The header shows the tab's own money (treasury gold, the towers' shared stars, the shown hero's stars)
 and every tab's REFUND in the same spot, two taps, full price back: every castle work, the tower shown,
 the hero shown (the hero sheet's Reset cell and the tree's one-tap Refund are gone). TOWERS shows each
