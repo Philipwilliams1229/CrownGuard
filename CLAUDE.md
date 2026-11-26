@@ -1272,6 +1272,14 @@ The live backlog; KICKOFF.md's old list is all built. Add new wishes here, dated
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **A new name for the game** (2026-11-26, owner: "I still don't like crownguard"; "we'll come back to
+  this"). Ruled out: Siegebreaker / Siege Breaker(s) / Siege Break (a 2024 tower defense on Steam is
+  "Siegebreaker"; Halfbrick's iOS "Siege Breakers"; a "Siege Break" app; several more). The owner turned
+  down long lists of castle compounds (Marchward, Gatehold...), castle words (Portcullis, Barbican...)
+  and "<world> Defense" names. Closest so far: The Best Defense (liked the saying "the best defense is a
+  good offense", then "eh" on variations), Sally Port, Sortie!, Gatecrashers. Not done: mock the title
+  screen with 3-4 names in the game's lettering; check the pick on the App Store, Steam, Google Play and
+  the USPTO (a name is trademark, not copyright). Only the shown name changes: never the appId.
 - **Fire and frost don't mix** (owner's idea, 2026-11-21, "for future, hidden mechanics"): NOT built.
   Today a burn and a slow stack freely on one foe (neither clears the other). Possible rules to put to
   them: a burn thaws a slow (or a freeze) and a chill puts a burn out early, or the second one cancels
