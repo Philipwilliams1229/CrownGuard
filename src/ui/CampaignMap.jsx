@@ -40,6 +40,7 @@ import { sunFor, SUN_POS } from "../data/sun.js";
 import { weatherFor } from "../data/weather-plan.js";
 import { Star } from "./Glyphs.jsx";
 import { starPixels } from "./starArt.js";
+import { flagPixels, shieldPixels, FLAG_FRAMES } from "./markerArt.js";
 import { MAX_STARS } from "../data/profile.js";
 import { FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
@@ -122,6 +123,60 @@ function WaypointStars({ lv, n }) {
 const OPEN_CLOTH = { cloth: "#a8505c", lt: "#c46a70", dk: "#7a3440", fold: "#3e1820", gold: "#d8b34a", ink: "#f2dc8a" };
 const SHUT_CLOTH = { cloth: "#5c5c6c", lt: "#74748a", dk: "#44444f", fold: "#2e2e38", gold: "#8a8a98", ink: "#c8c8d4" };
 const GOLDL = "#f2cf4a";
+
+// The waypoint markers, sculpted (markerArt.js) and drawn crisp here: a won level's flag, a shield
+// on a post for one still to fight. Trial looks 1-3 behind ?maplook= (the map canvas skips its own).
+const MARKLOOK = (typeof location !== "undefined" && Number(new URLSearchParams(location.search).get("maplook"))) || 0;
+const symRects = (pix) => {
+  const rects = [];
+  pix.px.forEach((row, y) => {
+    for (let x = 0; x < row.length;) {
+      const col = row[x];
+      if (!col) { x++; continue; }
+      let x2 = x + 1;
+      while (x2 < row.length && row[x2] === col) x2++;
+      rects.push(<rect key={`${x}.${y}`} x={x} y={y} width={x2 - x} height={1} fill={col} />);
+      x = x2;
+    }
+  });
+  return rects;
+};
+const SHIELD_KINDS = ["open", "boss", "shut", "bossShut"];
+const WAVING = MARKLOOK === 2;
+function MarkerSymbols() {
+  if (!MARKLOOK) return null;
+  const flags = WAVING ? Array.from({ length: FLAG_FRAMES }, (_, f) => flagPixels(2, f)) : [flagPixels(MARKLOOK, 0)];
+  const fp = flags[0];
+  return (
+    <defs>
+      <style>{`@keyframes cgWave { from { transform: translateX(0); } to { transform: translateX(-${FLAG_FRAMES * fp.w}px); } }
+        .cg-wave { animation: cgWave ${FLAG_FRAMES * 0.16}s steps(${FLAG_FRAMES}) infinite; animation-delay: var(--d, 0s); }`}</style>
+      <symbol id="cg-mk-flag" viewBox={`0 0 ${fp.w} ${fp.h}`} overflow="hidden">
+        <g className={WAVING ? "cg-wave" : undefined}>
+          {flags.map((p, f) => <g key={f} transform={`translate(${f * fp.w} 0)`}>{symRects(p)}</g>)}
+        </g>
+      </symbol>
+      {SHIELD_KINDS.map((k) => { const p = shieldPixels(MARKLOOK, k); return <symbol key={k} id={`cg-mk-${k}`} viewBox={`0 0 ${p.w} ${p.h}`}>{symRects(p)}</symbol>; })}
+    </defs>
+  );
+}
+function WaypointMarkers({ progress }) {
+  if (!MARKLOOK) return null;
+  const order = [...PLACED].sort((a, b) => a.pos[1] - b.pos[1]);
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      {order.map((lv, i) => {
+        const won = !!progress.cleared[lv.id], open = isUnlocked(lv.id, progress);
+        const boss = lv.index === lv.chapter.levels.length - 1;
+        const kind = won ? "flag" : boss ? (open ? "boss" : "bossShut") : open ? "open" : "shut";
+        const p = won ? flagPixels(MARKLOOK, 0) : shieldPixels(MARKLOOK, kind);
+        const [x, y] = lv.pos;
+        return <use key={lv.id} href={`#cg-mk-${kind}`} x={x - p.ax / p.sc} y={y - p.ay / p.sc} width={p.w / p.sc} height={p.h / p.sc}
+          style={won && WAVING ? { "--d": `${-((i * 0.37) % 1) * FLAG_FRAMES * 0.16}s` } : undefined} />;
+      })}
+    </g>
+  );
+}
 
 // A ribbon (owner's pick, 2026-11-26): red cloth edged in gold, its two ends tucked under the band,
 // dropped a little and cut in a V. Slate cloth while sealed. `drop` / `tail` / `cut` size the ends.
@@ -479,6 +534,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
           <svg viewBox={`${MAP.x} ${MAP.y} ${MAP.w} ${MAP.h}`} preserveAspectRatio="none"
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: painted ? 1 : 0 }}>
             <StarSymbols />
+            <MarkerSymbols />
             {CHAPTERS.map((ch) => <Banner key={ch.id} ch={ch} open={isUnlocked(ch.levels[0].id, progress)} />)}
 
             {/* will-o'-wisps drifting over the fen, once the war gets there */}
@@ -493,6 +549,8 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
                 </rect>
               </g>
             ))}
+
+            <WaypointMarkers progress={progress} />
 
             {/* the front line: rings spreading out from the next fight, and
                 a gold chevron bobbing over it */}
