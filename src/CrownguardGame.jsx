@@ -2047,7 +2047,7 @@ export default function Crownguard() {
                       <div className="cg-num" style={{ fontSize: 12, lineHeight: 1.4, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>
                         +{award.xp} XP
                         {award.newStars > 0
-                          ? ` · +${award.newStars} star${award.newStars > 1 ? "s" : ""} banked`
+                          ? ` · +${award.newStars} star${award.newStars > 1 ? "s" : ""} earned`
                           : ""}
                       </div>
                       {award.newStars === 0 && <div style={{ fontSize: 10.5, color: "var(--muted)" }}>No new stars — you'd already done better here.</div>}
