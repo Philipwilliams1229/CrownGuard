@@ -643,6 +643,7 @@ windows and lanterns and the bridges' lamps glow through it (blooms at `FOG_LAMP
 pools at `FOG_POOL` 0.45 of that, laid over the fog), each lamp dimmed where the picture behind it is
 already bright (owner: lanterns in the golden hour's glow burned white; `sampleLum` shrinks the board's canvas
 to 160 px wide and reads it back every 0.4 s, `lampWeight`: full up to luminance `LUM_LO` 0.6, 0.3 at `LUM_HI` 0.72). The moon's eyes still read `nightOn`.
+**No extra fog over water** (owner, 2026-11-26: a pale band along a river "looks broken"): weatherfx.js `landAt` no longer thickens the fog over rivers, ponds, lakes or the sea; only the wood does.
 `fog-lab.html?realm=&sun=&ks=1,0.5&towers=&box=` holds the fog at any thickness (wx-lab can't). The painter's sun reads `w.thick` (0..1 from floor to
 peak), so a Mild fog opens thinner, never as if lifting. The forecast says Thick fog / Fog
 lifting / Clear from where the level will stand at that wave.

@@ -106,8 +106,8 @@ const stepped = (F, tw, th, lo, hi, al, cols, wrap, floor = 0) => {
 // ---- FOG -------------------------------------------------------------------
 // Two fields: the BANKS (periodic both ways, drifting: their cells divide the
 // board, so beyond it, on a tall screen, they tile on with no seam) and the
-// LIE OF THE LAND (static: thick over the wood, the water and the hollows by
-// it). The banks are baked thick and patchy, so as the sun burns it off they
+// LIE OF THE LAND (static: thick over the wood; the water gets no more than
+// the land round it). The banks are baked thick and patchy, so as the sun burns it off they
 // break into patches. bakeFogWide is the land again over the board and
 // FOG_WIDE units past each edge, where it eases to the edges' mean.
 const FOG_COLS = { lit: "#fbf3e0", base: "#e2e7e6", shade: "#b9c3cc", core: "#eef1ee" };
