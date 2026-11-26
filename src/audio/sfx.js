@@ -47,9 +47,25 @@ function boot() {
     master.gain.value = store.muted ? 0 : store.vol;
     master.connect(limiter(ctx)).connect(ctx.destination);
   }
-  if (ctx.state === "suspended") ctx.resume();
+  wake();
   return ctx;
 }
+
+// The context must be RUNNING before anything is built (2026-11-26, owner's iPhone: 23,174 sound nodes still
+// plugged in after 25 min and the game at 19 frames a second). iOS stops a context as "suspended" or, its own
+// word, "interrupted" (a call, Siri, another app's sound, a device that won't start: "Failed to start the audio
+// device"); its clock stands still, so nothing built then ever ends. Before, only "suspended" was ever woken and
+// sounds were built regardless. Now a stopped context is asked to wake (a second apart at most, its refusal
+// caught), and until it runs, effects are skipped, not piled up.
+let wokeAt = -1e9;
+function wake() {
+  if (!ctx || ctx.state === "running" || ctx.state === "closed") return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (now - wokeAt < 1000) return;
+  wokeAt = now;
+  try { ctx.resume()?.catch?.(() => { /* still stopped: tried again on the next sound or tap */ }); } catch { /* same */ }
+}
+const running = () => !!ctx && ctx.state === "running";
 
 const save = saveSettings;
 
@@ -82,10 +98,9 @@ function tone({ type = "square", f = 440, to = null, dur = 0.15, gain = 0.2, att
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g).connect(master);
   voices++;
-  o.onended = () => { voices--; };
   o.start(t);
   o.stop(t + dur + 0.02);
-  letGo([o, g]);   // unplugged once it has played (tidy.js: WebKit never frees a connected node)
+  letGo([o, g], () => { voices--; });   // unplugged once it has played (tidy.js: WebKit never frees a connected node)
 }
 
 // A burst of filtered noise: the game's thuds, booms and squelches.
@@ -112,10 +127,9 @@ function noise({ dur = 0.2, gain = 0.2, type = "lowpass", from = 2000, to = 300,
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   src.connect(fl).connect(g).connect(master);
   voices++;
-  src.onended = () => { voices--; };
   src.start(t, Math.random());
   src.stop(t + dur + 0.02);
-  letGo([src, fl, g]);
+  letGo([src, fl, g], () => { voices--; });
 }
 
 // A bell: a fundamental and two inharmonic partials, left to ring.
@@ -255,7 +269,7 @@ export const sfx = {
     if (HEADLESS || store.muted || effectOff(name)) return;
     const s = LIB[name];
     if (!s || (!force && !gate(name, s.ms))) return;
-    if (!boot()) return;
+    if (!boot() || !running()) return;
     s.fn();
   },
   names: () => Object.keys(LIB),
@@ -275,6 +289,8 @@ export const sfx = {
   },
   // the shared context, started if need be (music.js plays through it)
   audio() { return boot() && { ctx }; },
+  // the context's state without starting it ("none" before the first tap): the crash report keeps it
+  get state() { return ctx ? ctx.state : "none"; },
   get muted() { return store.muted; },
   setMuted(m) {
     store.muted = !!m;
