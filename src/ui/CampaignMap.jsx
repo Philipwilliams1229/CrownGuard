@@ -119,8 +119,97 @@ function WaypointStars({ lv, n }) {
   );
 }
 
+const MAPLOOK = (typeof location !== "undefined" && new URLSearchParams(location.search).get("maplook")) || "";
+const OPEN_CLOTH = { cloth: "#a8505c", lt: "#c46a70", dk: "#7a3440", ink: "#f2dc8a" }, SHUT_CLOTH = { cloth: "#5c5c6c", lt: "#74748a", dk: "#44444f", ink: "#c8c8d4" };
+const GOLDL = "#f2cf4a";
+
+// A: a cloth pennant hung from a gilded crossbar, cut to a point
+function ScrollA({ lv, open, sel }) {
+  const b = labelBox(lv), k = open ? OPEN_CLOTH : SHUT_CLOTH, cx = b.x + b.w / 2, x = b.x, y = b.y + 0.6, w = b.w, h = b.h - 0.6;
+  const pt = 2.4;
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <path d={`M${x},${y} H${x + w} V${y + h} L${cx},${y + h + pt} L${x},${y + h} Z`} fill={k.cloth} stroke={sel ? GOLDL : LINE} strokeWidth={sel ? 1.1 : 0.7} strokeLinejoin="round" />
+      <rect x={x + 0.5} y={y + 0.4} width={1.3} height={h - 0.4} fill={k.lt} />
+      <rect x={x + w - 1.8} y={y + 0.4} width={1.3} height={h - 0.4} fill={k.dk} />
+      <path d={`M${x + 0.6},${y + h - 1.1} L${cx},${y + h + pt - 1.5} L${x + w - 0.6},${y + h - 1.1}`} fill="none" stroke={open ? "#d8b34a" : "#8a8a98"} strokeWidth="0.7" />
+      <rect x={x - 2.4} y={y - 1.8} width={w + 4.8} height={1.6} fill={open ? "#6b4a2e" : "#4a4450"} stroke={LINE} strokeWidth="0.5" />
+      <rect x={x - 3.4} y={y - 2.2} width={1.8} height={2.4} fill={open ? "#e8c65a" : "#8a8690"} stroke={LINE} strokeWidth="0.4" />
+      <rect x={x + w + 1.6} y={y - 2.2} width={1.8} height={2.4} fill={open ? "#e8c65a" : "#8a8690"} stroke={LINE} strokeWidth="0.4" />
+      <text x={cx} y={y + h / 2 + LABEL_FONT * 0.36} textAnchor="middle" fontSize={LABEL_FONT} fontWeight="bold" fontFamily={MAP_FONT}
+        fill={k.ink} stroke={LINE} strokeWidth="1.3" paintOrder="stroke">{lv.short || lv.name}</text>
+    </g>
+  );
+}
+// B: a painted oak signboard with iron bands and nails
+function ScrollB({ lv, open, sel }) {
+  const b = labelBox(lv), x = b.x - 1, w = b.w + 2, y = b.y, h = b.h, cx = x + w / 2, above = b.y < lv.pos[1];
+  const wood = open ? ["#5e3a1e", "#74482a", "#8a5a32", "#a8743e", "#c8945a"] : ["#4a4644", "#5a5652", "#6e6a64", "#828078", "#9a968e"];
+  const c = 1;
+  const seed = (lv.short || lv.name).length;
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      {above && <path d={`M${cx - 1.6},${y + h} h3.2 l-1.6,2.6 z`} fill={wood[1]} stroke={LINE} strokeWidth="0.6" />}
+      <path d={`M${x + c},${y} H${x + w - c} L${x + w},${y + c} V${y + h - c} L${x + w - c},${y + h} H${x + c} L${x},${y + h - c} V${y + c} Z`} fill={wood[2]} stroke={sel ? GOLDL : LINE} strokeWidth={sel ? 1.1 : 0.7} />
+      <rect x={x + 1} y={y + 0.5} width={w - 2} height={0.9} fill={wood[3]} />
+      <rect x={x + 1} y={y + h - 1.4} width={w - 2} height={0.9} fill={wood[0]} />
+      <rect x={x + 3 + (seed % 4)} y={y + 3.2} width={w * 0.35} height={0.5} fill={wood[1]} />
+      <rect x={x + w * 0.55} y={y + 6.6} width={w * 0.3} height={0.5} fill={wood[1]} />
+      <rect x={x + w * 0.3} y={y + 5} width={w * 0.18} height={0.5} fill={wood[3]} />
+      {[x + 0.6, x + w - 2.2].map((ix) => (
+        <g key={ix}>
+          <rect x={ix} y={y + 0.4} width={1.6} height={h - 0.8} fill={open ? "#3e3846" : "#34323a"} />
+          <rect x={ix + 0.5} y={y + 1.6} width={0.7} height={0.7} fill="#a8a4b0" />
+          <rect x={ix + 0.5} y={y + h - 2.3} width={0.7} height={0.7} fill="#a8a4b0" />
+        </g>
+      ))}
+      <text x={cx} y={y + h / 2 + LABEL_FONT * 0.36} textAnchor="middle" fontSize={LABEL_FONT} fontWeight="bold" fontFamily={MAP_FONT}
+        fill={open ? "#f6e6bc" : "#c4c0b8"} stroke={open ? "#3a2210" : "#2a2830"} strokeWidth="1.2" paintOrder="stroke">{lv.short || lv.name}</text>
+    </g>
+  );
+}
+// C: a parchment scroll with rolled ends and a shadow; a won level carries a red wax seal
+function ScrollC({ lv, open, sel, won }) {
+  const b = labelBox(lv), x = b.x, y = b.y, w = b.w, h = b.h, cx = x + w / 2, above = b.y < lv.pos[1];
+  const face = open ? PARCH.face : "#9c968a", lt = open ? PARCH.lt : "#aca698", dk = open ? PARCH.dk : "#77716a", deep = open ? "#a08850" : "#5e5952";
+  const roll = (rx) => (
+    <g>
+      <rect x={rx} y={y - 1.3} width={3} height={h + 2.6} rx={1} fill={face} stroke={LINE} strokeWidth="0.6" />
+      <rect x={rx + 0.5} y={y - 0.6} width={0.8} height={h + 1.2} fill={lt} />
+      <rect x={rx + 1.9} y={y - 0.6} width={0.7} height={h + 1.2} fill={dk} />
+      <rect x={rx + 1.1} y={y - 1.1} width={0.9} height={0.9} fill={deep} />
+      <rect x={rx + 1.1} y={y + h + 0.2} width={0.9} height={0.9} fill={deep} />
+    </g>
+  );
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <rect x={x - 1.4} y={y + 1.6} width={w + 3.6} height={h + 0.8} fill="#241a26" opacity="0.28" />
+      {above && <path d={`M${cx - 2.2},${y + h - 0.4} h4.4 l-2.2,2.6 z`} fill={sel ? GOLDL : face} stroke={LINE} strokeWidth="0.6" />}
+      <rect x={x} y={y} width={w} height={h} fill={face} stroke={sel ? GOLDL : LINE} strokeWidth={sel ? 1.1 : 0.7} />
+      <rect x={x + 1.4} y={y + 0.7} width={w - 2.8} height={0.7} fill={lt} />
+      <rect x={x + 1.4} y={y + h - 1.4} width={w - 2.8} height={0.7} fill={dk} />
+      {roll(x - 2.2)}{roll(x + w - 0.8)}
+      <text x={cx} y={y + h / 2 + LABEL_FONT * 0.36} textAnchor="middle" fontSize={LABEL_FONT} fontWeight="bold" fontFamily={MAP_FONT}
+        fill={open ? PARCH.ink : "#46424c"}>{lv.short || lv.name}</text>
+      {won && (
+        <g>
+          <path d={`M${x - 0.9},${y + h + 1} l-0.9,3 l1.5,-0.8 l0.6,1.4 z`} fill="#7a2a2a" stroke={LINE} strokeWidth="0.4" />
+          <circle cx={x + 0.7} cy={y + h + 0.6} r={2.1} fill="#a83a3a" stroke={LINE} strokeWidth="0.5" shapeRendering="auto" />
+          <rect x={x - 0.1} y={y + h - 0.4} width={0.9} height={0.9} fill="#d06a5a" />
+        </g>
+      )}
+    </g>
+  );
+}
+
 // A name scroll: parchment with curled ends, the name in ink.
-function Scroll({ lv, open, sel }) {
+function Scroll(props) {
+  if (MAPLOOK === "a") return <ScrollA {...props} />;
+  if (MAPLOOK === "b") return <ScrollB {...props} />;
+  if (MAPLOOK === "c") return <ScrollC {...props} />;
+  return <ScrollToday {...props} />;
+}
+function ScrollToday({ lv, open, sel }) {
   const b = labelBox(lv);
   const face = open ? PARCH.face : "#9c968a", curl = open ? PARCH.dk : "#77716a";
   // a name hung over its waypoint gets a little tab pointing down at it
@@ -140,8 +229,96 @@ function Scroll({ lv, open, sel }) {
   );
 }
 
+// A: a folded ribbon, gold-edged, its ends tucked under and cut
+function BannerA({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
+  const w = text.length * 5.6 + 12, h = 12, x = cx - w / 2, y = cy - h / 2;
+  const k = open ? OPEN_CLOTH : SHUT_CLOTH, gold = open ? "#d8b34a" : "#8a8a98";
+  const end = (s) => {
+    const e = s < 0 ? x : x + w, t = e + s * 15, ins = e - s * 3;   // e: the band's edge, t: the tail's tip, ins: tucked under
+    return (
+      <g>
+        <path d={`M${ins},${y + 4} L${t},${y + 4} L${t - s * 4},${y + 4 + h / 2} L${t},${y + h + 4} L${ins},${y + h + 4} Z`} fill={k.dk} stroke={LINE} strokeWidth="0.8" strokeLinejoin="round" />
+        <path d={`M${e},${y + h} L${ins},${y + h + 4} L${ins},${y + h} Z`} fill="#3e1820" stroke={LINE} strokeWidth="0.5" />
+      </g>
+    );
+  };
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      {end(-1)}{end(1)}
+      <rect x={x} y={y} width={w} height={h} fill={k.cloth} stroke={LINE} strokeWidth="0.9" />
+      <rect x={x + 0.8} y={y + 0.8} width={w - 1.6} height={0.9} fill={gold} />
+      <rect x={x + 0.8} y={y + h - 1.7} width={w - 1.6} height={0.9} fill={gold} />
+      <rect x={x + 0.8} y={y + 1.7} width={w - 1.6} height={1} fill={k.lt} />
+      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
+        fill={k.ink} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">{text}</text>
+    </g>
+  );
+}
+// B: a carved board with iron corners, gilt letters
+function BannerB({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
+  const w = text.length * 5.6 + 20, h = 14, x = cx - w / 2, y = cy - h / 2;
+  const wood = open ? ["#4e2e16", "#6a4224", "#7e522c", "#9a6a3a"] : ["#3e3a3a", "#4e4a48", "#5e5a56", "#76726a"];
+  const iron = open ? "#3a3440" : "#2e2c34";
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <rect x={x + 1.2} y={y + 1.6} width={w} height={h} fill="#241a26" opacity="0.3" />
+      <rect x={x} y={y} width={w} height={h} fill={wood[2]} stroke={LINE} strokeWidth="0.9" />
+      <rect x={x + 0.8} y={y + 0.8} width={w - 1.6} height={1} fill={wood[3]} />
+      <rect x={x + 0.8} y={y + h - 1.8} width={w - 1.6} height={1} fill={wood[0]} />
+      <rect x={x + 6} y={y + 4.6} width={w * 0.3} height={0.5} fill={wood[1]} />
+      <rect x={x + w * 0.62} y={y + 9.4} width={w * 0.28} height={0.5} fill={wood[1]} />
+      {[[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]].map(([px, py, sx, sy], i) => (
+        <g key={i}>
+          <path d={`M${px},${py} h${sx * 5} v${sy * 1.6} h${-sx * 3.4} v${sy * 3.4} h${-sx * 1.6} z`} fill={iron} stroke={LINE} strokeWidth="0.4" />
+          <rect x={px + sx * 1.2 - (sx < 0 ? 0.7 : 0)} y={py + sy * 1.2 - (sy < 0 ? 0.7 : 0)} width={0.7} height={0.7} fill="#a8a4b0" />
+        </g>
+      ))}
+      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
+        fill={open ? "#f2cf4a" : "#c8c8d4"} stroke="#2a160a" strokeWidth="1.6" paintOrder="stroke">{text}</text>
+    </g>
+  );
+}
+// C: a broad scroll, rolled at both ends, ink capitals, a wax seal
+function BannerC({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
+  const w = text.length * 5.6 + 14, h = 13, x = cx - w / 2, y = cy - h / 2;
+  const face = open ? PARCH.face : "#9c968a", lt = open ? PARCH.lt : "#aca698", dk = open ? PARCH.dk : "#77716a", deep = open ? "#a08850" : "#5e5952";
+  const roll = (rx) => (
+    <g>
+      <rect x={rx} y={y - 1.8} width={4} height={h + 3.6} rx={1.4} fill={face} stroke={LINE} strokeWidth="0.7" />
+      <rect x={rx + 0.6} y={y - 1} width={1} height={h + 2} fill={lt} />
+      <rect x={rx + 2.5} y={y - 1} width={1} height={h + 2} fill={dk} />
+      <rect x={rx + 1.5} y={y - 1.5} width={1} height={1} fill={deep} />
+      <rect x={rx + 1.5} y={y + h + 0.5} width={1} height={1} fill={deep} />
+    </g>
+  );
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <rect x={x - 1.6} y={y + 2.2} width={w + 4.8} height={h + 1} fill="#241a26" opacity="0.3" />
+      <rect x={x} y={y} width={w} height={h} fill={face} stroke={LINE} strokeWidth="0.8" />
+      <rect x={x + 1.6} y={y + 0.8} width={w - 3.2} height={0.8} fill={lt} />
+      <rect x={x + 1.6} y={y + h - 1.6} width={w - 3.2} height={0.8} fill={dk} />
+      <rect x={x + 2.4} y={y + 2.2} width={w - 4.8} height={h - 4.4} fill="none" stroke={open ? "#8e3a3a" : "#6a6670"} strokeWidth="0.4" />
+      {roll(x - 3)}{roll(x + w - 1)}
+      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
+        fill={open ? "#5a1e1e" : "#46424c"}>{text}</text>
+    </g>
+  );
+}
+
 // A chapter's name on a ribbon out at sea.
-function Banner({ ch, open }) {
+function Banner(props) {
+  if (MAPLOOK === "a") return <BannerA {...props} />;
+  if (MAPLOOK === "b") return <BannerB {...props} />;
+  if (MAPLOOK === "c") return <BannerC {...props} />;
+  return <BannerToday {...props} />;
+}
+function BannerToday({ ch, open }) {
   const [cx, cy] = BANNER_AT[ch.id];
   const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
   const w = text.length * 5.6 + 14, h = 11, x = cx - w / 2, y = cy - h / 2;
@@ -516,7 +693,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
 
             {/* names, for every country the war has reached */}
             {PLACED.filter((lv) => isUnlocked(lv.chapter.levels[0].id, progress)).map((lv) => (
-              <Scroll key={lv.id} lv={lv} open={isUnlocked(lv.id, progress)} sel={lv.id === selId} />
+              <Scroll key={lv.id} lv={lv} open={isUnlocked(lv.id, progress)} sel={lv.id === selId} won={!!progress.cleared[lv.id]} />
             ))}
 
             {/* the taps: every waypoint is a generous target, its name too */}
