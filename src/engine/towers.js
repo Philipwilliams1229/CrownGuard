@@ -97,6 +97,9 @@ export const aimModes = (t, st) => {
   // the Covert takes standing orders no other tower understands
   // an Open Contract guild takes ordinary orders; every other covert takes a class
   if (t.kind === "assassin") return st.openContract ? ASSASSIN_OPEN_AIM : ASSASSIN_AIM;
+  // a Log Roller rolls along its aimed bearing, never at a chosen foe: its
+  // tray shows only "Aim the Roll" (owner, 2026-11-26)
+  if (st.roller) return [];
   if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge" || t.kind === "band") return [];
   // the Powder Works' shards make "Most" mean something for both its men
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0 || t.kind === "gunpowder");

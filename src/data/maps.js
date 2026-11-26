@@ -316,8 +316,9 @@ Object.assign(REALMS, {
     20260810,
     [[1, 0.8], [1, 3.5], [4, 3.5], [4, 8], [7, 8], [7, 2], [10, 2], [10, 8], [13, 8], [13, 3], [13.7, 3]],
     { rivers: [{ pts: [[-0.5, 5.5], [5, 5.4], [10, 5.6], [15.5, 5.5]], w: 28 }], look: "overhaul", season: "summer",
-      // the toll hut by a bridge (overhaul/bridges.js bridgeBlocks)
-      blocks: [{ x: 647.5, y: 293.7, rx: 9, ry: 7 }], layout: 1 },
+      // a toll hut by every bridge (overhaul/bridges.js bridgeBlocks)
+      blocks: [{ x: 296.5, y: 360.8, rx: 9, ry: 7 }, { x: 359.5, y: 289.9, rx: 9, ry: 7 },
+        { x: 584.5, y: 368.5, rx: 9, ry: 7 }, { x: 647.5, y: 293.7, rx: 9, ry: 7 }], layout: 2 },
   ),
   thornbrook: greenwoodVariant(
     "thornbrook", "Thornbrook Ford", "THE BROOK",

@@ -11,7 +11,7 @@
 // engine never reads anything here.
 //
 //   fog        drifting banks with dithered, lit edges (the land's own field
-//              thick over the wood and the water), thinner where it drifts
+//              thick over the wood; the water no thicker than the land), thinner where it drifts
 //              over a hall, the halls' and farms' lamps lit; as it burns off it
 //              breaks into patches and warms, with shafts of morning light
 //   storm      a cooler, darker sky with cloud shadow racing over; a downpour
@@ -258,12 +258,8 @@ const landAt = (x, y) => {
   let v = 0;
   const fd = forestDepthAt(x, y);
   if (fd > -70) v = Math.max(v, Math.min(1, (fd + 70) / 100));
-  if (inRiver(x, y, 30)) v = Math.max(v, 0.78);
-  for (const p of REALM.ponds || []) {
-    const d = Math.hypot((x - p.x) / ((p.w || 40) / 2 + 30), (y - p.y) / ((p.h || 30) / 2 + 22));
-    if (d < 1) v = Math.max(v, 0.85 * (1 - d * 0.45));
-  }
-  if (COAST && inSea(x, y, 24)) v = Math.max(v, 0.62);
+  // no extra fog over rivers, ponds, lakes or the sea (owner, 2026-11-26: the band it laid along a
+  // river "looks broken"): the water takes the same fog as the meadow round it
   v *= 1 - 0.65 * clamp01((x - (W - WALL_W - 90)) / 80);   // the castle stands above it (eased, no seam)
   return v;
 };
@@ -338,7 +334,7 @@ const fog = (ctx, g, w, def) => {
   const F = fogArt(), c = wideLayer();
   if (!c) return;
   const wide = isWide();
-  // the lie of the land: thick over the wood and the water, the last to go
+  // the lie of the land: thick over the wood, the last to go
   c.globalAlpha = Math.min(1, k * 1.9);
   if (wide) c.drawImage(fogLandWide(), -B.FOG_WIDE, -B.FOG_WIDE); else c.drawImage(F.land, 0, 0);
   // the banks, drifting east on the morning air; as it burns off the thick
