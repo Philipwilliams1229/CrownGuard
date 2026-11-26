@@ -5,6 +5,7 @@
 // into a single rect, so even the biggest is a couple of dozen nodes.
 
 import { CASTLE_MARK, CASTLE_PAL } from "../castleMark.js";
+import { starPixels, starArtSize } from "../starArt.js";
 
 const PAL = {
   k: "#241a26",                                   // ink
@@ -271,30 +272,31 @@ export const InfoIcon = icon([
   ".kkkkk.",
 ]);
 
-// The campaign star: a clean five-point silhouette in ink, gold in three
-// tones lit from the upper left, and a cream glint. Unearned, it is the same
-// star as an empty slate socket.
-const STAR = [
-  "........k........",
-  ".......kYk.......",
-  "......kYYyk......",
-  "......kYYyk......",
-  ".....kYcYyyk.....",
-  "kkkkkkYYYyyykkkkk",
-  "kYYYYYYYYyyyyyyok",
-  ".kYYYYYYYyyyyyok.",
-  "..kyYYYYYyyyyok..",
-  "...kyYYYyyyyok...",
-  "...kyYYyyyyyok...",
-  "..kyYyyyoyyyyok..",
-  "..kyYyyok.kyyok..",
-  ".kyYyok...kyyook.",
-  ".kyok.......kook.",
-  ".kkk.........kkk.",
-];
-const STAR_EMPTY = { Y: "#5a4d60", y: "#463a4c", o: "#342a3a", c: "#6a5c70" };
+// The campaign star (owner, 2026-11-26: "B1 fuller"): sculpted per size by ../starArt.js, a rounded
+// gold dome lit from the upper left with a cream shine; unearned, the same star sunk into slate. Drawn a
+// step larger than its box (the outline sits inside the grid) with the overflow taken back by margins,
+// so every layout keeps the footprint the old 17 x 16 star had.
+const STAR_GROW = 1.12;
 export function StarIcon({ size = 16, lit = true, style }) {
-  return <Grid rows={STAR} size={size} pal={lit ? PAL : { ...PAL, ...STAR_EMPTY }} style={style} />;
+  const pix = starPixels(starArtSize(size * STAR_GROW), lit);
+  const rects = [];
+  pix.px.forEach((row, y) => {
+    for (let x = 0; x < row.length;) {
+      const col = row[x];
+      if (!col) { x++; continue; }
+      let x2 = x + 1;
+      while (x2 < row.length && row[x2] === col) x2++;
+      rects.push(<rect key={`${x}.${y}`} x={x} y={y} width={x2 - x} height={1} fill={col} />);
+      x = x2;
+    }
+  });
+  const S = size * STAR_GROW, m = (size - S) / 2;
+  return (
+    <svg width={S} height={S} viewBox={`0 0 ${pix.w} ${pix.h}`} aria-hidden="true"
+      style={{ shapeRendering: "crispEdges", display: "block", flexShrink: 0, margin: m, ...style }}>
+      {rects}
+    </svg>
+  );
 }
 
 // a hero's medal of valor: a red ribbon over a steel disc with a gold boss. A hero's own

@@ -534,6 +534,17 @@ the reckoning, the wipe), so the title keeps six buttons two by two (owner, 2026
 map's level card** (owner: on a phone the row hid the weather): he is changed in battle before the
 first horn (the hero's menu, "Change hero") or in the pause menu. Pending the owner's look.
 
+## The star is sculpted (2026-11-26, owner's pick "B1 fuller")
+
+The campaign star (`StarIcon`, ui/hud/icons.jsx: victory card, level card, title, War Room, save files,
+Free Play) and the map's marker stars (mapArt.js `star`) all come from ONE generator,
+`src/ui/starArt.js` `starPixels(n, lit)`: a rounded gold dome lit from the upper left, a cream shine on
+its crown, a one-pixel tinted outline; unearned, the same star sunk into slate (light turned round).
+`starArtSize` picks the art size (1 art px a CSS px on small icons, 2 on the victory card's big ones);
+StarIcon draws 1.12x its box with negative margins so layouts keep the old footprint. The map's are
+9 art px (7 read as bells), 4.9 units apart. Concepts (A bevelled, B pillowy, C thick, then B1-B3)
+were drawn from a scratch lab; A was turned down for its dead dark bottom-right point.
+
 ## Tower XP and the hall unlocks (2026-10-05, owner request)
 
 Provisional, pending the owner's playtest.

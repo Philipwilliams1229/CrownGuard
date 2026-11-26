@@ -9,6 +9,7 @@
 // that is redrawn whenever progress changes (see drawMapState).
 
 import { CHAPTERS, LEVELS as ALL_LEVELS, isUnlocked } from "../data/campaign.js";
+import { starPixels } from "./starArt.js";
 import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
 import { inkTint } from "../render/inktint.js";
@@ -3314,16 +3315,18 @@ const shield = (boss, lit) => spr(`shield${boss}${lit}`, 11 * MK, 15 * MK, (c) =
     c.fillStyle = "#3a3640"; c.fillRect(5.2, 6, 0.7, 1.4);
   }
 });
-const star = (lit) => spr(`star${lit}`, 5, 5, (c) => {
-  c.scale(1.25, 1.25);
-  const pts = [];
-  for (let k = 0; k < 10; k++) {
-    const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 0.9 : 2;
-    pts.push([2 + Math.cos(a) * r, 2.1 + Math.sin(a) * r]);
+// the campaign star under a won marker: the game's own star (../starArt.js), 9 art px across plus its
+// outline (7 read as bells), spread 4.9 apart so they never overlap; the map and the cards show one star
+const star = (lit) => {
+  const key = `star${lit}`;
+  if (!SPR.has(key)) {
+    const pix = starPixels(9, lit);
+    const cv = mk(pix.w, pix.h), c = cv.getContext("2d", RF);
+    pix.px.forEach((row, y) => row.forEach((col, x) => { if (col) { c.fillStyle = col; c.fillRect(x, y, 1, 1); } }));
+    SPR.set(key, cv);
   }
-  c.fillStyle = lit ? "#f2cf4a" : "#4a4450"; poly(c, pts); c.fill();
-  if (lit) { c.fillStyle = "#fff3d2"; c.fillRect(1.6, 1.2, 0.8, 0.8); }
-});
+  return SPR.get(key);
+};
 
 
 // The progress layer: gold over walked road, and every waypoint's marker.
@@ -3367,7 +3370,7 @@ export function drawMapState(ctx, { progress, stars = {} }) {
     else stamp(ctx, shield(boss, open), x, y, 5.5 * MK, 14.6 * MK);
     if (won) {
       const n = stars[lv.id] || 0;
-      for (let k = 0; k < MAX_STARS; k++) stamp(ctx, star(k < n), x - 11.3 + k * 4.4, y + 0.8, 0, 0);
+      for (let k = 0; k < MAX_STARS; k++) stamp(ctx, star(k < n), x - 12.3 + k * 4.9, y + 0.6, 0, 0);
     }
   }
 }
