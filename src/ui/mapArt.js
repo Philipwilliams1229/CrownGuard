@@ -3264,66 +3264,7 @@ export function terrainFor(progress) {
 // ---- waypoints ---------------------------------------------------------
 // The crown's banner, planted where a level has been won.
 const MK = 1.3;
-const MAPLOOK = (typeof location !== "undefined" && new URLSearchParams(location.search).get("maplook")) || "";
-const crownAt = (c, x, y) => {
-  c.fillStyle = "#e8c65a"; c.fillRect(x, y + 1.6, 3, 1.4);
-  c.fillRect(x, y + 0.4, 0.8, 1.2); c.fillRect(x + 1.1, y, 0.8, 1.6); c.fillRect(x + 2.2, y + 0.4, 0.8, 1.2);
-};
-const base = (c) => {
-  c.fillStyle = "#8a8474"; c.fillRect(0.6, 13.6, 5.4, 2.2);
-  c.fillStyle = "#b4ad9c"; c.fillRect(0.6, 13.6, 3, 1);
-};
-const pole = (c, top = 0.6) => {
-  c.fillStyle = "#3a2618"; c.fillRect(2.4, top, 1.6, 14 - top);
-  c.fillStyle = "#6b4a2e"; c.fillRect(2.6, top, 1.2, 14 - top);
-  c.fillStyle = "#8a6440"; c.fillRect(2.6, top, 0.5, 14 - top);
-};
-// A: a gonfalon hung from a crossbar, three tails
-const flagA = () => spr("flagA", 10 * MK, 16 * MK, (c) => {
-  c.scale(MK, MK);
-  base(c); pole(c, 1.2);
-  c.fillStyle = "#e8c65a"; c.fillRect(2.4, 0, 1.6, 1.4);
-  c.fillStyle = "#2a1c2c"; c.fillRect(3.8, 1.3, 6, 1.1);
-  c.fillStyle = "#8a6440"; c.fillRect(3.8, 1.4, 5.8, 0.8);
-  c.fillStyle = "#e8c65a"; c.fillRect(9, 1.1, 1, 1.4);
-  const cloth = [[4.1, 2.4], [9.3, 2.4], [9.3, 9.8], [8.4, 8.6], [7.55, 9.8], [6.7, 8.6], [5.85, 9.8], [5, 8.6], [4.1, 9.8]];
-  c.fillStyle = "#2a1c2c"; poly(c, cloth.map(([a, b]) => [a + (a < 6.7 ? -0.35 : 0.35), b + (b > 3 ? 0.35 : -0.35)])); c.fill();
-  c.fillStyle = "#a8505c"; poly(c, cloth); c.fill();
-  c.fillStyle = "#c46a70"; c.fillRect(4.1, 2.4, 1, 6.2);
-  c.fillStyle = "#7a3440"; c.fillRect(8.4, 2.4, 0.9, 6.2);
-  c.fillStyle = "#d8b34a"; c.fillRect(4.1, 7.3, 5.2, 0.6);
-  crownAt(c, 5.2, 3.6);
-});
-// B: a long pennant streaming from the post, gold edged
-const flagB = () => spr("flagB", 12 * MK, 16 * MK, (c) => {
-  c.scale(MK, MK);
-  base(c); pole(c, 0.8);
-  c.fillStyle = "#e8c65a"; c.fillRect(2.2, 0, 2, 1.2);
-  const pen = [[3.9, 1.2], [8, 1.8], [11.6, 3.6], [8, 5.2], [3.9, 6.6]];
-  c.fillStyle = "#2a1c2c"; poly(c, [[3.9, 0.7], [8.1, 1.3], [12.4, 3.6], [8.1, 5.7], [3.9, 7.1]]); c.fill();
-  c.fillStyle = "#d8b34a"; poly(c, pen); c.fill();
-  c.fillStyle = "#a8505c"; poly(c, [[3.9, 1.9], [8, 2.4], [10.4, 3.6], [8, 4.6], [3.9, 5.9]]); c.fill();
-  c.fillStyle = "#c46a70"; c.fillRect(3.9, 1.9, 4, 0.9);
-  c.fillStyle = "#7a3440"; c.fillRect(6.6, 4.4, 2.2, 0.6);
-  crownAt(c, 4.6, 2.5);
-});
-// C: a swallowtail standard with a gilt spear tip
-const flagC = () => spr("flagC", 11 * MK, 16 * MK, (c) => {
-  c.scale(MK, MK);
-  base(c); pole(c, 1.6);
-  c.fillStyle = "#2a1c2c"; poly(c, [[2.2, 1.8], [3.2, -0.2], [4.2, 1.8]]); c.fill();
-  c.fillStyle = "#e8c65a"; poly(c, [[2.6, 1.6], [3.2, 0.4], [3.8, 1.6]]); c.fill();
-  c.fillStyle = "#2a1c2c"; c.fillRect(2.2, 1.6, 2, 0.6);
-  const sw = [[3.9, 2], [7, 2.6], [10.6, 2], [9, 5.2], [10.6, 8.4], [7, 7.6], [3.9, 8.2]];
-  c.fillStyle = "#2a1c2c"; poly(c, sw.map(([a, b]) => [a + (a > 4 ? 0.4 : 0), b + (b < 5 ? -0.4 : 0.4)])); c.fill();
-  c.fillStyle = "#a8505c"; poly(c, sw); c.fill();
-  c.fillStyle = "#c46a70"; poly(c, [[3.9, 2], [7, 2.6], [10.6, 2], [10, 3], [7, 3.6], [3.9, 3.2]]); c.fill();
-  c.fillStyle = "#7a3440"; poly(c, [[3.9, 7.2], [7, 6.6], [10, 7.4], [10.6, 8.4], [7, 7.6], [3.9, 8.2]]); c.fill();
-  c.fillStyle = "#d8b34a"; c.fillRect(3.9, 2.6, 0.7, 5);
-  crownAt(c, 5.4, 3.8);
-});
-const flag = () => MAPLOOK === "a" ? flagA() : MAPLOOK === "b" ? flagB() : MAPLOOK === "c" ? flagC() : flagToday();
-const flagToday = () => spr("flag", 10 * MK, 16 * MK, (c) => {
+const flag = () => spr("flag", 10 * MK, 16 * MK, (c) => {
   c.scale(MK, MK);
   c.fillStyle = "#8a8474"; c.fillRect(0.6, 13.6, 5.4, 2.2);
   c.fillStyle = "#b4ad9c"; c.fillRect(0.6, 13.6, 3, 1);
