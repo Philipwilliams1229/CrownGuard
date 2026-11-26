@@ -552,10 +552,8 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
               </g>
             ))}
 
-            <WaypointMarkers progress={progress} />
-
-            {/* the front line: rings spreading out from the next fight, and
-                a gold chevron bobbing over it */}
+            {/* the front line: rings spreading out from the next fight, drawn UNDER the markers
+                so they pass behind the shield (owner, 2026-11-26), and a gold chevron bobbing over it */}
             {front && front.pos && (
               <g style={{ pointerEvents: "none" }}>
                 {[0, 0.8].map((d) => (
@@ -565,10 +563,15 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
                     <animate attributeName="opacity" values="1;0" dur="1.6s" begin={`${d}s`} repeatCount="indefinite" />
                   </ellipse>
                 ))}
-                {labelBox(front).y > front.pos[1] && <g>
-                  <animateTransform attributeName="transform" type="translate" values="0 0; 0 -2.2; 0 0" dur="0.9s" repeatCount="indefinite" />
-                  <path d={`M${front.pos[0] - 3.6},${front.pos[1] - 28} h7.2 l-3.6,4.2 z`} fill="#f2cf4a" stroke={LINE} strokeWidth="0.8" strokeLinejoin="round" />
-                </g>}
+              </g>
+            )}
+
+            <WaypointMarkers progress={progress} />
+
+            {front && front.pos && labelBox(front).y > front.pos[1] && (
+              <g style={{ pointerEvents: "none" }}>
+                <animateTransform attributeName="transform" type="translate" values="0 0; 0 -2.2; 0 0" dur="0.9s" repeatCount="indefinite" />
+                <path d={`M${front.pos[0] - 3.6},${front.pos[1] - 28} h7.2 l-3.6,4.2 z`} fill="#f2cf4a" stroke={LINE} strokeWidth="0.8" strokeLinejoin="round" />
               </g>
             )}
 
