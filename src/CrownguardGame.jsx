@@ -619,7 +619,7 @@ export default function Crownguard() {
     // the gold left in the purse goes home to the crown's treasury
     // (and the first win of the campaign's first level brings the crown's gift: data/campaign.js)
     if (won && g) {
-      const carried = Math.floor(g.gold) + Math.floor((g.run?.goldEarned || 0) * 0.15);
+      const carried = Math.floor(g.gold);
       const bonus = firstWinGift(levelId, first);
       setBanked(carried); setGift(bonus); setProgress(bankTreasury(carried + bonus));
     } else setGift(0);
@@ -2068,7 +2068,7 @@ export default function Crownguard() {
                     <div className="cg-well" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.4 }}>
                       <CoinIcon size={22} />
                       <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>{banked.toLocaleString("en-US")}</b> gold to the treasury<br />
-                        <span style={{ color: "var(--muted)" }}>what was left, and a tithe of what was earned · {(progress.treasury || 0).toLocaleString("en-US")} banked</span></span>
+                        <span style={{ color: "var(--muted)" }}>{(progress.treasury || 0).toLocaleString("en-US")} banked</span></span>
                     </div>
                   )}
                   {campaign && won && gift > 0 && (
