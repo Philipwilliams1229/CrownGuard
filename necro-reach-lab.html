@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  How far the necromancer's raise reaches (NECRO_REACH, update.js), drawn on a
+  real board beside things of known size: a Knight Hall's rally circle and a
+  level-1 Archer hall's range.
+
+    /necro-reach-lab.html?realm=thornbrook&at=0.45&reach=150&tag=x
+  Saved to .shots/necroreach_<tag>.png (whole board) and _<tag>_crop.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>necro reach</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP, RALLY_RANGE } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame, spawnAt } from "/src/engine/update.js";
+      import { placeTower, buildableAt } from "/src/engine/actions.js";
+      import { TOWERS } from "/src/data/towers.js";
+      import { draw } from "/src/render/draw.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", AT = Number(q.get("at")) || 0.45, REACH = Number(q.get("reach")) || 150, SC = 2;
+      selectRealm(q.get("realm") || "thornbrook");
+      selectFaction("greenwood");
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: 1, freeplay: true, phase: "combat",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      const spotNear = (d, kind, side) => {
+        const [rx, ry] = posAt(d), a = angleAt(d);
+        for (let r = 40; r < 110; r += 3) for (const s of [side, -side]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kind)) return [x, y];
+        }
+        return null;
+      };
+      const d0 = AT * TOTAL_LEN;
+      const ks = spotNear(d0 + 40, "knight", 1); placeTower(g, "knight", ks[0], ks[1]);
+      const as = spotNear(d0 - 200, "archer", -1); placeTower(g, "archer", as[0], as[1]);
+      for (const t of g.towers) { t.readyAt = 0; t.raised = null; }
+      spawnAt(g, "necro", 1, d0 - 60, 0);
+      for (const e of g.enemies) { e.hp = e.maxHp = 1e6; e.speed = 0; }
+      for (let i = 0; i < 60; i++) updateGame(g, 1 / 60);
+      const necro = g.enemies.find((e) => e.type === "necro");
+      const cv = document.createElement("canvas"); cv.width = W * SC; cv.height = H * SC;
+      draw(g, cv, { current: null });
+      const c = cv.getContext("2d"); c.setTransform(SC, 0, 0, SC, 0, 0);
+      const ring = (x, y, r, col, dash, label, ly) => {
+        c.save(); c.strokeStyle = col; c.lineWidth = 1.5; c.setLineDash(dash);
+        c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = col; c.globalAlpha = 0.08; c.fill(); c.restore();
+        c.font = "bold 9px monospace"; c.textAlign = "center";
+        c.lineWidth = 3; c.strokeStyle = "#0008"; c.strokeText(label, x, ly); c.fillStyle = col; c.fillText(label, x, ly);
+      };
+      const kt = g.towers.find((t) => t.kind === "knight"), at = g.towers.find((t) => t.kind === "archer");
+      ring(kt.rally.x, kt.rally.y, RALLY_RANGE, "#8fc8ff", [4, 3], `knights' circle ${RALLY_RANGE}`, kt.rally.y + RALLY_RANGE + 10);
+      const ar = TOWERS.archer.levels[0].range;
+      ring(at.x, at.y, ar, "#c0e070", [4, 3], `archer L1 range ${ar}`, at.y - ar - 3);
+      ring(necro.x, necro.y, REACH, "#ff6a4a", [], `raise reach ${REACH}`, necro.y - REACH - 3);
+      ring(necro.x, necro.y, 100, "#e8e0c8", [2, 3], "old stand-off 100", necro.y + 100 - 4);
+      // a scale bar
+      c.fillStyle = "#0009"; c.fillRect(8, H - 22, REACH + 8, 16);
+      c.fillStyle = "#ff6a4a"; c.fillRect(12, H - 12, REACH, 3);
+      c.font = "bold 8px monospace"; c.textAlign = "left"; c.fillStyle = "#fff"; c.fillText(`${REACH} board px`, 14, H - 15);
+      c.fillText(`board is ${W} x ${H}`, REACH + 22, H - 10);
+      const post = async (name, canvas) => fetch(`/__shot?name=${name}`, { method: "POST", body: canvas.toDataURL("image/png").slice(22) });
+      await post(`necroreach_${TAG}`, cv);
+      const cw = 420, ch = 300, cx = Math.max(0, Math.min(W - cw, necro.x - cw / 2 + 40)), cy = Math.max(0, Math.min(H - ch, necro.y - ch / 2));
+      const cr = document.createElement("canvas"); cr.width = cw * SC; cr.height = ch * SC;
+      cr.getContext("2d").drawImage(cv, cx * SC, cy * SC, cw * SC, ch * SC, 0, 0, cw * SC, ch * SC);
+      await post(`necroreach_${TAG}_crop`, cr);
+      document.title = "DONE"; document.getElementById("status").textContent = "saved";
+    </script>
+  </body>
+</html>

@@ -741,6 +741,22 @@ const drainOn = (e, dealt, tms) => {
 const BROOD_CAP = 24, RISE_MS = 1300;
 // the necromancer's dead rise slower than a wraith does (owner, 2026-09-30)
 const NECRO_RISE_MS = 2200;
+// ...and he raises only the dead within this reach of him, nearest first
+// (owner, 2026-11-27: it was the whole board, so he could stand back and
+// drag a wave out raising them a few at a time)
+const NECRO_REACH = 150;
+// Free risen (`revived`, done climbing out) in a man's circle: the soldiers
+// fight the dead first (owner, 2026-11-27), so a man holding a necromancer
+// lets him go for one, and the necromancer slips past behind his dead. Not
+// the hero: he is the player's answer to a necromancer.
+const freeRisen = (g, t, st, tms) => {
+  let best = null;
+  for (const e of g.enemies) {
+    if (!e.revived || e.dead || e.blockedBy || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.net) continue;
+    if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && (!best || e.dist > best.dist)) best = e;
+  }
+  return best;
+};
 const raiseFrom = (g, killer, u, tms) => {
   if (g.enemies.reduce((n, x) => n + (!x.dead && x.type === killer.type ? 1 : 0), 0) >= BROOD_CAP) return;
   const at = nearestOnPath(u.x, u.y);
@@ -1161,10 +1177,17 @@ const runMelee = (g, t, st, slots, sdtAll, tms) => {
         // comes first.
         const joined = target && target.blockedBy !== u.id ? target : null;
         if (joined) { target = null; u.targetId = null; }
+        // the dead first (freeRisen): a man holding a necromancer drops him
+        // for a free risen in his circle, and the necromancer walks on
+        const fightsDead = t.kind !== "hero";
+        if (fightsDead && target && target.raiseEvery && target.blockedBy === u.id) {
+          const r = freeRisen(g, t, st, tms);
+          if (r) { releaseEnemy(g, target); r.blockedBy = u.id; u.targetId = r.id; u.state = "moving"; target = r; }
+        }
 
         if (!target) {
-          let best = null, bestDist = -1;
-          for (const e of g.enemies) {
+          let best = fightsDead ? freeRisen(g, t, st, tms) : null, bestDist = -1;
+          if (!best) for (const e of g.enemies) {
             if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy || e.net) continue;
             if (e.crush && u.flankOf === e.id && u.flankUntil > tms) continue;   // the ram that just trampled him: he takes its flank instead (below)
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
@@ -2061,16 +2084,24 @@ export function updateGame(g, dt) {
           }
         }
       }
-      // Necromancer: calls the fallen of this wave back to their feet at FULL strength, from anywhere on the board (up to 5 every raiseEvery; the first at once; the clock only starts when a raise lands, so he is ready the moment one falls). 2026-10-05: reach 400 -> infinite, half -> full health, 3.8 -> 3 s, stands off soldiers (standOff) instead of fighting
+      // Necromancer: calls the fallen of this wave back to their feet at FULL strength, the nearest within NECRO_REACH (up to 5 every raiseEvery; the first at once; the clock only starts when a raise lands, so he is ready the moment one falls). 2026-10-05: reach 400 -> infinite, half -> full health, 3.8 -> 3 s, stands off soldiers (standOff) instead of fighting
       if (e.raiseEvery && e.silencedUntil <= tms) {
         e.raiseCd = (e.raiseCd ?? 0) - sdt * 1000;
         if (e.raiseCd <= 0) {
-          let raised = 0;
-          for (let ci = g.corpses.length - 1; ci >= 0 && raised < 5; ci--) {
-            const c = g.corpses[ci];
+          // 2026-11-27 (owner): the NEAREST of this wave's dead within
+          // NECRO_REACH of him (was the newest, anywhere on the board), so
+          // they get up round him, in your knights' faces, while he walks on
+          const near = [];
+          for (const c of g.corpses) {
             // only this wave's dead, and none already dissolving
             if (c.until !== Infinity || c.wave !== g.wave) continue;
-            g.corpses.splice(ci, 1);
+            const d = Math.hypot(c.x - e.x, c.y - e.y);
+            if (d <= NECRO_REACH) near.push([d, c]);
+          }
+          near.sort((a, b) => a[0] - b[0]);
+          let raised = 0;
+          for (const [, c] of near.slice(0, 5)) {
+            g.corpses.splice(g.corpses.indexOf(c), 1);
             raised++;
             const u = makeEnemy(c.type, 1);
             u.hp = u.maxHp = Math.max(1, Math.round(c.hp0));
