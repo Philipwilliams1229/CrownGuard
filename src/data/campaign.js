@@ -178,8 +178,15 @@ export const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
 // treasury gets this much on top of what the battle carried home, enough for a first castle work
 // (every work's first tier costs 5000). Paid once a save file: a replay pays nothing, and a save
 // that had already won the first level before this gift existed never gets it.
+// The king's gift (owner, 2026-11-27): the first win of the Goblin Warrens (gw5, the Greenwood's
+// boss) brings 10000 more, on the same once-a-save-file terms. Each gift's words for the victory card.
 export const FIRST_WIN_GIFT = 5000;
-export const firstWinGift = (levelId, firstClear) => (firstClear && levelId === LEVELS[0]?.id ? FIRST_WIN_GIFT : 0);
+export const CROWN_GIFTS = {
+  [LEVELS[0]?.id]: { gold: FIRST_WIN_GIFT, from: "a gift from the crown", note: "for your first victory: raise your first Castle Work below, or from the campaign map" },
+  gw5: { gold: 10000, from: "a gift from the king", note: "for clearing the Greenwood: spend it on Castle Works below, or from the campaign map" },
+};
+export const firstWinGift = (levelId, firstClear) => (firstClear ? CROWN_GIFTS[levelId]?.gold || 0 : 0);
+export const giftWords = (levelId) => CROWN_GIFTS[levelId] || CROWN_GIFTS[LEVELS[0]?.id];
 
 // ---- saved progress ----
 // One small record in localStorage: which levels have been cleared. Kept

@@ -26,7 +26,7 @@ import { weatherFor } from "./data/weather-plan.js";
 import { setDay, sunFor, DAY } from "./data/sun.js";
 import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, hallRank, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, hallRank, unlocksFor, unlockLevel, bankTreasury, spendTreasury, firstWinGift, giftWords } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import PixHammer from "./ui/PixHammer.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp, worksValue, workTier } from "./data/castle.js";
@@ -623,7 +623,7 @@ export default function Crownguard() {
     if (won) markCleared(levelId);
     payHero();
     // the gold left in the purse goes home to the crown's treasury
-    // (and the first win of the campaign's first level brings the crown's gift: data/campaign.js)
+    // (the first win of the campaign's first level, and of the Goblin Warrens, brings a gift: CROWN_GIFTS, data/campaign.js)
     if (won && g) {
       const carried = Math.floor(g.gold);
       const bonus = firstWinGift(levelId, first);
@@ -2084,8 +2084,8 @@ export default function Crownguard() {
                   {campaign && won && gift > 0 && (
                     <div className="cg-well" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.4 }}>
                       <CoinIcon size={22} />
-                      <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{gift.toLocaleString("en-US")}</b> gold, a gift from the crown<br />
-                        <span style={{ color: "var(--muted)" }}>for your first victory: raise your first Castle Work below, or from the campaign map</span></span>
+                      <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{gift.toLocaleString("en-US")}</b> gold, {giftWords(levelId).from}<br />
+                        <span style={{ color: "var(--muted)" }}>{giftWords(levelId).note}</span></span>
                     </div>
                   )}
                   {/* what the halls learned in this battle (data/towerxp.js) */}
