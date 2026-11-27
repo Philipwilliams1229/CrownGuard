@@ -3477,6 +3477,16 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   the whole horde, ~580 heads after the swell (goblins, wolves, orcs, armored, 11 trolls, riders, 2 warchiefs, 3
   necromancers, shamans, 148 bats). `--endure` wave 25 (swarm / burst): seed 1 3 / 95 -> 93 / 151, seed 2 186 / 221 with it, now
   the level's hardest wave; the level held on all four.
+- **Every Greenwood level ends on its hardest wave** (owner, same day: "the final waves of all the first chapter
+  ... should definitely be the hardest"): the other thirteen non-boss levels carry `finale: "muster"`: waves.js
+  `musterFinale` merges the raw groups of the level's last `FINALE_SPAN` 3 war-waves by type, `FINALE_K` 0.5 of
+  the summed heads (necromancers whole, a warchief no more than one wave sent, `FINALE_CAP`), then swells it as
+  usual. Total health of the last wave 1.3-2x the level's next biggest (it was rank 3-5 on seven levels). Pairs on
+  the same war-waves share a finale (Thornbrook / Gullwick, Thistlecrag / Kingstones). `--endure` seed default,
+  last wave's castle damage old -> new (swarm / burst): Gullwick 5 / 19 -> 27 / 57, Millrace 20 / 0 -> 79 / 23,
+  Bramblewick 0 / 0 -> 73 / 68, Wolfrun 16 / 4 -> 95 / 60, Thistlecrag 12 / 0 -> 132 / 84, Kingstones 22 / 0 ->
+  176 / 18, Ravenscar 0 / 0 -> 84 / 0; the Vale Road and the Old Road (gw4) still ~0 (the sim plays them
+  cleanly); all held.
 - **The Goblin Warrens (gw5) start with 1500 gold** (was 1000; owner,
   2026-11-07: "couldn't get past wave 3", with the Fierce fog lingering).
   `--endure` seeds 1-2: the opening waves bleed ~0; swarm 388/156 ->

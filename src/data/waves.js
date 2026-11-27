@@ -255,7 +255,10 @@ export const waveSpec = (w) => {
   // owner, 2026-11-27: Cinderholt's 25th was a generated flight of bats and
   // shamans, "super underwhelming"): it goes through the same swell and
   // shaping as any other wave, so it grows with the war like the rest
-  const finale = WINDOW.finale && w === WINDOW.count ? WINDOW.finale : null;
+  // `finale: "muster"` (the Greenwood's levels, owner the same day: "the final
+  // waves ... should definitely be the hardest") builds it from the level's own
+  // last war-waves instead (`musterFinale`)
+  const finale = WINDOW.finale && w === WINDOW.count ? (WINDOW.finale === "muster" ? musterFinale(w) : WINDOW.finale) : null;
   let spec = dryLand(finale || (scripted ? FACTION.waves[a - 1] : genWave(w)));
   spec = spec.filter(([type]) => !BOSSES.has(type));
   // a faction may hold its wall back (`wallFrom`, factions.js): no siege ram
@@ -271,6 +274,35 @@ export const waveSpec = (w) => {
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
   return landingsOf(spec, a, Math.min(1, 0.35 + 0.13 * (w - 1)));
+};
+
+// A level's last wave as the muster of its last FINALE_SPAN war-waves: every
+// group of each, merged by type, FINALE_K of their summed heads (the tightest
+// gap kept), captains capped (FINALE_CAP), so the finale brings everything the
+// level has shown at once and is its hardest wave. Built from the raw script /
+// generated waves, before the swell (waveSpec swells it like any other wave).
+const FINALE_SPAN = 3, FINALE_K = 0.5, FINALE_CAP = { necro: 3, hobgoblin: 2, shaman: 6, troll: 8 };
+const musterFinale = (w) => {
+  const seen = new Set(), raws = [];
+  for (let v = w; v >= 1 && raws.length < FINALE_SPAN; v--) {
+    const a = absWave(v);
+    if (seen.has(a)) continue;
+    seen.add(a);
+    raws.push(a <= FACTION.waves.length ? FACTION.waves[a - 1] : genWave(v));
+  }
+  const by = new Map();
+  for (const raw of raws) for (const [t, n, gap, pay = 1] of raw) {
+    if (BOSSES.has(t)) continue;
+    const g = by.get(t);
+    if (g) { g[1] += n; g[2] = Math.min(g[2], gap); g.most = Math.max(g.most, n); } else { const ng = [t, n, gap, pay]; ng.most = n; by.set(t, ng); }
+  }
+  // (raisers and horn-callers are summed whole, the rest x FINALE_K; a warchief's
+  // horn adds 25 goblins every 20 s, so no more of them than one wave ever sent)
+  return [...by.values()].map((g) => {
+    const [t, n, gap, pay] = g, d = ENEMIES[t] || {};
+    const k = d.summonAtStart ? g.most / n : d.raiseEvery ? 1 : FINALE_K;
+    return [t, Math.max(1, Math.min(FINALE_CAP[t] ?? Infinity, Math.round(n * k))), gap, pay];
+  });
 };
 
 // ---- LANDINGS (zone IV) ----
