@@ -31,7 +31,7 @@ const lumOf = (s) => {
   LUM.set(s.cv, map); return map;
 };
 
-// one echo: the walk frame `f`, shifted back by dx (and down by dy), skipping pixels anything nearer already covers
+// one echo: the walk frame `f`, shifted back by dx (dy kept for trials, 0 now), skipping pixels anything nearer already covers
 // (`front`: masks with their offsets). Drawn as SCANLINES, the old look of a picture smeared in time: every other row
 // is the figure's own shading in warm grey, the rows between are faint or empty. The back and top edges get the
 // tinted line so the echo keeps the figure's shape.
@@ -62,7 +62,7 @@ export const paintAt = (c, e, lv = LV, o2 = {}) => {
   const m0 = maskOf(sprite(e, f)), front = [{ m: m0, dx: 0, dy: 0 }];
   // nearest echo first (it sits in front of the further ones), each LAG walk frames later and fainter
   for (let k = 1; k <= g.n; k++) {
-    const dx = -g.step * k, dy = k >= 2 ? 1 : 0, fk = (f - LAG * k + 16) % 8;
+    const dx = -g.step * k, dy = 0, fk = (f - LAG * k + 16) % 8;
     // the nearest echo is a whole ghost (every row, its own outline) so its late pose reads; the further ones are scanlines
     const o = { ph: (ph + k) & 1, solid: k === 1, a: k === 1 ? g.a : g.a2 * Math.pow(0.7, k - 2), gap: 0, line: k === 1 };
     echo(c, e, fk, dx, dy, o, front, -m0.T);
