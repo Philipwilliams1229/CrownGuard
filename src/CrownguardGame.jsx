@@ -1354,7 +1354,8 @@ export default function Crownguard() {
   const aiming = ui.rallyFor === "hero" || (typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:"));
   const anyReady = !!ui.hero?.abilities?.some((a) => a.state === "ready");
   const heroBtn = ui.result == null && ui.hero && (() => {
-    const hpf = ui.hero.hp / ui.hero.maxHp;
+    // a fallen hero's health bar stays empty until he is back on his feet
+    const hpf = ui.hero.dead ? 0 : ui.hero.hp / ui.hero.maxHp;
     const max = ui.hero.level >= HERO_MAX_LEVEL;
     return (
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
