@@ -22,7 +22,7 @@
       import { TOWERS } from "/src/data/towers.js";
       import { draw } from "/src/render/draw.js";
       const q = new URLSearchParams(location.search);
-      const TAG = q.get("tag") || "x", AT = Number(q.get("at")) || 0.45, REACH = Number(q.get("reach")) || 200, SC = 2;
+      const TAG = q.get("tag") || "x", AT = Number(q.get("at")) || 0.45, REACH = Number(q.get("reach")) || 250, SC = 2;
       selectRealm(q.get("realm") || "thornbrook");
       selectFaction("greenwood");
       const g = {
