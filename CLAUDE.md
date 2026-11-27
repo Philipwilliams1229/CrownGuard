@@ -558,7 +558,7 @@ overlap; at 7 Brinewick and Ironmouth touched).
 those emblems ... put the emblem above like in A"): CampaignMap.jsx `Banner` is the same `Ribbon` in the chapter's own
 colour (`CHAPTER_COL`, `src/ui/chapterArt.js`: Greenwood green, Iron steel blue, Hollow purple, Rime frost blue), with a
 shield standing on it bearing the chapter's gold sigil (`crestPixels(id, open, "shield")`: oak leaf, barred helm, skull,
-snowflake; a padlock on slate while sealed) under a small "CHAPTER II". The map keeps its scenery off the whole piece
+snowflake; a padlock on slate while sealed), and a small "CHAPTER II" under the ribbon (owner: "put the chapter 1 stuff below"). The map keeps its scenery off the whole piece
 (mapArt.js `BANNERS`, the crest included).
 **The map's markers are sculpted** (owner, same day: B, the swallowtail, "but in the newer style", then "Flags from 2
 shields from 3"): `src/ui/markerArt.js` sculpts them pixel by pixel like the star (lit from the upper left, tinted

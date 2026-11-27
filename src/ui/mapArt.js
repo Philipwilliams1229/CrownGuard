@@ -981,9 +981,9 @@ export const labelBox = (lv) => {
 // the chapters' name ribbons, out at sea off their own coasts
 export const BANNER_AT = { greenwood: [128, 418], iron: [748, 430], hollow: [206, -226], rime: [184, -392] };
 const BANNERS = CHAPTERS.map((ch) => {
-  // the ribbon with its tails, and the crest and "CHAPTER" line standing on it (CampaignMap.jsx Banner)
+  // the ribbon with its tails, the crest standing on it and the "CHAPTER" line under it (CampaignMap.jsx Banner)
   const n = ch.name.length, w = n * 6 + 22 + 36, [cx, cy] = BANNER_AT[ch.id];
-  return { x: cx - w / 2, y: cy - 38, w, h: 50 };
+  return { x: cx - w / 2, y: cy - 30, w, h: 56 };
 });
 const LBOX = new Map();
 const lbox = (lv) => { if (!LBOX.has(lv.id)) LBOX.set(lv.id, labelBox(lv)); return LBOX.get(lv.id); };

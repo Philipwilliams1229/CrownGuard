@@ -249,8 +249,8 @@ function Scroll({ lv, open, sel }) {
 const pixG = (pix, x, y, s = 1) => <g transform={`translate(${x} ${y}) scale(${s})`}>{symRects(pix)}</g>;
 
 // A chapter's title out at sea (owner's pick, 2026-11-27: C's colours with A's crest): the ribbon in the
-// chapter's own colour, gold trimmed, and a shield bearing its sigil (chapterArt.js) standing on it under
-// a small "CHAPTER II". Slate, a padlock and SEALED while the chapter is shut.
+// chapter's own colour, gold trimmed, a shield bearing its sigil (chapterArt.js) standing on it, and a
+// small "CHAPTER II" under the ribbon. Slate, a padlock and SEALED while the chapter is shut.
 function Banner({ ch, open }) {
   const [cx, cy] = BANNER_AT[ch.id];
   const text = open ? ch.name.toUpperCase() : "SEALED";
@@ -264,7 +264,7 @@ function Banner({ ch, open }) {
       <text x={cx} y={y + h / 2 + 3.2} textAnchor="middle" fontSize="8.6" fontWeight="bold" letterSpacing="1.3" fontFamily={MAP_FONT}
         fill={k.ink} stroke={LINE} strokeWidth="1.7" paintOrder="stroke">{text}</text>
       {pixG(crest, cx - (crest.w * cs) / 2, y - crest.h * cs + 5, cs)}
-      <text x={cx} y={y - crest.h * cs + 2.6} textAnchor="middle" fontSize="5.6" fontWeight="bold" letterSpacing="1" fontFamily={MAP_FONT}
+      <text x={cx} y={y + h + 11.5} textAnchor="middle" fontSize="5.6" fontWeight="bold" letterSpacing="1" fontFamily={MAP_FONT}
         fill="#f2dc8a" stroke={LINE} strokeWidth="1.4" paintOrder="stroke">{`CHAPTER ${ch.numeral}`}</text>
     </g>
   );
