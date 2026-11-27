@@ -1967,6 +1967,12 @@ until they have played these. Provisional.
   every band but the hero takes a free risen (`freeRisen`) before any other foe, and a man holding a necromancer
   lets him go for one, so he slips past behind his dead. `necro-reach-lab.html` draws the reach on a board.
   gw5 `--endure` seed default: at 250, swarm 762 -> 960, burst 610 -> 794 (one run each; at 200 it was 864 / 561).
+- **Spread through the wave** (owner, same day: "3 spawn at the very end of a wave ... more mixed in", one at
+  the end is fine): `raisersLast` (waves.js) merges a wave's necromancers into one group `clock: -2`, and
+  startWave spreads it over the road queue (`raiserAt`, actions.js: one at 60%, two at 35% / 80%, three+ evenly
+  from 30% to the end, `RAISER_SPREAD`); `packRange` 110 keeps him at his troops' pace. Most come out with 50-65
+  foes within 3 s of them. Goblin Shaman hp 132 -> 165. `--endure` seed default, before today -> now: gw5 swarm
+  762 -> 1036, burst 610 -> 943; Cinderholt 586 / 371 -> 621 / 445.
 
 ## Halls stand by the shape of their base (2026-11-18, owner request)
 

@@ -85,6 +85,9 @@ export const buildableAt = (g, x, y, kind = null) => {
   return true;
 };
 
+// where the j-th of n necromancers comes out, as a share of the wave's road queue
+const RAISER_SPREAD = [0.3, 1];
+const raiserAt = (j, n) => n === 1 ? 0.6 : n === 2 ? [0.35, 0.8][j] : RAISER_SPREAD[0] + (RAISER_SPREAD[1] - RAISER_SPREAD[0]) * j / (n - 1);
 const ARCHER_SPREAD = [0.4, 1], ARCHER_GAP = 350;   // archers' place in their column (startWave)
 // The battle as it stands between waves: what a retried wave puts back
 // (restartWave) and what a campaign battle keeps on the device so it can be
@@ -123,12 +126,13 @@ export const startWave = (g) => {
   let delay = 400;
   const spec = waveSpec(g.wave);
   const ov = spec.overlap || 0;
-  const spans = [], spread = [];
+  const spans = [], spread = [], raisers = [];
   let wallAt = null, lastAt = delay;
   for (const grp of spec) {
     const [type, count, gap, pay = 1] = grp;
     if (grp.amid != null) continue;           // escorts are placed below
     if (grp.landing != null) continue;        // a landing party comes by sea (below)
+    if (grp.clock === -2) { raisers.push(grp); continue; }   // necromancers: spread along the wave (below)
     if (grp.clock != null && grp.clock < 0) { spread.push(grp); continue; }   // later rams: spread through the column (below)
     if (grp.clock != null) {                  // a staggered group: its own clock, off the road's queue
       for (let i = 0; i < count; i++) queue.push({ type, at: grp.clock + i * gap, mult, pay });
@@ -149,6 +153,13 @@ export const startWave = (g) => {
   for (const grp of spread) {
     const [type, count, , pay = 1] = grp, a0 = wallAt ?? 400;
     for (let j = 1; j <= count; j++) queue.push({ type, at: Math.round(a0 + (lastAt - a0) * j / (count + 1)), mult, pay });
+  }
+  // necromancers (waves.js raisersLast) come out spread along the whole wave,
+  // amid its troops (owner, 2026-11-27): one alone at 60% of the way, two at
+  // 35% / 80%, three or more evenly from 30% to the very end (RAISER_SPREAD)
+  for (const grp of raisers) {
+    const [type, count, , pay = 1] = grp, a0 = 400, span = Math.max(0, lastAt - a0);
+    for (let j = 0; j < count; j++) queue.push({ type, at: Math.round(a0 + span * raiserAt(j, count)), mult, pay });
   }
   // an escort (the Iron Kingdom's Aegis Magister, waves.js escortOf) walks in
   // the thick of the group it came with: its heads spread evenly through

@@ -184,12 +184,20 @@ const openRamp = (spec, w) => {
 // more than one, the rest come out further along the column, each leading
 // its share of it (`clock: -1`, see shapeCompany and startWave). Applied after
 // the swell, before escortOf (which decides whether a magister walks with it).
-// A raiser (the necromancer, `raiseEvery`) walks BEHIND the groups of his wave
-// (owner, 2026-09-30): he has to have the fallen to raise, so he is queued
-// last. Applied after shapeCompany and before any `amid` index is set.
+// A raiser (the necromancer, `raiseEvery`) walks AMID his wave, spread along
+// it (owner, 2026-11-27: they used to be queued behind everything, so three
+// came out together at the very end and were easy; "more spread out ... more
+// mixed in", one at the end is fine). Every raiser head of the wave is merged
+// into one group marked `clock: -2`; startWave (actions.js) spreads them over
+// the wave's road queue (RAISER_SPREAD). Applied after shapeCompany and before
+// any `amid` index is set (the merged group goes last, so none moves).
 const raisersLast = (spec) => {
   if (!spec.some((g) => ENEMIES[g[0]]?.raiseEvery)) return spec;
-  const out = [...spec.filter((g) => !ENEMIES[g[0]]?.raiseEvery), ...spec.filter((g) => ENEMIES[g[0]]?.raiseEvery)];
+  const raisers = spec.filter((g) => ENEMIES[g[0]]?.raiseEvery);
+  const out = spec.filter((g) => !ENEMIES[g[0]]?.raiseEvery);
+  const byType = new Map();
+  for (const [t, n, , pay = 1] of raisers) { const e = byType.get(t); if (e) e[1] += n; else byType.set(t, [t, n, 0, pay]); }
+  for (const grp of byType.values()) { grp.clock = -2; out.push(grp); }
   out.overlap = spec.overlap;
   return out;
 };

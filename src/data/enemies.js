@@ -71,11 +71,12 @@ export const ENEMIES = {
   orc: { faction: "greenwood", hp: 118, speed: 62, bounty: 10, armor: 0, size: 18, name: "Orc", atk: 22, atkRate: 900, castleDmg: 2, note: "A heavy bruiser with a big pool of health." },
   armored: { faction: "greenwood", hp: 185, speed: 47, bounty: 14, armor: 0.42, size: 17, name: "Ironclad", atk: 18, atkRate: 900, castleDmg: 2, note: "Half of all physical damage bounces off — magic ignores its armor." },
   troll: { faction: "greenwood", hp: 430, speed: 40, bounty: 26, armor: 0.15, regen: 5, size: 21, name: "Troll", atk: 38, atkRate: 1100, castleDmg: 3, note: "Regenerates health and hits knights hard. Burst it down fast." },
-  shaman: { faction: "greenwood", hp: 132, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 8, healEvery: 3400, packRange: 95, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
-  necro: { faction: "greenwood", hp: 700, speed: 44, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 30, atkRate: 1100, castleDmg: 3, raiseEvery: 3000, note: "Walks behind his warband and raises the nearest of its fallen around him at full strength, every 3 seconds. Goblins, wolves, orcs, ironclads and trolls all return. Your soldiers turn to fight the dead first, so he slips past behind them: send your hero, or fell him from afar, before the dead outnumber the living." },
+  shaman: { faction: "greenwood", hp: 165, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 8, healEvery: 3400, packRange: 95, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
+  necro: { faction: "greenwood", hp: 700, speed: 44, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 30, atkRate: 1100, castleDmg: 3, raiseEvery: 3000, packRange: 110, note: "Walks in the thick of his warband, keeping its pace, and raises the nearest of its fallen around him at full strength, every 3 seconds. Goblins, wolves, orcs, ironclads and trolls all return. Your soldiers turn to fight the dead first, so he slips past behind them: send your hero, or fell him from afar, before the dead outnumber the living." },
   // (owner, 2026-11-27: no more standOff 100 (he stood back and dragged a
   // wave out); he raises the nearest dead within NECRO_REACH, update.js, and
-  // soldiers drop him for a free risen, runMelee `freeRisen`)
+  // soldiers drop him for a free risen, runMelee `freeRisen`. He comes out
+  // spread along his wave, waves.js raisersLast, and keeps its pace, packRange)
   bat: {
     faction: "greenwood", hp: 24, speed: 135, bounty: 4, armor: 0, size: 12,
     name: "Fell Bat", flying: true, atk: 0, atkRate: 0, castleDmg: 1,
