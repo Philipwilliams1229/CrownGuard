@@ -42,73 +42,78 @@ export const CHAPTERS = [
       // six twenty-wave levels to learn the vale...
       {
         id: "gw1", name: "The Vale Road", realm: "greenwood", short: "Vale Road",
-        window: { from: 1, to: 12, count: 20 }, gold: 250,
+        window: { from: 1, to: 12, count: 20, finale: "muster" }, gold: 250,
         blurb: "Goblin raiding parties on the country road — a flood of small blades, badly led. Hold the lane and learn the ground.",
       },
       {
         id: "gw2", name: "Thornbrook Ford", realm: "thornbrook", short: "Thornbrook",
-        window: { from: 2, to: 14, count: 20 }, gold: 350,
+        window: { from: 2, to: 14, count: 20, finale: "muster" }, gold: 350,
         blurb: "Wolves run ahead of the horde now, and fell bats ride over your knights' heads. The brook is the only thing here that stops for anyone.",
       },
       {
         id: "gullwick", name: "Gullwick Sands", realm: "gullwick", short: "Gullwick",
-        window: { from: 2, to: 14, count: 20 }, gold: 380,
+        window: { from: 2, to: 14, count: 20, finale: "muster" }, gold: 380,
         blurb: "The vale's south shore. The road walks the strand with the sea at its back — every tower faces it from the dunes, and wolves come down the sand at a run.",
       },
       {
         id: "millrace", name: "Millrace", realm: "millrace",
-        window: { from: 3, to: 15, count: 20 }, gold: 400,
+        window: { from: 3, to: 15, count: 20, finale: "muster" }, gold: 400,
         blurb: "The Foxwater turns a mill below the mere. The road walks the mill island with water on both hands — every footing is a riverbank, and the bridges are the only way on.",
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
-        window: { from: 3, to: 16, count: 20 }, gold: 400,
+        window: { from: 3, to: 16, count: 20, finale: "muster" }, gold: 400,
         blurb: "The road owes the mere a full circle, and the horde walks every step of it. Orcs in plate now — and the first shamans, chanting the warband whole.",
       },
       {
         id: "gw3", name: "Oakmere Hollow", realm: "oakmere", short: "Oakmere",
-        window: { from: 4, to: 17, count: 20 }, gold: 540,
+        window: { from: 4, to: 17, count: 20, finale: "muster" }, gold: 540,
         blurb: "Ironclads march with the orcs and boar riders flatten your line — then one night the wood empties all at once. Bring magic.",
       },
       {
         id: "bramblewick", name: "Bramblewick", realm: "bramblewick",
-        window: { from: 5, to: 20, count: 20 }, gold: 560,
+        window: { from: 5, to: 20, count: 20, finale: "muster" }, gold: 560,
         blurb: "Hedged fields around the old millpond. The road wanders every lane of the farm, and the horde has learned to come down all of it at once.",
       },
       // ...eight twenty-five-wave levels to hold it...
       {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields", short: "Barrowfields",
-        window: { from: 6, to: 23, count: 25 }, gold: 750,
+        window: { from: 6, to: 23, count: 25, finale: "muster" }, gold: 750,
         blurb: "Trolls out of the mounds, shamans chanting the wounded whole. Kill the healers first, and save something heavy for the trolls.",
       },
       {
         id: "wolfrun", name: "Wolfrun Ford", realm: "wolfrun", short: "Wolfrun",
-        window: { from: 7, to: 25, count: 25 }, gold: 800,
+        window: { from: 7, to: 25, count: 25, finale: "muster" }, gold: 800,
         blurb: "Four bridges over one cold river, and a warchief's totem driving the party across all of them. The fords decide who holds the vale.",
       },
       {
         id: "thistlecrag", name: "Thistlecrag", realm: "thistlecrag", labelAbove: true,
-        window: { from: 7, to: 26, count: 25 }, gold: 850,
+        window: { from: 7, to: 26, count: 25, finale: "muster" }, gold: 850,
         blurb: "Grey crags on the north-west headland. The road climbs in long switchbacks with a ridge of rock between every lane — only its gaps watch two. The trolls don't mind the rocks.",
       },
       {
         id: "kingstones", name: "The Kingstones", realm: "kingstones", short: "Kingstones",
-        window: { from: 8, to: 26, count: 25 }, gold: 900,
+        window: { from: 8, to: 26, count: 25, finale: "muster" }, gold: 900,
         blurb: "A ring of standing stones on the high down, older than the crown. The road loops round it and crosses its own track — whoever holds the ring's heart sees the whole loop.",
       },
       {
         id: "ravenscar", name: "Ravenscar", realm: "ravenscar", labelAbove: true,
-        window: { from: 8, to: 27, count: 25 }, gold: 1000,
+        window: { from: 8, to: 27, count: 25, finale: "muster" }, gold: 1000,
         blurb: "The high ridge over the vale, boulders and ravens. The road climbs in long switchbacks — and every one of them is in bowshot of the next.",
       },
       {
         id: "blackbriar", name: "Blackbriar", realm: "blackbriar",
-        window: { from: 9, to: 29, count: 25 }, gold: 850,
+        window: { from: 9, to: 29, count: 25, finale: "muster" }, gold: 850,
         blurb: "The deep wood the goblins came out of. The road coils blind between the trunks; you will hear the trolls before you see them.",
       },
       {
         id: "cinderholt", name: "Cinderholt", realm: "cinderholt",
-        window: { from: 9, to: 31, count: 25 }, gold: 900,
+        window: { from: 9, to: 31, count: 25,
+          // the last wave is the whole horde at once (owner, 2026-11-27: the generated
+          // one was a flight of bats and shamans, "super underwhelming"); swelled as usual
+          finale: [["wolf", 20, 320], ["goblin", 50, 260], ["orc", 20, 480], ["armored", 14, 650], ["troll", 8, 1300],
+            ["boarrider", 9, 700], ["hobgoblin", 2, 0], ["necro", 3, 0], ["shaman", 5, 4200], ["bat", 40, 280]] },
+        gold: 900,
         blurb: "The horde fired this wood to smoke the vale out. Nothing stands but black trunks — nothing hides the road, and nothing hides the horde on it.",
       },
       // ...and the boss, thirty waves deep
