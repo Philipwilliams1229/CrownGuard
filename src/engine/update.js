@@ -1058,6 +1058,19 @@ const columnGone = (g, e) => {
 // back as before. Archers keep their STAND_MS: letting them walk on too made
 // Iron / Hollow ~12% harder in the sims (the walking-on-mid-wave version
 // +17% / +39%).
+// How far down the road the furthest live comrade on foot is, once a tick (the
+// archers' rule in the enemy loop: fliers, swimmers, sea monsters and other
+// archers don't count; the risen do, they walk with the column)
+const frontOf = (g, tms) => {
+  if (g._frontAt === tms) return g._front;
+  let f = -Infinity;
+  for (const o of g.enemies) {
+    if (o.dead || o.neutral || o.flying || o.swimming || o.rangedAtk) continue;
+    if (o.dist > f) f = o.dist;
+  }
+  g._frontAt = tms; g._front = f;
+  return f;
+};
 const columnSpent = (g, e) => {
   for (const o of g.enemies) {
     if (!inColumn(o, e) || o.revived) continue;
@@ -2269,7 +2282,11 @@ export function updateGame(g, dt) {
               if (d < bd && (!blade || nearestOnPath(u.x, u.y).d <= PATH_HALF)) { bd = d; mark = u; markTower = t; }
             }
           }
-          e.aiming = !!mark;
+          // ...but only while its company is still ahead of it (owner, 2026-11-27: the
+          // last bowmen of a wave stood off picking at the knights after the column was
+          // dead); with no comrade on foot further down the road it marches on into
+          // them, still shooting as it walks
+          e.aiming = !!mark && frontOf(g, tms) > e.dist;
           // standing to shoot, the bow follows its mark between shots (e.aimDeg)
           if (mark) {
             e.face = mark.x >= e.x ? 1 : -1;

@@ -1987,6 +1987,14 @@ until they have played these. Provisional.
   `packRange` pace in update.js): he walks 13% slower than his company, so he drifts back into it. gw5 seed
   default 1036 / 943 -> 1001 / 691.
 
+**Archers march on once their column is gone** (owner, 2026-11-27: "once all their compatriots are dead, they
+start marching forward"): a `rangedAtk` foe (crossbowman, barrow archer) stands to shoot only while some live
+comrade on foot is further down the road (`frontOf`, update.js, once a tick: fliers, swimmers, monsters and other
+archers don't count, the risen do); after that it walks on, still shooting. `--endure` seed default, before ->
+after (swarm / burst): Ironmouth 426 / 301 -> 466 / 331, Citadel 4051 / 2822 -> 4109 / 3228, Crowstair 1998 / 1295
+-> 1975 / 1367, the Lichgate 907 / 1156 -> 1389 / 1164 (one run each). Provisional; the owner was asked whether
+the barrow archers should keep it too.
+
 ## Halls stand by the shape of their base (2026-11-18, owner request)
 
 "Smaller bases can be built in smaller places, bigger bases take up more space." Before, every
