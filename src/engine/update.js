@@ -741,10 +741,11 @@ const drainOn = (e, dealt, tms) => {
 const BROOD_CAP = 24, RISE_MS = 1300;
 // the necromancer's dead rise slower than a wraith does (owner, 2026-09-30)
 const NECRO_RISE_MS = 2200;
-// ...and he raises only the dead within this reach of him, nearest first
-// (owner, 2026-11-27: it was the whole board, so he could stand back and
-// drag a wave out raising them a few at a time)
-const NECRO_REACH = 150;
+// ...and he raises only the dead within this many steps ALONG THE ROAD of
+// him, ahead or behind, nearest first (owner, 2026-11-27: it was the whole
+// board, so he could stand back and drag a wave out raising them a few at a
+// time; along the road so a winding board gives him no more than a straight one)
+const NECRO_REACH = 200;
 // Free risen (`revived`, done climbing out) in a man's circle: the soldiers
 // fight the dead first (owner, 2026-11-27), so a man holding a necromancer
 // lets him go for one, and the necromancer slips past behind his dead. Not
@@ -2095,7 +2096,7 @@ export function updateGame(g, dt) {
           for (const c of g.corpses) {
             // only this wave's dead, and none already dissolving
             if (c.until !== Infinity || c.wave !== g.wave) continue;
-            const d = Math.hypot(c.x - e.x, c.y - e.y);
+            const d = Math.abs(c.dist - e.dist);   // counted ALONG THE ROAD, ahead or behind
             if (d <= NECRO_REACH) near.push([d, c]);
           }
           near.sort((a, b) => a[0] - b[0]);

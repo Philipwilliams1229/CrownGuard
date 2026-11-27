@@ -1961,12 +1961,12 @@ until they have played these. Provisional.
   (necromancer waves 10-30 s shorter, e.g. wave 5 77 -> 49 s), castle damage flat (526 / 614 ->
   576 / 526); Iron flat (better doctrine 10812 / 10755 -> 10326 / 10777); Hollow 10936 / 12185 ->
   12229 / 12551 (the gravecaller walks on too; mixed). None stuck.
-- **He walks; soldiers fight the dead first** (owner, 2026-11-27, provisional, IN PROGRESS: reach still to be
-  confirmed by the owner, straight line vs along the road): no `standOff` on the necromancer now; he raises the
-  NEAREST of the wave's dead within `NECRO_REACH` 150 of him (update.js; was the newest, whole board). In runMelee
+- **He walks; soldiers fight the dead first** (owner, 2026-11-27, provisional): no `standOff` on the
+  necromancer now; he raises the NEAREST of the wave's dead within `NECRO_REACH` 200 steps ALONG THE ROAD of him,
+  ahead or behind (update.js, `c.dist - e.dist`; was the newest, whole board). In runMelee
   every band but the hero takes a free risen (`freeRisen`) before any other foe, and a man holding a necromancer
   lets him go for one, so he slips past behind his dead. `necro-reach-lab.html` draws the reach on a board.
-  gw5 `--endure` seed default: swarm 762 -> 937, burst 610 -> 623.
+  gw5 `--endure` seed default: swarm 762 -> 864, burst 610 -> 561 (one run each: noise).
 
 ## Halls stand by the shape of their base (2026-11-18, owner request)
 

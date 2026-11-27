@@ -22,7 +22,7 @@
       import { TOWERS } from "/src/data/towers.js";
       import { draw } from "/src/render/draw.js";
       const q = new URLSearchParams(location.search);
-      const TAG = q.get("tag") || "x", AT = Number(q.get("at")) || 0.45, REACH = Number(q.get("reach")) || 150, SC = 2;
+      const TAG = q.get("tag") || "x", AT = Number(q.get("at")) || 0.45, REACH = Number(q.get("reach")) || 200, SC = 2;
       selectRealm(q.get("realm") || "thornbrook");
       selectFaction("greenwood");
       const g = {
@@ -61,12 +61,27 @@
       ring(kt.rally.x, kt.rally.y, RALLY_RANGE, "#8fc8ff", [4, 3], `knights' circle ${RALLY_RANGE}`, kt.rally.y + RALLY_RANGE + 10);
       const ar = TOWERS.archer.levels[0].range;
       ring(at.x, at.y, ar, "#c0e070", [4, 3], `archer L1 range ${ar}`, at.y - ar - 3);
-      ring(necro.x, necro.y, REACH, "#ff6a4a", [], `raise reach ${REACH}`, necro.y - REACH - 3);
-      ring(necro.x, necro.y, 100, "#e8e0c8", [2, 3], "old stand-off 100", necro.y + 100 - 4);
+      // the raise reach: REACH steps along the road, ahead of him and behind
+      const d1 = Math.max(0, necro.dist - REACH), d2 = Math.min(TOTAL_LEN, necro.dist + REACH);
+      const road = (from, to, col, w, a) => {
+        c.save(); c.strokeStyle = col; c.lineWidth = w; c.globalAlpha = a; c.lineCap = "butt"; c.lineJoin = "round";
+        c.beginPath(); for (let d = from; d <= to; d += 2) { const [x, y] = posAt(d); d === from ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke(); c.restore();
+      };
+      road(d1, d2, "#ff6a4a", 40, 0.28);
+      road(d1, d2, "#ff6a4a", 2, 1);
+      const cap = (d, txt) => {
+        const [x, y] = posAt(d), a = angleAt(d), nx = -Math.sin(a), ny = Math.cos(a);
+        c.save(); c.strokeStyle = "#ff6a4a"; c.lineWidth = 3; c.beginPath(); c.moveTo(x - nx * 24, y - ny * 24); c.lineTo(x + nx * 24, y + ny * 24); c.stroke();
+        c.font = "bold 9px monospace"; c.textAlign = "center"; c.lineWidth = 3; c.strokeStyle = "#000a"; c.strokeText(txt, x + nx * 32, y + ny * 32 + 3); c.fillStyle = "#ffb09c"; c.fillText(txt, x + nx * 32, y + ny * 32 + 3); c.restore();
+      };
+      cap(d1, `${Math.round(necro.dist - d1)} behind`);
+      cap(d2, `${Math.round(d2 - necro.dist)} ahead`);
+      c.font = "bold 9px monospace"; c.textAlign = "center"; c.lineWidth = 3; c.strokeStyle = "#000a";
+      c.strokeText(`raise reach: ${REACH} along the road`, necro.x, necro.y - 30); c.fillStyle = "#ffb09c"; c.fillText(`raise reach: ${REACH} along the road`, necro.x, necro.y - 30);
       // a scale bar
       c.fillStyle = "#0009"; c.fillRect(8, H - 22, REACH + 8, 16);
       c.fillStyle = "#ff6a4a"; c.fillRect(12, H - 12, REACH, 3);
-      c.font = "bold 8px monospace"; c.textAlign = "left"; c.fillStyle = "#fff"; c.fillText(`${REACH} board px`, 14, H - 15);
+      c.font = "bold 8px monospace"; c.textAlign = "left"; c.fillStyle = "#fff"; c.fillText(`${REACH} board px (straight)`, 14, H - 15);
       c.fillText(`board is ${W} x ${H}`, REACH + 22, H - 10);
       const post = async (name, canvas) => fetch(`/__shot?name=${name}`, { method: "POST", body: canvas.toDataURL("image/png").slice(22) });
       await post(`necroreach_${TAG}`, cv);
