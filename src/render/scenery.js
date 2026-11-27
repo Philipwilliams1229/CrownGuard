@@ -27,6 +27,7 @@ import { pixelTuft, groundKind } from "./groundblend.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import { VALE_ART } from "./scenery-vale.js";
 import { RIME_ART } from "./scenery-rime.js";
+import { releaseDeep } from "./release.js";
 import {
   lighten, darken, mix, rgb, rgba, soft, shadow as shadow0, ball, glow, roundRect, cylinder, cone,
   blade, tuft, stone, strokePts, blobPath, blobBall, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
@@ -1086,10 +1087,10 @@ const banner = (ctx, x, y, s, time) => {
 // fly a flag are painted live so they keep moving.
 const SPRITES = new Map();
 // a new sun (data/sun.js): every piece re-bakes (its lit side, its warm edge, the pix sculpts in it)
-onDay(() => { SPRITES.clear(); GATE.key = ""; });
+onDay(() => { releaseDeep(SPRITES); SPRITES.clear(); GATE.key = ""; });
 // how many bakes the scenery holds, and their pixels (for the lab pages)
 export const sceneryBakeStats = () => { let px = 0; for (const sp of SPRITES.values()) px += sp.cv.width * sp.cv.height; return { n: SPRITES.size, mb: +(px * 4 / 1048576).toFixed(1) }; };
-export const resetSceneryBakes = () => { SPRITES.clear(); GATE.key = ""; resetCastleBakes(); };
+export const resetSceneryBakes = () => { releaseDeep(SPRITES); SPRITES.clear(); GATE.key = ""; resetCastleBakes(); };
 // the chapters' own pieces (scenery-iron.js, scenery-hollow.js) join the kit.
 // Gathered on first use, never at load: those files import this one back,
 // so whichever loads first, the other's registry isn't ready yet at load.

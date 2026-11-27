@@ -27,6 +27,7 @@ import { sunCurves, SUN_DIR, SUN_SHEAR } from "../sunset.js";
 import { PTS, nearestOnPath } from "../../engine/path.js";
 import { DAY, onDay } from "../../data/sun.js";
 import * as SCN from "../scenery.js";
+import { releaseDeep } from "../release.js";
 
 const KINDS = new Set(["tree", "pine", "willow"]);
 const FOOT = 10;                 // the trunk's foot below the DECOR anchor, board units (today's sprites stand there too)
@@ -100,7 +101,7 @@ export const ownsTree = (d) => { const p = planOf(d); return !!p && !p.none; };
 
 // ---- the bakes (dropped on a new sun) ----
 let BASE = new Map(), POSES = new Map(), budget = BAKES_A_FRAME, FRAMES = 0, AFTER_GROUND = false;
-onDay(() => { BASE = new Map(); POSES = new Map(); STATS.bytes = 0; LIFE_KEY = ""; });
+onDay(() => { releaseDeep(BASE); releaseDeep(POSES); BASE = new Map(); POSES = new Map(); STATS.bytes = 0; LIFE_KEY = ""; });
 const bake = (p, lean) => {
   const t0 = performance.now();
   SWAY.at = lean ? () => lean : null;

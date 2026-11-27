@@ -2,6 +2,7 @@
 import { Pix, toCanvas } from "./pix.js";
 import { frameAt } from "./rig.js";
 import { lightRight, onDay } from "../../data/sun.js";
+import { release, releaseDeep } from "../release.js";
 
 // fig: a figure module ({ BOX, BONES, draw, fx?, CLIPS }).
 // o.flip     bake for a sprite drawn mirrored (the sun stays upper-left on screen)
@@ -80,5 +81,5 @@ export const rimOf = (fr, dir, col, line = false) => {
   if (!cv) { cv = toCanvas(fr.remake().lightLayer({ dir, col, k: 1, line })); fr.rims.set(key, cv); if (!fr.gone) bytes += cvBytes(cv); }
   return cv;
 };
-export const clearBakes = () => { CACHE.clear(); bytes = 0; };
+export const clearBakes = () => { releaseDeep(CACHE, 3); CACHE.clear(); bytes = 0; };   // (release.js: hand the pixels back now)
 onDay(clearBakes);   // a new sun: every figure is sculpted again from its side

@@ -24,6 +24,7 @@ import { groundKind } from "./groundblend.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, cylinder,
   blade, tuft, hash, lin, bakeSprite, PX, PIXEL, inkOutline, STYLE } from "./paint.js";
+import { release, releaseDeep } from "./release.js";
 
 // the castle's stone in look B (owner's pick, 2026-11-14): a cool-warm grey
 // and a one-pixel line tinted from it, not the near-black of the other sprites
@@ -1977,6 +1978,7 @@ const groundBakes = (gx, gy, tier) => {
   const x0 = FOOT_X0, y0 = TOP, w = FOOT_X1 - x0, h = BOT - TOP;
   const layer = (fn) => bakeSprite(w, h, (c) => { c.translate(-x0, -y0); fn(c, pixels(x0, y0, w, h)); }, false);
   if (GROUND.key !== key) {
+    release(GROUND.under); release(GROUND.shortCv); release(GROUND.overCv);
     // the ground itself doesn't change as the siege goes on: baked once a board
     Object.assign(GROUND, {
       key, x0, y0, w, h, tier: -1,
@@ -2380,13 +2382,13 @@ let DAYC = { key: "", cv: null }, DAYG = { key: "", s: null };
 const castleDay = (ctx, time, gy) => {
   if (!DAY.on || SUN.t === time || !CASTLE.cv || typeof document === "undefined") return;
   const key = CASTLE.key + "|" + DAY.v;
-  if (DAYC.key !== key) DAYC = { key, cv: dayStoneBake(CASTLE.cv, CASTLE.x0, CASTLE.y0, gy, TOP, BOT) };
+  if (DAYC.key !== key) release(DAYC.cv), DAYC = { key, cv: dayStoneBake(CASTLE.cv, CASTLE.x0, CASTLE.y0, gy, TOP, BOT) };
   ctx.drawImage(DAYC.cv, CASTLE.x0, CASTLE.y0, CASTLE.w, CASTLE.h);
 };
 const castleDayGround = (ctx, gy) => {
   if (!DAY.on || DAY.side <= 0 || typeof document === "undefined") return;
   const key = `${gy}|${W}|${H}|${REALM.id}|${DAY.v}`;
-  if (DAYG.key !== key) DAYG = { key, s: dayGroundShadow(gy, TOP, BOT) };
+  if (DAYG.key !== key) releaseDeep(DAYG.s), DAYG = { key, s: dayGroundShadow(gy, TOP, BOT) };
   const s = DAYG.s;
   ctx.drawImage(s.cv, s.x0, s.y0, s.w, s.h);
 };
@@ -2417,6 +2419,7 @@ export const drawCastle = (ctx, time, hpPct) => {
         c.fillRect(sx, sy, 0.5, 0.5);
       }
     }, false);
+    release(CASTLE.cv);   // the last castle's stone (release.js)
     CASTLE = { key, cv, x0, y0, w, h, ...info, floor };
   }
   if (!CASTLE.cv) return;

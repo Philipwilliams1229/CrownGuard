@@ -49,6 +49,7 @@ import { BRIDGES, RIVERS, CHEVRONS, archAt, inRiver, BRIDGE_HALF, BRIDGE_RISE } 
 import { REALM } from "../data/maps.js";
 import { PX, SUN, rgb, rgba, hash } from "./paint.js";
 import { DAY, onDay } from "../data/sun.js";
+import { release, releaseDeep } from "./release.js";
 
 // ---- the sun the bake works to ---------------------------------------------
 // A bridge is never mirrored: under an eastern sun (DAY.side > 0) the bake is
@@ -1930,7 +1931,7 @@ const pillarsStone = (S, R, F, P, posts, stoneT) => {
 // Baked spans are kept for the realm in play (a restart of the same board
 // finds them ready); baking another realm's spans lets the old ones go.
 const CACHE = new Map();
-onDay(() => { CACHE.clear(); for (const b of BRIDGES) b._spr = null; });
+onDay(() => { releaseDeep(CACHE); CACHE.clear(); for (const b of BRIDGES) b._spr = null; });
 const spriteOf = (b, pal) => {
   const key = [REALM.id, PX, b.x, b.y, b.a, b.d0, b.d1, DAY.id, pal ? JSON.stringify(pal) : ""].join("|");
   if (b._spr && b._spr.key === key) return b._spr;

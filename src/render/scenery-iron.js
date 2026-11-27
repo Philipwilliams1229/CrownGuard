@@ -53,6 +53,7 @@ import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
 const shadow = (...a) => (longShade() ? undefined : shadow0(...a));
 import { onDay, DAY } from "../data/sun.js";
 import { saltPanPix, sluicePix, wreckPix } from "./pix/iron-works.js";
+import { releaseDeep } from "./release.js";
 
 // ---- the Kingdom's colours and the country's -------------------------------
 const INK = "#241a26";
@@ -75,7 +76,7 @@ const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
 // A still body baked once (inked), then stamped — for the live pieces, whose
 // cloth or flame is painted over it every frame.
 const BODIES = new Map();
-onDay(() => { BODIES.clear(); LOW.clear(); sbodies.clear(); });
+onDay(() => { releaseDeep(BODIES); releaseDeep(LOW); releaseDeep(sbodies); BODIES.clear(); LOW.clear(); sbodies.clear(); });
 const body = (key0, hw, top, bot, paint) => {
   const key = key0 + sunKey();
   let sp = BODIES.get(key);

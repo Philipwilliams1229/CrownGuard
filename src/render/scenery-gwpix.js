@@ -9,6 +9,7 @@ import { REALM } from "../data/maps.js";
 import { hash, mix, lighten, rgba } from "./paint.js";
 import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
 import { DAY, onDay } from "../data/sun.js";
+import { releaseDeep } from "./release.js";
 
 // ---- the time of day (data/sun.js; art/briefs/time-of-day.md, the scenery row) ----
 // Under an EASTERN sun most scenery is drawn MIRRORED about its anchor (scenery.js drawTree), so its
@@ -291,7 +292,7 @@ export const tintedPart = (plain) => (ctx, fn, o = {}) => {
 
 // ---- the Gullwick watchtower's stone (the window glow and the flag stay live) -----
 const TOWERS = new Map();
-onDay(() => TOWERS.clear());
+onDay(() => { releaseDeep(TOWERS); TOWERS.clear(); });
 export const pixTowerBody = (ctx, x, y, s, stone) => {
   const k = `${s}|${stone}${sunKey()}`;
   let t = TOWERS.get(k);

@@ -1337,6 +1337,16 @@ Bring these up with the owner; don't act on them unasked.
   for the next report: canvaswatch.js COUNTS canvases in every build now (`canvases` in the sample: alive, MB,
   made), the overhaul's tree bakes (`trees`), the scenery pass split out of "prep" (`parts.scenery`), and a
   `still-slow` sample if a battle stays under 20 fps for 30 s.
+  **Images are handed back now** (2026-11-27, owner: "GETTER DONE"; pending a phone check): `src/render/release.js`
+  `release(cv)` / `releaseDeep(cache)` shrink a dropped canvas to 1 x 1 (never 0: drawing a 0-wide canvas throws), so
+  its pixels go at once instead of whenever WebKit collects it. Called where a level's bakes are replaced or a new sun
+  clears them: the ground layer (world.js), daygrade's board, the castle's stone / ground / day bakes, the figures
+  (bake.js `clearBakes`, not the in-battle trim), halls, scenery / bridge / overhaul / vale / iron / rime / gwpix
+  caches. Only call it on a canvas no other cache keeps: builders.js used to keep the figure cache's own canvas
+  (now it doesn't). Measured in Chromium, Gullwick then Millrace: 912 canvases / 53 MB handed back at the change;
+  `ovh-identity.html` (18 realm x sun cases) pixel-identical. The report's sample carries `released` {n, mb}.
+  Measured there too: the campaign map makes ~760 canvases only the FIRST time (the title's warm-up; ~2 a visit
+  after), a level ~500-1000 the first time, and a battle ~35 a second (figure frames baking as new poses show up).
 - **A new name for the game** (2026-11-26, owner: "I still don't like crownguard"; "we'll come back to
   this"). Ruled out: Siegebreaker / Siege Breaker(s) / Siege Break (a 2024 tower defense on Steam is
   "Siegebreaker"; Halfbrick's iOS "Siege Breakers"; a "Siege Break" app; several more). The owner turned
