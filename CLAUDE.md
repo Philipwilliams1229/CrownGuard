@@ -3485,7 +3485,7 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   the same war-waves share a finale (Thornbrook / Gullwick, Thistlecrag / Kingstones). `--endure` seed default,
   last wave's castle damage old -> new (swarm / burst): Gullwick 5 / 19 -> 27 / 57, Millrace 20 / 0 -> 79 / 23,
   Bramblewick 0 / 0 -> 73 / 68, Wolfrun 16 / 4 -> 95 / 60, Thistlecrag 12 / 0 -> 132 / 84, Kingstones 22 / 0 ->
-  176 / 18, Ravenscar 0 / 0 -> 84 / 0; the Vale Road and the Old Road (gw4) still ~0 (the sim plays them
+  176 / 18, Ravenscar 0 / 0 -> 84 / 0; the Vale Road and the Barrowfields still ~0 (the sim plays them
   cleanly); all held.
 - **The Goblin Warrens (gw5) start with 1500 gold** (was 1000; owner,
   2026-11-07: "couldn't get past wave 3", with the Fierce fog lingering).
