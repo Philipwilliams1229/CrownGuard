@@ -2008,7 +2008,7 @@ Pending the owner's playtest.
 
 Provisional, pending the owner's playtest. Every Iron foe's `armor` +0.15 (levy 0.1 -> 0.25, crossbowman
 0 -> 0.15, sergeant 0.55, cavalier 0.35, chaplain 0.25, magister 0.15, ram 0.75, gryphon 0.45, unhorsed
-0.65, loose horse 0.35, unseated 0.45, Lord Marshal 0.5); the ram's magic weakness `mres` -0.5 -> -0.3.
+0.65, loose horse 0.35, unseated 0.45, Lord Marshal 0.5); the ram's magic weakness stays `mres` -0.5 (magic x1.5).
 Shield pips at spawn (`guard`): Lord Marshal 5, chaplain 3, magister 3, crossbowman 3, cavalier 1. A
 ward tops a foe up to the larger of `wardHits` and his own starting pips (`e.guardMax`, update.js), so
 the Marshal refills to 5; the pip strip draws up to 5 (statusfx.js). `--chapter iron --endure`, better
