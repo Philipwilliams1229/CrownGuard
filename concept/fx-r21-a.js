@@ -5,10 +5,10 @@
 // leg's step (a limp). The dip is a per-frame offset, so a bake can carry it (frame -> dy), nothing kept between frames.
 import { maskOf, sprite, frameOf, H, P, bay, cl, fifth, sunEdge } from "./fx-r21-kit.js";
 
-// dirt ramp, stepped, light to deep (tan and umber: no orange, no red, no green)
-const DIRT = ["#ecd7a4", "#cfab72", "#a27a4c", "#755234", "#4a3322"];
+// road-dust ramp, stepped, light to deep (khaki and umber: no orange, no red, no green, no blue)
+const DIRT = ["#e6dab6", "#c6b186", "#9c8862", "#6c5c44", "#433a2c"];   // greyed khaki, apart from the goblin's red-brown leather
 // slow strength -> how much: how high the dirt climbs (fraction of height), grit specks, the limp's dip, scratches
-const grow = (lv) => ({ reach: [0.11, 0.2, 0.3][lv], grit: [3, 5, 7][lv], dip: [0, 1, 1][lv], scr: [0, 2, 3][lv], cake: [0.22, 0.34, 0.46][lv] });
+const grow = (lv) => ({ reach: [0.09, 0.15, 0.24][lv], grit: [3, 5, 7][lv], dip: [0, 1, 1][lv], scr: [0, 2, 3][lv], cake: [0.22, 0.34, 0.46][lv] });
 const LVL = 1;                       // paint the middle strength (30-60%)
 const LAME = [1, 2];                 // the walk frames where the lame leg takes the weight: the body dips a pixel
 
@@ -38,7 +38,7 @@ export const paint = (c, e, lv = LVL) => {
     else if (y === l) col = DIRT[1];                                         // the lip
     else if (y >= -1) col = DIRT[3];                                         // the soles
     else if (H(x * 3, y * 7) > 0.82) col = DIRT[3];                          // a clod here and there
-    P(c, x, y + dy, col);
+    P(c, x, y + dy, col, col === DIRT[2] || col === DIRT[3] ? 0.8 : 1);
   }
   // 1b. the dust rim: a warm tan line one pixel OUTSIDE the sunward (back) edge of the legs and hips, up to a few px over
   //     the mud, dithering out at its top: the "glow" of the slow, in dust colours, only on the lower body
