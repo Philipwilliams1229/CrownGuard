@@ -1774,7 +1774,10 @@ export default function Crownguard() {
   // tower up: its picture rides above the finger, the ghost follows on the
   // map, and it's built where the finger lifts over the field. A drag that
   // runs up or down the tray scrolls the tray instead. Tiles take
-  // touch-action: none, so the browser never steals the gesture. --
+  // touch-action: pan-y, so a finger scrolls the tray natively (smooth, with
+  // momentum, on locked and too-dear tiles as well): the browser claims an
+  // up-or-down drag and sends pointercancel, while a sideways one stays ours.
+  // Only a mouse (no native drag-scroll) scrolls the list by hand. --
   const startTileDrag = (ev, kind, pick = null) => {
     const list = ev.currentTarget.closest(".cg-scroll");
     tileDrag.current = { id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, kind, pick, mode: null, list, top0: list ? list.scrollTop : 0 };
@@ -1798,14 +1801,17 @@ export default function Crownguard() {
           setTalentsOpen(false);   // a tower picked up folds the hero's menu away
         }
       }
-      if (d.mode === "scroll") d.list.scrollTop = d.top0 - dy;
+      if (d.mode === "scroll" && e.pointerType !== "touch") d.list.scrollTop = d.top0 - dy;
       if (d.mode === "drag") {
         g.hover = toWorld(e);
         setDragGhost({ kind: d.kind, pick: d.pick, x: e.clientX, y: e.clientY });
       }
     };
+    // once a tower is picked up, no late scroll may take the finger over
+    const hold = (e) => { if (tileDrag.current?.mode === "drag" && e.cancelable) e.preventDefault(); };
     const up = (e) => {
       const d = tileDrag.current;
+      window.removeEventListener("touchmove", hold);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
@@ -1821,6 +1827,7 @@ export default function Crownguard() {
         else park(false);
       }
     };
+    window.addEventListener("touchmove", hold, { passive: false });
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
@@ -2335,7 +2342,7 @@ export default function Crownguard() {
                           <div key={pk} style={{ position: "relative" }}>
                           <button title={def.branches[plan.branch].desc}
                             className={cls("cg-btn cg-btn--slate", active && "is-on", !can && "is-poor")}
-                            style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100, touchAction: "none" }}
+                            style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100, touchAction: "pan-y" }}
                             onPointerDown={(e) => { if (can) startTileDrag(e, key, { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name }); }}
                             onClick={() => {
                               const gg = G.current;
@@ -2378,7 +2385,7 @@ export default function Crownguard() {
                 return (
                   <button key={key} title={open ? def.blurb : benched ? "Left out of this sandbox run." : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
-                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact && !roomy ? 88 : 100, touchAction: "none" }}
+                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact && !roomy ? 88 : 100, touchAction: "pan-y" }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); setTalentsOpen(false); }}
                     disabled={!can}>
