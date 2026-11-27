@@ -492,10 +492,18 @@ export default function Crownguard() {
     if (g.snapshot) g.snapshot.towerXp = {};
     return r;
   };
+  // Leaving a battle for the map or the title ENDS it, as closing the app would (owner, 2026-11-27: the
+  // battle used to be un-paused here and ran on behind the map). parkBattle has kept it: between waves as it
+  // stands, mid-wave as that wave began. The left battle stays frozen (`g.left`, the main loop holds it
+  // paused) until the next initGame replaces it; it may still show, still, behind Free Play's realm picker.
+  const leaveBattle = () => {
+    const g = G.current;
+    parkBattle(g);
+    bankLedger(g);
+    if (g) { g.paused = true; g.left = true; }
+  };
   const openMap = () => {
-    parkBattle(G.current);
-    bankLedger(G.current);
-    if (G.current) G.current.paused = false;
+    leaveBattle();
     setArrive(null);
     setMenuOpen(false);
     setRealmOpen(false);
@@ -540,9 +548,7 @@ export default function Crownguard() {
   };
   useEffect(() => onAway(() => awayRef.current()), []);
   const goHome = () => {
-    parkBattle(G.current);
-    bankLedger(G.current);
-    if (G.current) G.current.paused = false;
+    leaveBattle();
     setMenuOpen(false);
     setRealmOpen(false);
     setScreen("home");
@@ -668,6 +674,7 @@ export default function Crownguard() {
       raf = requestAnimationFrame(step);
       const g = G.current;
       if (!g) return;
+      if (g.left) g.paused = true;   // a battle left for the map or the title never runs on (leaveBattle)
       const every = 1000 / (prefs.fps || 60);
       if (now < due - SLACK) return;
       const tStep = performance.now(), gap = lastStep ? now - lastStep : 0;
