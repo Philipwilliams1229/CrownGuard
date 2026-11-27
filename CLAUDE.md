@@ -3471,6 +3471,12 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   (hl4) went 750 → 850 start gold to absorb it — PROVISIONAL, pending the
   owner's playtest (more gold is not monotonic in the sim there: 800, 900
   and 950 each lost seeds that 850 won).
+- **A level may write its own last wave** (owner, 2026-11-27: Cinderholt's 25th, a generated flight of bats and
+  shamans, was "super underwhelming"): `finale: [[type, count, gap], ...]` in a level's `window` (campaign.js)
+  replaces wave `count`'s spec and goes through the same swell and shaping (waves.js `waveSpec`). Cinderholt's:
+  the whole horde, ~580 heads after the swell (goblins, wolves, orcs, armored, 11 trolls, riders, 2 warchiefs, 3
+  necromancers, shamans, 148 bats). `--endure` wave 25 (swarm / burst): seed 1 3 / 95 -> 93 / 151, seed 2 186 / 221 with it, now
+  the level's hardest wave; the level held on all four.
 - **The Goblin Warrens (gw5) start with 1500 gold** (was 1000; owner,
   2026-11-07: "couldn't get past wave 3", with the Fierce fog lingering).
   `--endure` seeds 1-2: the opening waves bleed ~0; swarm 388/156 ->

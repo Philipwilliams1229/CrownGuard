@@ -251,7 +251,12 @@ export const waveSpec = (w) => {
   }
   // two waves of a level can land on the same war-wave; the later one comes
   // thicker, because the crowd reads the level's true (fractional) position
-  let spec = dryLand(scripted ? FACTION.waves[a - 1] : genWave(w));
+  // a level may write its own last wave (`finale` in its window, campaign.js;
+  // owner, 2026-11-27: Cinderholt's 25th was a generated flight of bats and
+  // shamans, "super underwhelming"): it goes through the same swell and
+  // shaping as any other wave, so it grows with the war like the rest
+  const finale = WINDOW.finale && w === WINDOW.count ? WINDOW.finale : null;
+  let spec = dryLand(finale || (scripted ? FACTION.waves[a - 1] : genWave(w)));
   spec = spec.filter(([type]) => !BOSSES.has(type));
   // a faction may hold its wall back (`wallFrom`, factions.js): no siege ram
   // on a level's early waves, whatever the script says (owner, 2026-10-04)

@@ -108,7 +108,12 @@ export const CHAPTERS = [
       },
       {
         id: "cinderholt", name: "Cinderholt", realm: "cinderholt",
-        window: { from: 9, to: 31, count: 25 }, gold: 900,
+        window: { from: 9, to: 31, count: 25,
+          // the last wave is the whole horde at once (owner, 2026-11-27: the generated
+          // one was a flight of bats and shamans, "super underwhelming"); swelled as usual
+          finale: [["wolf", 20, 320], ["goblin", 50, 260], ["orc", 20, 480], ["armored", 14, 650], ["troll", 8, 1300],
+            ["boarrider", 9, 700], ["hobgoblin", 2, 0], ["necro", 3, 0], ["shaman", 5, 4200], ["bat", 40, 280]] },
+        gold: 900,
         blurb: "The horde fired this wood to smoke the vale out. Nothing stands but black trunks — nothing hides the road, and nothing hides the horde on it.",
       },
       // ...and the boss, thirty waves deep
