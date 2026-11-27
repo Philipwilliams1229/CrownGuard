@@ -557,7 +557,7 @@ export const statusCrack = (ctx, e, time, feet, hr) => stampAt(ctx, crackSprite(
 // while a pip stands (steel is swallowed whole, magic and burns glance off). The row's middle
 // sits 1 art px above the sprite's anchor, hence the half unit.
 export const statusShield = (ctx, e, time, tms, mid) => {
-  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, Math.ceil(e.guard))), e.guardFlash > tms), e.x, mid + 0.5);
+  stampAt(ctx, pipSprite(Math.max(1, Math.min(5, Math.ceil(e.guard))), e.guardFlash > tms), e.x, mid + 0.5);
 };
 
 // ---- PHYSICAL HIT (concept B): a hard white pop, steel and ember sparks flung out, a slash, dust ----

@@ -2004,6 +2004,17 @@ the narrow ground art; `reach` is gone. Greedy packing, old -> new halls on a bo
 seed 1, better doctrine, old -> new: Greenwood 3480 -> 3594, Iron 10885 -> 10585 (noise; all held).
 Pending the owner's playtest.
 
+## The Iron army is heavier (2026-11-27, owner request)
+
+Provisional, pending the owner's playtest. Every Iron foe's `armor` +0.15 (levy 0.1 -> 0.25, crossbowman
+0 -> 0.15, sergeant 0.55, cavalier 0.35, chaplain 0.25, magister 0.15, ram 0.75, gryphon 0.45, unhorsed
+0.65, loose horse 0.35, unseated 0.45, Lord Marshal 0.5); the ram's magic weakness `mres` -0.5 -> -0.3.
+Shield pips at spawn (`guard`): Lord Marshal 5, chaplain 3, magister 3, crossbowman 3, cavalier 1. A
+ward tops a foe up to the larger of `wardHits` and his own starting pips (`e.guardMax`, update.js), so
+the Marshal refills to 5; the pip strip draws up to 5 (statusfx.js). `--chapter iron --endure`, better
+doctrine per level, seeds 1/2: 10185 / 10518 -> 14122 / 14469 castle damage (+37%; the Citadel Gate
+1793 / 2022 -> 2959 / 3231); all 15 held, none stuck.
+
 ## Idle soldiers gang up (2026-11-08, owner request)
 
 "If there's idle knights during a battle, allow them to gang up ... Same for
