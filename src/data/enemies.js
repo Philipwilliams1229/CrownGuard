@@ -118,18 +118,18 @@ export const ENEMIES = {
   // the Greenwood, so it asks more from the first wave (retuned 2026-09-27:
   // tougher bodies, bigger columns, three-blow shields, battle-mages).
   levy: {
-    faction: "iron", hp: 60, speed: 78, bounty: 7, armor: 0.1, size: 16,
+    faction: "iron", hp: 60, speed: 78, bounty: 7, armor: 0.25, size: 16,
     name: "Iron Levy", atk: 15, atkRate: 850, castleDmg: 1, guard: 3,
     note: "Three raised shields: only steel breaks them. Each swallows one physical blow whole, however big it was, and while any stand, magic and fire do nothing. Strip them with quick arrows and blades, or with something that hits the whole column at once.",
   },
   crossbow: {
-    faction: "iron", hp: 90, speed: 74, bounty: 9, armor: 0, size: 16,
+    faction: "iron", hp: 90, speed: 74, bounty: 9, guard: 3, armor: 0.15, size: 16,
     name: "Crossbowman", atk: 9, atkRate: 1000, castleDmg: 1,
     rangedAtk: 18.75, rangedRange: 100, rangedRate: 1800,
     note: "Shoots your knights down from outside their reach, and never stops walking to do it. Kill them early or your line bleeds out.",
   },
   sergeant: {
-    faction: "iron", hp: 185, speed: 60, bounty: 15, armor: 0.4, size: 18,
+    faction: "iron", hp: 185, speed: 60, bounty: 15, armor: 0.55, size: 18,
     name: "Knight-Sergeant", atk: 28, atkRate: 900, castleDmg: 2, immSlow: true,
     note: "Plate over padding, and too disciplined to falter — frost and briars slow him not at all. Magic still bites.",
   },
@@ -138,13 +138,13 @@ export const ENEMIES = {
     // arrows still bite), and half the time the knight survives his horse's
     // death and fights on foot (`unhorsed`, plate that turns steel). Later
     // the same day: traps cripple a galloping horse (`trapBane` 1.5, as the ram)
-    faction: "iron", hp: 180, speed: 120, bounty: 14, armor: 0.2, trapBane: 1.5, size: 19,
+    faction: "iron", hp: 180, speed: 120, bounty: 14, guard: 1, armor: 0.35, trapBane: 1.5, size: 19,
     name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1, mounted: true,
     splitInto: ["unhorsed", 1], splitDrop: true, splitChance: 0.5, dropStun: 1000, deathSkin: "cavalierMount",
     note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow. Traps on the road cripple a galloping horse. Kill the horse and, half the time, its knight rolls clear and fights on foot in heavy plate.",
   },
   chaplain: {
-    faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
+    faction: "iron", hp: 175, speed: 62, bounty: 18, guard: 3, armor: 0.25, mres: 0.3, size: 16,
     name: "Battle Chaplain", atk: 10, atkRate: 1000, castleDmg: 2,
     // a healer, not a warder (owner, 2026-09-29): every few seconds a pulse
     // mends everyone within reach by a share of their health, capped so a
@@ -165,7 +165,7 @@ export const ENEMIES = {
   // (`followColumn`): once most of it has marched past your soldiers he
   // stops hanging back and goes after it (update.js columnGone).
   magister: {
-    faction: "iron", hp: 300, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
+    faction: "iron", hp: 300, speed: 58, bounty: 30, guard: 3, armor: 0.15, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
     wardEvery: 3000, wardHits: 3, wardStep: 1, wardRange: 80, packRange: 95, wardFx: "aegis", standOff: 50, followColumn: true,
     note: "A court battle-mage who marches inside the big columns. Every three seconds his aegis lays another blue shield on himself and every soldier around him, up to three each. Each shield swallows a physical blow whole, and no magic or fire gets through while one stands. Strip them faster than he lays them with quick arrows and blades, then kill him (he keeps the column's pace, and hangs a few steps back once it meets your soldiers, still close enough to shield it); or break them with steel that hits many at once.",
@@ -180,7 +180,7 @@ export const ENEMIES = {
   ram: {
     // speed 30 -> 46 with the wall: the whole army walks at the ram's pace, and
     // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
-    faction: "iron", hp: 2000, speed: 38, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
+    faction: "iron", hp: 2000, speed: 38, bounty: 60, armor: 0.75, mres: -0.5, trapBane: 1.5, size: 34,
     name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 5, immSlow: true, immStun: true, crush: true, crushDmg: 175,
     roadBlock: 50,
     // it never marches bare: [type, base count, more per war-wave, gap ms]
@@ -190,7 +190,7 @@ export const ENEMIES = {
   gryphon: {
     // 2026-11-08 (owner): armor 0.2 -> 0.3, and the knight lives through the
     // fall only half the time (was always), dazed a full second when he does
-    faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.3, size: 21,
+    faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.45, size: 21,
     name: "Gryphon Knight", flying: true, atk: 0, atkRate: 900, castleDmg: 2,
     // bring the beast down and its knight falls with it, and walks on
     splitInto: ["unseated", 1], splitDrop: true, splitChance: 0.5, dropStun: 1000, deathSkin: "gryphonMount",
@@ -202,7 +202,7 @@ export const ENEMIES = {
   // a cavalier's knight who outlived his horse (owner, 2026-11-08): slower
   // than the saddle, but in full plate that turns arrows and blades
   unhorsed: {
-    faction: "iron", hp: 110, speed: 62, bounty: 7, armor: 0.5, size: 17,
+    faction: "iron", hp: 110, speed: 62, bounty: 7, armor: 0.65, size: 17,
     name: "Unhorsed Knight", atk: 24, atkRate: 900, castleDmg: 1,
     note: "A cavalier who lived through his horse's fall. On foot he is slow, but his plate turns half of every arrow and blade. Magic goes straight through it.",
   },
@@ -211,17 +211,17 @@ export const ENEMIES = {
   // bolts down the road faster than it was ridden. No lance, no blow; your
   // soldiers can still catch it by the bridle and hold it.
   loosehorse: {
-    faction: "iron", hp: 110, speed: 175, bounty: 6, armor: 0.2, trapBane: 1.5, size: 19,
+    faction: "iron", hp: 110, speed: 175, bounty: 6, armor: 0.35, trapBane: 1.5, size: 19,
     name: "Loose Horse", atk: 0, atkRate: 1000, castleDmg: 1, mounted: true,
     note: "A cavalier's horse that threw its knight when the lightning cracked. Riderless and terrified it bolts for the gate faster than any charge. It never fights back.",
   },
   unseated: {
-    faction: "iron", hp: 100, speed: 66, bounty: 8, armor: 0.3, size: 17,
+    faction: "iron", hp: 100, speed: 66, bounty: 8, armor: 0.45, size: 17,
     name: "Unseated Knight", atk: 22, atkRate: 900, castleDmg: 1,
     note: "Thrown from a gryphon brought down under him. He shakes off the fall, picks up sword and shield, and marches on for the gate on foot — where, at last, your knights can reach him.",
   },
   marshal: {
-    faction: "iron", hp: 5000, speed: 48, bounty: 110, armor: 0.35, size: 24,
+    faction: "iron", hp: 5000, speed: 48, bounty: 110, guard: 5, armor: 0.5, size: 24,
     name: "LORD MARSHAL", boss: true, atk: 64, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
     bannerRange: 115, bannerSpeed: 0.3, bannerArmor: 0.2,
     note: "Boss. His banner drives the whole column faster and harder — every soldier near him is quicker and better armored, and he rides down the first two knights that try to hold him. Cut down the banner and the army falters.",

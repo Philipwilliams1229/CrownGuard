@@ -620,7 +620,7 @@ const makeEnemy = (type, mult) => {
     lane: pickLane(d.boss || !!d.roadBlock),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
     drain: d.drain || 0,
-    flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, swarms: d.swarms || 0, guard: d.guard || 0, guardFlash: 0,
+    flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, swarms: d.swarms || 0, guard: d.guard || 0, guardMax: d.guard || 0, guardFlash: 0,
     roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
     immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush, crushDmg: d.crushDmg || 0, mounted: !!d.mounted,
@@ -2052,7 +2052,10 @@ export function updateGame(g, dt) {
             const was = e2.guard || 0;
             // (a stepping warder lays one a cast on the others but tops HIMSELF
             // back up to full every cast: the Aegis Magister, owner 2026-11-08)
-            e2.guard = e.wardStep && e2 !== e ? Math.min(e.wardHits, was + e.wardStep) : Math.max(was, e.wardHits);
+            // (a foe born with more pips than the ward lays, the Lord Marshal's 5,
+            // is topped back up to his own; owner, 2026-11-27)
+            const cap = Math.max(e.wardHits, e2.guardMax || 0);
+            e2.guard = e.wardStep && e2 !== e ? Math.max(was, Math.min(cap, was + e.wardStep)) : Math.max(was, e.wardHits);
             if (e2.guard > was) e2.guardFlash = tms + 400;
           }
         }
