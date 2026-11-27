@@ -2306,7 +2306,10 @@ reads "<level> · wave N next"); the map card shows "Resume at wave N" over a "S
 `resumeBattle` lays it out with `restartWave`; the castle is the crown's as it stands now, the hero
 wears the talents bought since. Hall XP: leaving banks the kept ledger (up to the kept wave's start)
 and zeroes it, so the replayed wave is not counted twice; a killed app keeps the ledger unbanked in
-the record. `g.ckLevel` names the level a battle keeps (null in Free Play and once left). Checked in
+the record. `g.ckLevel` names the level a battle keeps (null in Free Play and once left). Leaving for the map or the title (pause menu,
+victory / defeat card) ENDS the battle as closing the app would (owner, 2026-11-27: it used to be un-paused and
+ran on behind the map): `leaveBattle` parks it, banks the ledger and freezes it (`g.left`, held paused by the
+main loop) until the next initGame. Checked in
 headless Chromium: reload mid-wave, hide-then-reload in a build phase, leave mid-wave for the map.
 
 ## Three save files (2026-11-24, owner request)
