@@ -1,67 +1,49 @@
 // Round 21 option C (the plain slow): BOUND IN IRON. See art/briefs/fx-round21.md. Owned by its artist alone.
-// A chain is coiled round the legs (two slanted bands of links across the legs, a loose end
-// swinging behind the heel), the legs under it have gone leaden (the figure's own shading turned to pewter, fading
-// out in fifths at the hip), and small dark weight marks sink down the back. Everything is read from the frame's
-// own silhouette and pixels (a per-frame bake, no state between frames).
-import { sprite, frameOf, maskOf, bay, fifth, cl, fr, P, LV, isFace } from "./fx-r21-kit.js";
-export const note = "Bound in iron: a chain coiled round the shins with a loose end swinging behind the heel, the legs turned leaden grey, and dark weight marks sinking down the back. A light slow is one coil and grey shins; a heavy one is three coils with lead up to the belt and more marks. The frost's mist is pale and drifts outside the body; this is dark, solid and on the legs, so a foe wearing both shows both.";
+// A chain of big links is wound diagonally round both shins (the legs keep their own colours, only a light shade
+// under the chain), and its loose end trails on the road behind the heel to a small iron weight, dragged along in
+// jerks as each step lands. Read from the frame's own silhouette (a per-frame bake, no state between frames).
+import { sprite, maskOf, bay, P, LV } from "./fx-r21-kit.js";
+export const note = "Bound in iron: a chain of big links wound round the shins, its loose end trailing on the road behind the heel to a small iron weight that is dragged along in jerks. A light slow is one turn of chain and a bare trailing end; a heavy one is three turns and a bigger weight. The frost's mist is pale and drifts round the whole body; this is dark iron on the legs and the road behind, so a foe wearing both shows both.";
 
 // pewter iron, a touch violet in the shade so it is neither the frost's blue nor B's warm grey
 const IRON = ["#ece8ee", "#b8b2c0", "#847e92", "#565068", "#343046", "#1e1c2c"];
-const grow = (lv) => ({ up: [0.2, 0.34, 0.5][lv], coils: [1, 2, 3][lv], n: [1, 2, 3][lv], big: lv === 2, amp: [0.75, 1, 1.15][lv] });
-
-// the frame's own pixels (for the lead's shading), cached per frame canvas
-const PIX = new WeakMap();
-const lumOf = (s) => { let f = PIX.get(s.cv); if (f) return f; const w = s.cv.width, d = s.cv.getContext("2d").getImageData(0, 0, w, s.cv.height).data, ax = Math.round(s.ax), ay = Math.round(s.ay);
-  f = (x, y) => { const i = ((y + ay) * w + x + ax) * 4; return (d[i] * 0.3 + d[i + 1] * 0.55 + d[i + 2] * 0.15) / 255; }; PIX.set(s.cv, f); return f; };
+const grow = (lv) => ({ coils: [1, 2, 3][lv], ball: [0, 1, 2][lv], shade: [0.25, 0.4, 0.5][lv] });
 // the silhouette's span on one row (legs and all)
 const span = (m, y) => { let a = null, b = null; for (let x = m.xl; x <= m.xr; x++) if (m.has(x, y)) { if (a === null) a = x; b = x; } return a === null ? null : [a, b]; };
 
-// one coil of chain across the legs: a row of links (two pale, one dark) slanting down toward the front, a pixel
-// proud of each side, the tinted dark line under it
+// one turn of chain across the legs: links 2 px square, lit and dark by turns so each one reads, slanting down
+// toward the front, a pixel proud of each side, the tinted dark line under it
 const coil = (c, m, yb, slope, ph) => {
   const sp = span(m, yb); if (!sp) return null; const [a, b] = sp, mid = (a + b) / 2;
   for (let x = a - 1; x <= b + 1; x++) {
-    const y = yb + Math.round((x - mid) * slope), on = (((x + ph) % 3) + 3) % 3;
-    P(c, x, y, on === 2 ? IRON[4] : x < mid ? IRON[0] : IRON[1]);
-    P(c, x, y + 1, IRON[5], 0.85);
+    const y = yb + Math.round((x - mid) * slope), lit = (((x - a + 1 + ph) >> 1) & 1) === 0, first = ((x - a + 1 + ph) & 1) === 0;
+    P(c, x, y - 1, lit ? (first ? IRON[0] : IRON[1]) : IRON[3]);
+    P(c, x, y, lit ? IRON[2] : IRON[4]);
+    P(c, x, y + 1, IRON[5], 0.9);
   }
   return [a, b, mid];
 };
-// a weight mark: a down-pointing chevron two pixels thick, a pale lit left arm (the sun) and an inked right
-const chevron = (c, x, y, a, w) => {
-  for (let j = 0; j <= w; j++) {
-    P(c, x - w + j, y + j - 1, IRON[1], a); P(c, x - w + j, y + j, IRON[3], a); P(c, x - w + j, y + j + 1, IRON[5], a);
-    P(c, x + w - j, y + j - 1, IRON[2], a); P(c, x + w - j, y + j, IRON[4], a); P(c, x + w - j, y + j + 1, IRON[5], a);
-  }
-};
+// the dragged weight: a stepped iron block, lit top-left, its ring at the top right where the chain joins
+const WEIGHT = [[" 01 ", "0123", "1234", " 34 "], [" 001 ", "01123", "11234", "12344", " 344 "]];
+const weight = (c, x, y, k) => { const g = WEIGHT[k - 1], h = g.length;
+  for (let j = 0; j < h; j++) for (let i = 0; i < g[j].length; i++) if (g[j][i] !== " ") P(c, x + i, y - h + 1 + j, IRON[+g[j][i]]);
+  for (let i = 1; i < g[0].length; i++) P(c, x + i, y + 1, IRON[5], 0.7);
+  return g[0].length; };
 
 const mk = (lv) => (c, e) => {
-  const g = grow(lv), s = sprite(e), m = maskOf(s), lum = lumOf(s), T = m.T, top = Math.round(-T * g.up);
-  // weight marks sinking down the back (the left: the goblin faces right), drawn first so the body stays in front
-  const y0 = -T * 0.66, y1 = -5, w = g.big ? 3 : 2;
-  for (let k = 0; k < g.n; k++) {
-    const q = fr(e.i / e.N + k / g.n), yy = Math.round(y0 + (y1 - y0) * q * q);
-    const sp = span(m, yy) || [m.xl, m.xr];
-    chevron(c, Math.min(sp[0], m.cx - 5) - w - 2 - (k % 2) * 2, yy, q < 0.1 || q > 0.85 ? 0.55 : 1, w);
-  }
+  const g = grow(lv), s = sprite(e), m = maskOf(s);
   c.drawImage(s.cv, Math.round(-s.ax), Math.round(-s.ay));
-  // leaden legs: the figure's own light and shade re-toned in pewter, solid at the shins, dithered out in fifths
-  for (const [x, y] of m.list) {
-    if (y < top || isFace(m, x, y)) continue;
-    const k = fifth(cl((y - top + 1) / (T * g.up * 0.45)) * g.amp);
-    if (k < 1 && bay(x, y) >= k) continue;
-    const l = lum(x, y); P(c, x, y, l > 0.56 ? IRON[2] : l > 0.3 ? IRON[3] : IRON[4]);
-  }
-  // their outline: a pale line on the sunny edges, the tinted dark line on the shaded ones
-  for (const [x, y] of m.edge) { if (y < top + 2) continue; P(c, x, y, (!m.has(x - 1, y) || !m.has(x, y - 1)) ? IRON[2] : IRON[5]); }
-  // the chain: coils up the legs, the lowest first, a clear band of the leaden leg between them
+  const y0 = -3, top = y0 - (g.coils - 1) * 4 - 2;
+  // a light shade on the legs under the chain: their own colours stay
+  for (const [x, y] of m.list) if (y >= top && bay(x, y) < g.shade) P(c, x, y, IRON[5], 0.45);
   let low = null;
-  for (let k = 0; k < g.coils; k++) { const r = coil(c, m, -4 - k * 4, 0.2, k); if (k === 0) low = r; }
-  if (low) {
-    // the loose end hangs behind the heel: four links, the last two swinging back as each step lands
-    const a = low[0], sw = Math.round(Math.sin(e.i / e.N * Math.PI * 4) * 1.2);
-    for (let j = 0; j <= 3; j++) { const x = a - 2 - (j > 1 ? Math.max(0, sw) : 0) - (j > 2 ? sw : 0), y = Math.min(0, -4 + j); P(c, x + 1, y, IRON[5], 0.8); P(c, x, y + 1, IRON[5], 0.8); P(c, x, y, j === 2 ? IRON[2] : IRON[0]); }
-  }
+  for (let k = 0; k < g.coils; k++) { const r = coil(c, m, y0 - k * 4, 0.28, k * 2); if (k === 0) low = r; }
+  if (!low) return;
+  // the loose end: down off the lowest turn behind the heel, then along the road; it goes slack and snaps taut
+  const a = low[0], drag = [0, 0, 1, 2, 2, 1][e.i % 6], len = 6 + drag, hx = a - 2;
+  let yy = y0 - 1; const pts = [];
+  for (let j = 0; j <= len; j++) { const x = hx - j; yy = Math.min(0, yy + (j < 3 ? 1 : 0) + (j >= 3 && drag < 2 && j === 4 ? -0 : 0)); pts.push([x, yy]); }
+  pts.forEach(([x, y], j) => { P(c, x, y + 1, IRON[5], 0.8); P(c, x, y, ((j >> 1) & 1) ? IRON[3] : (j & 1 ? IRON[1] : IRON[0])); if (y < 0 || ((j >> 1) & 1) === 0) P(c, x, y - 1, ((j >> 1) & 1) ? IRON[4] : IRON[2], y < 0 ? 0 : 1); });
+  if (g.ball) { const w = g.ball + 3; weight(c, hx - len - w, 0, g.ball); }
 };
 export const paint = mk(LV);
