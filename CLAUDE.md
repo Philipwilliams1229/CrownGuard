@@ -1983,6 +1983,9 @@ until they have played these. Provisional.
   from 30% to the end, `RAISER_SPREAD`); `packRange` 110 keeps him at his troops' pace. Most come out with 50-65
   foes within 3 s of them. Goblin Shaman hp 132 -> 165. `--endure` seed default, before today -> now: gw5 swarm
   762 -> 1036, burst 610 -> 943; Cinderholt 586 / 371 -> 621 / 445.
+  Then (owner, same day: "he's ending up in front of the hordes") `paceK` 0.87 (enemies.js, read after the
+  `packRange` pace in update.js): he walks 13% slower than his company, so he drifts back into it. gw5 seed
+  default 1036 / 943 -> 1001 / 691.
 
 ## Halls stand by the shape of their base (2026-11-18, owner request)
 

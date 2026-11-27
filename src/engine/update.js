@@ -644,7 +644,7 @@ const makeEnemy = (type, mult) => {
     swims: !!d.swims, swimming: false, swimD: 0, swimDir: 1,
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     healPct: d.healPct || 0, healCap: (d.healCap || 0) * Math.sqrt(mult), healRange: d.healRange || 0,
-    raiseEvery: d.raiseEvery || 0, standOff: d.standOff || 0, followColumn: !!d.followColumn, raiseCd: null, revived: false, healedFlash: 0,
+    raiseEvery: d.raiseEvery || 0, paceK: d.paceK || 1, standOff: d.standOff || 0, followColumn: !!d.followColumn, raiseCd: null, revived: false, healedFlash: 0,
     // zone IV's frost shroud (engine/rime.js): ice a hall every freezeEvery ms
     freezeEvery: d.freezeEvery || 0, freezeRange: d.freezeRange || 0, freezeFor: d.freezeFor || 0, freezeFirst: d.freezeFirst ?? null, freezeCd: null,
     // the Rime Clans are cold-hardy (the Frost Altar's chill, nova freeze and
@@ -2220,6 +2220,9 @@ export function updateGame(g, dt) {
           }
           if (n >= 2) pace = Math.min(1.6, (sum / n) / Math.max(1, e.speed * (1 + (e.bannerSpeed || 0))));
         }
+        // a foe a step slower than his company (`paceK`, the necromancer 0.87: owner, 2026-11-27,
+        // he kept ending up in front of his horde) drifts back into it instead of leading it
+        pace *= e.paceK || 1;
         // never onward past a ram's rear, never backward for it either
         e.dist = Math.min(e.dist + (step * pace) / stretch, Math.max(e.capDist, e.dist));
       }
