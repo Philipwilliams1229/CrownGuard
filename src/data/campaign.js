@@ -183,7 +183,13 @@ export const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
 export const FIRST_WIN_GIFT = 5000;
 export const CROWN_GIFTS = {
   [LEVELS[0]?.id]: { gold: FIRST_WIN_GIFT, from: "a gift from the crown", note: "for your first victory: raise your first Castle Work below, or from the campaign map" },
-  gw5: { gold: 10000, from: "a gift from the king", note: "for clearing the Greenwood: spend it on Castle Works below, or from the campaign map" },
+};
+// ...and the king's gift for the first win of EVERY chapter's boss level (owner, 2026-11-27: the
+// Goblin Warrens first, then "for each boss level"), named for the chapter it clears
+export const KING_GIFT = 10000;
+for (const lv of LEVELS) if (lv.window?.boss) CROWN_GIFTS[lv.id] = {
+  gold: KING_GIFT, from: "a gift from the king",
+  note: `for clearing ${/^the /i.test(lv.chapter.name) ? lv.chapter.name.replace(/^T/, "t") : `the ${lv.chapter.name}`}: spend it on Castle Works below, or from the campaign map`,
 };
 export const firstWinGift = (levelId, firstClear) => (firstClear ? CROWN_GIFTS[levelId]?.gold || 0 : 0);
 export const giftWords = (levelId) => CROWN_GIFTS[levelId] || CROWN_GIFTS[LEVELS[0]?.id];

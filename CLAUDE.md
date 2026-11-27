@@ -2348,8 +2348,9 @@ upgrade for the castle." The FIRST win of the campaign's first level (gw1, The V
 `firstWinGift`, paid in CrownguardGame.jsx's end-of-battle effect); the victory card shows it as its
 own line. Once per save file (it reads the level's `cleared`): a replay pays nothing, and a save that
 won gw1 before the gift existed never gets it. Every castle work's first tier costs 5000.
-**The king's gift** (owner, 2026-11-27): the first win of the Goblin Warrens (gw5) banks 10000 more on the same
-terms. Gifts are a table now, `CROWN_GIFTS` (campaign.js: gold and the victory card's words per level id;
+**The king's gift** (owner, 2026-11-27): the first win of every chapter's boss level (gw5, ir5, hl5, jarlsfjord:
+any level whose `window.boss` is set) banks `KING_GIFT` 10000 more on the same terms, its card line naming the
+chapter it clears. Gifts are a table now, `CROWN_GIFTS` (campaign.js: gold and the victory card's words per level id;
 `firstWinGift`, `giftWords`); a new gift is one entry.
 The campaign's victory card has a **Castle Works** button (owner, 2026-11-25) beside Campaign Map / Main
 Menu: it opens the treasury's `CastleWorksModal` (rendered outside the card's `<Fit>`, `winWorks` in
