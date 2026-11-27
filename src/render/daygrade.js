@@ -26,6 +26,7 @@ import { DAY, onDay } from "../data/sun.js";
 import { RIVERS, PONDS, COAST, inRiver, inSea, underBridge, forestDepthAt } from "../data/terrain.js";
 import { ovhOn, OVH, setDefaults as ovhDefaults } from "./overhaul/index.js";
 import { REALM } from "../data/maps.js";
+import { release, releaseDeep } from "./release.js";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -173,6 +174,7 @@ const boardLayers = () => {
   const of = `${DAY.v}|${REALM && REALM.id}`;
   if (!BOARD || BOARD_OF !== of || BOARD.rivers !== RIVERS || BOARD.ponds !== PONDS || BOARD.coast !== COAST) {
     const t0 = performance.now();
+    releaseDeep(BOARD);
     BOARD = bakeRect(0, 0, W, H, 1);
     GRADE.bakeMs = performance.now() - t0;
     BOARD.rivers = RIVERS; BOARD.ponds = PONDS; BOARD.coast = COAST; BOARD_OF = of;
@@ -180,7 +182,7 @@ const boardLayers = () => {
   return BOARD;
 };
 let RECT = null;
-onDay(() => { BOARD = null; BOARD_OF = null; RECT = null; });
+onDay(() => { releaseDeep(BOARD); releaseDeep(RECT); BOARD = null; BOARD_OF = null; RECT = null; });
 
 const lay = (ctx, L, soft, mul, add) => {
   const op = ctx.globalCompositeOperation, pa = ctx.globalAlpha, sm0 = ctx.imageSmoothingEnabled;

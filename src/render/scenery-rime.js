@@ -57,6 +57,7 @@ import { SEA_ICE } from "./coast.js";
 import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
 import { decorSun, sunKey, longShade } from "./scenery-gwpix.js";
 import { onDay, DAY } from "../data/sun.js";
+import { releaseDeep } from "./release.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
@@ -959,7 +960,7 @@ const rmtussock = (ctx, x, y, s, o) => {
 // over each end of the ridge and carved into dragon heads (ochre, teal eyes),
 // a timber door with a teal lintel, a woodpile, smoke from the roof-hole.
 const BODIES = new Map();
-onDay(() => { BODIES.clear(); FLOE_SP.clear(); });
+onDay(() => { releaseDeep(BODIES); releaseDeep(FLOE_SP); BODIES.clear(); FLOE_SP.clear(); });
 const longhouseBody = (s, v) => {
   const key = `lh|${s}|${v}${sunKey()}`;
   let sp = BODIES.get(key);

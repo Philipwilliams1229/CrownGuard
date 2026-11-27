@@ -24,6 +24,7 @@ import { DAY, onDay } from "../../data/sun.js";
 import { lampsOn, noteLamp } from "../nightlight.js";
 import { prefs } from "../../data/prefs.js";
 import { planSpan, bakeSpan, LAMP } from "./bridge-bake.js";
+import { releaseDeep } from "../release.js";
 
 OVH.flags.bridgeCast = false;
 
@@ -65,7 +66,7 @@ const plans = () => {
 
 // ---- the bakes, one per span and sun ---------------------------------------------------------------
 const SPR = new Map();
-onDay(() => SPR.clear());
+onDay(() => { releaseDeep(SPR); SPR.clear(); });
 const spriteOf = (pl, k) => {
   const key = `${PLAN_KEY}|${k}|${DAY.id}`;
   let s = SPR.get(key);

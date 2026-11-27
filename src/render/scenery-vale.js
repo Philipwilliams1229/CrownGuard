@@ -38,6 +38,7 @@ import { tintRing, tintedPart, baking } from "./scenery-gwpix.js";
 import {
   menhirPix, stonefallPix, trilithonPix, millBodyPix, cottageBodyPix, boatPix, netrackPix, creelsPix, skepsPix, haywainPix, marramPix, thistlePix, pixBody, stampPixBody,
 } from "./pix/vale-pix.js";
+import { releaseDeep } from "./release.js";
 
 // Look C cast shadow: a ragged, hard-edged blob thrown lower right (same
 // arguments as the soft one it replaces), with a soft pool kept under it
@@ -75,7 +76,7 @@ const sluiceAt = (wx, wy, s, side) => {
 const FOAM = ["#f4f8f4", "#d8ecee", "#b0d0dc"];
 const WHEEL_N = 12;
 const WHEELS = new Map();
-onDay(() => WHEELS.clear());
+onDay(() => { releaseDeep(WHEELS); WHEELS.clear(); });
 const wheelFrames = (s, v) => {
   const k = `${s}|${v}${sunKey()}`;
   let F = WHEELS.get(k);

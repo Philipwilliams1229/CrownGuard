@@ -23,6 +23,7 @@ import { noteHall, hallRim } from "../sunset.js";
 import { toCanvas } from "./pix.js";
 import { onDay, DAY } from "../../data/sun.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
+import { release, releaseDeep } from "../release.js";
 
 const BAKES = new Map(), FRAMES = new Map();
 // a fire's colour: red-orange to yellow (red high, green above blue); anything else is magic light
@@ -32,7 +33,7 @@ const isWarm = (col) => {
   if (w === undefined) { const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(col).slice(i, i + 2), 16)); w = r >= 200 && r > b + 60 && g >= b + 20; WARM.set(col, w); }
   return w;
 };
-export const resetHallBakes = () => { BAKES.clear(); FRAMES.clear(); };
+export const resetHallBakes = () => { releaseDeep(BAKES); releaseDeep(FRAMES); BAKES.clear(); FRAMES.clear(); };
 onDay(resetHallBakes);   // a new sun: every hall is sculpted again from its side
 const sprite = (img) => ({ cv: toCanvas(img), ox: img.ox, oy: img.oy });
 const framesOf = (key, make) => { let f = FRAMES.get(key); if (!f) FRAMES.set(key, (f = make().map(sprite))); return f; };

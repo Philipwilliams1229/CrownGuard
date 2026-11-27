@@ -65,7 +65,7 @@ export const workerSprite = (look, pose, frame, load, dir = 1) => {
     cv = document.createElement("canvas"); cv.width = src.width; cv.height = src.height;
     const c = cv.getContext("2d");
     c.translate(cv.width, 0); c.scale(-1, 1); c.drawImage(src, 0, 0);
-  } else cv = src;
+  } else return src;   // (the figure cache's own canvas: never kept here, it may be released)
   SPR.set(key, cv);
   return cv;
 };

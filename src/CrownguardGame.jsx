@@ -11,6 +11,7 @@ import { bakeStats } from "./render/pix/bake.js";
 import { perfFrame, PERF } from "./render/perfmark.js";
 import { TIDY } from "./audio/tidy.js";
 import { canvasStats } from "./dev/canvaswatch.js";
+import { RELEASED } from "./render/release.js";
 import { prefs } from "./data/prefs.js";
 import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
@@ -511,7 +512,7 @@ export default function Crownguard() {
     setScreen("map");
   };
   // dev only: the self-running slow-level test (dev/repro.js, ?repro) drives the game through these
-  if (import.meta.env.DEV || import.meta.env.VITE_REPRO) window.__cg = { startLevel, marchOn, openMap, G, screen, startWave, placeTower, upgradeTower, buildableAt, levelById, PERF, TIDY, W, H, sfx };
+  if (import.meta.env.DEV || import.meta.env.VITE_REPRO) window.__cg = { startLevel, marchOn, openMap, G, screen, startWave, placeTower, upgradeTower, buildableAt, levelById, PERF, TIDY, RELEASED, W, H, sfx };
 
   // The side menu IS the pause screen: opening it halts the battle, and every
   // way out of it (Resume, ✕, tapping the board) starts things moving again.
@@ -667,7 +668,7 @@ export default function Crownguard() {
       domNodes: document.getElementsByTagName("*").length, audioLeft: TIDY.made - TIDY.unplugged,
       audioSwept: TIDY.swept, audioState: sfx.state,
       upS: Math.round(performance.now() / 1000), standalone: !!window.navigator.standalone,
-      canvases: window.__cgWatch ? canvasStats() : null, trees: (() => { const t = window.__cgTrees; return t ? { bakes: t.bakes, poses: t.poses, ghosts: t.ghosts, lazy: t.lazyN || 0, lazyWorst: Math.round(t.lazyWorst || 0), mb: Math.round((t.bytes || 0) / 1048576) } : null; })(),
+      canvases: window.__cgWatch ? canvasStats() : null, released: { n: RELEASED.n, mb: Math.round(RELEASED.mb) }, trees: (() => { const t = window.__cgTrees; return t ? { bakes: t.bakes, poses: t.poses, ghosts: t.ghosts, lazy: t.lazyN || 0, lazyWorst: Math.round(t.lazyWorst || 0), mb: Math.round((t.bytes || 0) / 1048576) } : null; })(),
     });
 
     const step = (now) => {

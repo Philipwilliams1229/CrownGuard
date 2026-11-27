@@ -12,6 +12,7 @@ import { darken, lighten, mix, rgba, hash, PX, bakeSprite } from "../paint.js";
 import { Pix, mat, flat, toCanvas } from "./pix.js";
 import { decorSun, sunKey, longShade } from "../scenery-gwpix.js";
 import { onDay } from "../../data/sun.js";
+import { releaseDeep } from "../release.js";
 
 const U = RES;                                   // art pixels per board unit
 const ap = (v) => Math.round(v * PX) / PX;
@@ -63,7 +64,7 @@ const dapple = (ctx, cx, cy, rx, ry, a, seed) => {
 };
 // a body baked once for a live piece (its wheel / smoke are painted over it each frame)
 const BODIES = new Map();
-onDay(() => BODIES.clear());
+onDay(() => { releaseDeep(BODIES); BODIES.clear(); });
 export const pixBody = (key, hw, top, bot, paint) => {
   const k = `${key}|${REALM.GRASS}|${REALM.GRASS_DK}${sunKey()}`;
   let sp = BODIES.get(k);

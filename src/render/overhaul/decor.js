@@ -21,6 +21,7 @@ import { FARM_BLOCKS, LAYOUTS } from "./decor-layout.js";
 import { REALM } from "../../data/maps.js";
 import { windowsLit, noteFarmLamps } from "./lights.js";
 import { DECOR } from "../../data/terrain.js";
+import { releaseDeep } from "../release.js";
 
 export { FARM_BLOCKS };
 // this realm's place (decor-layout.js LAYOUTS), or null: a board with only its rocks redrawn
@@ -108,7 +109,7 @@ const pieces = () => {
 
 // ---- the bakes (per sun; a house's lit twin on demand; live pieces one sprite a frame) ----
 let BAKE = new Map();
-onDay(() => { BAKE = new Map(); K.ROCKS.clear(); });
+onDay(() => { releaseDeep(BAKE); releaseDeep(K.ROCKS); BAKE = new Map(); K.ROCKS.clear(); });
 const bakeOf = (it, lit = false, f = 0) => {
   const key = `${it.idx}|${lit && it.lit ? 1 : 0}|${f}`;
   let b = BAKE.get(key);

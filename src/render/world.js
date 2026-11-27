@@ -28,6 +28,7 @@ import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { groundKind, pixelTuft, strawOf } from "./groundblend.js";
 import { punchRamp, punchCols, toneOf, LOOK_C, rich } from "./look-c.js";
+import { release, releaseDeep } from "./release.js";
 export { punchCols, toneOf };
 // a chapter's own ground art, keyed by REALM.groundArt (looked up when the
 // ground is painted, never at load — see the import cycle note in scenery.js)
@@ -1481,6 +1482,7 @@ export const setEdgeCasters = (key, items) => { if (key !== EDGE.key) EDGE = { k
 export function groundLayer() {
   const key = `${REALM.id}|${PTS.length}|${PTS[0]}|${PTS[PTS.length - 1]}|${RES}|${PATH_HALF}|${DAY.on ? DAY.id : ""}|${DAY.on && DAY.len > 0 ? EDGE.key : ""}${ovhOn() ? `|ovh:${OVH.key()}` : ""}`;
   if (layer && key === layerKey) return layer;
+  release(layer);   // the last board's ground (release.js)
   layer = document.createElement("canvas");
   layer.width = W * RES;
   layer.height = H * RES;
