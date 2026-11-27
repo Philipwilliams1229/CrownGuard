@@ -19,7 +19,9 @@ import { ROWS17 } from "../concept/fx-r17.js";
 import { ROWS18 } from "../concept/fx-r18.js";
 import { ROWS19 } from "../concept/fx-r19.js";
 import { ROWS20 } from "../concept/fx-r20.js";
-const ROWS = [...ROWS20, ...ROWS19, ...ROWS18, ...ROWS17, ...ROWS16, ...ROWS15, ...ROWS14, ...ROWS13, ...ROWS12, ...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+import { ROWS21 } from "../concept/fx-r21.js";
+const ROWS = [...ROWS21, ...ROWS20, ...ROWS19, ...ROWS18, ...ROWS17, ...ROWS16, ...ROWS15, ...ROWS14, ...ROWS13, ...ROWS12, ...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+const ROUND21 = process.argv.includes("round21"); // -> only the Round 21 rows, in .shots/fx-concepts-round21/
 const ROUND20 = process.argv.includes("round20"); // -> only the Round 20 rows, in .shots/fx-concepts-round20/
 const ROUND19 = process.argv.includes("round19"); // -> only the Round 19 rows, in .shots/fx-concepts-round19/
 const ROUND18 = process.argv.includes("round18"); // -> only the Round 18 rows, in .shots/fx-concepts-round18/
@@ -39,11 +41,12 @@ const ROUND5 = process.argv.includes("round5");   // -> only the Round 5 rows, i
 const ROUND4 = process.argv.includes("round4");   // -> only the Round 4 rows, in .shots/fx-concepts-round4/
 const ROUND2 = process.argv.includes("round2");   // node scripts/build-fx-concepts.mjs round2 -> only the Round 2 rows, in .shots/fx-concepts-round2/
 const ROUND3 = process.argv.includes("round3");   // -> only the Round 3 rows, in .shots/fx-concepts-round3/
-const OUT = ROUND20 ? ".shots/fx-concepts-round20" : ROUND19 ? ".shots/fx-concepts-round19" : ROUND18 ? ".shots/fx-concepts-round18" : ROUND17 ? ".shots/fx-concepts-round17" : ROUND16 ? ".shots/fx-concepts-round16" : ROUND15 ? ".shots/fx-concepts-round15" : ROUND14 ? ".shots/fx-concepts-round14" : ROUND13 ? ".shots/fx-concepts-round13" : ROUND12 ? ".shots/fx-concepts-round12" : ROUND11 ? ".shots/fx-concepts-round11" : ROUND10 ? ".shots/fx-concepts-round10" : ROUND9 ? ".shots/fx-concepts-round9" : ROUND8 ? ".shots/fx-concepts-round8" : ROUND7 ? ".shots/fx-concepts-round7" : ROUND6 ? ".shots/fx-concepts-round6" : ROUND5 ? ".shots/fx-concepts-round5" : ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
+const OUT = ROUND21 ? ".shots/fx-concepts-round21" : ROUND20 ? ".shots/fx-concepts-round20" : ROUND19 ? ".shots/fx-concepts-round19" : ROUND18 ? ".shots/fx-concepts-round18" : ROUND17 ? ".shots/fx-concepts-round17" : ROUND16 ? ".shots/fx-concepts-round16" : ROUND15 ? ".shots/fx-concepts-round15" : ROUND14 ? ".shots/fx-concepts-round14" : ROUND13 ? ".shots/fx-concepts-round13" : ROUND12 ? ".shots/fx-concepts-round12" : ROUND11 ? ".shots/fx-concepts-round11" : ROUND10 ? ".shots/fx-concepts-round10" : ROUND9 ? ".shots/fx-concepts-round9" : ROUND8 ? ".shots/fx-concepts-round8" : ROUND7 ? ".shots/fx-concepts-round7" : ROUND6 ? ".shots/fx-concepts-round6" : ROUND5 ? ".shots/fx-concepts-round5" : ROUND4 ? ".shots/fx-concepts-round4" : ROUND3 ? ".shots/fx-concepts-round3" : ROUND2 ? ".shots/fx-concepts-round2" : ".shots/fx-concepts";
 fs.mkdirSync(OUT, { recursive: true });
 const LABEL = { today: "TODAY", today2: "TODAY (frostnova)", A: "A  clean", B: "B  worked", C: "C  bold", D: "D  wild card", Bdark: "B on dark ground", Adark: "A on dark ground", Cdark: "C on dark ground" };
 const rows = [];
 for (const r of ROWS) {
+  if (ROUND21 && r.group !== "Round 21") continue;
   if (ROUND20 && r.group !== "Round 20") continue;
   if (ROUND19 && r.group !== "Round 19") continue;
   if (ROUND18 && r.group !== "Round 18") continue;
@@ -93,7 +96,7 @@ h2{margin:22px 16px 6px;font-size:13px;letter-spacing:.08em;text-transform:upper
 <h1>Crownguard combat effects: concept options<span>One row per effect. TODAY is the game's own code; A clean, B worked, C bold. The box at the end of each strip plays it. Zoom 3, grass ground (and B on a Hollow dark ground).</span></h1>
 <div id="bar"><span id="cnt">0 picked</span><button id="cp">Copy my picks</button><textarea id="fb" readonly></textarea></div><div id="root"></div>
 <script>
-const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND4 || ROUND5 || ROUND6 || ROUND7 || ROUND8 || ROUND9 || ROUND10 || ROUND11 || ROUND12 || ROUND13 || ROUND14 || ROUND15 || ROUND16 || ROUND17 || ROUND18 || ROUND19 || ROUND20};
+const ROWS=${JSON.stringify(rows)};const PLAYFIRST=${ROUND21 || ROUND4 || ROUND5 || ROUND6 || ROUND7 || ROUND8 || ROUND9 || ROUND10 || ROUND11 || ROUND12 || ROUND13 || ROUND14 || ROUND15 || ROUND16 || ROUND17 || ROUND18 || ROUND19 || ROUND20};
 let picks={};try{picks=JSON.parse(localStorage.getItem("cg-fx-picks")||"{}")}catch(e){}
 const cnt=document.getElementById("cnt"),save=()=>{try{localStorage.setItem("cg-fx-picks",JSON.stringify(picks))}catch(e){}cnt.textContent=Object.keys(picks).length+" picked";};
 document.getElementById("cp").onclick=()=>{const t=Object.entries(picks).map(([k,v])=>k+": "+v).join("\\n");const fb=document.getElementById("fb");const fail=()=>{fb.style.display="block";fb.value=t;fb.select();};try{navigator.clipboard.writeText(t).then(()=>{document.getElementById("cp").textContent="Copied";setTimeout(()=>document.getElementById("cp").textContent="Copy my picks",1200)},fail)}catch(e){fail()}};

@@ -31,7 +31,8 @@ import { ROWS17 } from "/concept/fx-r17.js";
 import { ROWS18 } from "/concept/fx-r18.js";
 import { ROWS19 } from "/concept/fx-r19.js";
 import { ROWS20 } from "/concept/fx-r20.js";
-const ROWS = [...ROWS20, ...ROWS19, ...ROWS18, ...ROWS17, ...ROWS16, ...ROWS15, ...ROWS14, ...ROWS13, ...ROWS12, ...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
+import { ROWS21 } from "/concept/fx-r21.js";
+const ROWS = [...ROWS21, ...ROWS20, ...ROWS19, ...ROWS18, ...ROWS17, ...ROWS16, ...ROWS15, ...ROWS14, ...ROWS13, ...ROWS12, ...ROWS11, ...ROWS10, ...ROWS9, ...ROWS8, ...ROWS7, ...ROWS6, ...ROWS5, ...ROWS4, ...ROWS1];
 
 const Z = 3, out = document.getElementById("status");
 const only = new URLSearchParams(location.search).get("only")?.split(",");
@@ -76,6 +77,7 @@ const TODAY = {
   burn: status((e) => ({ burnUntil: FAR, _rf: { skin: "goblin", ps: "walk", pf: ((e.i % 8) + 8) % 8 } })),
   poison: status(() => ({ poisonUntil: FAR })),
   slow: status(() => ({ slowUntil: FAR, slowPct: 0.4 })),
+  slowmist: status((e) => ({ slowUntil: FAR, slowPct: 0.4, _rf: { skin: "goblin", ps: "walk", pf: ((e.i % 8) + 8) % 8 } })),   // the cold mist as the game draws it (reads the frame)
   frozen: status(() => ({ frozenUntil: FAR, _frzTo: FAR, _frzAt: TMS }), true),
   stun: status(() => ({ stunUntil: FAR }), true),
   crack: status(() => ({ brittleUntil: FAR }), true),
@@ -123,7 +125,7 @@ const post = (name, cv) => fetch("/__shot?name=" + name, { method: "POST", body:
 const errs = [];
 for (const row of ROWS) {
   if (only && !only.includes(row.id)) continue;
-  const cols = row.twoAB ? [["today", row.today, false], ["A", row.A, false], ["B", row.B, false]] : row.threeABC ? [["today", row.today, false], ["A", row.A, false], ["B", row.B, false], ["C", row.C, false]] : row.oneCol ? [["today", row.today, false], ["A", row.A, false], ["Adark", row.A, true]] : row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
+  const cols = row.twoAB ? [["today", row.today, false], ["A", row.A, false], ["B", row.B, false]] : row.threeABC ? [["today", row.today || TODAY[(row.todayKeys || [row.id])[0]], false], ["A", row.A, false], ["B", row.B, false], ["C", row.C, false]] : row.oneCol ? [["today", row.today, false], ["A", row.A, false], ["Adark", row.A, true]] : row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
     : [["today", row.today || TODAY[(row.todayKeys || [row.id])[0]], false], ...(row.twoToday ? [["today2", TODAY[(row.todayKeys || [row.id, row.id + "2"])[1]], false]] : []), ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ...(row.D ? [["D", row.D, false]] : []), ["Bdark", row.B, true], ...(row.darkAll ? [["Adark", row.A, true], ["Cdark", row.C, true]] : [])];
   for (const [key, fn, dark] of cols) {
     const strip = mk(row.cw * Z * row.N, row.ch * Z), sx = strip.getContext("2d"); sx.imageSmoothingEnabled = false;
