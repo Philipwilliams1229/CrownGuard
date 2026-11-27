@@ -720,6 +720,7 @@ const splitBeams = (g, t, st, sdt, tms) => {
 const killUnit = (g, t, u) => {
   u.state = "dead";
   u.respawn = hostStats(t).respawnMs || RESPAWN_MS;
+  u.respawnMax = u.respawn; // render only: the hero's button fills as he comes back
   u.targetId = null;
   u.shield = false;
   releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id));

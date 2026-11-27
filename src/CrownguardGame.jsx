@@ -758,13 +758,15 @@ export default function Crownguard() {
       const hu = hb?.units[0];
       // the hero's two abilities, as the menu shows them
       const heroAbs = hb ? heroAbilities(hb.hero).map((a) => ({ id: a.id, name: a.name, aim: a.aim, aimHint: a.aimHint, desc: a.desc, ...heroAbilityState(hb, a) })) : [];
-      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}|${heroAbs.map((x) => x.state + (x.sec || "")).join(",")}|${canSwapHero(g) ? 1 : 0}${g.heroSwap ? 2 : 0}` : "";
+      // how far back to his feet a fallen hero is, 0..1, in 50 steps (his button fills with it)
+      const heroBack = hu && hu.state === "dead" && isFinite(hu.respawnMax) && hu.respawnMax > 0 ? Math.round(50 * Math.min(1, Math.max(0, 1 - hu.respawn / hu.respawnMax))) / 50 : 0;
+      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}|${heroBack}|${heroAbs.map((x) => x.state + (x.sec || "")).join(",")}|${canSwapHero(g) ? 1 : 0}${g.heroSwap ? 2 : 0}` : "";
       const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
       const masonSec = Math.ceil((g.masonCd || 0) / 1000);
       if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec || u.masonSec !== masonSec) {
         setUi({
           heroKey: heroKeyUi, militiaSec, masonSec,
-          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0, abilities: heroAbs, canSwap: canSwapHero(g), swapping: !!g.heroSwap } : null,
+          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0, back: heroBack, abilities: heroAbs, canSwap: canSwapHero(g), swapping: !!g.heroSwap } : null,
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: (SANDBOX ? SANDBOX.lives : CASTLE_HP) + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
@@ -1356,7 +1358,7 @@ export default function Crownguard() {
     const max = ui.hero.level >= HERO_MAX_LEVEL;
     return (
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
-        className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", ui.hero.dead && "is-off", anyReady && !talentsOpen && "cg-horn")}
+        className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", anyReady && !talentsOpen && "cg-horn")}
         style={{ flex: 1, minWidth: 0, minHeight: 56, height: 56, padding: "4px 8px 4px 4px", gap: 7, justifyContent: "flex-start" }}
         onClick={() => {
           const g = G.current;
@@ -1367,10 +1369,11 @@ export default function Crownguard() {
           if (aiming) { g.rallyFor = null; return; }
           openHeroMenu();
         }}>
-        <span className="cg-well" style={{ width: 40, height: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        {ui.hero.dead && <span aria-hidden style={{ position: "absolute", right: 0, top: 0, bottom: 0, zIndex: 2, width: `${Math.round(100 * (1 - ui.hero.back))}%`, background: "rgba(20,12,22,0.6)", borderLeft: ui.hero.back > 0 && ui.hero.back < 1 ? "2px solid rgba(240,210,120,0.8)" : "none", transition: "width 0.3s linear", pointerEvents: "none" }} />}
+        <span className="cg-well" style={{ width: 40, height: 44, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
         </span>
-        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0, position: "relative" }}>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
             <span style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{ui.hero.name.replace(/^(Sir|Brother|Captain) /, "")}</span>
             <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv <span className="cg-num" style={{ fontSize: 10, textShadow: "1px 1px 0 var(--ink)" }}>{ui.hero.level}</span></span>
