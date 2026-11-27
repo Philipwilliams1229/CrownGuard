@@ -1503,6 +1503,16 @@ Bring these up with the owner; don't act on them unasked.
   castle.js gate torches, buildkit.js `flame`; under the Blood Moon they queue and `bloodmoonPaint` flushes them over the
   shade, `drawTorchesLate`). Not yet: the Inferno Throne's crown flames (hall-wizard.js `crownFlame`, old look); the fire
   pot not seen in a live battle; shotlab with `warm=0` throws (`g.grounds` not iterable), use `warm=0.02`.
+- **The plain slow, Round 21** (2026-11-27, owner: "a different visual effect for frost slow and normal slow like from
+  traps. Frost is great"): the cold mist (Round 6 C) stays for FROST slows; the plain ones (Trapsmith strips, Caltrop Field,
+  Hamstringer, Earthshaker, Harpooners, the War Horn, logs, Osric) get a look of their own. Brief
+  `art/briefs/fx-round21.md`, kit `concept/fx-r21-kit.js`, one file an option `concept/fx-r21-{a,b,c}.js` (row `slow21`,
+  `threeABC`, TODAY = `slowmist`, the mist read from the frame), `build-fx-concepts.mjs round21` (then the labels renamed by
+  hand). A (Opus) dust and drag (subtlest), B (Opus) two grey afterimages a step behind, C (Fable) ball and chain (the
+  dragged weight runs ~12 px behind the feet). Private Artifact "Crownguard Effects Concepts, Round 21" (slug
+  812f7bc6-4fdb-47cd-b4e4-57d50d5c6bfa). Awaiting the pick. Building it needs the ENGINE to tell the kinds apart: today
+  every slow sets only `slowUntil` / `slowPct`; a frost source (Warden Mage aura and line, frost orbs) must also mark the
+  foe (e.g. `e.slowCold`), and fx.js `drawStatus` picks the mist or the new look by it (both when both apply).
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

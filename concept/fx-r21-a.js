@@ -1,8 +1,8 @@
 // Round 21 option A (the plain slow): HOBBLED, dust and drag. See art/briefs/fx-round21.md. Owned by its artist alone.
 // Everything rides the frame's own silhouette and stays on the LOWER body (nothing above the waist, nothing over the
-// crown): a dirt-tan rim on the legs, the feet caked in dust, two scratch marks on the shins, grit kicked off the
-// trailing heel on ONE leg's step only (so the stride reads uneven), and the whole figure dipping a pixel on that
-// leg's step (a limp). The dip is a per-frame offset, so a bake can carry it (frame -> dy), nothing kept between frames.
+// crown): patchy pale dust on the legs, flakes sifting off the shins, grit kicked off the trailing heel on every step
+// (the lame leg's bigger, so the stride reads uneven), and the whole figure dipping a pixel on the lame leg's step.
+// The dip is a per-frame offset, so a bake can carry it (frame -> dy), nothing kept between frames.
 import { maskOf, sprite, frameOf, H, P, bay, fr } from "./fx-r21-kit.js";
 
 // road-dust ramp, stepped, light to deep (khaki and umber: no orange, no red, no green, no blue)
@@ -19,7 +19,7 @@ const runs = (m, y) => {
   return out;
 };
 
-export const note = "Hobbled: the legs pick up a dusty tan edge and caked feet, a couple of scratches on the shins, and one leg limps: the goblin dips on that step and kicks grit back off its heel. It grows from dusty feet (under 30%) to dirt up to the waist with a deeper limp and more grit (over 60%); under a frost aura the cold mist hangs round the body while the feet stay brown and the grit still flies.";
+export const note = "Hobbled: patchy road dust on the legs, flakes of it sifting off the shins, and grit kicked back off the heels on every step, more off the lame foot (the goblin dips a pixel on that step). It grows from dusty feet (under 30%) to dust up to the knees with more grit (over 60%); under a frost aura the cold mist hangs round the body while the legs stay dusty and the grit still flies.";
 
 export const paint = (c, e, lv = LVL) => {
   const g = grow(lv), f = frameOf(e), s = sprite(e, f), m = maskOf(s), T = m.T;
@@ -34,16 +34,16 @@ export const paint = (c, e, lv = LVL) => {
     if (edge && m.has(x - 1, y)) continue;                     // keep the figure's own line, bar the sunward side
     const d = (y - top) / (-top + 1);                           // 0 at the top .. 1 at the soles
     const patch = H(Math.floor((x + 1) / 2), Math.floor((y + 1) / 2) + 17);
-    if (patch > 0.18 + d * 0.62) continue;
+    if (patch > 0.4 + d * 0.5) continue;
     const lit = !m.has(x - 1, y) || !m.has(x - 1, y - 1);
-    P(c, x, y + dy, lit ? DIRT[0] : patch < 0.25 + d * 0.25 ? DIRT[1] : DIRT[2], 0.92);
+    P(c, x, y + dy, lit || patch < 0.18 ? DIRT[0] : DIRT[1], 0.92);
   }
   // 2. dust sifting down off the shins: short 2-px flakes leaving the legs' back edge, falling and drifting back
-  const shin = m.edge.filter(([x, y]) => y >= top - 2 && y <= -3 && !m.has(x - 1, y));
+  const shin = m.edge.filter(([x, y]) => y >= top - 3 && y <= -3 && (!m.has(x - 1, y) || !m.has(x + 1, y)));
   for (let k = 0; k < g.drift && shin.length; k++) {
     const q = fr(e.t * 2 + H(k, 21)), [x0, y0] = shin[Math.floor(H(k, 23) * shin.length) % shin.length];
-    const x = Math.round(x0 - 1 - q * 3), y = Math.round(y0 + q * 5);
-    if (y > -1 || m.has(x, y)) continue;
+    const side = m.has(x0 - 1, y0) ? 1 : -1, x = Math.round(x0 + side * (1 + q * 2)), y = Math.round(y0 + q * 3);
+    if (y > 0 || m.has(x, y)) continue;
     P(c, x, y + dy, q < 0.5 ? DIRT[0] : DIRT[1], 1 - q * 0.4); P(c, x, y + 1 + dy, DIRT[2], 0.9 - q * 0.4);
   }
   // 3. grit kicked off the trailing heel on EVERY step (two steps a 12-cell stride): chunky 2-px bits arcing back and
@@ -54,8 +54,8 @@ export const paint = (c, e, lv = LVL) => {
   if (age <= 3) {
     const n = lame ? g.grit : g.grit - 2;
     for (let k = 0; k < n; k++) {
-      const kk = k + (lame ? 0 : 40), vx = 0.9 + H(kk, 2) * 1.2, vy = 1.5 + H(kk, 5) * 1.5, t = age + 0.7 + H(kk, 8) * 0.5;
-      const x = Math.max(hx - fw, Math.round(hx - 1 - vx * t)), y = Math.round(-1 - vy * t + 0.6 * t * t);
+      const kk = k + (lame ? 0 : 40), vx = 0.9 + H(kk, 2) * 1.2, vy = 2.3 + H(kk, 5) * 1.3, t = age + 0.7 + H(kk, 8) * 0.5;
+      const x = Math.max(hx - fw, Math.round(hx - 1 - vx * t)), y = Math.round(-1 - vy * t + 0.75 * t * t);
       if (y > -1) continue;
       if (lame && age < 3) { P(c, x, y, DIRT[0]); P(c, x + 1, y, DIRT[1]); P(c, x, y + 1, DIRT[2]); P(c, x + 1, y + 1, DIRT[3]); }
       else if (H(kk, 9) > 0.5) { P(c, x, y, DIRT[0]); P(c, x + 1, y, DIRT[2]); }
