@@ -41,6 +41,7 @@ import { weatherFor } from "../data/weather-plan.js";
 import { Star } from "./Glyphs.jsx";
 import { starPixels } from "./starArt.js";
 import { flagPixels, shieldPixels, FLAG_FRAMES } from "./markerArt.js";
+import { crestPixels, CHAPTER_COL } from "./chapterArt.js";
 import { MAX_STARS } from "../data/profile.js";
 import { FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
@@ -182,6 +183,30 @@ function WaypointMarkers({ progress }) {
 
 // A ribbon (owner's pick, 2026-11-26): red cloth edged in gold, its two ends tucked under the band,
 // dropped a little and cut in a V. Slate cloth while sealed. `drop` / `tail` / `cut` size the ends.
+// An open outline moved `d` inside its shape (the side toward the points' middle): each edge is pushed
+// inward and its neighbours meet where the pushed edges cross; the two ends keep their own edge's push.
+function insetPath(pts, d) {
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  const lines = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], len = Math.hypot(bx - ax, by - ay) || 1;
+    let nx = -(by - ay) / len, ny = (bx - ax) / len;
+    if ((cx - (ax + bx) / 2) * nx + (cy - (ay + by) / 2) * ny < 0) { nx = -nx; ny = -ny; }
+    lines.push([[ax + nx * d, ay + ny * d], [bx + nx * d, by + ny * d]]);
+  }
+  const cross = ([p1, p2], [p3, p4]) => {
+    const d1x = p2[0] - p1[0], d1y = p2[1] - p1[1], d2x = p4[0] - p3[0], d2y = p4[1] - p3[1];
+    const den = d1x * d2y - d1y * d2x;
+    if (Math.abs(den) < 1e-9) return p2;
+    const u = ((p3[0] - p1[0]) * d2y - (p3[1] - p1[1]) * d2x) / den;
+    return [p1[0] + d1x * u, p1[1] + d1y * u];
+  };
+  const out = [lines[0][0]];
+  for (let i = 0; i < lines.length - 1; i++) out.push(cross(lines[i], lines[i + 1]));
+  out.push(lines[lines.length - 1][1]);
+  return out.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(" ");
+}
+
 function Ribbon({ x, y, w, h, k, drop, tail, cut, edge, line = 0.8, sel }) {
   const end = (s) => {
     const e = s < 0 ? x : x + w, t = e + s * tail, ins = e - s * 3;   // e: the band's edge, t: the tail's tip, ins: tucked under
@@ -189,6 +214,9 @@ function Ribbon({ x, y, w, h, k, drop, tail, cut, edge, line = 0.8, sel }) {
       <g>
         <path d={`M${ins},${y + drop} L${t},${y + drop} L${t - s * cut},${y + drop + h / 2} L${t},${y + h + drop} L${ins},${y + h + drop} Z`}
           fill={k.dk} stroke={LINE} strokeWidth={line} strokeLinejoin="round" />
+        {/* the band's gold trim carried round the tail: along the top, in to the V's point, back along the foot */}
+        <path d={insetPath([[ins, y + drop], [t, y + drop], [t - s * cut, y + drop + h / 2], [t, y + h + drop], [ins, y + h + drop]], 0.7 + edge / 2)}
+          fill="none" stroke={k.gold} strokeWidth={edge} strokeLinejoin="miter" strokeMiterlimit="8" />
         <path d={`M${e},${y + h} L${ins},${y + h + drop} L${ins},${y + h} Z`} fill={k.fold} stroke={LINE} strokeWidth={line * 0.65} />
       </g>
     );
@@ -218,16 +246,26 @@ function Scroll({ lv, open, sel }) {
   );
 }
 
-// A chapter's name on a ribbon out at sea.
+const pixG = (pix, x, y, s = 1) => <g transform={`translate(${x} ${y}) scale(${s})`}>{symRects(pix)}</g>;
+
+// A chapter's title out at sea (owner's pick, 2026-11-27: C's colours with A's crest): the ribbon in the
+// chapter's own colour, gold trimmed, a shield bearing its sigil (chapterArt.js) standing on it, and a
+// small "CHAPTER II" under the ribbon. Slate, a padlock and SEALED while the chapter is shut.
 function Banner({ ch, open }) {
   const [cx, cy] = BANNER_AT[ch.id];
-  const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
-  const w = text.length * 5.6 + 12, h = 12, k = open ? OPEN_CLOTH : SHUT_CLOTH;
+  const text = open ? ch.name.toUpperCase() : "SEALED";
+  const w = text.length * 6 + 22, h = 14, x = cx - w / 2, y = cy - h / 2 + 4;
+  const c = (CHAPTER_COL[ch.id] || CHAPTER_COL.greenwood).cloth;
+  const k = open ? { ...c, gold: "#d8b34a", ink: "#f2dc8a" } : SHUT_CLOTH;
+  const crest = crestPixels(ch.id, open, "shield"), cs = 1.5;
   return (
     <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
-      <Ribbon x={cx - w / 2} y={cy - h / 2} w={w} h={h} k={k} drop={4} tail={15} cut={4} edge={0.9} line={0.9} />
-      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
-        fill={k.ink} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">{text}</text>
+      <Ribbon x={x} y={y} w={w} h={h} k={k} drop={4.5} tail={16} cut={4.5} edge={1} line={0.9} />
+      <text x={cx} y={y + h / 2 + 3.2} textAnchor="middle" fontSize="8.6" fontWeight="bold" letterSpacing="1.3" fontFamily={MAP_FONT}
+        fill={k.ink} stroke={LINE} strokeWidth="1.7" paintOrder="stroke">{text}</text>
+      {pixG(crest, cx - (crest.w * cs) / 2, y - crest.h * cs + 5, cs)}
+      <text x={cx} y={y + h + 11.5} textAnchor="middle" fontSize="5.6" fontWeight="bold" letterSpacing="1" fontFamily={MAP_FONT}
+        fill="#f2dc8a" stroke={LINE} strokeWidth="1.4" paintOrder="stroke">{`CHAPTER ${ch.numeral}`}</text>
     </g>
   );
 }
@@ -537,7 +575,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: painted ? 1 : 0 }}>
             <StarSymbols />
             <MarkerSymbols />
-            {CHAPTERS.map((ch) => <Banner key={ch.id} ch={ch} open={isUnlocked(ch.levels[0].id, progress)} />)}
+            {CHAPTERS.map((ch) => <g key={ch.id} data-ch={ch.id}><Banner ch={ch} open={isUnlocked(ch.levels[0].id, progress)} /></g>)}
 
             {/* will-o'-wisps drifting over the fen, once the war gets there */}
             {isUnlocked(CHAPTERS[2].levels[0].id, progress) && WISPS.map(([x, y, d], i) => (

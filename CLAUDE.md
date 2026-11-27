@@ -551,9 +551,15 @@ were drawn from a scratch lab; A was turned down for its dead dark bottom-right 
 **The map's names are ribbons** (owner, 2026-11-26, after options A hung pennants / B oak signboards / C rolled
 scrolls: "I like this! Could we use that for the map level labels?", of A's chapter ribbon): every level's name and every
 chapter's name is the same folded ribbon (CampaignMap.jsx `Ribbon`: red cloth edged in gold, both ends tucked under,
-dropped and cut in a V; slate while sealed; `Scroll` and `Banner` size it). The level ribbons' tails (`tail` 5.5) are
+dropped and cut in a V, the band's gold trim carried round each tail and meeting at the V's point (`insetPath`); slate while sealed; `Scroll` and `Banner` size it). The level ribbons' tails (`tail` 5.5) are
 held short so no two names touch with every level open (checked by bounding boxes on the real map: 64 labels, no
 overlap; at 7 Brinewick and Ironmouth touched).
+**The chapter titles** (owner, 2026-11-27, from A crested ribbon / B chart cartouche / C chapter colours: "love C, and
+those emblems ... put the emblem above like in A"): CampaignMap.jsx `Banner` is the same `Ribbon` in the chapter's own
+colour (`CHAPTER_COL`, `src/ui/chapterArt.js`: Greenwood green, Iron steel blue, Hollow purple, Rime frost blue), with a
+shield standing on it bearing the chapter's gold sigil (`crestPixels(id, open, "shield")`: oak leaf, barred helm, skull,
+snowflake; a padlock on slate while sealed), and a small "CHAPTER II" under the ribbon (owner: "put the chapter 1 stuff below"). The map keeps its scenery off the whole piece
+(mapArt.js `BANNERS`, the crest included).
 **The map's markers are sculpted** (owner, same day: B, the swallowtail, "but in the newer style", then "Flags from 2
 shields from 3"): `src/ui/markerArt.js` sculpts them pixel by pixel like the star (lit from the upper left, tinted
 one-pixel line): `flagPixels(style, frame)` (the ribbons' red, gold edged, a gold crown, a gold ball on the pole; style 2
