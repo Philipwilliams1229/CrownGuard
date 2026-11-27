@@ -41,6 +41,7 @@ import { weatherFor } from "../data/weather-plan.js";
 import { Star } from "./Glyphs.jsx";
 import { starPixels } from "./starArt.js";
 import { flagPixels, shieldPixels, FLAG_FRAMES } from "./markerArt.js";
+import { crestPixels, CHAPTER_COL } from "./chapterArt.js";
 import { MAX_STARS } from "../data/profile.js";
 import { FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
@@ -245,8 +246,89 @@ function Scroll({ lv, open, sel }) {
   );
 }
 
+// Trial looks for the chapter titles, behind ?chlook=a|b|c (none: today's ribbon).
+const CHLOOK = (typeof location !== "undefined" && new URLSearchParams(location.search).get("chlook")) || "";
+const pixG = (pix, x, y, s = 1) => <g transform={`translate(${x} ${y}) scale(${s})`}>{symRects(pix)}</g>;
+
+// A: a bigger ribbon with the chapter's crest on a shield standing on it
+function BannerCrest({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? ch.name.toUpperCase() : "SEALED";
+  const w = text.length * 6 + 22, h = 14, k = open ? OPEN_CLOTH : SHUT_CLOTH, x = cx - w / 2, y = cy - h / 2 + 4;
+  const crest = crestPixels(ch.id, open, "shield");
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <Ribbon x={x} y={y} w={w} h={h} k={k} drop={4.5} tail={16} cut={4.5} edge={1} line={0.9} />
+      <text x={cx} y={y + h / 2 + 3.2} textAnchor="middle" fontSize="8.6" fontWeight="bold" letterSpacing="1.3" fontFamily={MAP_FONT}
+        fill={k.ink} stroke={LINE} strokeWidth="1.7" paintOrder="stroke">{text}</text>
+      {pixG(crest, cx - crest.w * 0.75, y - crest.h * 1.5 + 5, 1.5)}
+      <text x={cx} y={y - crest.h * 1.5 + 2.6} textAnchor="middle" fontSize="5.6" fontWeight="bold" letterSpacing="1" fontFamily={MAP_FONT}
+        fill="#f2dc8a" stroke={LINE} strokeWidth="1.4" paintOrder="stroke">{`CHAPTER ${ch.numeral}`}</text>
+    </g>
+  );
+}
+// B: an old chart's cartouche: parchment in a gold frame, rolled ends, the numeral in a red roundel
+function BannerCartouche({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? ch.name.toUpperCase() : "SEALED";
+  const w = text.length * 5.8 + 36, h = 18, x = cx - w / 2, y = cy - h / 2;
+  const face = open ? PARCH.face : "#9c968a", lt = open ? PARCH.lt : "#aca698", dk = open ? PARCH.dk : "#77716a";
+  const gold = open ? "#d8b34a" : "#8a8a98", goldLt = open ? "#f2dc8a" : "#a8a8b4", red = open ? "#a8505c" : "#5c5c6c";
+  const volute = (vx, s) => (
+    <g>
+      <circle cx={vx} cy={cy} r={5.2} fill={face} stroke={LINE} strokeWidth="0.8" />
+      <circle cx={vx + s * 0.6} cy={cy + 0.4} r={3.1} fill={dk} stroke={LINE} strokeWidth="0.5" />
+      <circle cx={vx + s * 1.1} cy={cy + 0.8} r={1.3} fill={face} />
+      <path d={`M${vx - 4.2},${cy - 2.4} A5,5 0 0 1 ${vx + 2},${cy - 4.6}`} fill="none" stroke={lt} strokeWidth="0.8" shapeRendering="auto" />
+    </g>
+  );
+  const rx = x + 11;
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <rect x={x + 1.4} y={y + 2} width={w} height={h} fill="#141a26" opacity="0.35" />
+      {volute(x - 1.5, 1)}{volute(x + w + 1.5, -1)}
+      <rect x={x} y={y} width={w} height={h} fill={face} stroke={LINE} strokeWidth="0.9" />
+      <rect x={x + 1.4} y={y + 1.4} width={w - 2.8} height={h - 2.8} fill="none" stroke={gold} strokeWidth="1.2" />
+      <rect x={x + 1.4} y={y + 1.4} width={w - 2.8} height={0.6} fill={goldLt} />
+      <rect x={x + 3.2} y={y + 3.2} width={w - 6.4} height={h - 6.4} fill="none" stroke={open ? "#8e3a3a" : "#6a6670"} strokeWidth="0.45" />
+      {[[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([px, py], i) => (
+        <rect key={i} x={px - 1.7} y={py - 1.7} width={3.4} height={3.4} fill={gold} stroke={LINE} strokeWidth="0.5" transform={`rotate(45 ${px} ${py})`} />
+      ))}
+      <circle cx={rx} cy={cy} r={6.4} fill={red} stroke={LINE} strokeWidth="0.6" shapeRendering="auto" />
+      <circle cx={rx} cy={cy} r={5.4} fill="none" stroke={gold} strokeWidth="1" shapeRendering="auto" />
+      <text x={rx} y={cy + 2.5} textAnchor="middle" fontSize="7" fontWeight="bold" fontFamily={MAP_FONT} fill="#f6e6bc" stroke={LINE} strokeWidth="1.2" paintOrder="stroke">{ch.numeral}</text>
+      <text x={cx + 6} y={cy + 2.9} textAnchor="middle" fontSize="8.4" fontWeight="bold" letterSpacing="1.3" fontFamily={MAP_FONT}
+        fill={open ? "#5a1e1e" : "#46424c"}>{text}</text>
+    </g>
+  );
+}
+// C: the ribbon in the chapter's own colour, a gold medallion with its sigil at the left
+function BannerColour({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? `${ch.name.toUpperCase()}` : "SEALED";
+  const w = text.length * 5.6 + 30, h = 12;
+  const c = (CHAPTER_COL[ch.id] || CHAPTER_COL.greenwood).cloth;
+  const k = open ? { ...c, gold: "#d8b34a", ink: "#f2dc8a" } : SHUT_CLOTH;
+  const x = cx - w / 2, y = cy - h / 2;
+  const med = crestPixels(ch.id, open, "disc"), ms = 1.45;
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      <Ribbon x={x} y={y} w={w} h={h} k={k} drop={4} tail={15} cut={4} edge={0.9} line={0.9} />
+      <text x={cx + 7} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
+        fill={k.ink} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">{text}</text>
+      {pixG(med, x - med.w * ms * 0.35, cy - (med.h * ms) / 2, ms)}
+    </g>
+  );
+}
+
 // A chapter's name on a ribbon out at sea.
-function Banner({ ch, open }) {
+function Banner(props) {
+  if (CHLOOK === "a") return <BannerCrest {...props} />;
+  if (CHLOOK === "b") return <BannerCartouche {...props} />;
+  if (CHLOOK === "c") return <BannerColour {...props} />;
+  return <BannerToday {...props} />;
+}
+function BannerToday({ ch, open }) {
   const [cx, cy] = BANNER_AT[ch.id];
   const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
   const w = text.length * 5.6 + 12, h = 12, k = open ? OPEN_CLOTH : SHUT_CLOTH;
@@ -564,7 +646,7 @@ export default function CampaignMap({ progress, profile, resume, onResume, onSta
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: painted ? 1 : 0 }}>
             <StarSymbols />
             <MarkerSymbols />
-            {CHAPTERS.map((ch) => <Banner key={ch.id} ch={ch} open={isUnlocked(ch.levels[0].id, progress)} />)}
+            {CHAPTERS.map((ch) => <g key={ch.id} data-ch={ch.id}><Banner ch={ch} open={isUnlocked(ch.levels[0].id, progress)} /></g>)}
 
             {/* will-o'-wisps drifting over the fen, once the war gets there */}
             {isUnlocked(CHAPTERS[2].levels[0].id, progress) && WISPS.map(([x, y, d], i) => (
