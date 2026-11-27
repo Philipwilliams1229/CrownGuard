@@ -551,7 +551,7 @@ were drawn from a scratch lab; A was turned down for its dead dark bottom-right 
 **The map's names are ribbons** (owner, 2026-11-26, after options A hung pennants / B oak signboards / C rolled
 scrolls: "I like this! Could we use that for the map level labels?", of A's chapter ribbon): every level's name and every
 chapter's name is the same folded ribbon (CampaignMap.jsx `Ribbon`: red cloth edged in gold, both ends tucked under,
-dropped and cut in a V; slate while sealed; `Scroll` and `Banner` size it). The level ribbons' tails (`tail` 5.5) are
+dropped and cut in a V, the band's gold trim carried round each tail and meeting at the V's point (`insetPath`); slate while sealed; `Scroll` and `Banner` size it). The level ribbons' tails (`tail` 5.5) are
 held short so no two names touch with every level open (checked by bounding boxes on the real map: 64 labels, no
 overlap; at 7 Brinewick and Ironmouth touched).
 **The map's markers are sculpted** (owner, same day: B, the swallowtail, "but in the newer style", then "Flags from 2

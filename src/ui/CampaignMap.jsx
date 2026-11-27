@@ -182,6 +182,30 @@ function WaypointMarkers({ progress }) {
 
 // A ribbon (owner's pick, 2026-11-26): red cloth edged in gold, its two ends tucked under the band,
 // dropped a little and cut in a V. Slate cloth while sealed. `drop` / `tail` / `cut` size the ends.
+// An open outline moved `d` inside its shape (the side toward the points' middle): each edge is pushed
+// inward and its neighbours meet where the pushed edges cross; the two ends keep their own edge's push.
+function insetPath(pts, d) {
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  const lines = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], len = Math.hypot(bx - ax, by - ay) || 1;
+    let nx = -(by - ay) / len, ny = (bx - ax) / len;
+    if ((cx - (ax + bx) / 2) * nx + (cy - (ay + by) / 2) * ny < 0) { nx = -nx; ny = -ny; }
+    lines.push([[ax + nx * d, ay + ny * d], [bx + nx * d, by + ny * d]]);
+  }
+  const cross = ([p1, p2], [p3, p4]) => {
+    const d1x = p2[0] - p1[0], d1y = p2[1] - p1[1], d2x = p4[0] - p3[0], d2y = p4[1] - p3[1];
+    const den = d1x * d2y - d1y * d2x;
+    if (Math.abs(den) < 1e-9) return p2;
+    const u = ((p3[0] - p1[0]) * d2y - (p3[1] - p1[1]) * d2x) / den;
+    return [p1[0] + d1x * u, p1[1] + d1y * u];
+  };
+  const out = [lines[0][0]];
+  for (let i = 0; i < lines.length - 1; i++) out.push(cross(lines[i], lines[i + 1]));
+  out.push(lines[lines.length - 1][1]);
+  return out.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(" ");
+}
+
 function Ribbon({ x, y, w, h, k, drop, tail, cut, edge, line = 0.8, sel }) {
   const end = (s) => {
     const e = s < 0 ? x : x + w, t = e + s * tail, ins = e - s * 3;   // e: the band's edge, t: the tail's tip, ins: tucked under
@@ -189,6 +213,9 @@ function Ribbon({ x, y, w, h, k, drop, tail, cut, edge, line = 0.8, sel }) {
       <g>
         <path d={`M${ins},${y + drop} L${t},${y + drop} L${t - s * cut},${y + drop + h / 2} L${t},${y + h + drop} L${ins},${y + h + drop} Z`}
           fill={k.dk} stroke={LINE} strokeWidth={line} strokeLinejoin="round" />
+        {/* the band's gold trim carried round the tail: along the top, in to the V's point, back along the foot */}
+        <path d={insetPath([[ins, y + drop], [t, y + drop], [t - s * cut, y + drop + h / 2], [t, y + h + drop], [ins, y + h + drop]], 0.7 + edge / 2)}
+          fill="none" stroke={k.gold} strokeWidth={edge} strokeLinejoin="miter" strokeMiterlimit="8" />
         <path d={`M${e},${y + h} L${ins},${y + h + drop} L${ins},${y + h} Z`} fill={k.fold} stroke={LINE} strokeWidth={line * 0.65} />
       </g>
     );
