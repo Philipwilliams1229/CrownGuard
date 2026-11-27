@@ -1347,6 +1347,11 @@ Bring these up with the owner; don't act on them unasked.
   `ovh-identity.html` (18 realm x sun cases) pixel-identical. The report's sample carries `released` {n, mb}.
   Measured there too: the campaign map makes ~760 canvases only the FIRST time (the title's warm-up; ~2 a visit
   after), a level ~500-1000 the first time, and a battle ~35 a second (figure frames baking as new poses show up).
+  **Confirmed on the owner's iPhone** (2026-11-27, owner: "I think you fixed it"): four battles over ~9.5 h of the
+  app open, 51-60 fps on 4-7 ms of our code, live canvases level at ~300 MB (12,258 / 375 MB released). Left: short
+  hitches (one 196 ms gap at Blackbriar's first wave), most likely the phone clearing the ~80,000 canvases made
+  since launch; the lever is keeping figure frames baked longer. The owner: "let's leave it" (not asked for). The
+  WebGL plan above is on hold while the phone stays smooth.
 - **A new name for the game** (2026-11-26, owner: "I still don't like crownguard"; "we'll come back to
   this"). Ruled out: Siegebreaker / Siege Breaker(s) / Siege Break (a 2024 tower defense on Steam is
   "Siegebreaker"; Halfbrick's iOS "Siege Breakers"; a "Siege Break" app; several more). The owner turned
