@@ -3,7 +3,7 @@
 // overrides any builder's own dev registration. Builders export their halves; they never edit this file.
 //   trees (B3): ownsTree, drawTreeDecor, treeShadowItem, treeGroundMarks, treeFrame, treeDrawables, treeOver, treeKey
 //   decor (B4): ownsDecor, drawDecorPiece, decorShadowItem, decorShadowExtras, decorDrawables, decorGroundMarks
-//   bridges (B2): bridgeShadowExtras      meadow (B5): meadowKey, meadowGroundMarks
+//   bridges (B2): bridgeShadowExtras      meadow (B5): meadowKey
 // `?b3off=1` in a lab's URL keeps today's trees (B3's own switch).
 import { register, OVH } from "./index.js";
 import * as T from "./trees.js";
@@ -26,10 +26,10 @@ register("shadowExtras", () => [
   ...(D.decorShadowExtras ? D.decorShadowExtras() : []),
   ...(B.bridgeShadowExtras ? B.bridgeShadowExtras() : []),
 ]);
-register("groundMarks", each(M.meadowGroundMarks, treesOn && T.treeGroundMarks, D.decorGroundMarks));
+register("groundMarks", each(treesOn && T.treeGroundMarks, D.decorGroundMarks));
 register("frame", each(treesOn && T.treeFrame));
 register("drawables", each(treesOn && T.treeDrawables, D.decorDrawables));
 register("over", each(treesOn && T.treeOver));
-register("key", () => [M.meadowKey && M.meadowKey(), treesOn && T.treeKey && T.treeKey(), D.decorKey && D.decorKey(), B.bridgeKey && B.bridgeKey(), WTR.waterKey && WTR.waterKey()].filter(Boolean).join("."));
+register("key", () => [M.meadowKey && M.meadowKey(), treesOn && T.treeKey && T.treeKey(), D.decorKey && D.decorKey(), WTR.waterKey && WTR.waterKey()].filter(Boolean).join("."));
 register("apronGround", apronGround);
 register("overCastle", each(treesOn && T.treeOverCastle));
