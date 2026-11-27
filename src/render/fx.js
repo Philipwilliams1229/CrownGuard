@@ -16,7 +16,7 @@ import { drawFireGround, drawLavaFlames } from "./flames.js";
 import { hasRig, rigFrame } from "./rigs.js";
 import { canvasFont, typeEpoch } from "../ui/fonts.js";
 import * as PJ from "./pix/proj-sprites.js";
-import { statusBurn, statusPoison, statusSlow, statusMist, statusStun, statusCrack } from "./statusfx.js";   // look B
+import { statusBurn, statusPoison, statusSlow, statusDust, statusMist, statusStun, statusCrack } from "./statusfx.js";   // look B
 import { FLIGHT, drawFireball, drawStoneFire } from "./flightfire.js";   // fire in flight, Round 20 A
 
 // ---- palette ---------------------------------------------------------
@@ -1490,8 +1490,12 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
   const hr = Math.max(8, feet - top), id = e.id || 0, sz = e.size || 14, sb = sizeBucket(sz);
   const frozen = !e.immStun && e.frozenUntil > tms;
   const stunned = !e.immStun && !frozen && e.stunUntil > tms;
-  const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct || 0.3 : 0, e.auraSlow || 0);
-  const lv = slow <= 0 ? 0 : slow < 0.3 ? 1 : slow < 0.6 ? 2 : 3;
+  // two kinds of slow, two looks (owner, 2026-11-27, Round 21): FROST (the Warden Mage's aura, auraCold) wears the
+  // cold mist; every other slow (traps, caltrops, Hamstringer, Earthshaker, Harpooners, the Moon Prism, the War
+  // Horn, logs, Osric: the timed slowUntil and the caltrops' auraDrag) wears the dust and drag. Both can show at once.
+  const lvOf = (v) => v <= 0 ? 0 : v < 0.3 ? 1 : v < 0.6 ? 2 : 3;
+  const coldLv = e.immSlow ? 0 : lvOf(e.auraCold || 0);
+  const dragLv = e.immSlow ? 0 : lvOf(Math.max(e.slowUntil > tms ? e.slowPct || 0.3 : 0, e.auraDrag || 0));
   if (frozen) {
     // as wide as the body (a wide beast's whole length), centred on it
     const sp = bodySpan(e.sprite || e.type);
@@ -1514,7 +1518,8 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
   if (e.brittleUntil > tms) statusCrack(ctx, e, time, feet, hr);
   if (e.burnUntil > tms) statusBurn(ctx, e, time, feet, hr);
   if (e.poisonUntil > tms) statusPoison(ctx, e, time, feet, hr);
-  if (!frozen && lv) statusSlow(ctx, e, time, feet, hr, lv);
+  if (!frozen && dragLv) statusDust(ctx, e, time, feet, hr, dragLv);
+  if (!frozen && coldLv) statusSlow(ctx, e, time, feet, hr, coldLv);
   if (e.healedFlash > tms) {
     for (let i = 0; i < 2; i++) {
       const q = (time * 1.2 + i * 0.5 + id * 0.13) % 1;

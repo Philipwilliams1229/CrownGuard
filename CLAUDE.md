@@ -1513,6 +1513,12 @@ Bring these up with the owner; don't act on them unasked.
   812f7bc6-4fdb-47cd-b4e4-57d50d5c6bfa). Awaiting the pick. Building it needs the ENGINE to tell the kinds apart: today
   every slow sets only `slowUntil` / `slowPct`; a frost source (Warden Mage aura and line, frost orbs) must also mark the
   foe (e.g. `e.slowCold`), and fx.js `drawStatus` picks the mist or the new look by it (both when both apply).
+  The owner picked **A, dust and drag** (same day): IN THE GAME (statusfx.js `statusDust`, ported from
+  `concept/fx-r21-a.js` without its 1-px dip; baked per figure frame, strength and view like the mist, grit only on a
+  side walk at walk frames 2 / 6, the climb capped at 6 / 9 / 13 art px). Frost = only the Warden Mage line's aura
+  (what `frostProof` blocks): update.js sets render-only `e.auraCold` there and `e.auraDrag` for the caltrops' ground;
+  fx.js `drawStatus` draws the mist for `auraCold`, the dust for any timed slow or `auraDrag`, both when both. The
+  rules still read only `slowUntil` / `slowPct` / `auraSlow` (gw3 sim identical). `slow-lab.html`. Pending the owner's look.
 - **The novas are settled** (owner, 2026-11-17: "novas look great!"): Round 4's B look, angled,
   coming out of the hall (style guide, "Effects on the ground").
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll

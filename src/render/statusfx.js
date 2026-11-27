@@ -455,6 +455,97 @@ export const statusSlow = (ctx, e, time, feet, hr, lv = 2) => {
   ctx.drawImage(s.cv, -s.ax / PX, -s.ay / PX, s.cv.width / PX, s.cv.height / PX);
   ctx.restore();
 };
+// ---- SLOW, the PLAIN kind, Round 21 pick A (owner, 2026-11-27): DUST AND DRAG ------------------------------------
+// Every slow that is not frost (traps, caltrops, Hamstringer, Earthshaker, Harpooners, the Moon Prism, the War Horn,
+// logs, Osric). The foe is hobbled: patchy pale road dust on the LOWER body only, flakes of it sifting off the shins,
+// and on a side walk grit kicked back off the trailing heel every step (more off the lame foot, push-offs on walk
+// frames 2 and 6). Nothing above the waist, nothing over the crown, nothing on the ground wider than the feet.
+// Baked like the mist (per frame canvas, strength 1-3, view, 6 steps for the flakes; own counter, 2 bakes a frame,
+// own budget). The frame canvas is unique to its walk frame, so the grit baked with it follows the stride. Baked
+// facing right; a left-facing foe stamps mirrored. The concept's 1-px dip on the lame step is left out (it never read).
+// Concept: concept/fx-r21-a.js (row slow21).
+const DN = 6;
+const DIRT = ["#e6dab6", "#c6b186", "#9c8862", "#6c5c44", "#433a2c"];   // greyed khaki, apart from leather and fire
+const DGROW = [{ reach: 0.12, cap: 6, grit: 4, drift: 2 }, { reach: 0.2, cap: 9, grit: 6, drift: 4 }, { reach: 0.3, cap: 13, grit: 8, drift: 6 }];   // cap: art px, so a troll gets dusty shins, not a dusty belly
+const DUSTS = new Map();
+let dustBytes = 0, dustAt = -1, dustN = 0;
+export const dustStats = () => ({ keys: DUSTS.size, bytes: dustBytes });
+const DUST_BUDGET = 12 * 1024 * 1024;
+const dustBake = (m, f, view, lv, pf, walk) => {
+  const { T, xl, xr, has } = m, g = DGROW[lv - 1], t = f / DN;
+  const x0 = xl - 14, x1 = xr + 4, up = T + 2, dn = 3, cw = x1 - x0 + 1, ch = up + dn, ax = -x0, ay = up;
+  const cv = mk(cw, ch), c = cv.getContext("2d");
+  c.translate(ax, ay);
+  const top = -Math.round(Math.min(T * g.reach, g.cap));        // the dust climbs to here
+  // 1. dust on the legs, PATCHY: mottled 2x2 patches, thick at the soles, thinning to nothing at the top line; the legs'
+  //    own colour shows between them, the figure's line is kept (bar its sunward side)
+  for (const [x, y] of m.list) {
+    if (y < top) continue;
+    if ((!has(x - 1, y) || !has(x + 1, y) || !has(x, y + 1)) && has(x - 1, y)) continue;
+    const d = (y - top) / (-top + 1), patch = H(Math.floor((x + 1) / 2), Math.floor((y + 1) / 2) + 17);
+    if (patch > 0.4 + d * 0.5) continue;
+    px(c, x, y, !has(x - 1, y) || !has(x - 1, y - 1) || patch < 0.18 ? DIRT[0] : DIRT[1], 0.92);
+  }
+  // 2. dust sifting off the shins: 2-px flakes leaving the legs' edges, falling and drifting back
+  const shin = m.open.filter(([x, y]) => y >= top - 3 && y <= -3 && (!has(x - 1, y) || !has(x + 1, y)));
+  for (let k = 0; k < g.drift && shin.length; k++) {
+    const q = fr1(t * 2 + H(k, 21)), [sx, sy] = shin[Math.floor(H(k, 23) * shin.length) % shin.length];
+    const side = has(sx - 1, sy) ? 1 : -1, x = Math.round(sx + side * (1 + q * 2)), y = Math.round(sy + q * 3);
+    if (y > 0 || has(x, y)) continue;
+    px(c, x, y, q < 0.5 ? DIRT[0] : DIRT[1], 1 - q * 0.4); px(c, x, y + 1, DIRT[2], 0.9 - q * 0.4);
+  }
+  // 3 + 4. on a side walk: grit kicked off the trailing heel and a scuff at each push-off (walk frames 2 and 6, the
+  //    first the lame foot's), kept within the feet's width behind the heel
+  if (walk && !view) {
+    const runs = (y) => { const out = []; let st = null; for (let x = xl - 1; x <= xr + 1; x++) { const h = has(x, y); if (h && st === null) st = x; if (!h && st !== null) { out.push([st, x - 1]); st = null; } } return out; };
+    const r0 = runs(0).length ? runs(0) : runs(-1), hx = r0.length ? r0[0][0] : xl;
+    const fw = r0.length ? Math.max(6, r0[r0.length - 1][1] - r0[0][0] + 1) : 8;
+    const a8 = (pf - 2 + 8) % 8, lame = a8 < 4, age = (a8 % 4) * 1.5;   // in the concept's cell units (12 a stride)
+    if (age <= 3) {
+      const n = lame ? g.grit : g.grit - 2;
+      for (let k = 0; k < n; k++) {
+        const kk = k + (lame ? 0 : 40), vx = 0.9 + H(kk, 2) * 1.2, vy = 2.3 + H(kk, 5) * 1.3, tt = age + 0.7 + H(kk, 8) * 0.5;
+        const x = Math.max(hx - fw, Math.round(hx - 1 - vx * tt)), y = Math.round(-1 - vy * tt + 0.75 * tt * tt);
+        if (y > -1) continue;
+        if (lame && age < 3) { px(c, x, y, DIRT[0]); px(c, x + 1, y, DIRT[1]); px(c, x, y + 1, DIRT[2]); px(c, x + 1, y + 1, DIRT[3]); }
+        else if (H(kk, 9) > 0.5) { px(c, x, y, DIRT[0]); px(c, x + 1, y, DIRT[2]); }
+        else { px(c, x, y, DIRT[0]); px(c, x, y + 1, DIRT[2]); }
+      }
+    }
+    if (age <= (lame ? 2 : 1)) {
+      const w0 = lame ? 4 : 2, k0 = lame ? 0.85 : 0.6, ag = Math.round(age);
+      for (let x = hx - w0 + ag; x <= hx + 2 - ag; x++) for (let y = -1; y <= 0; y++) {
+        const a = (k0 - age * 0.25) * (y === 0 ? 1 : 0.5);
+        if (bay(x + pf * 3, y) < a && !has(x, y)) px(c, x, y, y === 0 ? DIRT[1] : DIRT[0], 0.9);
+      }
+    }
+  }
+  return { cv, ax, ay };
+};
+export const statusDust = (ctx, e, time, feet, hr, lv = 2) => {
+  const rf = e._rf, sf = rf && rigFrame(rf.skin, rf.ps, rf.pf, "");
+  if (time !== dustAt) { dustAt = time; dustN = 0; }
+  if (!(sf && sf.cv)) return;                                   // a figure with no frame to read: no dust
+  const m = MASKS.has(sf.cv) ? MASKS.get(sf.cv) : dustN < 2 ? (dustN++, maskOf(sf)) : null;
+  if (!m || m.none) return;
+  lv = Math.max(1, Math.min(3, lv));
+  const f = frameOf(time, e.id || 0, DN) % DN, view = isViewSheet(rf.ps), key = sf.cv, slot = ((lv - 1) * 2 + (view ? 1 : 0)) * DN + f;
+  let per = DUSTS.get(key); if (!per) { per = []; DUSTS.set(key, per); }
+  let s = per[slot];
+  if (!s && dustN < 2) {
+    dustN++; s = per[slot] = dustBake(m, f, view, lv, rf.pf | 0, /walk/i.test(rf.ps || "")); dustBytes += s.cv.width * s.cv.height * 4;
+    while (dustBytes > DUST_BUDGET && DUSTS.size > 1) {         // over the memory cap: drop the oldest figure frame's dust
+      const [k0, v0] = DUSTS.entries().next().value; if (k0 === key) break;
+      for (const q of v0) if (q) dustBytes -= q.cv.width * q.cv.height * 4;
+      DUSTS.delete(k0);
+    }
+  }
+  if (!s) return;
+  const X = Math.round(e.x * PX) / PX, Y = Math.round(feet * PX) / PX, flip = e.face < 0 && !view;
+  ctx.save(); ctx.translate(X, Y); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(s.cv, -s.ax / PX, -s.ay / PX, s.cv.width / PX, s.cv.height / PX);
+  ctx.restore();
+};
 export const statusMist = (ctx, e, time, feet, hr, hwWorld) => stampAt(ctx, mistSprite(bucketHW(hwWorld || e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
 export const statusStun = (ctx, e, time, feet, hr) => {
   const f = frameOf(time, e.id || 0, 16);

@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  The two slows, as the game draws them (2026-11-27, Round 21): drawStatus on real walk frames.
+  Rows: figure x kind (plain = dust and drag, frost = cold mist, both) x facing; columns: 8 walk frames.
+  /slow-lab.html?types=goblin,orc,troll,wolf&lv=0.4&tag=x  ->  .shots/slowlab_<tag>.png (zoom 3)
+-->
+<html><head><meta charset="utf-8" /><title>slow lab</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:12px"><div id="status">painting</div>
+<script type="module">
+import { rigFrame } from "/src/render/rigs.js";
+import { drawStatus } from "/src/render/fx.js";
+import { PX } from "/src/render/paint.js";
+const q = new URLSearchParams(location.search);
+const TYPES = (q.get("types") || "goblin,orc,troll,wolf").split(","), PCT = +(q.get("lv") || 0.4), tag = q.get("tag") || "x", Z = 3;
+const KINDS = [["plain", { slowUntil: 9e9, slowPct: PCT }], ["frost", { auraCold: PCT, auraSlow: PCT }], ["both", { slowUntil: 9e9, slowPct: PCT, auraCold: PCT, auraSlow: PCT }]];
+const CW = 90, CH = 80, N = 8, rows = [];
+for (const ty of TYPES) for (const [k, f] of KINDS) for (const face of [1, -1]) rows.push([ty, k, f, face]);
+const cv = document.createElement("canvas"); cv.width = CW * N * Z + 120; cv.height = rows.length * CH * Z; const C = cv.getContext("2d"); C.imageSmoothingEnabled = false;
+C.fillStyle = "#14171d"; C.fillRect(0, 0, cv.width, cv.height);
+const H = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+rows.forEach(([ty, k, fields, face], r) => {
+  C.fillStyle = "#e8e0c8"; C.font = "14px monospace"; C.fillText(ty, 6, r * CH * Z + 30); C.fillText(k + (face < 0 ? " L" : " R"), 6, r * CH * Z + 50);
+  for (let i = 0; i < N; i++) {
+    const cell = document.createElement("canvas"); cell.width = CW; cell.height = CH; const c = cell.getContext("2d"); c.imageSmoothingEnabled = false;
+    c.fillStyle = "#7eab54"; c.fillRect(0, 0, CW, CH);
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) if (H(x * 1.3, y * 0.7 + 4) > 0.93) { c.fillStyle = "#6f9a4a"; c.fillRect(x, y, 1, 1); }
+    const s = rigFrame(ty, "walk", i, "");
+    const ax = CW / 2, ay = CH - 14;
+    c.save(); c.translate(ax, ay);
+    if (face < 0) { c.save(); c.scale(-1, 1); }
+    c.drawImage(s.cv, -s.ax * PX, -s.ay * PX);
+    if (face < 0) c.restore();
+    const e = { x: 0, y: 0, id: 1, size: 15, type: ty, face, _rf: { skin: ty, ps: "walk", pf: i }, ...fields };
+    c.scale(PX, PX);
+    const time = 5 + i * 0.1;
+    const junk = document.createElement("canvas").getContext("2d");
+    for (let w = 0; w < 12; w++) drawStatus(junk, e, time + w * 1e-7, 100000 + i * 100, 0, -40);   // warm the bakes (2 a frame) off-screen
+    drawStatus(c, e, time, 100000 + i * 100, 0, -40);
+    c.restore();
+    C.drawImage(cell, 120 + i * CW * Z, r * CH * Z, CW * Z, CH * Z);
+  }
+});
+await fetch("/__shot?name=slowlab_" + tag, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+document.getElementById("status").textContent = "saved slowlab_" + tag;
+</script></body></html>

@@ -635,7 +635,7 @@ const makeEnemy = (type, mult) => {
     splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, splitChance: d.splitChance ?? null, dropStun: d.dropStun || 650, splits: undefined, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
-    x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
+    x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0, auraCold: 0, auraDrag: 0,
     slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
     brittleUntil: 0, brittleAmp: 0, burnSpread: false,
     stunUntil: 0, dead: false, blockedBy: null, engaged: false, meleeCd: 0,
@@ -1664,7 +1664,9 @@ export function updateGame(g, dt) {
       }
     }
     if (!g.corpses) g.corpses = []; // fresh kills a necromancer may raise
-    for (const e of g.enemies) { e.auraSlow = 0; e.bannerSpeed = 0; e.bannerArmor = 0; e.shredAura = 0; }
+    // auraCold / auraDrag only say WHICH kind of slow it is, for the picture (fx.js drawStatus: the cold mist or the
+    // dust and drag); the rules read auraSlow alone
+    for (const e of g.enemies) { e.auraSlow = 0; e.auraCold = 0; e.auraDrag = 0; e.bannerSpeed = 0; e.bannerArmor = 0; e.shredAura = 0; }
     // A Lord Marshal's banner drives everything marching near it: quicker feet
     // and harder plate for as long as he is on his.
     for (const b of g.enemies) {
@@ -1683,6 +1685,7 @@ export function updateGame(g, dt) {
         if (e.dead) continue;
         if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && !e.frostProof) {   // (cold-hardy Rime foes feel no chill: enemies.js frostProof)
           e.auraSlow = Math.max(e.auraSlow, st.slow);
+          e.auraCold = Math.max(e.auraCold, st.slow);   // the only FROST slow: drawn as the cold mist
           // Absolute Zero: the aura itself bites, dealing cold damage
           if (st.colddps) dealDamage(g, e, st.colddps * sdt, "magic", false, true, t.id);
         }
@@ -2111,7 +2114,7 @@ export function updateGame(g, dt) {
         for (const gr of g.grounds) {
           if (gr.kind === "plague" || (gr.kind === "fire" && e.flying)) continue;
           if (gr.until <= tms || Math.hypot(e.x - gr.x, e.y - gr.y) > gr.r) continue;
-          if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); continue; }
+          if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); e.auraDrag = Math.max(e.auraDrag || 0, gr.slowPct || 0.35); continue; }
           dealDamage(g, e, gr.dps * (gr.kind === "lava" || gr.kind === "fire" ? WX.fire : 1) * sdt, "magic", false, true, gr.src);
         }
       }

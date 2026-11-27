@@ -88,7 +88,13 @@ slow = a cold MIST hugging the body's outline, heavier behind and low, wisps
 trailing and sinking (owner's pick C, Round 6, 2026-11-21: statusfx.js
 `statusSlow`, baked per figure frame like the fire's edge, 6 steps, 2 bakes a
 frame, `MIST_BUDGET` 20 MB, strengths 1-3 from `slowPct`; nothing over the
-crown, so it is never read as the stun), freeze (`frozenUntil`) = an ice shell sized by the rig's
+crown, so it is never read as the stun) for a FROST slow only (the Warden Mage's aura: `e.auraCold`);
+every other slow (traps, caltrops, Hamstringer, Earthshaker, Harpooners, the Moon Prism, the War Horn, logs,
+Osric: `slowUntil` and the caltrops' `e.auraDrag`) = DUST AND DRAG, patchy khaki road dust on the lower legs,
+flakes sifting off the shins, grit kicked back off the heel at each push-off of a side walk (owner's pick A,
+Round 21, 2026-11-27: statusfx.js `statusDust`, baked like the mist, `DUST_BUDGET` 12 MB, its climb capped in
+art px so big figures get dusty shins; `slow-lab.html?types=&lv=` shows plain / frost / both). Both can show
+on one foe. Freeze (`frozenUntil`) = an ice shell sized by the rig's
 body (`bodySpan`), stun = gold stars wheeling round the crown. Freeze beats
 stun, either hides slow's stars (slow's frost ring at the feet stays under a
 stun: two holds, two tells), and an immune foe (`immSlow`/`immStun`) shows none. Shield pips sit ON the health bar's line,
