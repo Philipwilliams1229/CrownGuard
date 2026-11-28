@@ -450,9 +450,9 @@ const pit = (S, lx, ly, rx, ry, o = {}) => S.onGround((c) => {
   for (let j = -ry - 3; j <= ry + 3; j++) for (let i = -rx - 3; i <= rx + 3; i++) {
     const wob = (hash(i >> 2, j >> 2) - 0.5) * 0.18, d = Math.hypot(i / rx, j / ry) + wob; if (d > 1.12) continue;
     const rim = d > 0.92;
-    if (d > 1) { px1(c, x0 + i, y0 + j, hash(i, j) > 0.5 ? "#6a665c" : "#5a564e"); continue; }
+    if (d > 1) { px1(c, x0 + i, y0 + j, hash(i, j) > 0.5 ? "#62626a" : "#52525a"); continue; }
     if (o.water && d < 0.84) { const lit = (j < -ry * 0.2); px1(c, x0 + i, y0 + j, lit ? (((i + j) & 3) === 0 ? "#7a96a8" : "#4a6272") : hash(i, j) > 0.97 ? "#8aa6b8" : "#3a4e5c"); continue; }
-    px1(c, x0 + i, y0 + j, rim ? "#4a463e" : hash(i + 3, j) > 0.86 ? "#7c786c" : hash(i, j + 7) > 0.7 ? "#68645a" : "#5a564e");
+    px1(c, x0 + i, y0 + j, rim ? "#3c3c44" : hash(i + 3, j) > 0.88 ? "#6c6c76" : hash(i, j + 7) > 0.7 ? "#52525c" : "#44444e");
   }
 });
 // the paving of a piece of road where it passes: just for the fort's gate (a worn threshold)
@@ -553,7 +553,7 @@ export const OPTIONS = {
     A(S, f) {   // neat benched face, dressed block stacks, a crane, a paved ramp; a squared fort of ashlar, braziers, barrier
       const T = TT(f);
       pit(S, 80, 224, 76, 26, { seed: 3 }); paved(S, 136, 262, 34, 10, 7, 0.06);
-      S.add(cutFace(80, 19, { seed: 3 }), 80, 204); S.add(rockMass(50, "granite", 22, { tall: 1.3 }), 14, 206); S.add(rockMass(44, "granite", 24, { tall: 1.1 }), 154, 204);
+      S.add(cutFace(80, 19, { seed: 3 }), 84, 204); S.add(cutFace(44, 11, { seed: 12 }), 26, 230); S.add(rockMass(34, "granite", 26), 150, 232); S.add(rockMass(50, "granite", 22, { tall: 1.3 }), 14, 206); S.add(rockMass(44, "granite", 24, { tall: 1.1 }), 154, 204);
       S.add(blocks(6, { seed: 1 }), 52, 250); S.add(blocks(5, { seed: 3 }), 112, 252); S.add(crane({}), 24, 270); S.add(brazierPost(16), 150, 276); flameAt(S, 150, 276 - 15, f, 8, 1, 0.5);
       dirt(S, 330, 250, 130, 26, EARTH, 6, 0.7); S.add(fort({ seed: 3, braziers: true, t: T }), 322, 260); flameAt(S, 322 - 12 * 2.1 / 2, 260 - 12 * 2.1 / 2 - 1, f, 8, 0, 0.5); flameAt(S, 322 + 12 * 2.1 / 2, 260 - 12 * 2.1 / 2 - 1, f, 8, 2, 0.5);
       S.add(barrier({ up: 0.3 }), 236, 276); S.add(standard(T, { h: 30 }), 402, 274);
@@ -561,7 +561,7 @@ export const OPTIONS = {
     B(S, f) {   // working: spoil heaps, carts, rough-cut stone, a lit tent; the drover's inn, muddy yard, hay, lanterns
       const T = TT(f);
       pit(S, 80, 226, 78, 28, { seed: 5 }); mudPatch(S, 96, 262, 70, 14, 4);
-      S.add(cutFace(72, 17, { seed: 5 }), 82, 206); S.add(rockMass(46, "granite", 33), 14, 214);
+      S.add(cutFace(72, 17, { seed: 5 }), 84, 206); S.add(cutFace(40, 10, { seed: 13 }), 24, 232); S.add(rockMass(46, "granite", 33), 14, 214);
       S.add(spoil(18, { seed: 2 }), 28, 258); S.add(spoil(14, { seed: 5 }), 142, 252); S.add(blocks(7, { seed: 4, tidy: false }), 70, 256); S.add(crane({}), 18, 274);
       S.add(wagon({ seed: 8, bare: true }), 112, 276); S.add(tent(20, 17, { seed: 5, c1: I.canB, patches: 2, lit: true, t: T }), 168, 244);
       mudPatch(S, 330, 256, 100, 28, 8);
@@ -572,7 +572,7 @@ export const OPTIONS = {
     C(S, f) {   // half-abandoned: the pit flooded, the crane down, heather on the spoil; the fort roofless with one lantern; snapped barrier
       const T = TT(f);
       pit(S, 80, 226, 78, 28, { seed: 7, water: true }); heatherGround(S, 150, 256, 150, 30, 5, 0.2);
-      S.add(cutFace(72, 17, { seed: 8, ivy: mat("#4e7a34") }), 82, 206); S.add(rockMass(46, "granite", 43), 14, 214); S.add(rockMass(36, "granite", 45), 156, 212);
+      S.add(cutFace(72, 17, { seed: 8, ivy: mat("#4e7a34") }), 84, 206); S.add(cutFace(40, 10, { seed: 14, ivy: mat("#4e7a34") }), 24, 232); S.add(rockMass(46, "granite", 43), 14, 214); S.add(rockMass(36, "granite", 45), 156, 212);
       S.add(spoil(18, { seed: 3, m: I.ash }), 28, 258); S.add(crane({ fallen: true }), 130, 270); S.add(blocks(4, { seed: 7, tidy: false }), 72, 266);
       S.add(heather(9, 5, true), 56, 262); S.add(heather(10, 8), 164, 268); S.add(heather(8, 10, true), 20, 276);
       S.add(fort({ seed: 5, ruin: true, lantern: true, ivy: mat("#4e7a34") }), 320, 262);

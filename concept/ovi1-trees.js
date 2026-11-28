@@ -220,7 +220,7 @@ const deep = (c, dk) => { if (!dk) return c; const a = hx2(c), b = [34, 62, 52],
 // Concept only: nothing in src/ imports this.
 // ====================================================================================================
 export const IP = {
-  barkLo: "#4a3c36", barkHi: "#b4552c", barkThorn: "#3a302e", barkLarch: "#6a4c3a",
+  barkLo: "#4a3c36", barkHi: "#b4552c", barkThorn: "#3a302e", barkLarch: "#7a6450",
   spruce: ["#2d4b43", "#264238"], pine: ["#2f4d42", "#294539"],
   larch: ["#dcae3c", "#c8962f", "#b87a2a"], thorn: ["#8a5a38", "#7a4a30", "#9a6a3c"], haw: "#cc3a2c",
 };
@@ -292,6 +292,32 @@ export const IRON = {
       if (cl.length) clothe(P, dressMasses(cl.slice(0, 16), V, k), { ...T, gaps: 0.1, sky: 0.08, edge: 2.4 }, V, seed, un);
     });
   },
+  // larch: its OWN tree (not a recoloured conifer): a thin straight trunk you can see, short drooping wispy tufts of gold
+  // needle on uneven side branches, a ragged narrow spire with sky and ground showing through
+  larch(k = 1, dk = 0, seed = 11, o = {}) {
+    const T = T4, L = (o.lean || 0) * k, tall = 118 * k * (o.tall || 1), R = rng(seed * 13 + 5), sw = o.sway || 0;
+    return sprite(Math.ceil(76 * k + Math.abs(L) * 2 + Math.abs(sw) * 2), Math.ceil(tall + 18 * k), 6, T, (P) => {
+      const bk = mat(IP.barkLarch), ms = ["#d6aa3c", "#b8a23e", "#c68a38", "#e2bc50"].map((c) => flat(c, { contrast: 1 })), lit = mat("#e0b844", { contrast: 1.1 }), mid = mat("#c49a38", { contrast: 1.1 }), gr = mat("#a49a3e", { contrast: 1.1 }), rs = mat("#b4783a", { contrast: 1.1 });
+      const lx = (y) => L * Math.pow(Math.min(1, -y / tall), 1.3) + sw * Math.pow(Math.min(1, -y / tall), 1.3);
+      P.body(WOOD); trunk(P, [0, 0], 1.9 * k, [[lx(-30 * k) * 0.5, -30 * k], [lx(-70 * k), -70 * k], [lx(-tall), -tall]], [1.5 * k, 1.1 * k, 0.6], bk, 40, seed, o.flare ?? 2); P.body(0);
+      const mats = [lit, mid, gr, rs];
+      for (let y = -26 * k; y > -tall; y -= 2.2 * k + R() * 1.8 * k) {
+        const t = (-y - 26 * k) / (tall - 26 * k), wmax = (4 + 20 * Math.sin(Math.min(1, t * 1.25 + 0.1) * Math.PI * 0.5) * (1 - 0.82 * t * t)) * k;
+        for (const side of [-1, 1]) {
+          if (R() < 0.1) continue;
+          const len = wmax * (0.4 + R() * 0.8), droop = 0.3 + R() * 0.5, x0 = lx(y), n = Math.max(2, Math.round(len));
+          for (let q = 1; q <= n; q++) {
+            const f = q / n, X = Math.round(x0 + side * q), Y = Math.round(y + q * droop * 0.7);
+            if (q > 1 || R() < 0.5) P.dot(X, Y, bk, 41, { n: [side * 0.3, 0.2, 0.9], noLine: true });
+            // the tuft: short drooping strands hung under and round the branch, uneven
+            const sn = 2 + ((R() * 3) | 0);
+            for (let m = 0; m < sn; m++) { const sx = X + ((R() * 3) | 0) - 1, sl = 1 + ((R() * (3 + 4 * f)) | 0); for (let d = 0; d <= sl; d++) { const lm = mats[(f < 0.4 && R() < 0.55 ? 2 : (side < 0 ? 0 : 1) + ((R() * 2) | 0)) % 4]; P.dot(sx, Y + d - 1, lm, 50 + q * 0.01, { n: [side * 0.35, 0.1 + d * 0.15, 0.85], bias: (side < 0 && d === 0 ? 1 : 0) - (d > 1 ? 1 : 0), noLine: true }); } }
+          }
+        }
+      }
+      for (let n = 0; n < 5; n++) P.dot(lx(-tall) + ((R() * 3) | 0) - 1, -tall + ((R() * 8) | 0), mats[n % 2], 52, { n: [-0.2, -0.2, 0.9], noLine: true });
+    });
+  },
   // ---- the broadleaves (late autumn): the only colour in the Iron wood ----
   // silver birch: white stems with dark marks, SMALL thinning pale-gold masses
   birch(k = 1, dk = 0, seed = 5, o = {}) {
@@ -347,7 +373,7 @@ export const IRON = {
     });
   },
 };
-export const IREACH = { scots: [74, 26], spruce: [54, 22], thorn: [30, 30], birch: [52, 24], rowan: [40, 22], oak: [44, 34], aspen: [60, 18] };
+export const IREACH = { scots: [74, 26], spruce: [54, 22], thorn: [30, 30], birch: [52, 24], rowan: [40, 22], oak: [44, 34], aspen: [60, 18], larch: [54, 16] };
 
 // ---- ground cover, painted straight onto the canvas in ART px (the caller scales 0.5) ----
 // bracken: rust fronds (short strokes fanned out), lit from the upper left, three tones; wind > 0 combs them right
@@ -383,4 +409,32 @@ export function heather(ctx, px, py, rx, seed, dense = 1) {
 export function leafLitter(ctx, px, py, rx, seed, cols) {
   const r = rng(seed), ry = rx * 0.5;
   for (let n = 0; n < rx * rx * 0.2; n++) { const a = r() * 6.283, d = Math.pow(r(), 0.7), x = Math.round(px + Math.cos(a) * d * rx), y = Math.round(py + Math.sin(a) * d * ry); ctx.fillStyle = cols[(r() * cols.length) | 0]; ctx.fillRect(x, y, r() < 0.3 ? 2 : 1, 1); }
+}
+
+// the crimson / rust shrub carpet (huckleberry) with olive between: low mottled clumps, lit from the upper left
+const SH = [["#5a2a34", "#7c2c3a", "#a8303e", "#cc4a48"], ["#6a3a2a", "#8c4a2a", "#b4602c", "#d08040"]];
+export function shrub(ctx, px, py, rx, seed, dense = 1) {
+  const r = rng(seed), ry = Math.max(3, rx * 0.5), N = Math.round(rx * 2.2 * dense);
+  for (let n = 0; n < N; n++) {
+    const a = r() * 6.283, d = Math.sqrt(r()) * 0.95, cx = px + Math.cos(a) * d * rx, cy = py + Math.sin(a) * d * ry, T = SH[r() < 0.6 ? 0 : 1], mr = 2 + ((r() * 3) | 0);
+    if (r() < 0.25) { ctx.fillStyle = r() < 0.5 ? "#6a7438" : "#58642f"; ctx.fillRect(Math.round(cx - 2), Math.round(cy), 4 + ((r() * 3) | 0), 1); }
+    for (let j = -1; j <= 1; j++) for (let i = -mr; i <= mr; i++) {
+      const u = i / mr, v = j / 1.5; if (u * u + v * v > 1 || r() < 0.18) continue;
+      const tl = (-u * 0.5 - v * 0.7) * 0.6 + r() * 0.45;
+      ctx.fillStyle = T[tl > 0.55 ? 3 : tl > 0.3 ? 2 : tl > 0.05 ? 1 : 0]; ctx.fillRect(Math.round(cx + i), Math.round(cy + j), 1, 1);
+    }
+  }
+}
+// a pale granite boulder: stacked loaves, lit top, mid south face, shaded east shoulder
+export function boulder(ctx, px, py, w, seed) {
+  const r = rng(seed), h = Math.max(3, Math.round(w * 0.5));
+  const loaf = (cx, cy, rw, rh) => {
+    for (let j = -rh; j <= 0; j++) for (let i = -rw; i <= rw; i++) {
+      const u = i / rw, v = j / rh, dd = u * u + v * v; if (dd > 1) continue;
+      const l = -u * 0.55 - v * 0.8 + (r() - 0.5) * 0.18, edge = dd > 0.8 && (j > -rh * 0.3 || i > 0);
+      ctx.fillStyle = edge ? "#5c5a62" : l > 0.62 ? "#f0eee6" : l > 0.3 ? "#d4d2ca" : l > -0.1 ? "#aeacaa" : "#86848a"; ctx.fillRect(Math.round(cx + i), Math.round(cy + j), 1, 1);
+    }
+    ctx.fillStyle = "rgba(40,30,40,0.35)"; ctx.fillRect(Math.round(cx - rw + 1), Math.round(cy + 1), rw * 2, 1);
+  };
+  loaf(px, py, w, h); if (w > 6) loaf(px + (r() < 0.5 ? -w * 0.5 : w * 0.45), py + 1, Math.round(w * 0.55), Math.round(h * 0.7));
 }

@@ -84,6 +84,7 @@ const M = {
   tor: mat("#7e7a74", { contrast: 1.35 }), torD: mat("#615e5c", { contrast: 1.3 }),
   grit: mat("#86857e", { contrast: 1.3 }), gritD: mat("#64636a", { contrast: 1.25 }),
   slate: mat("#666a76", { contrast: 1.25 }), slateD: mat("#4e525e", { contrast: 1.2 }), cut: mat("#747884", { contrast: 1.05 }),
+  pal: mat("#b6b2aa", { contrast: 1.3 }), palD: mat("#8c8a8c", { contrast: 1.25 }),
   moss: mat("#6a7a36"), mossD: mat("#566428"),
   lichG: mat("#a8b090"), lichY: mat("#c4b048"), lichR: mat("#b0643a"),
   heath: mat("#7a4c7a"), heathL: mat("#a8689a"), heathD: mat("#5a3a5c"),
@@ -160,7 +161,7 @@ export const rockMass = (s, fam = "tor", seed = 1, o = {}) => {
   const key = `${s}|${fam}|${seed}|${JSON.stringify(o)}|${DAY.id}`;
   if (CACHE.has(key)) return CACHE.get(key);
   const R = rng(seed), tor = fam === "tor";
-  const m1 = fam === "tor" ? M.tor : fam === "slate" ? M.slate : M.grit, m2 = fam === "tor" ? M.torD : fam === "slate" ? M.slateD : M.gritD, topM = fam === "slate" ? M.cut : m1;
+  const m1 = o.pale ? M.pal : fam === "tor" ? M.tor : fam === "slate" ? M.slate : M.grit, m2 = o.pale ? M.palD : fam === "tor" ? M.torD : fam === "slate" ? M.slateD : M.gritD, topM = fam === "slate" ? M.cut : m1;
   const spr = sprite(s * 1.35 + 30, s * 1.1 + 44, (px) => {
     const H = (tor ? 0.34 : 0.26) * (o.tall ?? 1), Dp = tor ? 0.22 : 0.25, blocks = [];
     const J = () => 0.85 + R() * 0.3;
@@ -280,6 +281,8 @@ const DRIFT = {
   heather: ["#6e4470", "#7a4c7a", "#8e5a8c", "#a8689a", "#5a3a5c"],
   bracken: ["#8c4a26", "#a85a2c", "#c47a34", "#7c4224", "#b86a30"],
   straw: ["#a89440", "#bca64e", "#cdb85e", "#8e7c36", "#b0a050"],
+  crimson: ["#8a2438", "#a83040", "#b84850", "#6a1c34", "#c05a4a"],
+  olive: ["#566228", "#6b7a3a", "#7a8640", "#485424", "#8a9448"],
   turf: ["#566228", "#6b7a3a", "#7e8c44", "#485424", "#62703a"],
 };
 export const drift = (ctx, cx, cy, rx, ry, kind, seed, k = 1, k2 = null) => {
@@ -463,12 +466,12 @@ export const SCENES = {
   greyhelm: {
     realm: "greyhelm", faction: "iron", crop: [60, 170], sun: "afternoon", halls: [["archer", 205, 205, 2], ["knight", 400, 300, 2]],
     // big: [x, y, size] ... , mid, small are auto-chosen in clear grass
-    land: [[112, 250, 190], [372, 112, 150]], wall: [100, 162, 80, 34],
+    land: [[112, 250, 190], [372, 112, 150]], wall: [100, 162, 80, 34], run: [[30, 150], [150, 196], [205, 262]],
     zoneBox: [[0, 0, 420, 280]],
   },
   blackcliff: {
     realm: "blackcliff", faction: "iron", crop: [10, 235], sun: "golden", halls: [["archer", 205, 120, 2], ["knight", 360, 235, 2]],
-    land: [[75, 228, 190], [262, 247, 140]], wall: [190, 168, 80, 34],
+    land: [[75, 228, 190], [262, 247, 140]], wall: [190, 168, 80, 34], run: [[140, 140], [200, 205], [165, 272]],
     zoneBox: [[0, 0, 420, 280]],
   },
 };
@@ -496,17 +499,20 @@ const compose = (S, opt, towers, o = {}) => {
   if (opt === "A") {
     // A, THE TORS: woolpack stacks of rounded granite standing out of the moor, heather and bracken on and round them
     L.forEach(([x, y, s], i) => {
-      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 4, Math.round(s * 0.85), Math.round(s * 0.34), "heather", 3 + i, 0.85, "bracken"); scatter(c, gx, gy + 3, s * 0.7, s * 0.18, 5 + i, ["#8a8478", "#6e6a62", "#a09a8c"]); });
-      S.add(rockMass(s, "tor", 31 + i * 7, { cap: true, heath: 8, pebbles: 5 }), x, y);
+      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 4, Math.round(s * 0.85), Math.round(s * 0.34), "crimson", 3 + i, 0.95, "olive"); scatter(c, gx, gy + 3, s * 0.7, s * 0.18, 5 + i, ["#8a8478", "#6e6a62", "#a09a8c"]); });
+      S.add(rockMass(s, "tor", 31 + i * 7, { pale: true, cap: false, heath: 0, pebbles: 5 }), x, y);
     });
     mids.forEach(([x, y], i) => {
-      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 2, 26, 9, i % 2 ? "bracken" : "heather", 20 + i, 1); });
-      S.add(rockMass(Math.round(34 + R() * 22), "tor", 50 + i, { cap: true, heath: 3, pebbles: 3 }), x, y);
+      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 2, 26, 9, i % 2 ? "olive" : "crimson", 20 + i, 1, "crimson"); });
+      S.add(rockMass(Math.round(34 + R() * 22), "tor", 50 + i, { pale: true, cap: false, heath: 0, pebbles: 3 }), x, y);
     });
-    smalls.forEach(([x, y], i) => S.add(rockMass(7 + Math.floor(R() * 9), "tor", 80 + i, { skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
-    S.onGround((c) => { for (let i = 0; i < 7; i++) { const [gx, gy] = S.P(40 + R() * 340, 20 + R() * 240); if (nearestOnPath(sc.crop[0] + (gx / 2 - sc.crop[0]), sc.crop[1] + (gy / 2 - sc.crop[1])).d > PATH_HALF + 20) drift(c, gx, gy, 16 + (R() * 20 | 0), 6 + (R() * 6 | 0), ["heather", "bracken", "straw"][i % 3], 40 + i, 0.9); } });
-    L.forEach(([x, y, s], i) => { tuftBed(S, x, y + 4, s * 0.45, 5, "heather", 6, 200 + i); tuftBed(S, x, y + 5, s * 0.42, 4, "bracken", 5, 220 + i); tuftBed(S, x, y + 5, s * 0.4, 4, "straw", 6, 260 + i); });
+    smalls.forEach(([x, y], i) => S.add(rockMass(7 + Math.floor(R() * 9), "tor", 80 + i, { pale: true, skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
+    S.onGround((c) => { for (let i = 0; i < 7; i++) { const [gx, gy] = S.P(40 + R() * 340, 20 + R() * 240); if (nearestOnPath(sc.crop[0] + (gx / 2 - sc.crop[0]), sc.crop[1] + (gy / 2 - sc.crop[1])).d > PATH_HALF + 20) drift(c, gx, gy, 16 + (R() * 20 | 0), 6 + (R() * 6 | 0), ["crimson", "olive", "crimson"][i % 3], 40 + i, 0.95, "olive"); } });
+    L.forEach(([x, y, s], i) => { tuftBed(S, x, y + 4, s * 0.45, 5, "bracken", 6, 200 + i); tuftBed(S, x, y + 5, s * 0.42, 4, "bracken", 5, 220 + i); tuftBed(S, x, y + 5, s * 0.4, 4, "straw", 6, 260 + i); });
     mids.forEach(([x, y], i) => { tuftBed(S, x, y + 3, 16, 4, i % 2 ? "bracken" : "heather", 4, 300 + i); tuftBed(S, x, y + 4, 14, 3, "straw", 3, 340 + i); });
+    // the dry stream bed of the reference: pale boulders tumbled in a run, gravel between, the red shrub right up to them
+    { const pts = sc.run || [], rr = rng(77); S.onGround((c) => { for (let k = 0; k + 1 < pts.length; k++) for (let t = 0; t < 1; t += 0.04) { const [gx, gy] = S.P(lerp(pts[k][0], pts[k + 1][0], t), lerp(pts[k][1], pts[k + 1][1], t)); scatter(c, gx, gy, 20, 7, 300 + k * 50 + (t * 25 | 0), ["#b8b4ac", "#9a968e", "#d0ccc2", "#7e7a74"]); } });
+      for (let k = 0; k + 1 < pts.length; k++) for (let t = 0; t < 1; t += 0.11) { const x = lerp(pts[k][0], pts[k + 1][0], t) + (rr() - 0.5) * 16, y = lerp(pts[k][1], pts[k + 1][1], t) + (rr() - 0.5) * 8; if (nearestOnPath(sc.crop[0] + x, sc.crop[1] + y).d < PATH_HALF + 12) continue; S.add(rockMass(Math.round(8 + rr() * rr() * 40), "tor", 600 + ((x + y) | 0), { pale: true, cap: false, skirt: rr() > 0.5, moss: false, pebbles: 2 }), x, y, { shade: 0.7 }); } }
     S.onGround((c) => { patchRoad(c, S, mask, 5, 4, "fresh"); wearRoad(c, S, mask, 6, 0.8); });
     roadPuddle(S, 5, -14, 6, 17, 5, 0.1);
   } else if (opt === "B") {

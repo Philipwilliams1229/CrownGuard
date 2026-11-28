@@ -9,7 +9,7 @@
 <body><div id="status">running…</div>
 <script type="module">
   import { setDay } from "/src/data/sun.js";
-  import { SWAY, IRON, standRing, bracken, heather, leafLitter, IREACH, h2, rng } from "/concept/ovi1-trees.js";
+  import { SWAY, IRON, standRing, bracken, heather, leafLitter, shrub, boulder, IREACH, h2, rng } from "/concept/ovi1-trees.js";
   import { selectRealm } from "/src/data/maps.js";
   import { selectFaction } from "/src/data/factions.js";
   import { setWaveWindow } from "/src/data/waves.js";
@@ -25,7 +25,7 @@
   setDay(q.get("sun") || "late");
   const save = async (name, cv) => { await fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) }); document.title = "DONE"; document.getElementById("status").textContent = "saved " + name; };
   if (MODE === "sheet") {
-    const items = [["scots", 0.9, 0], ["scots", 0.9, 1, { lean: 20 }], ["spruce", 1, 0], ["thorn", 1, 0, { lean: 24 }], ["birch", 1, 0], ["rowan", 1, 0], ["oak", 0.8, 0], ["aspen", 1, 0], ["aspen", 1, 0, { lean: 14 }], ["scots", 0.9, 0, { lean: 34, tall: 0.88 }]];
+    const items = [["scots", 0.9, 0], ["scots", 0.9, 1, { lean: 20 }], ["spruce", 1, 0], ["thorn", 1, 0, { lean: 24 }], ["birch", 1, 0], ["rowan", 1, 0], ["oak", 0.8, 0], ["aspen", 1, 0], ["larch", 1, 0], ["larch", 1.1, 0, { lean: 10, tall: 1.1 }]];
     const Z = 3, CW = 170, CH = 190, COLS = 5, rows = Math.ceil(items.length / COLS);
     const out = document.createElement("canvas"); out.width = COLS * CW * Z; out.height = rows * CH * Z; const oc = out.getContext("2d"); oc.imageSmoothingEnabled = false;
     items.forEach(([sp, k, dk, o], i) => {
@@ -45,7 +45,7 @@
     await save("ovi1_tmp_trees_sheet", out);
   }
 
-  const ANIMS = { wind_A: ["A", [0, 100, 260, 170], 1.3], wind_B: ["B", [0, 140, 260, 170], 1.3], wind_C: ["C", [0, 60, 260, 170], 2], leaves_B: ["B", [0, 140, 260, 170], 1.2] };
+  const ANIMS = { wind_A: ["A", [0, 100, 260, 170], 1.3], wind_B: ["B", [0, 140, 260, 170], 1.3], wind_C: ["C", [0, 60, 260, 170], 2], leaves_A: ["A", [0, 140, 260, 170], 1.2] };
   const AN = MODE === "anim" ? ANIMS[q.get("name")] : null;
   if (MODE === "scene" || AN) {
     const SC = { 1: { realm: "wardenmoor", halls: [["archer", 285, 320, 3], ["knight", 499, 259, 2]] }, 2: { realm: "kestrel", halls: [["archer", 285, 335, 3], ["knight", 470, 250, 2]] } }[q.get("scene") || "1"];
@@ -78,7 +78,7 @@
         if (act[k]) continue;
         const r = d[k * 4], gg = d[k * 4 + 1], b = d[k * 4 + 2];
         if (r > gg * 1.12 && b > gg * 1.08) { // the ground's own heather: duller, browner, a step darker (late autumn)
-          d[k * 4] = r * 0.66 + 14; d[k * 4 + 1] = gg * 0.66 + 14; d[k * 4 + 2] = b * 0.7 + 10; continue;
+          const l2 = Math.max(0, Math.min(1, ((0.5 * r + 0.3 * b + 0.2 * gg) - 70) / 120)); d[k * 4] = 92 + 108 * l2; d[k * 4 + 1] = 30 + 46 * l2; d[k * 4 + 2] = 44 + 40 * l2; continue;
         }
         if (!(gg > r * 0.97 && gg > b * 1.12)) continue;
         const l = 0.3 * r + 0.59 * gg + 0.11 * b, tt = Math.max(0, Math.min(1, (l - 55) / 110));
@@ -96,9 +96,9 @@
         if (h > WOODKEEP[dk]) continue;
         const x = dd.x, y = dd.y + 10, spr = () => put("spruce", x, y, dk === 0 ? 1 : dk === 1 ? 0.9 : 0.8, dk, slot, OPT === "C" ? { lean: dk === 0 ? 18 : 12, flag: 1 } : {});
         const sco = (o) => put("scots", x, y, dk === 0 ? 0.9 : 0.8, dk, slot, o || {});
-        if (OPT === "A") {        // a dark conifer wood, birch along its edge
-          if (dk === 0) { if (r < 0.34) put("birch", x, y, 0.95, 0, slot); else if (r < 0.62) sco(); else spr(); }
-          else if (dk === 1) { if (r < 0.28) sco(); else spr(); } else spr();
+        if (OPT === "A") {        // the photograph: gold larch through dark fir
+          const lar = () => put("larch", x, y, dk === 0 ? 1.05 : 0.95, dk, slot, { tall: 0.9 + slot * 0.12 });
+          if (dk === 0) { if (r < 0.5) lar(); else if (r < 0.72) sco(); else spr(); } else if (dk === 1) { if (r < 0.36) lar(); else spr(); } else { if (r < 0.1) lar(); else spr(); }
         }
         if (OPT === "B") {        // a mixed wood: rowan and oak glow at the edge, conifers behind
           if (dk === 0) { if (r < 0.3) put("rowan", x, y, 1, 0, slot); else if (r < 0.52) put("oak", x, y, 0.8, 0, slot); else if (r < 0.68) sco(); else spr(); }
@@ -113,10 +113,8 @@
       const R = rng(77 + (q.get("scene") | 0)), taken = [];
       const spot = (sep, rad) => { for (let n = 0; n < 500; n++) { const x = 120 + R() * 570, y = 30 + R() * 510; if (okSpot(x, y, rad) && taken.every(([a, b]) => Math.hypot(a - x, b - y) > sep)) { taken.push([x, y]); return [x, y]; } } return null; };
       const grove = (p, n, mk) => { for (let j = 0; j < n; j++) { const a = j * 2.4 + p[0], dr = 8 + (j % 3) * 8, x = p[0] + Math.cos(a) * dr * 1.4, y = p[1] + Math.sin(a) * dr; if (okSpot(x, y, 14)) mk(x, y, j); } };
-      if (OPT === "A") { for (let i = 0; i < 4; i++) { const p = spot(90, 34); if (p) put("scots", p[0], p[1], 0.9, 0, i % 3); }
-        for (let i = 0; i < 2; i++) { const p = spot(100, 40); if (p) grove(p, 3, (x, y, j) => put("spruce", x, y, 0.85, 0, j)); }
-        for (let i = 0; i < 3; i++) { const p = spot(90, 30); if (p) grove(p, 2, (x, y, j) => put("birch", x, y, 0.9, 0, (i + j) % 3)); }
-        { const p = spot(80, 30); if (p) put("thorn", p[0], p[1], 0.95, 0, 0, { lean: 14 }); } }
+      if (OPT === "A") { for (let i = 0; i < 5; i++) { const p = spot(95, 40); if (p) grove(p, 6, (x, y, j) => put(j % 3 === 2 ? "spruce" : "larch", x, y, j % 3 === 2 ? 0.9 : 1, 0, j % 3, j % 3 === 2 ? {} : { tall: 0.85 + (j % 2) * 0.25 })); }
+        for (let i = 0; i < 2; i++) { const p = spot(90, 34); if (p) put("scots", p[0], p[1], 0.9, 0, i); } }
       if (OPT === "B") { for (let i = 0; i < 3; i++) { const p = spot(100, 36); if (p) put("oak", p[0], p[1], 0.8, 0, i, {}); }
         for (let i = 0; i < 3; i++) { const p = spot(90, 30); if (p) grove(p, 2 + (i & 1), (x, y, j) => put("rowan", x, y, 0.95, 0, (i + j) % 3)); }
         for (let i = 0; i < 2; i++) { const p = spot(90, 36); if (p) grove(p, 3, (x, y, j) => put("spruce", x, y, 0.85, 0, j)); }
@@ -129,12 +127,12 @@
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
       let sd = 5;
       for (const dd of removed) if (dd.t === "irheather" && okSpot(dd.x, dd.y, 6)) {
-        const x = dd.x * 2, y = dd.y * 2, rx = 22 * (dd.s || 1);
-        if (OPT === "A") { heather(ctx, x, y, rx, ++sd, 1); if (h2(sd, 1, 1) < 0.6) bracken(ctx, x + 14, y + 4, 12, sd, 0, 1); }
-        if (OPT === "B") { if (h2(sd++, 2, 3) < 0.7) bracken(ctx, x, y, rx * 0.9, sd, 0, 1.3); else heather(ctx, x, y, rx * 0.8, sd, 0.8); }
-        if (OPT === "C") { heather(ctx, x, y, rx * 1.1, ++sd, 0.7); bracken(ctx, x + 10, y + 6, 12, sd, 1.4, 0.8); }
+        const x = dd.x * 2, y = dd.y * 2, rx = 24 * (dd.s || 1);
+        shrub(ctx, x, y, rx, ++sd, OPT === "A" ? 1.2 : 0.9);
+        if (OPT !== "C" && h2(sd, 3, 3) < 0.55) boulder(ctx, x + 14, y + 6, 4 + ((h2(sd, 4, 4) * 5) | 0), sd);
+        if (OPT === "B" && h2(sd, 5, 5) < 0.4) bracken(ctx, x - 10, y + 4, 12, sd, 0, 1);
       }
-      const LIT = { birch: ["#d8bc48", "#c8aa3e", "#e6d070"], rowan: ["#c4622c", "#b0502a", "#d27c36"], oak: ["#8a5c32", "#9c6c38", "#6c4a2a"], aspen: ["#f2d646", "#e6c438", "#f8e468"] };
+      const LIT = { larch: ["#d6aa3c", "#c68a38", "#e2bc50"], birch: ["#d8bc48", "#c8aa3e", "#e6d070"], rowan: ["#c4622c", "#b0502a", "#d27c36"], oak: ["#8a5c32", "#9c6c38", "#6c4a2a"], aspen: ["#f2d646", "#e6c438", "#f8e468"] };
       for (const it of items) {
         const px = Math.round(it.x * 2), py = Math.round(it.y * 2), rx = Math.round(IREACH[it.sp][1] * it.k * 1.9);
         if (LIT[it.sp]) { leafLitter(ctx, px, py, Math.round(rx * 1.2), px + py, LIT[it.sp]); continue; }
@@ -150,11 +148,11 @@
         const [, [cx, cy, cw, ch], strength] = AN, F = 20, COLS = 5, ROWS = 4, FW = cw * 2, FH = ch * 2, NAME = q.get("name");
         const bg = document.createElement("canvas"); bg.width = W; bg.height = H; bg.getContext("2d").drawImage(cv, 0, 0);
         const live = items.filter((it) => it.x * 2 > cx * 2 - 60 && it.x * 2 < (cx + cw) * 2 + 60 && it.y * 2 > cy * 2 && it.y * 2 < (cy + ch) * 2 + 160);
-        const AMP = { scots: 5, thorn: 3, spruce: 4, birch: 4, rowan: 3, oak: 2, aspen: 7 }, poses = new Map();
+        const AMP = { larch: 5, scots: 5, thorn: 3, spruce: 4, birch: 4, rowan: 3, oak: 2, aspen: 7 }, poses = new Map();
         const pose = (it, a) => { const key = `${it.sp}|${it.k}|${it.dk}|${it.slot}|${JSON.stringify(it.o)}|${a}`; let v = poses.get(key); if (!v) { SWAY.at = () => a; try { v = IRON[it.sp](it.k, it.dk, 3 + it.slot * 11 + it.sp.length * 7, { ...it.o, sway: a }); } finally { SWAY.at = null; } poses.set(key, v); } return v; };
         const needles = [];
-        const LC = { birch: ["#e2c44c", "#d0b048"], rowan: ["#c4622c", "#d27c36"], oak: ["#8a5c32", "#9c6c38"], aspen: ["#f2d646", "#f8e468"] };
-        if (NAME === "leaves_B") for (const it of live) if (LC[it.sp]) for (let n = 0; n < 12; n++) { const r = h2(it.x | 0, n, 71), r2 = h2(it.x | 0, n, 72), r3 = h2(it.y | 0, n, 73); needles.push({ x0: it.x * 2 + (r - 0.5) * 44, y0: it.y * 2 - (40 + r2 * 70) * it.k, gy: it.y * 2 + (r3 - 0.3) * 18, ph: (n / 12 + r3 * 0.1) % 1, dx: 38 + r2 * 20, c: LC[it.sp][n % 2] }); }
+        const LC = { larch: ["#e2bc50", "#d6aa3c"], birch: ["#e2c44c", "#d0b048"], rowan: ["#c4622c", "#d27c36"], oak: ["#8a5c32", "#9c6c38"], aspen: ["#f2d646", "#f8e468"] };
+        if (NAME === "leaves_A" || NAME === "leaves_B") for (const it of live) if (LC[it.sp]) for (let n = 0; n < 12; n++) { const r = h2(it.x | 0, n, 71), r2 = h2(it.x | 0, n, 72), r3 = h2(it.y | 0, n, 73); needles.push({ x0: it.x * 2 + (r - 0.5) * 44, y0: it.y * 2 - (40 + r2 * 70) * it.k, gy: it.y * 2 + (r3 - 0.3) * 18, ph: (n / 12 + r3 * 0.1) % 1, dx: 38 + r2 * 20, c: LC[it.sp][n % 2] }); }
         const out = document.createElement("canvas"); out.width = FW * COLS; out.height = FH * ROWS; const oc = out.getContext("2d");
         const fr = document.createElement("canvas"); fr.width = FW; fr.height = FH; const fc = fr.getContext("2d"); fc.imageSmoothingEnabled = false;
         const frames = [];

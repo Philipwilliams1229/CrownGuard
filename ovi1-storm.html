@@ -23,6 +23,7 @@
       const crop = (src, x, y, w, h, z = 1) => { const c = mk(Math.round(w * RES * z), Math.round(h * RES * z)), o = c.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(src, x * RES, y * RES, w * RES, h * RES, 0, 0, c.width, c.height); return c; };
       const S = M.makeScene({ sun, secs: Number(q.get("secs") || 11) });
       const ST = M.stage(S);
+      if (q.get('spots')) st('spots ' + ST.spots.slice(0, 40).map((s) => `${s.x | 0},${s.y | 0}:${s.dm | 0}`).join(' '));
       const P = M.prepare(S);
       const evs = M.pickEvents(S, P, ST);
       st(`foes ${S.g.enemies.length} halls ${S.g.towers.map((t) => t.kind + "@" + Math.round(t.x) + "," + Math.round(t.y)).join(" ")}`);

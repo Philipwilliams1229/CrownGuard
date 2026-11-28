@@ -223,7 +223,10 @@ export const grade = (P, key) => {
   if (P.o[key]) return P.o[key];
   const o = LOOK[key];
   const warm = P.sun === "noon" ? 0 : 0.5;
-  P.o[key] = { ground: gloss(P.ground0, P.K, o, warm), halls: gloss(P.bare, P.K, o, warm), actors: tonedLayer(P.act.cv, o, warm) };
+  const halls = gloss(P.bare, P.K, o, warm), hd = px(halls), ho = new ImageData(PW, PH), m = P.hall.mask;
+  for (let i = 0; i < PW * PH; i++) if (m[i]) { const j = i * 4; ho.data[j] = hd.data[j]; ho.data[j + 1] = hd.data[j + 1]; ho.data[j + 2] = hd.data[j + 2]; ho.data[j + 3] = 255; }
+  const hallsOnly = mk(PW, PH); hallsOnly.getContext("2d").putImageData(ho, 0, 0);
+  P.o[key] = { ground: gloss(P.ground0, P.K, o, warm), halls, hallsOnly, actors: tonedLayer(P.act.cv, o, warm) };
   // `halls` = the ground + the standing halls, graded alike (halls are wet stone too)
   return P.o[key];
 };
@@ -395,7 +398,7 @@ const stunCrop = (cr, key, s, f, flashAmt) => {
       const sweep = h - 1 - ((f * 5) % (h + 14)); if (Math.abs(y - sweep) < 1) { r = 255; g = 253; b = 220; }
     } else if (o.stun === "rim" && s > 0) {           // A: the edge pixels turn yellow and crawl
       if (!solid(x - 1, y) || !solid(x + 1, y) || !solid(x, y - 1) || !solid(x, y + 1)) edges.push(x, y);
-      const l = lumOf(r, g, b); r = r * 0.92 + 10 * s; g = g * 0.92 + 10 * s; b = b * 0.8; if (l < 0.2) { r += 8; g += 8; }
+      r = r * 0.97 + 4 * s; g = g * 0.97 + 6 * s; b = b * 0.9;
     }
     D[j] = r; D[j + 1] = g; D[j + 2] = b;
   }
@@ -443,6 +446,7 @@ export const compose = (P, key, f, F = 24, opt = {}) => {
   }
   // puddles (under the actors)
   for (const { e, T } of states) if (e.type === "puddle") puddleGround(c, P, o, key, e, T, f, F, G);
+  c.drawImage(G.hallsOnly, 0, 0);               // halls stand in front of a puddle
   // soldiers and the rest of the foes: the actor layer with the target boxes cut out
   const rest = mk(PW, PH), rc = rest.getContext("2d"); rc.drawImage(G.actors, 0, 0);
   for (const [t] of stunned) rc.clearRect(t.b.x - 3, t.b.y - 3, t.b.w + 6, t.b.h + 6);
@@ -589,20 +593,20 @@ export const stage = (S) => {
   for (let d = 0.04 * TOTAL_LEN; d < 0.97 * TOTAL_LEN; d += 5) {
     const [x, y] = posAt(d), a = angleAt(d);
     if (x < 60 || x > 655 || y < 60 || y > 500 || [-40, -20, 0, 20, 40].some((o) => inRiver(x + o * 1.2, y + o * 0.4, 14) || inRiver(x + o, y - 30, 14)) || underBridge(x, y, 95)) continue;
-    if (Math.abs(Math.sin(angleAt(d - 14) - angleAt(d + 14))) > 0.1 || Math.abs(Math.sin(a)) > 0.22) continue;
+    if (Math.abs(Math.sin(angleAt(d - 14) - angleAt(d + 14))) > 0.1) continue;
     if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < 60)) continue;
     const dm = Math.min(...foes.map((e) => Math.hypot(e.x - x, e.y - y)), 999);
-    spots.push({ d, x, y, a, dm });
+    spots.push({ d, x, y, a, dm, h: Math.abs(Math.sin(a)) < 0.22 });
   }
   spots.sort((p, q) => q.dm - p.dm);
-  const used = [], pick = (minApart) => { const s = spots.find((p) => used.every((u) => Math.hypot(u.x - p.x, u.y - p.y) > minApart)); if (s) used.push(s); return s; };
+  const used = [], pick = (minApart, hz) => { const s = spots.find((p) => (!hz || p.h) && used.every((u) => Math.hypot(u.x - p.x, u.y - p.y) > minApart)); if (s) used.push(s); return s; };
   const pool = [...foes];
-  const lay = (spot, offs, n) => pool.splice(0, n).map((e, i) => { const [al, la] = offs[i]; e.x = spot.x + al; e.y = spot.y + la - e.size * 0.55 + 4; return e; });
-  const pu = pick(0), op = pick(120), ha = pick(0);
+  const lay = (spot, offs, n, tan = false) => pool.splice(0, n).map((e, i) => { const [al, la] = offs[i], cx = tan ? Math.cos(spot.a) : 1, cy = tan ? Math.sin(spot.a) : 0; e.x = spot.x + cx * al - cy * la; e.y = spot.y + cy * al + cx * la - e.size * 0.55 + 4; return e; });
+  const pu = pick(0, true), op = pick(120, false), ha = null;
   console.log('stage spots', spots.length, pu && [pu.x | 0, pu.y | 0], op && [op.x | 0, op.y | 0]);
   const puddleFoes = pu && lay(pu, [[-26, 6], [2, -5], [27, 5]], 3);
-  const openFoes = op && lay(op, [[-22, 3], [6, -6], [30, 5]], 3);
-  return { pu, op, puddleFoes, openFoes };
+  const openFoes = op && lay(op, [[-22, 3], [6, -6], [30, 5]], 3, true);
+  return { pu, op, puddleFoes, openFoes, spots };
 };
 export const pickEvents = (S, P, ST, want = ["puddle", "open", "hall"], hallI = null) => {
   const { g } = S, evs = [];
@@ -613,7 +617,7 @@ export const pickEvents = (S, P, ST, want = ["puddle", "open", "hall"], hallI = 
   if (want.includes("open") && ST.op) {
     const { op, openFoes } = ST;
     let sx = op.x, sy = op.y + 30;
-    for (const side of [-1, 1]) { const x = op.x + 6, y = op.y + 34 * side; if (!inRiver(x, y, 6) && x > 40 && x < 700 && y > 60) { sx = x; sy = y; break; } }
+    for (const side of [-1, 1]) { const x = op.x - Math.sin(op.a) * 34 * side, y = op.y + Math.cos(op.a) * 34 * side; if (!inRiver(x, y, 6) && x > 40 && x < 700 && y > 60) { sx = x; sy = y; break; } }
     const ts = openFoes.map((e) => P.tgt(e)).filter(Boolean);
     // a soldier of the garrison, if one stands on the field, set beside them
     evs.push({ type: "open", at: 3, sx, sy, r: 45, seed: 11, from: [sx + 56, -6], targets: ts });
