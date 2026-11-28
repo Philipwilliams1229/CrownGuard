@@ -588,7 +588,7 @@ export const todayFrame = (S, P, ageMs = 120) => {
 // The concept STAGES its actors: three foes (and a soldier) are set down where the road is clear, so each body can be read.
 const feetOf = (e) => [e.x, e.y + e.size * 0.55];
 export const stage = (S) => {
-  const { g } = S, foes = g.enemies.filter((e) => e.hp > 0 && !e.flying && e.size);
+  const { g } = S, tnow = g.time * 1000, foes = g.enemies.filter((e) => e.hp > 0 && !e.flying && e.size && (e.born === undefined || tnow - e.born > 4000));
   const spots = [];
   for (let d = 0.04 * TOTAL_LEN; d < 0.97 * TOTAL_LEN; d += 5) {
     const [x, y] = posAt(d), a = angleAt(d);
