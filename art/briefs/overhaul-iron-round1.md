@@ -14,7 +14,9 @@ Greenwood picks), `art/STYLE-GUIDE.md` (palette, one-pixel tinted line, one sun,
 
 - Mood: a MIX by level: open moorland on the early levels, drilled war camps and quarried stone toward the
   Citadel.
-- Trees: fewer and DARKER than the Greenwood (Scots pine, spruce, wind-bent thorn), LATE AUTUMN (bare thorn,
+- Trees: fewer and DARKER than the Greenwood (Scots pine, spruce, wind-bent thorn), LATE AUTUMN. OWNER (on pass 1):
+  conifers NEVER change colour ("you made the pines change color and that don't make no sense"): no gold larch;
+  autumn colour comes only from NEW broadleaf types (birch, rowan, oak, aspen...). Was: (bare thorn,
   gold larch, rust bracken).
 - Water: Iron's OWN edges (walled stone embankments and quays near camps; rocky gorge banks on the moor) and
   one truly WIDE river somewhere (wider only, never narrower).
