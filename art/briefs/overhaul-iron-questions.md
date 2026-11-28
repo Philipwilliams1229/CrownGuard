@@ -55,3 +55,23 @@ Four panels on real Iron boards, each beside TODAY, each with a playing loop (th
 motion on every concept page): water + humpback on Ironford; trees and season on a moor board; the war
 camp as a "place" with its lights; crags / scarps on one hilly board. A / B / C per panel, bold options
 (the owner: "Dont be afraid to change things more radically").
+
+## The owner's answers (2026-11-28, tapped survey)
+
+1. Mood: a MIX by level (moor early, drilled camps and quarried stone toward the Citadel).
+2. Trees: fewer, darker (Scots pine, spruce, wind-bent thorn) in LATE AUTUMN (bare thorn, gold larch).
+3. Water: Iron's OWN edges (walled stone embankments and quays near camps, rocky gorge banks on the moor)
+   AND try one truly wide river.
+4. Bridges: ALL THREE humpback kinds (plain packhorse, fortified with a gate tower, ruined span patched
+   with timber), varied across boards.
+5. Height: CRAGS ONLY, NO TERRACES (bigger crags and cliff edges as scenery; the ground stays flat).
+6. Places: ALL FOUR recur: the war camp, a beacon hill, a quarry, a toll fort / drover's inn.
+7. Road: paving flags, worn and patched, NO obvious ruts or lanes.
+8. Light: fires ALWAYS lit, their glow stronger at sunrise / late / golden.
+9. Storm: drawn STRONGER (darker wet stone, glossier paving, streams in spate). Plus, in the owner's
+   words: "change the lightning to yellow, paralyze effect to yellow, and some interaction for when the
+   lightning strike puddles (does bigger damage and paralyze to all in the puddle)". The last part is a
+   RULE change (puddles are render-only today: weatherfx.js `puddleLevel`; the engine knows only
+   `w.floods`), so it needs puddles in the engine and a sim pass.
+10. Order: concepts, then Ironford built to play, then the other fourteen; the campaign map's Iron region
+    waits until the boards are done.
