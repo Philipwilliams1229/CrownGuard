@@ -102,3 +102,12 @@ is the point). Every option readable at board size (shrink to 840 wide and look)
 Each option's idea in a line; the PNG and loop paths; cost (bake / per frame / memory) and what the engine
 would need; weak spots, honestly ("NOT CHECKED" where you didn't look); the option YOU would pick and why.
 A Fable reviewer looks at everything before the owner does and may send work back to you.
+
+## Published (2026-11-28)
+
+Private Artifact "Crownguard Iron Overhaul, Round 1" (slug 5f8c2dc0-e527-4f60-baff-bfaa95188786): every panel's
+TODAY / A / B / C stills (WebP q90 of the `.shots/ovi1_*` PNGs) and its loops playing. Page source in the session
+scratchpad `iron-page1/` (index.html + img/); rebuild by converting the same shots and republishing with
+publish_files (slug + base_version). The owner's picks arrive as comments on it (read_comments).
+After the Fable review (`overhaul-iron-round1-review.md`) every panel had one fix pass; cut options were replaced:
+water B is a granite gorge, places C a stockade, crags B erratics / C a crag line, storm C = A + B's arcs.

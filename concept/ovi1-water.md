@@ -1,3 +1,14 @@
+# PASS 2 (after the Fable review)
+
+Changed: the approved Greenwood shelving is back on every option (pale shallows, darker channel; the walled / rock edges had a flat depth, which made the water flat teal).
+Bridges: deck 60 wide (no wider than the road), parapets 2.2 thick with a bright lit coping, the road's own larger flags (14 x 20 art px), a lighter crown band, darker ramps.
+A: far-bank wall face ~9 art px, coping only on the near bank, the flagged apron on one bank only. B: REDONE as a pale-granite gorge (loaves stepping down to the water, banks 13-26 art px
+and varying, foam-footed boulders in the stream); the gatehouse is in the castle's stone, 26 units tall, a 15-high gate arch showing the road, two lit torches and a banner; the across-screen
+gatehouse is no longer shown (`bk=0:fort` still builds it). C: same deck fix, shoals in the T-junction's inside corners, broken stone stubs and fallen blocks in the water at the ruined span.
+`&edgehall=1` stands an archer hall on dry ground 7 units from the waterline on the widened Ironford (`ovi1_water_ironford_edgehall_A.png`).
+Still weak: the up-screen deck is a plain paved rectangle at board size; the gatehouse banner is small; the T-junction corners are shoaled, not truly rounded (not checked zoomed);
+the A and B walls / banks are thin at zoom 1; the edge hall stands against a bridge approach; the A and C loops and the golden stills were re-rendered but not looked at.
+
 # Iron overhaul concept round 1, panel 1: WATER (Ironford, Coldwater)
 
 Painter `concept/ovi1-water.js`, lab `ovi1-water.html` (`?scene=today|A|B|C&realm=ironford|coldwater&sun=&towers=&bk=&x=&y=&w=&h=&zoom=&frames=&dt=&cols=&secs=&save=1&name=`;

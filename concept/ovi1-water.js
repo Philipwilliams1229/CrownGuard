@@ -156,8 +156,8 @@ function wallFace(hf, fw, e, X, Y, s, tone, HR) {
 // pale granite loaves (the owner's reference: white-grey boulders stepping down to the water): a cell grid, each cell a loaf
 // lit on its top-left, a dark gap between; `depth` runs from the water up the bank
 function loaf(s, depth, tone, X, Y) {
-  const row = Math.floor(depth / 3.8), cs = s / 6.8 + (row & 1) * 0.5 + (hs(row, 3, 95) - 0.5) * 0.6, col = Math.floor(cs);
-  const lx = cs - col, ly = depth / 3.8 - row, r = hs(col, row, 96), rx = (lx - 0.5) / (0.46 + r * 0.1), ry = (ly - 0.58) / 0.5;
+  const row = Math.floor(depth / 6.4), cs = s / 12 + (row & 1) * 0.5 + (hs(row, 3, 95) - 0.5) * 0.6, col = Math.floor(cs);
+  const lx = cs - col, ly = depth / 6.4 - row, r = hs(col, row, 96), rx = (lx - 0.5) / (0.46 + r * 0.1), ry = (ly - 0.58) / 0.5;
   if (rx * rx + ry * ry > 1.1) return null;
   const ti = clamp(Math.round(tone - 0.3 + (1 - ly) * 1.9 - lx * 0.5 + (r - 0.5) * 1.3), 0, 5);
   let c = GRAN[ti]; if (hs(X, Y, 97) > 0.97) c = lerp(c, hex("#9aa65a"), 0.5);           // lichen
@@ -209,7 +209,7 @@ function paintField(Fd) {
         if (hs(X, Y, 7) > 0.94) c = lerp(c, hex("#7a8a50"), 0.45);
         const tone = faceTone(-nx, -ny); if (HR.warm > 0.4 && tone > 2.6) c = lerp(c, HR.hot, 0.16 * HR.warm);
         put(p, c);
-      } else if (kind === KI_CUT && d < (8 + 12 * vn(s / 16, 5, 91)) * sstep(0.1, 0.5, KW[p] / 255)) {
+      } else if (kind === KI_CUT && d < (13 + 13 * vn(s / 16, 5, 91)) * sstep(0.1, 0.5, KW[p] / 255)) {
         // granite tumbled up the bank, 8-20 art px wide, varying; gaps show the turf dark
         const c = loaf(s + 3, d + 1.5, faceTone(-nx, -ny) + (d > 8 ? -0.6 : 0.2), X, Y);
         if (c) put(p, c); else put(p, ITURF[0], 0.55);

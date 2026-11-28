@@ -24,6 +24,15 @@ Loops (20 frames, 2 s, 10 fps, 520 x 340): `wind_A` (larch through spruce), `win
 leaning pine, wind x2), `leaves_A` (wind_A plus gold needles drifting from each larch; they vanish on landing). needles_B is gone.
 The sections below describing the old larch, heather and option lines are superseded by this one.
 
+## PASS 3 (reviewer's notes)
+Larch: gold mass cut (30% of tufts skipped), four gaps so the trunk shows, tufts alternate sides and droop unevenly, a greener-gold second
+tone, colours one step duller. Scots pine: dull red-brown trunk with only the top third warm, crown 1.5x (8 layered clumps), none standing on
+the paving (a road-distance rule in the wood and on the moor). Crimson ground darker and about 20% less saturated. B: rowan toward rust-red,
+only 3 broadleaves on the open moor (2 oak, a pair of rowan). C: aspens smaller (0.75), flatter, ochre-yellow; thorns have three thicker
+boughs and ONE flat wind-combed leaf pad. Wood floor: today's mass restored (90 / 78 / 66%) and the bare floor and its pale slabs darkened.
+Loops: amplitude doubled (scots 9, larch 10, aspen 13, spruce 8 art px at the top, poses in steps of 2) and 260 bracken / grass fronds
+in the crop lean and spring with the gust. Weak: wind_C's crop is mostly road and the shelter belt; sway poses are re-sculpted in the lab.
+
 ## The Iron set (late autumn)
 - **Scots pine**: bare dark trunk, ORANGE upper bark, a few flat cloud pads of blue-green needles (airy: many sky holes).
 - **Spruce**: dark narrow tiers (7), blue-green, darker again deeper in the wood (dk 1, 2). `lean` tilts it, `flag` skews the tiers.
