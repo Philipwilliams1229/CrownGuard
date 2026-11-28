@@ -2300,6 +2300,14 @@ it still blows where it stalls in a crowd first; a bearing that never meets the 
 edge as before. Headless, 200 random aims on five boards: every keg whose bearing met the road blew
 on it, and all 55 that crossed two stretches blew on the last.
 
+**A siege ram stops a log** (owner, 2026-11-28): a log (every Log Roller form) that meets a `roadBlock` foe
+breaks on it: it strikes the ram ONCE for its full first-body weight through the plate (`lg.dmg`, pierce: 110 /
+Iron Drum 190 / Powder Keg 135), crushes whoever stands in front of the ram first, and nothing behind it is touched;
+the Powder Keg goes up against it (+ its blast). The ram catches a log `LOG_RAM_REACH` 0.9 x its size out (update.js).
+Headless, a log down the road and one across it: both stopped at the ram, the levies in its lee untouched. Crowstair
+`--endure` unchanged (the sim rolls its logs across the road, never into a ram). Lever if too soft / hard: drop the
+pierce (armor 0.75 takes it to ~28).
+
 ## The Barrow Wight (2026-11-10, owner request)
 
 A heavy wraith, `wight` in enemies.js (Hollow). Provisional, pending the
