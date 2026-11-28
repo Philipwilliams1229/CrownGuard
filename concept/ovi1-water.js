@@ -48,6 +48,11 @@ export async function run(q, body) {
     for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
     finish(t); placed.push(`${kd}@${Math.round(spot[0])},${Math.round(spot[1])}`);
   }
+  if (q.get("edgehall")) {
+    const { probe } = await import("/src/render/overhaul/field.js"); let best = null;
+    for (let x = 20; x < 700; x += 3) for (let y = 20; y < 540; y += 3) { const o = probe(x, y, {}); if (!o.B || o.d < 4 || o.d > 8 || !buildableAt(g, x, y, "archer")) continue; const sc = Math.abs(o.d - 5) + Math.hypot(x - 420, y - 300) * 0.02; if (!best || sc < best.sc) best = { x, y, sc, d: o.d }; }
+    if (best) { placeTower(g, "archer", best.x, best.y); const t = g.towers[g.towers.length - 1]; upgradeTower(g, t); upgradeTower(g, t); finish(t); placed.push(`EDGE archer@${best.x},${best.y} ${best.d.toFixed(1)} units from the waterline`); } else placed.push("edgehall: no spot");
+  }
   for (let i = 0; i < 30; i++) updateGame(g, DT);
   const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
   startWave(g);
@@ -107,6 +112,8 @@ const SLATE = pal("#1f2429", "#323941", "#4a535d", "#66717c", "#8794a0", "#b0bcc
 const WARMST = pal("#3a342e", "#574d42", "#76695a", "#988a74", "#b8a98c", "#d4c8aa");
 const ROCK = pal("#1c2024", "#2c3238", "#434a52", "#5d6670", "#7b858e", "#9ca6ac");
 const ITURF = pal("#2a3322", "#3a4630", "#4c5a3a", "#66714a", "#848a58", "#a49e6a");
+const GRAN = pal("#4a5054", "#697072", "#8a9090", "#aaaea6", "#c8cac0", "#e4e4d8");
+const CAST = pal("#4e4a44", "#6e695f", "#8c8678", "#aaa392", "#c6bfab", "#e0d9c4");
 const RUST = pal("#4a2a1a", "#6a3c20", "#8a5428", "#a8723a");
 const MOSS = hex("#4a5a36"), WEED = hex("#34462e");
 
@@ -146,8 +153,23 @@ function wallFace(hf, fw, e, X, Y, s, tone, HR) {
   if (HR.warm > 0.4 && tone > 2.6) c = lerp(c, HR.hot, 0.28 * HR.warm);
   return c;
 }
-// a gorge's rock face: fractured slabs on ragged strata, a lit rim, an overhang's shade, rust and lichen, a wet foot
+// pale granite loaves (the owner's reference: white-grey boulders stepping down to the water): a cell grid, each cell a loaf
+// lit on its top-left, a dark gap between; `depth` runs from the water up the bank
+function loaf(s, depth, tone, X, Y) {
+  const row = Math.floor(depth / 3.8), cs = s / 6.8 + (row & 1) * 0.5 + (hs(row, 3, 95) - 0.5) * 0.6, col = Math.floor(cs);
+  const lx = cs - col, ly = depth / 3.8 - row, r = hs(col, row, 96), rx = (lx - 0.5) / (0.46 + r * 0.1), ry = (ly - 0.58) / 0.5;
+  if (rx * rx + ry * ry > 1.1) return null;
+  const ti = clamp(Math.round(tone - 0.3 + (1 - ly) * 1.9 - lx * 0.5 + (r - 0.5) * 1.3), 0, 5);
+  let c = GRAN[ti]; if (hs(X, Y, 97) > 0.97) c = lerp(c, hex("#9aa65a"), 0.5);           // lichen
+  return c;
+}
 function rockFace(hf, fw, e, X, Y, s, tone, HR) {
+  const c = loaf(s, fw - e, tone, X, Y);
+  if (!c) return mul(GRAN[0], 0.8);
+  return hf > 0.86 ? lerp(c, WEED, 0.45) : c;
+}
+// (the old slab face, unused)
+function rockFaceOld(hf, fw, e, X, Y, s, tone, HR) {
   const rim = 1.2 + vn(s / 5, 1, 81) * 2;
   if (e < rim) return ROCK[Math.min(5, Math.round(tone + 1.2))];
   if (e < rim + 1.6) return ROCK[Math.max(0, Math.round(tone - 1.6))];                  // the overhang's shade
@@ -174,11 +196,12 @@ function paintField(Fd) {
     const p = j * w + i, bi = BODY[p]; if (bi < 0) continue;
     const nx = NX[p] / 127, ny = NY[p] / 127, kind = KIND[p], isNear = ny > 0.35, s = S[p] * 2;
     const sh = FW[p] / 8 + (kind === KI_LIP ? 2.4 : isNear && kind === KI_CUT ? 1.6 : isNear && kind === KI_QUAY ? 2 : 0);
-    const d = D[p] - sh; if (d > 10) continue;
+    const d = D[p] - sh; if (d > 22) continue;
     const X = ax0 + i, Y = ay0 + j;
     if (d >= 0) {
       // ---- the land side ----
-      if (kind === KI_QUAY && d < (isNear ? ST.apron * 0.55 : ST.apron) * sstep(0.1, 0.6, KW[p] / 255)) {
+      if (kind === KI_QUAY && !(nx > 0.25 || ny > 0.25)) { if (d < 1.6) put(p, PALW[5]); else if (d < 2.6) put(p, PALW[2], 0.8); }
+      else if (kind === KI_QUAY && d < (isNear ? ST.apron * 0.55 : ST.apron) * sstep(0.1, 0.6, KW[p] / 255)) {
         // a paved quay apron: flags in courses, a coping line at the edge, the inner edge dark
         const run = Math.floor((s + (Math.floor(d / 3) & 1) * 5) / 10), jt = ((s + (Math.floor(d / 3) & 1) * 5) % 10 + 10) % 10 < 1, jr = (d % 3) < 0.9;
         let c = PALW[3 + (hs(run, Math.floor(d / 3), 5) > 0.7 ? 1 : 0) - (hs(run, Math.floor(d / 3), 6) > 0.8 ? 1 : 0)];
@@ -186,10 +209,10 @@ function paintField(Fd) {
         if (hs(X, Y, 7) > 0.94) c = lerp(c, hex("#7a8a50"), 0.45);
         const tone = faceTone(-nx, -ny); if (HR.warm > 0.4 && tone > 2.6) c = lerp(c, HR.hot, 0.16 * HR.warm);
         put(p, c);
-      } else if (kind === KI_CUT && d < (isNear ? 6 : 3)) {
-        // the gorge's lip: ragged boulders along the edge, lit tops, shaded east shoulders
-        const cell = hs(Math.floor(s / 6), Math.floor(d / 3), 33), edge = d < 1.2 + cell * (isNear ? 3.5 : 1.6);
-        if (edge) { const tn = faceTone(-nx, -ny) + (cell - 0.5) * 1.2 - (d > 2.4 ? 0.8 : 0) + (d < 1 ? 0.6 : 0); put(p, ROCK[clamp(Math.round(tn), 0, 5)]); }
+      } else if (kind === KI_CUT && d < (8 + 12 * vn(s / 16, 5, 91)) * sstep(0.1, 0.5, KW[p] / 255)) {
+        // granite tumbled up the bank, 8-20 art px wide, varying; gaps show the turf dark
+        const c = loaf(s + 3, d + 1.5, faceTone(-nx, -ny) + (d > 8 ? -0.6 : 0.2), X, Y);
+        if (c) put(p, c); else put(p, ITURF[0], 0.55);
       } else if (kind === KI_LIP && d < 3.5) put(p, ITURF[1], (1 - d / 3.5) * 0.42);
       else if (kind === KI_REEDS && d < 5) { const tf = hs(Math.floor(X / 2), Math.floor(Y / 2), 41); put(p, tf > 0.6 ? RUST[2] : tf > 0.3 ? hex("#6a5a30") : ITURF[1], (1 - d / 5) * 0.7); }
       continue;
@@ -207,7 +230,7 @@ function paintField(Fd) {
       else if (ew < 2.2) { put(p, ew < 1 ? ROCK[4] : ew < 1.6 ? ROCK[2] : ROCK[0]); continue; }
     }
     const hard = kind === KI_CUT || kind === KI_QUAY, Bd = Fd.bodies[bi], SQ = Bd.plan.sq || 0.7;
-    const qe = hard ? 0.75 : clamp(ew / 22, 0, 1);
+    const qe = clamp(ew / (hard ? 16 : 22), 0, 1);
     const q = Math.min(Q[p], 0.2 + qe * 0.8 * SQ) + (vn(X / 22, Y / 12, 41) - 0.5) * 0.12;
     const idx = 6 - q * 6.2 + (bay(X, Y) - 0.5) * 0.3 + (vn(X / 7, Y / 3, 42) - 0.5) * 0.9;
     let c = WA[clamp(Math.round(idx), 0, 6)];
@@ -296,7 +319,7 @@ function makeSolid(sp) {
     }
     // the parapet: a wall along both edges, 2.2 high, set back 0.5 so its coping reads
     if (z > top) {
-      if (av >= Wd / 2 - 1.6 && z <= top + 2.4 && !(sp.ruin && ruinAt(u))) return z > top + 1.6 && av > Wd / 2 - 1.2 ? 1 : 1;
+      if (av >= Wd / 2 - 2.2 && z <= top + 2.4 && !(sp.ruin && ruinAt(u))) return z > top + 1.6 && av > Wd / 2 - 1.2 ? 1 : 1;
       return 0;
     }
     // the vault: void under the deck through the whole width
@@ -326,19 +349,21 @@ function shadeHit(sp, S, hit, HR, front) {
   }
   if (face === "top") {
     // paving: staggered flags in the span's own (u, v) so the pitch opens and closes with the slope
-    const uu = u * 2, vv = v * 2, row = Math.floor(uu / 8), off = (row & 1) * 6, col = Math.floor((vv + off) / 12);
-    const joint = ((uu % 8) + 8) % 8 < 1 || (((vv + off) % 12) + 12) % 12 < 1;
-    let ti = tone + (hs(col, row, 61) - 0.5) * 1.1 + hit.slope;
+    // the road's own larger flags (14 x 20 art px, staggered), a lighter crown band, darker ramps
+    const uu = u * 2, vv = v * 2, row = Math.floor(uu / 14), off = (row & 1) * 10, col = Math.floor((vv + off) / 20);
+    const joint = ((uu % 14) + 14) % 14 < 1 || (((vv + off) % 20) + 20) % 20 < 1;
+    const au = Math.abs(u), crown = au < 5 ? 0.7 * (1 - au / 5) : 0, ramp = clamp(au / (sp.U / 2) - 0.55, 0, 1) * 1.6;
+    let ti = tone + (hs(col, row, 61) - 0.5) * 1.1 + hit.slope + crown - ramp;
     c = ROAD[clamp(Math.round(ti), 1, 5)]; if (joint) c = ROAD[Math.max(0, clamp(Math.round(ti), 1, 5) - 2)];
-    if (mat === 1 && hit.parapet) c = SLATE[clamp(Math.round(ti + 0.8), 1, 5)];     // the coping
+    if (mat === 1 && hit.parapet) c = (hit.parapetTop ? SLATE[5] : SLATE[4]);     // the coping
     if (hs(Math.floor(uu / 2), Math.floor(vv / 2), 62) > 0.96) c = lerp(c, hex("#6a5a3a"), 0.4);  // a worn patch
     if (mat === 5) c = mul(c, 0.55);
-    if (mat === 4) c = SLATE[clamp(Math.round(tone), 1, 5)];
+    if (mat === 4) c = CAST[clamp(Math.round(tone + 0.4), 1, 5)];
   } else {
     // masonry faces: rubble courses in (along, z); the tower's dressed ashlar is paler and neater
     const tw = mat === 4, ch = tw ? 3.0 : 2.2, a2 = along * 2, z2 = z * 2, row = Math.floor(z2 / (ch * 2)), off = (row & 1) * (tw ? 6 : 5), blw = tw ? 14 : 9 + (hs(row, 1, 4) > 0.5 ? 3 : 0), bl = Math.floor((a2 + off) / blw);
     const joint = ((z2 % (ch * 2)) + ch * 2) % (ch * 2) < 1 || (((a2 + off) % blw) + blw) % blw < 1;
-    const PALW = tw ? SLATE : (sp.warm ? WARMST : SLATE);
+    const PALW = tw ? CAST : (sp.warm ? WARMST : SLATE);
     let ti = tone + (hs(bl, row, 71) - 0.5) * (tw ? 1.0 : 1.9) - (z < 1.6 ? 0.6 : 0);
     c = PALW[clamp(Math.round(ti), 1, 5)]; if (joint) c = PALW[Math.max(0, clamp(Math.round(ti), 1, 5) - 2)];
     if (!joint && hs(bl, row, 72) > 0.94) c = lerp(c, hex("#8a5a34"), 0.3);
@@ -382,7 +407,7 @@ function bakeSpan(sp, layer) {
       // surface slope (screen-space normal of the top) and the parapet / voussoir / slit tags
       hit.slope = 0;
       if (hit.face === "top") { const dzx = (zd(local(hx + 0.5, hy)[0]) - zd(local(hx - 0.5, hy)[0])), dzy = (zd(local(hx, hy + 0.5)[0]) - zd(local(hx, hy - 0.5)[0])); const nx = sp.up ? 0 : -dzx, ny = sp.up ? -dzy : 0; hit.slope = (nx * L[0] + ny * L[1]) / ll * 2.6; }
-      hit.parapet = hit.face === "top" && hit.mat === 1 && Math.abs(hit.v) >= sp.W / 2 - 1.6 && hit.z > zd(hit.u) + 0.5;
+      hit.parapet = hit.face === "top" && hit.mat === 1 && Math.abs(hit.v) >= sp.W / 2 - 2.2 && hit.z > zd(hit.u) + 0.5; hit.parapetTop = true;
       // voussoirs: the stones ringing an arch mouth (the face that holds the opening: a v-face across, the flank of an up span)
       if (hit.face !== "top" && hit.mat === 1 && hit.z < zd(hit.u) - 0.2) {
         const near = (du, dz) => { const [uu, vv] = [hit.u + du, hit.v]; return !solid(uu, vv, hit.z + dz) && (dz !== 0 || true) && archAt(uu) != null && hit.z + dz < archAt(uu); };
@@ -400,7 +425,7 @@ function bakeSpan(sp, layer) {
       }
       col = shadeHit(sp, S, hit, HR);
       // the vault's mouth is dark: anything of the ceiling the ray found inside a vault (a face of the solid under a deck)
-      if (hit.face === "top" && sp.tower && hit.mat === 5) col = mul(col, 0.5);
+      if (hit.face === "top" && sp.tower && hit.mat === 5) col = mul(col, 0.8);
       const keep = layer === "front" ? (sp.up ? hit.mat === 4 : (hit.mat === 4 || (hit.mat === 1 && hit.v > 0 && hit.z > zd(hit.u) - 0.2 && hit.v >= sp.W / 2 - 1.8) || (hit.mat === 2 && hit.v > 0 && hit.z > sp.solidFns.zt + 0.2)))
                                        : (sp.up ? hit.mat !== 4 : !(hit.mat === 4 || (hit.mat === 1 && hit.v > 0 && hit.z > zd(hit.u) - 0.2 && hit.v >= sp.W / 2 - 1.8) || (hit.mat === 2 && hit.v > 0 && hit.z > sp.solidFns.zt + 0.2)));
       if (!keep) col = null;
@@ -411,6 +436,23 @@ function bakeSpan(sp, layer) {
       col = [12, 24, 36]; alpha = 120;
     }
     if (col) { const o = (py * w + px) * 4; P[o] = col[0]; P[o + 1] = col[1]; P[o + 2] = col[2]; P[o + 3] = alpha; }
+  }
+  if (layer === "front" && sp.tower && sp.up) {
+    const T = sp.tower, fy = sp.cy + T.c + T.du / 2, put = (xw, yw, c, a = 255) => { const i = Math.floor((xw - x0) * 2), j = Math.floor((yw - y0) * 2); if (i < 0 || j < 0 || i >= w || j >= h) return; const o = (j * w + i) * 4; P[o] = c[0]; P[o + 1] = c[1]; P[o + 2] = c[2]; P[o + 3] = a; };
+    const at = (v, z) => [sp.cx + v, fy - z + 0.05];
+    for (const sd of [-1, 1]) {            // two torches in iron brackets, lit
+      const [tx, ty] = at(sd * (T.gw / 2 + 3.5), 8);
+      for (let k = 0; k < 4; k++) put(tx, ty + k * 0.5, [40, 30, 26]);
+      for (const [dx, dy, c] of [[0, -0.5, [255, 214, 120]], [0, -1, [255, 150, 50]], [-0.5, -0.5, [255, 150, 50]], [0.5, -0.5, [255, 150, 50]], [0, -1.5, [255, 236, 170]], [0, -2, [230, 90, 40]]]) put(tx + dx, ty + dy, c);
+      for (let a = -2; a <= 2; a += 0.5) for (let b = -2; b <= 2; b += 0.5) if (Math.hypot(a, b) < 2.4 && !(Math.abs(a) < 0.6 && b < 0.2 && b > -2.2)) { const i = Math.floor((tx + a - x0) * 2), j = Math.floor((ty + b - 1 - y0) * 2); if (i >= 0 && j >= 0 && i < w && j < h) { const o = (j * w + i) * 4; if (P[o + 3]) { P[o] = Math.min(255, P[o] + 34); P[o + 1] = Math.min(255, P[o + 1] + 20); P[o + 2] += 4; } } }
+    }
+    // a banner above the gate: crimson cloth, gold edge, swallow-tail, hung from a bar
+    for (let bz = 0; bz < 7; bz++) for (let bv = -3.5; bv < 3.5; bv += 0.5) {
+      if (bz > 4.5 && Math.abs(bv) < (bz - 4.5) * 1.6) continue;
+      const [bx, by] = at(bv, T.gh + 2.5 + (6 - bz)), edge = Math.abs(bv) > 3.1 || bz < 0.5;
+      put(bx, by, edge ? [214, 168, 70] : (Math.abs(bv) < 0.5 ? [196, 60, 52] : [168, 38, 36]));
+    }
+    for (let bv = -4; bv <= 3.5; bv += 0.5) put(sp.cx + bv, fy - T.gh - 9.2, [52, 38, 28]);
   }
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h; cv.getContext("2d").putImageData(im, 0, 0);
   return { cv, x0, y0, w: w / 2, h: h / 2 };
@@ -460,7 +502,7 @@ function dress(Fd, img, optId) {
           for (const [dx, dy, c] of [[0, 0, SLATE[3]], [0, 1, SLATE[1]], [0, 2, SLATE[0]], [-1, 1, SLATE[2]], [1, 1, SLATE[0]], [0, -1, SLATE[5]]]) setPx(Fd, img, bx + dx, by + dy, c);
         }
       } else if (optId === "B") {
-        for (const side of [1, -1]) if (hs(cell, side, 14) > 0.5) {
+        for (const side of [1, -1]) if (hs(cell, side, 14) > 0.3) {
           const nx = -o.uy * side, ny = o.ux * side, t = o.hw - 2.2 + hs(cell, side, 15) * 1.2; boulder(Fd, img, (o.x + nx * t) * 2, (o.y + ny * t) * 2, 3 + Math.floor(hs(cell, side, 16) * 3), 2 + Math.floor(hs(cell, side, 17) * 2), cell * 7 + side);
         }
       } else if (optId === "C" && hs(cell, 3, 18) > 0.62) {
@@ -477,6 +519,14 @@ function bakeIron(ctx) {
   if (!bodies().length) return;
   const [x0, y0, x1, y1] = boardRect(), Fd = buildField(x0, y0, x1, y1, 2), img = paintField(Fd);
   dress(Fd, img, STATE.opt);
+  if (STATE.opt === "C" && STATE.realm === "coldwater") for (const [cx, cy, sg] of [[499, 338, -1], [499, 396, 1]]) for (let k = 0; k < 7; k++) {   // the T-junction's inside corners: a shoal of rocks and pale shallows rounds them
+    const a = k * 0.5 * sg, X = (cx + 3 + Math.cos(a) * 5 * (k % 2 ? 1 : 0.6)) * 2, Y = (cy + sg * (k * 1.3) + Math.sin(a) * 2) * 2;
+    boulder(Fd, img, X, Y, 2 + (k % 3), 2, 300 + k * 3 + sg);
+  }
+  for (const sp of STATE.sp) if (sp.ruin) for (const sg of [-1, 1]) for (const [dv, du] of [[-1, 1.2], [1, 0.4], [-0.45, 1.9], [0.5, 2.4]]) {
+    const u = sp.ruin.c + sg * (sp.ruin.ua + du), v = (dv * (sp.W / 2 + 5)) + (dv < 0 ? -2 : 2), X = (sp.up ? sp.cx + v : sp.cx + u) * 2, Y = (sp.up ? sp.cy + u : sp.cy + v) * 2;
+    boulder(Fd, img, X, Y, 3 + (du > 1 ? 1 : 0), 2, Math.floor(u * 3 + v));
+  }
   const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(toCanvas(img), x0, y0, Fd.w / 2, Fd.h / 2); ctx.imageSmoothingEnabled = sm;
   STATE.live.buildLive(Fd, img);
@@ -494,9 +544,9 @@ function planSpans(env, kinds, wideK) {
     const arches = [], piers = [];
     for (let a = 0; a < n; a++) { const c = (a - (n - 1) / 2) * (2 * ua + 5); arches.push({ c, ua, Ha: n === 1 ? Ha : Ha - (a === 1 ? 0 : 0.8) }); }
     for (let a = 0; a < n - 1; a++) piers.push((a - (n - 2) / 2) * (2 * ua + 5));
-    const sp = { cx: b.x, cy: b.y, up, U, W: 66, Hc, arches, piers: n > 1 ? piers : null, pierH: 3.4, kind: k, hw, warm: false, top: Hc + 6 };
+    const sp = { cx: b.x, cy: b.y, up, U, W: 60, Hc, arches, piers: n > 1 ? piers : null, pierH: 3.4, kind: k, hw, warm: false, top: Hc + 6 };
     if (k === "ruin") { const m = arches[Math.floor(n / 2)]; sp.ruin = { c: m.c, ua: Math.min(m.ua - 3, 15), zt: Hc - 3.2 }; }
-    if (k === "fort") { sp.tower = up ? { c: -(U / 2 + 9), du: 17, dv: 54, h: 22, gw: 26, gh: 13 } : { c: U / 2 + 11, du: 22, dv: 44, h: 18, gw: 28, gh: 12 }; sp.top = 22 + 8; }
+    if (k === "fort") { sp.tower = up ? { c: -(U / 2 + 9), du: 17, dv: 54, h: 26, gw: 26, gh: 15 } : { c: U / 2 + 11, du: 22, dv: 44, h: 18, gw: 28, gh: 12 }; sp.top = 26 + 8; }
     out.push(sp);
   });
   return out;
@@ -504,7 +554,7 @@ function planSpans(env, kinds, wideK) {
 
 export async function ironWater(opt, env) {
   const { q, MP, T, OV } = env, id = MP.REALM.id;
-  STATE.live = await liveModule(); STATE.opt = opt; globalThis.__OVI1 = STATE;
+  STATE.live = await liveModule(); STATE.opt = opt; STATE.realm = MP.REALM.id; globalThis.__OVI1 = STATE;
   // today's seams stay for everything but water and bridges (the meadow, trees and farm are the Greenwood's, not ours)
   for (const n of ["ground", "groundMarks", "owns", "drawDecor", "shadowItem", "shadowExtras", "drawables", "over", "apronGround", "overCastle", "frame"]) OV.register(n, null);
   OV.OVH.flags.hem = true; OV.OVH.flags.butterflies = true; OV.OVH.flags.bridgeCast = false;
@@ -517,12 +567,12 @@ export async function ironWater(opt, env) {
   B.forEach((b, bi) => {
     if (b.type !== "river") return;
     const near = spans.filter((s) => s.B === b).map((s) => s.s), P = { def: "lip", flow: 1, faceMax: 13, sq: 0.68, zones: [] };
-    if (opt === "A") { P.def = "quay"; P.faceMax = 30; P.sq = 0.7; }
-    if (opt === "B") { P.def = "cut"; P.faceMax = 34; P.sq = 0.75; for (const s of near) P.zones.push({ bank: "*", from: s - 52, to: s + 52, kind: "quay" }); }
+    if (opt === "A") { P.def = "quay"; P.faceMax = 24; P.sq = 0.7; }
+    if (opt === "B") { P.def = "cut"; P.faceMax = 26; P.sq = 0.75; }
     if (opt === "C") { P.def = "lip"; P.faceMax = 15; P.sq = 0.8; for (const s of near) P.zones.push({ bank: "S", from: s - 90, to: s + 90, kind: "quay" }); P.zones.push({ bank: "N", from: -500, to: 140, kind: "reeds" }); }
     b.plan = P;
   });
-  HFACE.quay = opt === "A" ? 30 : 14; HFACE.cut = opt === "B" ? 32 : 14;
+  HFACE.quay = opt === "A" ? 22 : 14; HFACE.cut = opt === "B" ? 24 : 14;
   ST.wall = opt === "A" ? "slate" : "warm";
   // the bridges
   const defKinds = { A: { 0: "plain", 1: "plain", 2: "plain" }, B: { 0: "plain", 1: "fort", 2: "plain" }, C: { 0: "ruin", 1: "plain", 2: "plain" } }[opt];

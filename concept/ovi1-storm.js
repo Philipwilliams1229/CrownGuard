@@ -30,9 +30,10 @@ const bay = (x, y) => (BAYER[((y & 3) << 2) | (x & 3)] + 0.5) / 16;
 
 // ---- three ideas, three dials ------------------------------------------------------------------------------
 export const LOOK = {
-  A: { name: "Mirror", tone: "#aab6c8", dark: 0.74, sheen: [176, 202, 232], gloss: "slab", amt: 0.5, silt: [104, 92, 62], siltA: 0.34, bolt: "glass", stun: "rim", foam: "chevron", puddle: "glass", hall: "rim" },
-  B: { name: "Arcs", tone: "#8c9bbb", dark: 0.66, sheen: [150, 172, 214], gloss: "bead", amt: 0.34, silt: [78, 76, 72], siltA: 0.28, bolt: "fork", stun: "cage", foam: "streak", puddle: "arcs", hall: "arcs" },
-  C: { name: "Static", tone: "#b8b6a4", dark: 0.72, sheen: [206, 200, 160], gloss: "diag", amt: 0.24, silt: [132, 100, 52], siltA: 0.4, bolt: "step", stun: "scan", foam: "collar", puddle: "joints", hall: "scan" },
+  A: { name: "Mirror", tone: "#aab6c8", dark: 0.74, sheen: [176, 202, 232], gloss: "slab", amt: 0.5, silt: [74, 62, 44], siltA: 0.5, bolt: "glass", stun: "rim", foam: "broken", puddle: "glass", hall: "rim", arcs: false },
+  B: { name: "Arcs", tone: "#8c9bbb", dark: 0.66, sheen: [150, 172, 214], gloss: "bead", amt: 0.34, silt: [74, 62, 44], siltA: 0.5, bolt: "fork", stun: "cage", foam: "broken", puddle: "plain", hall: "arcs", arcs: true },
+  // C (pass 2): A's look with B's per-body arcs
+  C: { name: "Mirror + arcs", tone: "#aab6c8", dark: 0.74, sheen: [176, 202, 232], gloss: "slab", amt: 0.5, silt: [74, 62, 44], siltA: 0.5, bolt: "glass", stun: "rim", foam: "broken", puddle: "glass", hall: "rim", arcs: true },
 };
 
 // ---- the scene: the real engine -----------------------------------------------------------------------------------
@@ -80,13 +81,14 @@ export const makeScene = ({ sun = "noon", secs = 11, towers = TOWERS, seed = 1 }
 const cvDraw = mk(PW, PH);
 export const shoot = (g, hide = []) => {
   const sv = { e: g.enemies, b: g.bands, t: g.towers };
-  if (hide.includes("foes")) { g.enemies = []; g.bands = []; }
+  const sv2 = g.towers.map((t) => t.units);
+  if (hide.includes("foes")) { g.enemies = []; g.bands = []; for (const t of g.towers) if (t.units) t.units = []; }
   if (hide.includes("halls")) g.towers = [];
   const one = hide.find((h) => typeof h === "object");
   if (one) g.towers = g.towers.filter((t) => t !== one);
   g.shake = 0;
   draw(g, cvDraw, { current: null });
-  g.enemies = sv.e; g.bands = sv.b; g.towers = sv.t;
+  g.enemies = sv.e; g.bands = sv.b; g.towers = sv.t; g.towers.forEach((t, i) => { if (sv2[i] !== undefined) t.units = sv2[i]; });
   const o = mk(PW, PH); o.getContext("2d").drawImage(cvDraw, 0, 0);
   return o;
 };
@@ -118,6 +120,7 @@ const roadMask = () => {
   o.stroke();
   const D = px(c).data, m = new Uint8Array(PW * PH);
   for (let i = 0; i < PW * PH; i++) m[i] = D[i * 4] > 128 ? 1 : 0;
+  for (let y = 0; y < PH - 1; y += 2) for (let x = 0; x < PW - 1; x += 2) if (m[y * PW + x] && underBridge(x / RES, y / RES, 26)) m[y * PW + x] = m[y * PW + x + 1] = m[(y + 1) * PW + x] = m[(y + 1) * PW + x + 1] = 0;   // decks keep their own stone
   return m;
 };
 const riverMask = () => {
@@ -157,13 +160,14 @@ const gloss = (ground, K, o, warm = 0) => {
     let r = D[j], g = D[j + 1], b = D[j + 2];
     const sat = Math.max(r, g, b) - Math.min(r, g, b);
     // the whole board takes the storm's tone
+    if (K.hall && K.hall[i]) { r *= 0.93; g *= 0.93; b *= 0.95; D[j] = r; D[j + 1] = g; D[j + 2] = b; continue; }   // halls keep their own colours
     if (!K.river.m[i]) { r = r * tn[0] / 255; g = g * tn[1] / 255; b = b * tn[2] / 255; } else { r *= 0.9; g *= 0.94; b *= 1; }
     if (K.river.m[i]) {
-      const a = o.siltA * (0.8 + 0.4 * h2(x >> 3, y >> 3, 5));
+      const a = o.siltA * (0.75 + 0.5 * h2(x >> 2, y >> 4, 5));
       r += (o.silt[0] - r) * a; g += (o.silt[1] - g) * a; b += (o.silt[2] - b) * a;
     } else if (K.river.bank[i] && !K.road[i]) {   // the flood has crept over the bank: wet mud, ragged
-      const bb = K.river.bank[i], th = bb === 1 ? 0.8 : 0.4;
-      if (bay(x, y) < th) { const a = o.siltA * 1.5; r += (o.silt[0] * 0.8 - r) * a; g += (o.silt[1] * 0.8 - g) * a; b += (o.silt[2] * 0.8 - b) * a; r *= 0.85; g *= 0.85; b *= 0.85; }
+      const bb = K.river.bank[i], th = bb === 1 ? 1.1 : 0.35;   // the brown water laps over the bank: solid at the edge, ragged beyond
+      if (bay(x, y) < th) { const a = bb === 1 ? 0.5 : 0.32; r += (o.silt[0] * 0.85 - r) * a; g += (o.silt[1] * 0.85 - g) * a; b += (o.silt[2] * 0.85 - b) * a; }
     } else if (K.road[i] && sat < 46) {
       r *= o.dark; g *= o.dark; b *= o.dark;
       let s = 0;
@@ -211,11 +215,12 @@ export const prepare = (S, ev = []) => {
   // foe targets: bbox of each foe's pixels near its feet
   const tms = g.time * 1000;
   const tgt = (e) => {
-    const fx = e.x * RES, fy = (e.y + e.size * 0.55) * RES, hw = Math.max(10, e.size * RES * 0.55);
-    const b = bboxOf(act.mask, fx - hw, fy - e.size * RES * 2.0, fx + hw, fy + 4);
+    const sz = e.size || 16, fx = e.x * RES, fy = (e.y + sz * 0.55) * RES, hw = Math.max(10, sz * RES * 0.55);
+    const b = bboxOf(act.mask, fx - hw, fy - sz * RES * 2.0, fx + hw, fy + 4);
     return b && { e, fx, fy, b, hw };
   };
   P.tgt = tgt;
+  K.hall = hall.mask;
   P.tms = tms;
   return P;
 };
@@ -239,16 +244,20 @@ const seg = (c, x0, y0, x1, y1, w, col, a = 1) => {
   for (let i = 0; i <= n; i++) c.fillRect(Math.round(x0 + (x1 - x0) * i / n) - o, Math.round(y0 + (y1 - y0) * i / n) - o, w, w);
   c.globalAlpha = 1;
 };
-const poly = (c, pts, layers) => { for (const [w, col, a] of layers) for (let i = 1; i < pts.length; i++) seg(c, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], w, col, a); };
+const poly = (c, pts, layers, taper = 0.55) => { for (const [w, col, a] of layers) for (let i = 1; i < pts.length; i++) seg(c, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], Math.max(1, Math.round(w * (1 - taper * (i / pts.length)))), col, a); };
 const boltPts = (x0, y0, x1, y1, seed, jit, step, mode) => {
-  const pts = [[x0, y0]], n = Math.max(3, Math.round(Math.hypot(x1 - x0, y1 - y0) / step));
-  for (let i = 1; i <= n; i++) {
-    const t = i / n, last = i === n;
-    let x = x0 + (x1 - x0) * t + (last ? 0 : (h2(i, seed, 1) - 0.5) * 2 * jit), y = y0 + (y1 - y0) * t + (last ? 0 : (h2(i, seed, 2) - 0.5) * jit * 0.5);
+  const pts = [[x0, y0]], L = Math.hypot(x1 - x0, y1 - y0);
+  let t = 0, i = 0;
+  while (t < 1) {
+    i++;
+    const run = step * (0.35 + 1.5 * h2(i, seed, 8) ** 1.4);       // long strides and short kinks
+    t = Math.min(1, t + run / L);
+    const last = t >= 1, amp = jit * (0.4 + 1.2 * h2(i, seed, 9));
+    let x = x0 + (x1 - x0) * t + (last ? 0 : (h2(i, seed, 1) - 0.5) * 2 * amp), y = y0 + (y1 - y0) * t + (last ? 0 : (h2(i, seed, 2) - 0.5) * amp * 0.5);
     if (mode === "step") { x = Math.round(x / 6) * 6; y = Math.round(y / 6) * 6; if (last) { x = x1; y = y1; } }
     pts.push([x, y]);
   }
-  if (mode === "step") { const q = [pts[0]]; for (let i = 1; i < pts.length; i++) { const a = q[q.length - 1], b = pts[i]; if (a[0] !== b[0] && a[1] !== b[1]) q.push([b[0], a[1]]); q.push(b); } return q; }
+  if (mode === "step") { const q = [pts[0]]; for (let k = 1; k < pts.length; k++) { const a = q[q.length - 1], b = pts[k]; if (a[0] !== b[0] && a[1] !== b[1]) q.push([b[0], a[1]]); q.push(b); } return q; }
   return pts;
 };
 // a bolt from above the board down to (bx, by); amt 0..1 thickness flicker
@@ -268,7 +277,7 @@ export const drawBolt = (c, o, bx, by, seed, amt = 1, from = null) => {
     const i = 2 + Math.floor(h2(k, seed, 3) * (pts.length - 4)), [x, y] = pts[i], dir = h2(k, seed, 4) < 0.5 ? -1 : 1;
     const len = (o.bolt === "fork" ? 60 : 44) * (0.7 + h2(k, seed, 5) * 0.6);
     const bp = boltPts(x, y, x + dir * len * 0.6, y + len * 0.8, seed + k * 7, 10, 12, mode);
-    poly(c, bp, L.map(([w, col, a]) => [Math.max(1, w - 2), col, a]));
+    poly(c, bp, L.map(([w, col, a]) => [Math.max(1, w - 2), col, a]), 0.8);
     if (o.bolt === "fork" && k < 2) { const j = Math.floor(bp.length / 2), bp2 = boltPts(bp[j][0], bp[j][1], bp[j][0] + dir * 24, bp[j][1] + 30, seed + k * 13, 6, 9, mode); poly(c, bp2, [[1, Y[1], 1]]); }
   }
   return pts;
@@ -281,13 +290,15 @@ const ring = (c, x, y, rx, ry, col, a, step = 1, dash = 0) => {
   c.globalAlpha = 1;
 };
 // Bayer-dithered lit ellipse (lit 0..1): white-hot middle to lemon rim
-const litEllipse = (c, x, y, rx, ry, lit, hot = true, a = 1) => {
+const blob = (seed) => (a) => 1 + 0.17 * Math.sin(2 * a + seed) + 0.1 * Math.sin(4 * a + seed * 2.3) + 0.06 * Math.sin(7 * a + seed * 1.7);
+const litEllipse = (c, x, y, rx, ry, lit, hot = true, a = 1, shape = null) => {
   c.globalAlpha = a;
-  for (let yy = -ry; yy <= ry; yy++) for (let xx = -rx; xx <= rx; xx++) {
-    const d = (xx / rx) ** 2 + (yy / ry) ** 2; if (d > 1) continue;
-    const t = lit * (1.15 - 0.55 * d);
+  const R = shape ? 1.3 : 1;
+  for (let yy = -ry * R; yy <= ry * R; yy++) for (let xx = -rx * R; xx <= rx * R; xx++) {
+    let d = (xx / rx) ** 2 + (yy / ry) ** 2; if (shape) d /= shape(Math.atan2(yy / ry, xx / rx)) ** 2; if (d > 1) continue;
+    const t = lit * (shape ? 0.66 - 0.4 * d : 1.15 - 0.55 * d);
     if (bay(xx + 100, yy + 100) >= t) continue;
-    c.fillStyle = hot ? (d < 0.18 ? Y[0] : d < 0.5 ? Y[1] : Y[2]) : Y[2];
+    c.fillStyle = hot ? (d < (shape ? 0.06 : 0.18) ? Y[0] : d < (shape ? 0.3 : 0.5) ? Y[1] : Y[2]) : Y[2];
     c.fillRect(Math.round(x + xx), Math.round(y + yy), 1, 1);
   }
   c.globalAlpha = 1;
@@ -316,49 +327,22 @@ const rain = (c, f, F, x0, y0, w, h, n = 700) => {
 
 // ---- the river in spate: foam, per option ------------------------------------------------------------------------------------------
 const spate = (c, K, o, f, F) => {
-  // foam collars where the water meets bank and pier: the dither crawls (periodic)
+  // short broken foam along the banks (a dither that crawls, periodic) and a few cream flecks racing downstream
   const E = K.river.edge, ph = f / F;
-  c.fillStyle = "#e8eef4";
+  c.fillStyle = "#e6dcc0";
   for (let i = 0; i < E.length; i += 2) {
     const x = E[i], y = E[i + 1], hv = h2(x >> 1, y >> 1, 6);
-    const dens = o.foam === "collar" ? 0.4 : o.foam === "chevron" ? 0.22 : 0.16;
-    if (((hv + ph * (1 + (x & 1))) % 1) < dens * 0.5) { c.globalAlpha = 0.5 + 0.4 * hv; c.fillRect(x, y, 1, 1); if (o.foam === "collar") c.fillRect(x + ((x >> 1) & 1 ? 1 : -1), y, 1, 1); }
+    if (((hv + ph * (1 + (x & 1))) % 1) < 0.07) { c.globalAlpha = 0.55 + 0.35 * hv; c.fillRect(x, y, 2, 1); }
   }
   c.globalAlpha = 1;
   const inR = (X, Y0) => X > 0 && Y0 > 0 && X < PW && Y0 < PH && K.river.m[(Y0 | 0) * PW + (X | 0)];
   for (let ri = 0; ri < K.river.lines.length; ri++) {
     const { P, hw } = K.river.lines[ri], n = P.length, u = f / F;
-    const at = (idx, lat) => { const i0 = Math.floor(idx), fr = idx - i0, a = P[((i0 % n) + n) % n], b = P[(((i0 + 1) % n) + n) % n], x = a[0] + (b[0] - a[0]) * fr, y = a[1] + (b[1] - a[1]) * fr, tx = a[2], ty = a[3]; return [x - ty * lat, y + tx * lat, tx, ty]; };
-    if (o.foam === "chevron") {          // A: rows of standing waves across the stream, a white crest over a brown trough
-      const D = 5;
-      for (let k = 0; k < n / D; k++) {
-        if (h2(k, ri, 74) < 0.3) continue;
-        const idx = k * D + u * D, w0 = 0.35 + 0.55 * h2(k, ri, 75), c0 = (h2(k, ri, 76) - 0.5) * 0.7;
-        for (let l = -w0; l <= w0; l += 0.025) {
-          const [X, Y0] = at(idx + Math.abs(l) * 3.2, (l + c0) * hw), a = 0.95 - Math.abs(l) * 0.4;
-          if (!inR(X, Y0)) continue;
-          dot(c, X, Y0, "#f8fbfd", a, 2); dot(c, X, Y0 + 2, "#46391f", a * 0.7, 2);
-        }
-      }
-    } else if (o.foam === "streak") {    // B: long bright streaks racing down the current, two speeds
-      const lanes = 5;
-      for (let L = 0; L < lanes; L++) {
-        const lat = ((L + 0.5) / lanes - 0.5) * 1.8 * hw, D = 5 + (L % 3), sp = 1 + (L & 1);
-        for (let k = 0; k < n / D; k++) {
-          const idx = k * D + h2(k, L, 70) * 2 + u * D * sp;
-          if (h2(k, L, 77) < 0.25) continue; for (let q = 0; q < 26 + (L & 1) * 8; q++) { const [X, Y0] = at(idx + q * 0.25, lat + (h2(k, L, 71) - 0.5) * 3); if (inR(X, Y0)) dot(c, X, Y0, q < 10 ? "#ffffff" : "#c4d6ea", Math.max(0.2, 0.98 - q * 0.03), q < 18 ? 2 : 1); }
-        }
-      }
-    } else {                             // C: blocky bores of cream foam, in broken bars across the stream
-      const D = 4;
-      for (let k = 0; k < n / D; k++) {
-        const idx = k * D + u * D;
-        for (let l = -0.9; l <= 0.9; l += 0.075) {
-          if (h2(k, Math.round(l * 4), 72) < 0.5) continue;
-          const [X, Y0] = at(idx + h2(k, Math.round(l * 10), 73) * 1.5, l * hw);
-          if (inR(X, Y0)) { dot(c, X, Y0, "#fbf6e6", 1, 3); dot(c, X, Y0 + 3, "#7a6238", 0.85, 3); dot(c, X + 3, Y0, "#e0d4b0", 0.9, 3); }
-        }
-      }
+    for (let k = 0; k < 16; k++) {
+      const D = n / 8, idx = (h2(k, ri, 80) * n + u * D * (1 + (k & 1))) % n, i0 = Math.floor(idx), a = P[i0], bb = P[(i0 + 1) % n], fr = idx - i0;
+      const lat = (h2(k, ri, 81) - 0.5) * 1.5 * hw, x = a[0] + (bb[0] - a[0]) * fr - a[3] * lat, y = a[1] + (bb[1] - a[1]) * fr + a[2] * lat;
+      const len = 2 + (k % 3);
+      for (let q = 0; q < len; q++) { const X = x + a[2] * q, Y0 = y + a[3] * q; if (inR(X, Y0)) dot(c, X, Y0, q === 0 ? "#f4eedb" : "#d8cca8", 0.85, 1 + (q === 0 ? 1 : 0)); }
     }
   }
 };
@@ -471,33 +455,27 @@ export const compose = (P, key, f, F = 24, opt = {}) => {
 
 const pCenter = (e) => ({ x: e.px * RES, y: e.py * RES, rx: e.rx * RES, ry: e.ry * RES });
 const puddleGround = (c, P, o, key, e, T, f, F, G) => {
-  const { x, y, rx, ry } = pCenter(e), lit = T.d < 0 ? 0 : T.d < 2 ? 1 : clamp(0.78 - (T.d - 2) * 0.075, 0, 1);
-  // dark mirror water
+  const { x, y, rx, ry } = pCenter(e), lit = T.d < 0 ? 0 : T.d < 2 ? 1 : clamp(0.78 - (T.d - 2) * 0.075, 0, 1), shape = blob(e.seed || 3);
+  // dark mirror water, an irregular pool (never a clean ellipse)
   const w = mk(PW, PH), wc = w.getContext("2d");
-  for (let yy = -ry; yy <= ry; yy++) for (let xx = -rx; xx <= rx; xx++) {
-    const d = (xx / rx) ** 2 + (yy / ry) ** 2, jag = 1 - 0.12 * h2((xx >> 2) + 50, (yy >> 1) + 50, 8);
+  for (let yy = -ry * 1.3; yy <= ry * 1.3; yy++) for (let xx = -rx * 1.3; xx <= rx * 1.3; xx++) {
+    const d = Math.sqrt((xx / rx) ** 2 + (yy / ry) ** 2) / shape(Math.atan2(yy / ry, xx / rx)), jag = 1 - 0.1 * h2((xx >> 2) + 50, (yy >> 1) + 50, 8);
     if (d > jag) continue;
-    wc.fillStyle = d > 0.78 ? "#2c3a4a" : yy < -ry * 0.3 ? "#56708c" : "#1d2a3a"; wc.globalAlpha = d > 0.78 ? 0.8 : 0.92;
+    wc.fillStyle = d > 0.8 ? "#2c3a4a" : yy < -ry * 0.3 ? "#56708c" : "#1d2a3a"; wc.globalAlpha = d > 0.8 ? 0.75 : 0.9;
     wc.fillRect(Math.round(x + xx), Math.round(y + yy), 1, 1);
   }
   c.drawImage(w, 0, 0);
   c.save();
-  c.beginPath(); c.ellipse(x, y, rx * 0.97, ry * 0.97, 0, 0, Math.PI * 2); c.clip();
-  if (o.puddle === "glass") {          // A: the pool mirrors the foes standing in it, upside down
+  if (o.puddle === "glass") {          // the pool mirrors the foes standing in it, upside down
     for (const t of e.targets) {
       const cr = cropOf(G.actors, t.b, 1);
-      c.save(); c.globalAlpha = 0.5 * (1 - lit * 0.6); c.translate(0, 2 * t.fy + 2); c.scale(1, -0.9); c.drawImage(cr.c, cr.x, cr.y + (-t.fy * 0.1 / 0.9)); c.restore();
+      c.save(); c.globalAlpha = 0.45 * (1 - lit * 0.6); c.translate(0, 2 * t.fy + 2); c.scale(1, -0.9); c.drawImage(cr.c, cr.x, cr.y + (-t.fy * 0.1 / 0.9)); c.restore();
     }
-    c.globalAlpha = 0.35; c.fillStyle = "#0e1824"; c.fillRect(x - rx, y - ry, rx * 2, ry * 2); c.globalAlpha = 1;
   }
-  if (o.puddle === "joints") {         // C: the flag joints run through the water; they carry the charge
-    for (let yy = -ry; yy <= ry; yy += 12) { const row = Math.round(yy / 12); for (let xx = -rx; xx <= rx; xx++) { if (!(xx & 1) || lit <= 0) continue; if (bay(xx, yy) < lit) dot(c, x + xx, y + yy, T.d < 2 ? Y[0] : Y[2], 0.95); } for (let xx = -rx + (row & 1) * 11; xx <= rx; xx += 22) for (let q = -5; q <= 5; q++) if (lit > 0 && bay(xx, yy + q) < lit) dot(c, x + xx, y + yy + q + 6, Y[2], 0.9); }
-  }
-  rainRings(c, x, y, rx, ry, f, F, e.seed || 3);
-  if (lit > 0) litEllipse(c, x, y, rx, ry, o.puddle === "joints" ? lit * 0.45 : o.puddle === "arcs" ? lit * 0.6 : lit, true, 0.95);
+  rainRings(c, x, y, rx * 0.8, ry * 0.8, f, F, e.seed || 3);
   c.restore();
-  // the rim of the water
-  ring(c, x, y, rx, ry, lit > 0 ? Y[1] : "#8fa6c0", lit > 0 ? 0.9 : 0.5, 1);
+  // lit: a see-through dithered glow in the pool's own shape, the flags showing through; no outline
+  if (lit > 0) litEllipse(c, x, y, rx, ry, o.puddle === "plain" ? lit * 0.7 : lit, true, 0.92, shape);
 };
 const hallStrike = (c, P, o, key, e, T, f, F, G) => {
   const H = e.hall, b = H.b; if (!b) return;
@@ -533,6 +511,10 @@ const hallStrike = (c, P, o, key, e, T, f, F, G) => {
     for (let k = 0; k < 4; k++) { const x0 = b.x + b.w * (0.2 + 0.6 * h2(k, sd, 1)), p = boltPts(x0, b.y + 4, b.x + b.w * (0.1 + 0.8 * h2(k, sd, 2)), b.y + b.h, sd + k * 3, 8, 8, "free"); poly(c, p, [[3, Y[3], 0.22 * s], [1, k & 1 ? Y[1] : Y[0], s]]); }
     ring(c, cx, gy, base * 1.1, base * 0.34, Y[2], 0.7 * s, 1, 3);
   }
+  {
+    const cw = b.w * 0.7, ch = Math.max(14, b.h * 0.32);
+    for (let q = 0; q < 2; q++) { const cb = { x: b.x + b.w * 0.15 + q * cw * 0.5, y: b.y + 2, w: cw * 0.5, h: ch }; stunOver(c, key === "B" ? "B" : "A", { fx: cb.x + cb.w / 2, fy: cb.y + cb.h, b: cb, e: { id: 3 + q } }, f, s * 0.9); }
+  }
   for (let k = 0; k < 7; k++) { const hv = h2(f, k, 5); dot(c, b.x + hv * b.w, b.y + h2(k, f, 6) * b.h * 0.9, Y[(k & 1) ? 0 : 1], s * (0.6 + 0.4 * h2(k, f, 7))); }
 };
 const strokeFx = (c, P, o, key, e, T, f) => {
@@ -546,7 +528,7 @@ const strokeFx = (c, P, o, key, e, T, f) => {
     if (o.bolt === "glass") for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; seg(c, bx, by, bx + Math.cos(a) * 26, by + Math.sin(a) * 13, 1, Y[1], 0.9); }
   }
   // the ground wave of the stroke (the blast ring, in the idea's own way)
-  if (e.type !== "hall" && T.d >= 0 && T.d <= 10) {
+  if (e.type === "open" && T.d >= 0 && T.d <= 10) {
     const p = T.d / 10, R = (e.r || 45) * RES * (0.2 + 0.8 * Math.sqrt(p)), a = 1 - p;
     if (o.bolt === "glass") ring(c, bx, by, R, R * 0.5, Y[2], 0.8 * a, 2);
     else if (o.bolt === "fork") { ring(c, bx, by, R, R * 0.5, Y[3], 0.6 * a, 1, 3); ring(c, bx, by, R * 0.7, R * 0.35, Y[1], 0.8 * a, 1, 5); }
@@ -555,7 +537,7 @@ const strokeFx = (c, P, o, key, e, T, f) => {
   // little arcs hopping from the foot to the stunned (open) or to every body in the puddle (arcs idea)
   if (T.d >= 0 && T.d < 6 && (e.type === "open" || e.type === "puddle")) {
     for (const t of e.targets) {
-      if (o.puddle === "arcs" || e.type === "open") {
+      if (o.arcs || e.type === "open") {
         const p = boltPts(bx, by, t.fx, t.fy - 2, (t.e.id | 0) + T.d * 3, 6, 7, o.bolt === "step" ? "step" : "free");
         poly(c, p, [[3, Y[3], 0.2], [1, T.d < 2 ? Y[0] : Y[1], 0.95]]);
       }
@@ -606,7 +588,9 @@ export const stage = (S) => {
   console.log('stage spots', spots.length, pu && [pu.x | 0, pu.y | 0], op && [op.x | 0, op.y | 0]);
   const puddleFoes = pu && lay(pu, [[-26, 6], [2, -5], [27, 5]], 3);
   const openFoes = op && lay(op, [[-22, 3], [6, -6], [30, 5]], 3, true);
-  return { pu, op, puddleFoes, openFoes, spots };
+  const man = op && g.towers.flatMap((t) => t.units || []).find((u) => u.hp > 0);
+  if (man) { const cx = Math.cos(op.a), cy = Math.sin(op.a); man.x = op.x + cx * -46; man.y = op.y + cy * -46 + 4; }
+  return { pu, op, puddleFoes, openFoes, spots, man };
 };
 export const pickEvents = (S, P, ST, want = ["puddle", "open", "hall"], hallI = null) => {
   const { g } = S, evs = [];
@@ -618,7 +602,7 @@ export const pickEvents = (S, P, ST, want = ["puddle", "open", "hall"], hallI = 
     const { op, openFoes } = ST;
     let sx = op.x, sy = op.y + 30;
     for (const side of [-1, 1]) { const x = op.x - Math.sin(op.a) * 34 * side, y = op.y + Math.cos(op.a) * 34 * side; if (!inRiver(x, y, 6) && x > 40 && x < 700 && y > 60) { sx = x; sy = y; break; } }
-    const ts = openFoes.map((e) => P.tgt(e)).filter(Boolean);
+    const ts = openFoes.concat(ST.man ? [ST.man] : []).map((e) => P.tgt(e)).filter(Boolean);
     // a soldier of the garrison, if one stands on the field, set beside them
     evs.push({ type: "open", at: 3, sx, sy, r: 45, seed: 11, from: [sx + 56, -6], targets: ts });
   }

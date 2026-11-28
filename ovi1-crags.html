@@ -53,7 +53,7 @@
         t.readyAt = 0; t.raised = null;
       }
       for (let i = 0; i < 30; i++) updateGame(g, DT);
-      if (!SHEET && !LOOP) { startWave(g); let el = 0; while (el < 3) { updateGame(g, DT); el += DT; g.lives = 9999; if (g.phase !== "combat") startWave(g); } }
+      if (!SHEET) { startWave(g); let el = 0; while (el < 3) { updateGame(g, DT); el += DT; g.lives = 9999; if (g.phase !== "combat") startWave(g); } }
       g.shake = 0; g.effects = g.effects.filter((e) => e.type !== "dust");
       const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
       draw(g, cv, { current: null }); draw(g, cv, { current: null });

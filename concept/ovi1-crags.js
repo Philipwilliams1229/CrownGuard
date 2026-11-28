@@ -8,6 +8,7 @@ import { Pix, mat, flat, toCanvas } from "../src/render/pix/pix.js";
 import { DAY } from "../src/data/sun.js";
 import { nearestOnPath, posAt, angleAt, TOTAL_LEN } from "../src/engine/path.js";
 
+const seedOf = (v) => Math.round(v * 7) + 11;
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const rng = (seed) => { let s = (seed * 2654435761) >>> 0 || 1; return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296); };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -84,7 +85,7 @@ const M = {
   tor: mat("#7e7a74", { contrast: 1.35 }), torD: mat("#615e5c", { contrast: 1.3 }),
   grit: mat("#86857e", { contrast: 1.3 }), gritD: mat("#64636a", { contrast: 1.25 }),
   slate: mat("#666a76", { contrast: 1.25 }), slateD: mat("#4e525e", { contrast: 1.2 }), cut: mat("#747884", { contrast: 1.05 }),
-  pal: mat("#b6b2aa", { contrast: 1.3 }), palD: mat("#8c8a8c", { contrast: 1.25 }),
+  pal: mat("#b8b4ac", { contrast: 1.25 }), palB: mat("#787880", { contrast: 1.2 }), palD: mat("#62626c", { contrast: 1.2 }),
   moss: mat("#6a7a36"), mossD: mat("#566428"),
   lichG: mat("#a8b090"), lichY: mat("#c4b048"), lichR: mat("#b0643a"),
   heath: mat("#7a4c7a"), heathL: mat("#a8689a"), heathD: mat("#5a3a5c"),
@@ -100,9 +101,9 @@ const block = (px, xl, xr, y0, h, d, fam, mt, topM, z, R, o = {}) => {
   const b = Math.max(1, Math.min(tor ? 26 : cut ? 1.5 : 8, w * (tor ? 0.42 : cut ? 0.05 : 0.2), h * (tor ? 0.62 : 0.5)));
   const yt = y0 - h, back = yt - d, ins = tor ? w * 0.1 : w * 0.04;
   const top = [[xl + b * 0.6, yt + 0.5], [xr - b * 0.6, yt + 0.5], [xr - ins - b * 0.3, back + b * 0.6], [xr - ins - b * 1.2, back], [xl + ins + b * 1.2, back], [xl + ins + b * 0.3, back + b * 0.6]];
-  px.part().poly(top, topM, z, { round: tor ? 0.55 : 0.2, ny: tor ? -0.42 : -0.6 });
+  px.part().poly(top, topM, z, { round: tor ? 0.25 : 0.2, ny: tor ? -0.5 : -0.6 });
   // the south face: rounded shoulders drawn as arcs, the sides lightly ragged, the top a touch narrower than the foot (a bun, not a box)
-  const sf = [], rb = cut ? b : b * 1.0, rbb = cut ? b * 0.7 : Math.min(b * 0.45, h * 0.3), tp = tor ? Math.min(w * 0.04, 3) : 0, jg = () => (cut ? 0 : (R() - 0.5) * (tor ? 1.8 : 1.2));
+  const sf = [], rb = cut ? b : tor ? Math.min(b * 0.4, 5) : b, rbb = cut ? b * 0.7 : Math.min(b * 0.45, h * 0.3), tp = tor ? Math.min(w * 0.04, 3) : 0, jg = () => (cut ? 0 : (R() - 0.5) * (tor ? 1.8 : 1.2));
   const arc = (cx, cy, r, a0, a1, k) => { const n = cut ? 1 : 4; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * (i / n); sf.push([cx + Math.cos(a) * r * (k ?? 1) + jg() * 0.4, cy + Math.sin(a) * r + jg() * 0.4]); } };
   arc(xl + tp + rb, yt + rb, rb, Math.PI, 1.5 * Math.PI);
   arc(xr - tp - rb, yt + rb, rb, 1.5 * Math.PI, 2 * Math.PI);
@@ -132,10 +133,11 @@ const block = (px, xl, xr, y0, h, d, fam, mt, topM, z, R, o = {}) => {
     }
     for (let k = 0; k < w / 14; k++) { const x = xl + w * (0.2 + R() * 0.6); px.toneLine(x, yt - 1, x + 2 + R() * 3, back + 1, -1); }
   } else {
-    const jy = yt + h * (0.35 + R() * 0.3);
-    for (let x = xl + 2; x < xr - 2; x++) px.tone(x, jy + Math.sin((x - xl) / w * Math.PI) * 1.5, -1);
-    for (let k = 0; k < Math.max(1, w / 22); k++) { const vx = xl + w * (0.25 + R() * 0.5); px.toneLine(vx, yt + 1, vx + (R() - 0.5) * 2, jy, -1); }
-    for (let k = 0; k < w * h / 7; k++) px.tone(xl + R() * w, yt + R() * h, R() > 0.5 ? 1 : -1);
+    // ONE bedding crack and ONE vertical joint per loaf (ragged, each with a lit lip), a little speckle
+    const jy = yt + h * (0.38 + R() * 0.3), vx = xl + w * (0.25 + R() * 0.5);
+    for (let x = xl + 2; x < xr - 2; x++) { const yy = Math.round(jy + Math.sin((x - xl) * 0.5) * 0.8 + (hash(x, seedOf(xl)) - 0.5) * 1.4); px.tone(x, yy, -1); if (x % 3 !== 0) px.tone(x, yy - 1, 1); }
+    for (let y = yt + 2; y < y0 - 1; y++) { const xx = Math.round(vx + (hash(y, 3) - 0.5) * 1.6); px.tone(xx, y, -1); if (y % 2) px.tone(xx - 1, y, 1); }
+    for (let k = 0; k < w * h / 16; k++) px.tone(xl + R() * w, yt + R() * h, R() > 0.5 ? 1 : -1);
   }
   for (let k = 0; k < w * (h + d) / 30; k++) px.tone(xl + R() * w, back + R() * (h + d), R() > 0.6 ? 1 : -1);
   if (o.moss !== false && w > 11) {
@@ -164,8 +166,9 @@ export const rockMass = (s, fam = "tor", seed = 1, o = {}) => {
   const m1 = o.pale ? M.pal : fam === "tor" ? M.tor : fam === "slate" ? M.slate : M.grit, m2 = o.pale ? M.palD : fam === "tor" ? M.torD : fam === "slate" ? M.slateD : M.gritD, topM = fam === "slate" ? M.cut : m1;
   const spr = sprite(s * 1.35 + 30, s * 1.1 + 44, (px) => {
     const H = (tor ? 0.34 : 0.26) * (o.tall ?? 1), Dp = tor ? 0.22 : 0.25, blocks = [];
-    const J = () => 0.85 + R() * 0.3;
-    if (tor && s >= 26) {
+    const J = () => 0.7 + R() * 0.6;
+    if (o.single) { const a = s * 0.62, c0 = -s * 0.5; blocks.push([c0, c0 + a, 0, s * 0.2 * J(), s * 0.2, 3]); blocks.push([c0 + s * 0.3, c0 + s * 0.3 + s * 0.7, -s * 0.05, s * 0.3 * J(), s * 0.22, 3.2]); if (s > 30) blocks.push([c0 + s * 0.15, c0 + s * 0.15 + s * 0.4, 2, s * 0.1 * J(), s * 0.12, 3.5]); }
+    else if (tor && s >= 26) {
       // a woolpack ridge: loaves of unequal height side by side (the tallest set back), one more loaf riding the tallest, never a pyramid
       const bd = s * 0.2, big = s >= 60, jx = () => (R() - 0.5) * s * 0.05;
       blocks.push([-s * 0.58 + jx(), s * 0.08 + jx(), 0, s * 0.17 * J(), bd, 3]);
@@ -188,7 +191,7 @@ export const rockMass = (s, fam = "tor", seed = 1, o = {}) => {
     }
     blocks.sort((a, b) => a[5] - b[5]);
     const tops = [];
-    blocks.forEach(([xl, xr, y0, h, d, z], i) => { const r = block(px, xl, xr, y0, h, d, fam, tor ? (i % 3 === 1 ? m2 : m1) : m2, tor ? (i % 3 === 1 ? m2 : m1) : topM, z + i * 0.01, R, o); tops.push([(xl + xr) / 2, r.back + d * 0.5, xr - xl]); });
+    blocks.forEach(([xl, xr, y0, h, d, z], i) => { const r = block(px, xl, xr, y0, h, d, fam, o.pale ? (i % 2 ? M.palD : M.palB) : tor ? (i % 3 === 1 ? m2 : m1) : m2, o.pale ? M.pal : tor ? (i % 3 === 1 ? m2 : m1) : topM, z + i * 0.01, R, o); tops.push([(xl + xr) / 2, r.back + d * 0.5, xr - xl]); });
     // the cap: heather and bracken on the top planes, moorland growing on the rock
     if (o.cap) for (const [cx, cy, w] of tops) {
       for (let k = 0; k < w / 7; k++) { const x = cx + (R() - 0.5) * w * 0.7, y = cy + (R() - 0.5) * 3; px.part().ellipse(x, y, 2 + R() * 2.4, 1.2 + R() * 0.8, R() > 0.5 ? M.heath : M.heathD, 9, { round: 0.7 }); if (R() > 0.4) px.dot(x + (R() - 0.5) * 3, y - 1.5, M.heathL, 9.3); }
@@ -294,6 +297,37 @@ export const drift = (ctx, cx, cy, rx, ry, kind, seed, k = 1, k2 = null) => {
     const c = cols2 && n2 > 0.62 ? cols2 : cols;
     px1(ctx, cx + i, cy + j, c[(n * 10 | 0) % 5]);
     if (hash(i, j + seed) > 0.8) px1(ctx, cx + i, cy + j - 1, c[(n * 7 | 0) % 5]);
+  }
+};
+// the shrub carpet: solid low clumps, each with a dark base row, a crimson body and a lit top, olive clumps between
+let S_CROP = [0, 0];
+export const shrubDrift = (ctx, cx, cy, rx, ry, seed, n) => {
+  const R = rng(seed), cl = [];
+  n = Math.round(rx * ry * 2.6 / 60); for (let k = 0; k < n; k++) { const a = R() * 6.283, r = Math.sqrt(R()); { const qx = cx + Math.cos(a) * r * rx, qy = cy + Math.sin(a) * r * ry; if (nearestOnPath(S_CROP[0] + qx / 2, S_CROP[1] + qy / 2).d < PATH_HALF + 5) continue; cl.push([qx, qy, 9 + Math.floor(R() * 9), 5 + Math.floor(R() * 4), R() < 0.2]); } }
+  cl.sort((p, q) => p[1] - q[1]);
+  for (const [x, y, w, h, olive] of cl) {
+    const body = olive ? ["#4c5a28", "#62722f", "#78883a"] : ["#4e1628", "#6e2234", "#8a3440"];
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const u = (i + 0.5) / w * 2 - 1, v = (j + 0.5) / h * 2 - 1, e = (u * u * 0.9 + v * v * 1.1) + (hash(i + x | 0, j + y | 0) - 0.5) * 0.35;
+      if (e > 1) continue;
+      const lit = (j < h * 0.4 && i < w * 0.7), c = j >= h - 1 ? "#2c0e1e" : lit && hash(i, j + x) > 0.35 ? body[2] : body[1];
+      px1(ctx, Math.round(x - w / 2 + i), Math.round(y - h + j), warm(olive && j >= h - 1 ? "#34401c" : c));
+    }
+  }
+};
+// a dry gravel band of width w along a polyline (canvas px), ragged edges, pale and grey stones
+export const gravelBand = (ctx, pts, w, seed) => {
+  const cols = ["#a8a49a", "#8e8a82", "#bcb8ae", "#76726c", "#9a968e"].map(warm);
+  for (let k = 0; k + 1 < pts.length; k++) {
+    const [ax, ay] = pts[k], [bx, by] = pts[k + 1], n = Math.ceil(Math.hypot(bx - ax, by - ay));
+    for (let t = 0; t <= n; t++) {
+      const x = lerp(ax, bx, t / n), y = lerp(ay, by, t / n), ww = w * (0.8 + 0.4 * Math.sin(t * 0.07 + k + seed));
+      for (let j = -ww / 2; j <= ww / 2; j++) {
+        if (Math.abs(j) > ww * 0.35 && hash(t + k * 300, j + seed) > 0.55) continue;
+        const hh = hash(Math.round(x), Math.round(y + j) + seed);
+        px1(ctx, Math.round(x), Math.round(y + j), cols[(hh * 5) | 0]); px1(ctx, Math.round(x) + 1, Math.round(y + j), cols[(hh * 7 | 0) % 5]);
+      }
+    }
   }
 };
 // trodden bare earth / scree round a rock: stones on turf
@@ -418,18 +452,18 @@ export const verge = (S, seed, n, dressedToo = false) => {
 
 // a puddle on the flags: sky in a dark rim, a lighter band across its middle, glints and a slow ripple (live)
 export const puddle = (S, lx, ly, rx, ry, phase = 0) => {
-  const [cx, cy] = S.P(lx, ly), sky = warm(DAY.id === "golden" ? "#c8a890" : "#8ea4b4"), skyL = warm(DAY.id === "golden" ? "#f0d0a0" : "#c4d4dc"), rim = "#3a3844";
+  const [cx, cy] = S.P(lx, ly), sky = DAY.id === "golden" ? "#8a8fa0" : "#8ea4b4", skyL = DAY.id === "golden" ? "#b8bcc6" : "#c4d4dc", rim = "#4a4854";
   S.onGround((ctx) => {
-    for (let j = -ry - 1; j <= ry + 1; j++) for (let i = -rx - 1; i <= rx + 1; i++) {
-      const d = Math.hypot(i / rx, j / ry) + (hash(i + lx, j + ly) - 0.5) * 0.28;
+    for (let j = -ry - 2; j <= ry + 2; j++) for (let i = -rx - 3; i <= rx + 3; i++) {
+      const a = Math.atan2(j / ry, i / rx), lob = 1 + 0.22 * Math.sin(a * 3 + lx) + 0.14 * Math.sin(a * 5 + ly), d = Math.hypot(i / rx, j / ry) / lob + (hash(i + lx, j + ly) - 0.5) * 0.3;
       if (d > 1) continue;
-      px1(ctx, cx + i, cy + j, d > 0.82 ? rim : (j < -ry * 0.2 ? skyL : sky));
+      px1(ctx, cx + i, cy + j, d > 0.86 ? rim : (j < -ry * 0.25 && d < 0.7 ? skyL : sky));
     }
   });
   S.live.push((ctx, t) => {
-    const u = (t + phase) % 1, r = u * 0.95;
-    for (let a = 0; a < 6.283; a += 0.12) { const x = Math.round(cx + Math.cos(a) * rx * r * 0.8), y = Math.round(cy + Math.sin(a) * ry * r * 0.8); if (Math.hypot((x - cx) / rx, (y - cy) / ry) < 0.8) px1(ctx, x, y, skyL); }
-    const g = Math.floor(t * 3 + phase * 7) % 3; px1(ctx, cx - Math.round(rx * 0.4) + g * 2, cy - Math.round(ry * 0.3), "#ffffff");
+    const u = (t + phase) % 1, r = u * 0.9;
+    for (let a = 0; a < 6.283; a += 0.14) { const x = Math.round(cx + Math.cos(a) * rx * r * 0.75), y = Math.round(cy + Math.sin(a) * ry * r * 0.75); px1(ctx, x, y, skyL); }
+    const g = Math.floor(t * 3 + phase * 7) % 3; px1(ctx, cx - Math.round(rx * 0.4) + g * 2, cy - Math.round(ry * 0.3), "#e8ecf2");
   });
 };
 
@@ -466,12 +500,12 @@ export const SCENES = {
   greyhelm: {
     realm: "greyhelm", faction: "iron", crop: [60, 170], sun: "afternoon", halls: [["archer", 205, 205, 2], ["knight", 400, 300, 2]],
     // big: [x, y, size] ... , mid, small are auto-chosen in clear grass
-    land: [[112, 250, 190], [372, 112, 150]], wall: [100, 162, 80, 34], run: [[30, 150], [150, 196], [205, 262]],
+    land: [[112, 250, 190], [372, 112, 150]], edge: [34, 130, 276], wall: [100, 162, 80, 34], run: [[30, 150], [150, 196], [205, 262]],
     zoneBox: [[0, 0, 420, 280]],
   },
   blackcliff: {
     realm: "blackcliff", faction: "iron", crop: [10, 235], sun: "golden", halls: [["archer", 205, 120, 2], ["knight", 360, 235, 2]],
-    land: [[75, 228, 190], [262, 247, 140]], wall: [190, 168, 80, 34], run: [[140, 140], [200, 205], [165, 272]],
+    land: [[75, 228, 190], [262, 247, 140]], edge: [104, 20, 270], wall: [190, 168, 80, 34], run: [[140, 140], [200, 205], [165, 272]],
     zoneBox: [[0, 0, 420, 280]],
   },
 };
@@ -488,60 +522,50 @@ const clearSpots = (sc, towers, seed, n, rad, taken) => {
   return out;
 };
 
-// each option composes the SAME places (so they compare): two landmarks, a mid group, a scatter
+// the road is the same in every option: today's flags worn and patched, weeds in the joints, kerbstones and loose stones at the verge, two puddles
+const roadAll = (S) => {
+  S.onGround((c) => { patchRoad(c, S, S.mask, 8, 5, "fresh"); wearRoad(c, S, S.mask, 9, 1.1); });
+  verge(S, 140, 14, true);
+  roadPuddle(S, 14, -16, 7, 18, 5, 0.1); roadPuddle(S, 15, 12, -4, 15, 5, 0.55);
+};
 const compose = (S, opt, towers, o = {}) => {
-  const sc = S.sc, L = sc.land, seed = o.seed ?? 1;
-  const lm = L.map(([x, y, s]) => [x, y, s / 4]);   // radius in board units: a landmark of s art px spans s/2 units
+  const sc = S.sc, L = sc.land, seed = o.seed ?? 1, R = rng(seed + 100);
+  const lm = L.map(([x, y, s]) => [x, y, s / 4]);
   const mids = clearSpots(sc, towers, 11 + seed, 5, 14, lm);
   const smalls = clearSpots(sc, towers, 31 + seed, 12, 6, [...lm, ...mids]);
-  const R = rng(seed + 100);
-  const mask = S.mask;
+  S_CROP = sc.crop;
+  const shrubAt = (x, y, rx, ry, sd, n) => S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy, rx * 2, ry * 2, "olive", sd, 0.5); shrubDrift(c, gx, gy, rx * 2, ry * 2, sd, n); });
   if (opt === "A") {
-    // A, THE TORS: woolpack stacks of rounded granite standing out of the moor, heather and bracken on and round them
-    L.forEach(([x, y, s], i) => {
-      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 4, Math.round(s * 0.85), Math.round(s * 0.34), "crimson", 3 + i, 0.95, "olive"); scatter(c, gx, gy + 3, s * 0.7, s * 0.18, 5 + i, ["#8a8478", "#6e6a62", "#a09a8c"]); });
-      S.add(rockMass(s, "tor", 31 + i * 7, { pale: true, cap: false, heath: 0, pebbles: 5 }), x, y);
-    });
-    mids.forEach(([x, y], i) => {
-      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 2, 26, 9, i % 2 ? "olive" : "crimson", 20 + i, 1, "crimson"); });
-      S.add(rockMass(Math.round(34 + R() * 22), "tor", 50 + i, { pale: true, cap: false, heath: 0, pebbles: 3 }), x, y);
-    });
+    // A, THE TORS: pale-topped grey granite ridges, flat tops, one joint and one crack a loaf; shrub in three drifts; a gravel stream bed with big boulders
+    const pts = sc.run || [];
+    S.onGround((c) => gravelBand(c, pts.map(([x, y]) => S.P(x, y)), 26, 4));
+    shrubAt(L[0][0] + 24, L[0][1] + 10, 54, 11, 7, 26); shrubAt(L[1][0] - 10, L[1][1] + 10, 46, 10, 9, 20); shrubAt(mids[0] ? mids[0][0] : 200, mids[0] ? mids[0][1] + 6 : 150, 34, 8, 12, 14);
+    L.forEach(([x, y, s], i) => S.add(rockMass(s, "tor", 31 + i * 7, { pale: true, cap: false, heath: 0, pebbles: 5 }), x, y));
+    mids.forEach(([x, y], i) => S.add(rockMass(Math.round(34 + R() * 24), "tor", 50 + i, { pale: true, cap: false, heath: 0, pebbles: 3 }), x, y));
     smalls.forEach(([x, y], i) => S.add(rockMass(7 + Math.floor(R() * 9), "tor", 80 + i, { pale: true, skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
-    S.onGround((c) => { for (let i = 0; i < 7; i++) { const [gx, gy] = S.P(40 + R() * 340, 20 + R() * 240); if (nearestOnPath(sc.crop[0] + (gx / 2 - sc.crop[0]), sc.crop[1] + (gy / 2 - sc.crop[1])).d > PATH_HALF + 20) drift(c, gx, gy, 16 + (R() * 20 | 0), 6 + (R() * 6 | 0), ["crimson", "olive", "crimson"][i % 3], 40 + i, 0.95, "olive"); } });
-    L.forEach(([x, y, s], i) => { tuftBed(S, x, y + 4, s * 0.45, 5, "bracken", 6, 200 + i); tuftBed(S, x, y + 5, s * 0.42, 4, "bracken", 5, 220 + i); tuftBed(S, x, y + 5, s * 0.4, 4, "straw", 6, 260 + i); });
-    mids.forEach(([x, y], i) => { tuftBed(S, x, y + 3, 16, 4, i % 2 ? "bracken" : "heather", 4, 300 + i); tuftBed(S, x, y + 4, 14, 3, "straw", 3, 340 + i); });
-    // the dry stream bed of the reference: pale boulders tumbled in a run, gravel between, the red shrub right up to them
-    { const pts = sc.run || [], rr = rng(77); S.onGround((c) => { for (let k = 0; k + 1 < pts.length; k++) for (let t = 0; t < 1; t += 0.04) { const [gx, gy] = S.P(lerp(pts[k][0], pts[k + 1][0], t), lerp(pts[k][1], pts[k + 1][1], t)); scatter(c, gx, gy, 20, 7, 300 + k * 50 + (t * 25 | 0), ["#b8b4ac", "#9a968e", "#d0ccc2", "#7e7a74"]); } });
-      for (let k = 0; k + 1 < pts.length; k++) for (let t = 0; t < 1; t += 0.11) { const x = lerp(pts[k][0], pts[k + 1][0], t) + (rr() - 0.5) * 16, y = lerp(pts[k][1], pts[k + 1][1], t) + (rr() - 0.5) * 8; if (nearestOnPath(sc.crop[0] + x, sc.crop[1] + y).d < PATH_HALF + 12) continue; S.add(rockMass(Math.round(8 + rr() * rr() * 40), "tor", 600 + ((x + y) | 0), { pale: true, cap: false, skirt: rr() > 0.5, moss: false, pebbles: 2 }), x, y, { shade: 0.7 }); } }
-    S.onGround((c) => { patchRoad(c, S, mask, 5, 4, "fresh"); wearRoad(c, S, mask, 6, 0.8); });
-    roadPuddle(S, 5, -14, 6, 17, 5, 0.1);
+    const rr = rng(77);
+    for (let k = 0; k + 1 < pts.length; k++) for (let t = 0.1; t < 1; t += 0.4) { const x = lerp(pts[k][0], pts[k + 1][0], t) + (rr() - 0.5) * 8, y = lerp(pts[k][1], pts[k + 1][1], t) + (rr() - 0.5) * 4; if (nearestOnPath(sc.crop[0] + x, sc.crop[1] + y).d < PATH_HALF + 14) continue; S.add(rockMass(Math.round(24 + rr() * 26), "tor", 600 + ((x + y) | 0), { pale: true, single: true, moss: false, pebbles: 2 }), x, y, { shade: 0.8 }); }
+    L.forEach(([x, y, s], i) => { tuftBed(S, x, y + 4, s * 0.45, 5, "bracken", 6, 200 + i); tuftBed(S, x, y + 5, s * 0.4, 4, "straw", 6, 260 + i); });
+    roadAll(S);
   } else if (opt === "B") {
-    // B, THE CLIFF EDGE: a long gritstone escarpment with a gully and scree, a lower rock wall, the road kerbed in old stone
-    const [wx, wy, wl, wh] = sc.wall;
-    S.onGround((c) => { const [gx, gy] = S.P(wx, wy); drift(c, gx, gy + 6, wl + 10, 14, "straw", 71, 0.8, "heather"); scatter(c, gx, gy + 7, wl, 11, 9, ["#8a8478", "#6e6a62", "#a09a8c"]); });
-    S.add(cliffWall(wl * 4, wh, 9, { gully: wl * 0.5 }), wx, wy);
-    L.forEach(([x, y, s], i) => {
-      S.onGround((c) => { const [gx, gy] = S.P(x, y); drift(c, gx, gy + 3, Math.round(s * 0.6), Math.round(s * 0.2), "straw", 77 + i, 0.9, "bracken"); scatter(c, gx, gy + 4, s * 0.6, s * 0.14, 12 + i, ["#8a8478", "#6e6a62", "#a09a8c"]); });
-      S.add(rockMass(s, "grit", 61 + i * 5, { cap: true, heath: 3, tall: 0.6 }), x, y);
-    });
-    mids.forEach(([x, y], i) => S.add(rockMass(Math.round(26 + R() * 18), "grit", 90 + i, { cap: i % 2 === 0, heath: 1 }), x, y));
-    smalls.forEach(([x, y], i) => S.add(rockMass(6 + Math.floor(R() * 8), "grit", 120 + i, { skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
-    L.forEach(([x, y, s], i) => { tuftBed(S, x, y + 4, s * 0.4, 4, "straw", 6, 400 + i); });
-    tuftBed(S, wx, wy + 5, wl * 0.9, 3, "bracken", 10, 430); tuftBed(S, wx, wy + 4, wl * 0.9, 3, "straw", 10, 460);
-    S.onGround((c) => { patchRoad(c, S, mask, 8, 5, "fresh"); wearRoad(c, S, mask, 9, 1.1); });
-    verge(S, 140, 14, true);
-    roadPuddle(S, 14, -16, 7, 18, 5, 0.1); roadPuddle(S, 15, 12, -4, 15, 5, 0.55);
+    // B, THE ERRATICS: no stacked tors; single boulders of every size strewn through the shrub carpet, running in loose lines, clumps of shrub between and against them
+    const big = clearSpots(sc, towers, 55 + seed, 7, 16, [...lm.slice(0, 0)]), ev = [...big, ...mids];
+    shrubAt(110, 215, 70, 14, 21, 40); shrubAt(290, 130, 50, 12, 23, 28); shrubAt(250, 250, 56, 10, 25, 30);
+    ev.forEach(([x, y], i) => S.add(rockMass(Math.round(26 + R() * R() * 60), "tor", 700 + i, { pale: true, single: true, moss: i % 3 === 0, pebbles: 3 }), x, y));
+    clearSpots(sc, towers, 91 + seed, 22, 5, ev).forEach(([x, y], i) => S.add(rockMass(5 + Math.floor(R() * 11), "tor", 760 + i, { pale: true, single: true, skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
+    ev.forEach(([x, y], i) => tuftBed(S, x, y + 3, 14, 3, i % 2 ? "bracken" : "straw", 4, 800 + i));
+    roadAll(S);
   } else if (opt === "C") {
-    // C, THE QUARRIED CRAG: dark slate, the east half cut square, dressed blocks and spoil; the road re-laid in slate flags with a dressed kerb
-    L.forEach(([x, y, s], i) => {
-      S.onGround((c) => { const [gx, gy] = S.P(x, y); scatter(c, gx + 8, gy + 6, s * 0.7, s * 0.2, 17 + i, ["#6e727c", "#565a66", "#8a8e98", "#7a6e5c"]); drift(c, gx - 40, gy + 2, 24, 7, "turf", 91 + i, 0.7); });
-      S.add(quarryCrag(s, 41 + i * 9), x, y);
-    });
-    mids.forEach(([x, y], i) => S.add(i % 2 ? quarryCrag(Math.round(50 + R() * 14), 140 + i) : rockMass(Math.round(32 + R() * 18), "slate", 150 + i, { cap: false, heath: 1 }), x, y));
-    smalls.forEach(([x, y], i) => S.add(i % 4 === 0 ? dressed(7 + Math.floor(R() * 7), 170 + i) : rockMass(6 + Math.floor(R() * 8), "slate", 180 + i, { skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
-    L.forEach(([x, y, s], i) => { tuftBed(S, x - s * 0.2, y + 4, s * 0.3, 4, "turf", 5, 500 + i); tuftBed(S, x - s * 0.3, y + 4, s * 0.3, 3, "straw", 4, 520 + i); });
-    S.onGround((c) => { relayRoad(c, S, mask, 3); wearRoad(c, S, mask, 4, 0.4); });
-    roadPuddle(S, 5, -14, 6, 17, 5, 0.3);
+    // C, THE CRAG LINE: a broken line of tors along the wood edge (the backdrop), a few fallen boulders in front, shrub at their foot
+    const [ex, ey0, ey1] = sc.edge, n = 6;
+    shrubAt(ex + 36, (ey0 + ey1) / 2, 30, (ey1 - ey0) / 2 - 20, 31, 46);
+    for (let k = 0; k < n; k++) {
+      const y = lerp(ey0, ey1, (k + 0.5) / n) + (R() - 0.5) * 8, x = ex + (R() - 0.5) * 14;
+      if (k % 3 === 2) continue;   // gaps, so the line breaks
+      S.add(rockMass(Math.round(84 + R() * 40), "tor", 900 + k * 11, { pale: true, cap: false, heath: 0, pebbles: 4 }), x, y);
+    }
+    clearSpots(sc, towers, 71 + seed, 8, 9, [...mids]).filter(([x]) => x < ex + 80).slice(0, 5).forEach(([x, y], i) => S.add(rockMass(Math.round(14 + R() * 16), "tor", 950 + i, { pale: true, single: true, moss: false, pebbles: 2 }), x, y, { shade: 0.7 }));
+    roadAll(S);
   }
 };
 export const buildScene = (ctx, sc, opt, towers, o = {}) => {
@@ -552,4 +576,4 @@ export const buildScene = (ctx, sc, opt, towers, o = {}) => {
 };
 // a puddle on the nearest straight of road to a seed point
 export const roadPuddle = (S, seed, dx, dy, rx, ry, phase) => { const sp = straights(S.sc, seed, 1)[0]; if (sp) puddle(S, sp[0] - S.sc.crop[0] + dx, sp[1] - S.sc.crop[1] + dy, rx, ry, phase); };
-export const LABELS = { A: "A  THE TORS", B: "B  THE CLIFF EDGE", C: "C  THE QUARRIED CRAG", today: "TODAY" };
+export const LABELS = { A: "A  THE TORS", B: "B  THE ERRATICS", C: "C  THE CRAG LINE", today: "TODAY" };
