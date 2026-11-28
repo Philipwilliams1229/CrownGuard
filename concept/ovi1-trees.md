@@ -8,6 +8,22 @@ Nothing under `src/` is touched. The real board is drawn through `draw()` with t
 then: the turf's green pixels re-graded to olive-straw (late autumn), the ground's own purple heather dulled and browned,
 ground cover, cast shadows (`layShadows`), the new trees y-sorted on top.
 
+## PASS 2 (owner's notes and reference photo `art/briefs/ref/iron-autumn-ref.png`)
+Every conifer (spruce, Scots pine) is dark green and dense in every option. Gold LARCH is back, but as its OWN tree: a thin visible
+trunk, many short drooping wispy tufts of gold / green-gold needle on uneven side branches, a ragged narrow spire with sky and ground
+showing through (hand-dotted like the willow's strands, not a tiered cone). New broadleaves for autumn colour: silver birch (kept in the
+painter, unused in the stills), rowan (rust-orange; berries only as 2-3 px clusters), oak (russet-brown, held late), aspen (bright
+yellow, slim column). Thorn: dark twisted boughs, a few small dull-rust leaf flecks, no red clumps. Scots pine: 8 irregular darker
+clumps in layers on an orange-red upper trunk (no flat plate). Ground: the game's purple heather clumps are recoloured to the photo's
+crimson / rust huckleberry carpet (castle excluded), more drifts of my own (`shrub`), pale granite boulders (`boulder`), olive turf between.
+The wood keeps today's mass (80 / 66 / 55% of today's trees by depth, at x1.25 size); only the moor's lone trees are sparse.
+- **A, the photograph**: gold larch mixed through dark spruce and a few Scots pines in the wood and in groves on the moor.
+- **B, mixed wood, glowing edge**: rowan and oak along the wood's edge and on the moor, dark conifers behind, bracken and the carpet.
+- **C, windswept moor**: aspen groves and bent thorns on the weather side, flagged spruce, leaning Scots pines, a low shelter belt.
+Loops (20 frames, 2 s, 10 fps, 520 x 340): `wind_A` (larch through spruce), `wind_B` (rowan / oak / spruce), `wind_C` (aspen, thorn,
+leaning pine, wind x2), `leaves_A` (wind_A plus gold needles drifting from each larch; they vanish on landing). needles_B is gone.
+The sections below describing the old larch, heather and option lines are superseded by this one.
+
 ## The Iron set (late autumn)
 - **Scots pine**: bare dark trunk, ORANGE upper bark, a few flat cloud pads of blue-green needles (airy: many sky holes).
 - **Spruce**: dark narrow tiers (7), blue-green, darker again deeper in the wood (dk 1, 2). `lean` tilts it, `flag` skews the tiers.

@@ -525,7 +525,7 @@ export async function ironWater(opt, env) {
   HFACE.quay = opt === "A" ? 30 : 14; HFACE.cut = opt === "B" ? 32 : 14;
   ST.wall = opt === "A" ? "slate" : "warm";
   // the bridges
-  const defKinds = { A: { 0: "plain", 1: "plain", 2: "plain" }, B: { 0: "plain", 1: "fort", 2: "plain" }, C: { 0: "ruin", 1: "plain", 2: "fort" } }[opt];
+  const defKinds = { A: { 0: "plain", 1: "plain", 2: "plain" }, B: { 0: "plain", 1: "fort", 2: "plain" }, C: { 0: "ruin", 1: "plain", 2: "plain" } }[opt];
   const kinds = { ...defKinds }; const bk = q.get("bk"); if (bk) for (const p of bk.split(",")) { const [i, k] = p.split(":"); kinds[+i] = { plain: "plain", fort: "fort", ruin: "ruin" }[k]; }
   STATE.sp = planSpans(env, kinds);
   const SPR = new Map(); let lastDay = null;
