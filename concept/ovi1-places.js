@@ -340,12 +340,13 @@ export const crane = (o = {}) => mm(`crane|${JSON.stringify(o)}`, () => mkp(2.0,
 export const cutFace = (len = 60, hgt = 14, o = {}) => mm(`cut|${len}|${hgt}|${JSON.stringify(o)}`, () => mkp(2.0, len + 24, hgt + 24, (px) => {
   const R = rng(o.seed ?? 81), st = o.m ?? V.gran2, x0 = -len / 2;
   px.part().poly([[len / 2, 0], [len / 2 + 7, -3], [len / 2 + 7, -hgt - 4], [len / 2, -hgt]], I.ashD, 1.5, { n: F_EAST });
-  px.part().rect(x0, -hgt, len, hgt, st, 2, { n: F_FRONT });
+  const jag = []; for (let x = 0; x <= len; x += 4) jag.push([x0 + x, -hgt + Math.round((R() - 0.5) * 4.5)]);
+  px.part().poly([[x0, 0], ...jag, [x0 + len, 0]], st, 2, { n: F_FRONT });
   coursed(px, x0, -hgt, len, hgt, 6, o.seed ?? 81, 2, { stain: true });
   for (let k = 0; k < len / 3; k++) px.tone(x0 + R() * len, -R() * hgt, R() > 0.5 ? 1 : -1);
   for (let x = x0 + 5; x < x0 + len - 3; x += 7 + Math.floor(R() * 5)) { const y = -hgt * (0.3 + R() * 0.4); px.dot(x, y, V.hole, 2.5); px.dot(x, y + 1.2, V.hole, 2.5); px.toneLine(x + 1, y - 1, x + 1, y + 2, 1); }
-  px.part().poly([[x0, -hgt], [x0 + len, -hgt], [x0 + len + 7, -hgt - 4], [x0 + 6, -hgt - 4]], I.ashL, 2.4, { n: F_TOP });
-  tufts(px, x0 + 2, x0 + len + 6, -hgt - 3.5, R, 1, 4, { every: 3.5, front: 0.3 });
+  px.part().poly([...jag, ...jag.slice().reverse().map(([x, y]) => [x + 6, y - 4])], I.ashL, 2.4, { n: F_TOP });
+  tufts(px, x0 + 2, x0 + len + 4, -hgt - 3.5, R, 1, 4, { every: 3.5, front: 0.3 });
   for (let k = 0; k < len / 4; k++) px.part().ellipse(x0 + R() * (len + 6), -0.5 - R() * 1.5, 1.4 + R() * 2.2, 1 + R() * 1.2, R() > 0.5 ? I.ash : I.ashD, 3, { round: 0.85 });
   if (o.ivy) for (let k = 0; k < 10; k++) px.ellipse(x0 + R() * len, -R() * hgt * 0.8, 2 + R() * 3, 1.5 + R() * 2.5, o.ivy, 3.0, { wrap: true });
 }, 4));

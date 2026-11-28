@@ -15,7 +15,7 @@ the game's own). The Greenwood's approved river painter is used as it stands: it
   the near bank, boulders with foam standing at the foot; dressed stone only for 52 units either side of each bridge. Bridges mixed: plain across, a FORTIFIED up-screen
   span (a battered gatehouse at the north end whose gate arch faces south onto the road), plain across. `bk=0:fort,1:fort,2:ruin` shows the kinds together.
 - **C "the wide river"** (Coldwater, 2.2x wider: 57 and 70 units): a low turf lip with dead reed and rust bracken on the north bank, a stone embankment only along the south bank at
-  the camp, rocks and shoals mid-stream. Three-arch humpbacks (cutwater piers) across, a fortified gatehouse on the third, and the up-screen span RUINED and PATCHED WITH TIMBER
+  the camp, rocks and shoals mid-stream. Three-arch humpbacks (cutwater piers) across, and the up-screen span RUINED and PATCHED WITH TIMBER
   (the centre arch fell: a lower plank deck on raked trestle legs between broken stone ends).
 
 ## The humpback (all kinds)
@@ -52,7 +52,7 @@ The up-the-screen rule is followed: the deck is one battered solid, strips on bo
 - The up-screen deck is a big paved rectangle at board size: the crown is shown by the pitch of the courses, the lit/shaded slopes and the dark vault mouths in the flank strips, and it
   reads only on the zoomed crops, not at zoom 1. A fortified or ruined span reads better than the plain one. NOT solved.
 - The wide river on Coldwater makes the road and bridges read small beside it; the hall footings and the Warden range were not checked on it.
-- The across fortified gatehouse is a short tower beside a lean face; its gate arch shows only as a dark sliver. Looks like a wall; the up-screen gatehouse reads much better.
+- The across-the-screen fortified gatehouse (`bk=0:fort`) reads as a dark leaning slab, so no option uses it: only the up-screen gatehouse (B) is shown. Needs a redraw if the owner wants it across.
 - Bridge stone is flat slate / warm stone from my own ramps, not matched to the paving flags' colours exactly; the sun grades both so it works, but the match is by eye.
 - The Greenwood's meadow, trees and rocks are still drawn under all of it (today's, `b3off=1`): this panel is water and bridges only. Halls on a widened river stand a little in the water.
 - Wet-bank dressing (bollards, boulders, shoals) is static; no ripples around the boulders or wake from the piers except the approved live foam (our pier feet feed `waterlive`).
