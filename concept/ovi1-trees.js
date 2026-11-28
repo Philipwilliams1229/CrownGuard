@@ -220,9 +220,9 @@ const deep = (c, dk) => { if (!dk) return c; const a = hx2(c), b = [34, 62, 52],
 // Concept only: nothing in src/ imports this.
 // ====================================================================================================
 export const IP = {
-  barkLo: "#4a3c36", barkHi: "#a2602f", barkThorn: "#52443a", barkLarch: "#6a4c3a",
-  spruce: ["#2d4b43", "#264238"], pine: ["#37594d", "#2f4f47"],
-  larch: ["#dcae3c", "#c8962f", "#b87a2a"], thorn: ["#a8482c", "#8a3a28", "#c06a30"], haw: "#cc3a2c",
+  barkLo: "#4a3c36", barkHi: "#b4552c", barkThorn: "#3a302e", barkLarch: "#6a4c3a",
+  spruce: ["#2d4b43", "#264238"], pine: ["#2f4d42", "#294539"],
+  larch: ["#dcae3c", "#c8962f", "#b87a2a"], thorn: ["#8a5a38", "#7a4a30", "#9a6a3c"], haw: "#cc3a2c",
 };
 const SPRUCE_T = { ...T4, gaps: 0.12, sky: 0.05, broken: 0.4 };
 
@@ -230,7 +230,7 @@ const SPRUCE_T = { ...T4, gaps: 0.12, sky: 0.05, broken: 0.4 };
 export const IRON = {
   // Scots pine: a tall bare trunk, dark below, ORANGE above, the crown a few flat cloud pads
   scots(k = 1, dk = 0, seed = 3, o = {}) {
-    const T = { ...T4, gaps: 0.22, sky: 0.12 }, V = fillVar(seed), L = (o.lean || 0) * k, side = h2(seed, 8, 4) < 0.5 ? -1 : 1;
+    const T = { ...T4, gaps: 0.3, sky: 0.16, leaf: 2.6 }, V = fillVar(seed), L = (o.lean || 0) * k, side = h2(seed, 8, 4) < 0.5 ? -1 : 1;
     const hgt = (o.tall || 1) * k;
     return sprite(Math.ceil(170 * k + Math.abs(L) * 2), Math.ceil(184 * hgt), 10, T, (P) => {
       const lo = mat(IP.barkLo), hi = mat(IP.barkHi, { contrast: 1.1 }), lf = leafMat(deep(IP.pine[0], dk), { contrast: 1.12 }), lf2 = leafMat(deep(IP.pine[1], dk), { contrast: 1.12 }), un = mat(IP.pine[1]);
@@ -242,10 +242,13 @@ export const IRON = {
       for (const t of tips) bark(P, [[p3[0], p3[1] + 8], t], [2.2 * k, 1.2], hi, 41, { strokes: false });
       const lowT = [p2[0] + side * 22 * k, p2[1] - 8 * k];
       bark(P, [[p2[0], p2[1] + 3], lowT], [2.4 * k, 1.1], lo, 41, { strokes: false });
+      const lw = (n) => (h2(seed, n, 9) - 0.5);
       const M = [
-        { x: tips[0][0], y: tips[0][1] - 4 * k, rx: 26 * k, ry: 10.5 * k, z: 60 }, { x: tips[1][0], y: tips[1][1] - 4 * k, rx: 24 * k, ry: 10 * k, z: 62 },
-        { x: tips[2][0], y: tips[2][1] - 5 * k, rx: 24 * k, ry: 10.5 * k, z: 64 }, { x: lowT[0], y: lowT[1] - 4 * k, rx: 17 * k, ry: 7.5 * k, z: 58 },
-      ].map((m, i) => ({ ...m, m: i % 2 ? lf2 : lf, bias: -Math.min(1, dk), split: 2 }));
+        { x: tips[0][0] - 4 * k, y: tips[0][1] - 2 * k, rx: 17 * k, ry: 9 * k, z: 58 }, { x: tips[0][0] + 12 * k, y: tips[0][1] - 9 * k, rx: 13 * k, ry: 8.5 * k, z: 63 },
+        { x: tips[1][0] + 2 * k, y: tips[1][1] + 1 * k, rx: 18 * k, ry: 9.5 * k, z: 60 }, { x: tips[1][0] - 12 * k, y: tips[1][1] - 8 * k, rx: 12 * k, ry: 8 * k, z: 65 },
+        { x: tips[2][0] + lw(1) * 10 * k, y: tips[2][1] - 6 * k, rx: 16 * k, ry: 10 * k, z: 66 }, { x: tips[2][0] + 14 * k, y: tips[2][1] + 7 * k, rx: 10 * k, ry: 7 * k, z: 62 },
+        { x: lowT[0], y: lowT[1] - 3 * k, rx: 14 * k, ry: 7.5 * k, z: 56 }, { x: lowT[0] - side * 14 * k, y: lowT[1] + 5 * k, rx: 9 * k, ry: 6 * k, z: 54 },
+      ].map((m, i) => ({ ...m, m: i % 2 ? lf2 : lf, bias: -Math.min(1, dk), split: 1 }));
       P.body(0); clothe(P, dressMasses(M, V, k), T, V, seed, un);
     });
   },
@@ -267,7 +270,7 @@ export const IRON = {
   },
   // wind-bent thorn: a twisted trunk leaning with the wind, bare boughs, a few rust leaf clumps, red haws
   thorn(k = 1, dk = 0, seed = 5, o = {}) {
-    const L = (o.lean ?? 24) * k, leafy = o.leafy ?? 0.55, T = { ...T4, gaps: 0.3, sky: 0.22, leaf: 2.6, split: 1 }, V = fillVar(seed), R = rng(seed * 31 + 7);
+    const L = (o.lean ?? 24) * k, leafy = o.leafy ?? 0.32, T = { ...T4, gaps: 0.3, sky: 0.22, leaf: 2.6, split: 1 }, V = fillVar(seed), R = rng(seed * 31 + 7);
     return sprite(Math.ceil(150 * k + Math.abs(L) * 2), Math.ceil(110 * k), 8, T, (P) => {
       const bk = mat(IP.barkThorn), haw = mat(IP.haw, { contrast: 1 }), lm = IP.thorn.map((c) => leafMat(c, { contrast: 1.1 })), un = mat(IP.thorn[1]);
       const f0 = [L * 0.5, -34 * k], pts = [[-2.5 * k + L * 0.12, -13 * k], [3 * k + L * 0.3, -25 * k], f0];
@@ -284,29 +287,67 @@ export const IRON = {
       P.body(0);
       // sparse rust leaf: many SMALL flat clumps strung along the outer boughs (not balls on the tips), riding the sway
       const cl = [];
-      tips.forEach(([x, y], i) => { if (R() < leafy) cl.push({ x: x + (R() - 0.5) * 6 * k, y: y - 1 * k, rx: (4.5 + R() * 3.5) * k, ry: (3 + R() * 2) * k, m: lm[(i + (R() * 3 | 0)) % 3], z: 60 + i, bias: 0, split: 1 }); });
-      bows.forEach(([ax, ay, bx, by], i) => { for (const t of [0.62, 0.8]) if (R() < leafy) cl.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t - 1.5 * k, rx: (4 + R() * 3) * k, ry: (2.8 + R() * 2) * k, m: lm[(i + 1) % 3], z: 50 + i, bias: 0, split: 1 }); });
+      tips.forEach(([x, y], i) => { if (R() < leafy) cl.push({ x: x + (R() - 0.5) * 6 * k, y: y - 1 * k, rx: (3.4 + R() * 2.4) * k, ry: (2.4 + R() * 1.6) * k, m: lm[(i + (R() * 3 | 0)) % 3], z: 60 + i, bias: 0, split: 1 }); });
+      bows.forEach(([ax, ay, bx, by], i) => { for (const t of [0.62, 0.8]) if (R() < leafy) cl.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t - 1.5 * k, rx: (3 + R() * 2.4) * k, ry: (2.2 + R() * 1.4) * k, m: lm[(i + 1) % 3], z: 50 + i, bias: 0, split: 1 }); });
       if (cl.length) clothe(P, dressMasses(cl.slice(0, 16), V, k), { ...T, gaps: 0.1, sky: 0.08, edge: 2.4 }, V, seed, un);
-      for (const [x, y] of tips) if (R() < 0.2) { P.dot(x + Math.round(R() * 4 - 2), y + 2 + Math.round(R() * 3), haw, 90, { n: [-0.3, -0.4, 0.8], noLine: true }); }
     });
   },
-  // larch: a slim cone of soft gold tiers with the trunk showing between, rust at the low skirts
-  larch(k = 1, dk = 0, seed = 11, o = {}) {
-    const T = { ...T4, gaps: 0.34, sky: 0.22, leaf: 2.4, edge: 4.2, broken: 0.5 }, L = (o.lean || 0) * k, n = 10, tall = 114 * k;
-    return sprite(Math.ceil(70 * k + Math.abs(L) * 2), Math.ceil(tall + 20 * k), 8, T, (P) => {
-      const bk = mat(IP.barkLarch), ms = IP.larch.map((c) => leafMat(deep(c, dk * 0.5), { contrast: 1.12 }));
-      P.body(WOOD); trunk(P, [0, 0], 3.4 * k, [[L * 0.1, -30 * k], [L * 0.45, -70 * k], [L * 0.85, -tall + 6 * k]], [2.9 * k, 2.3 * k, 1.4 * k], bk, 40, seed, o.flare ?? 2); P.body(0);
-      for (let i = 0; i < n; i++) {
-        const f = i / (n - 1), hem = -22 * k - tall * 0.78 * (i / n), hw = (21 - 15 * f) * k * (0.72 + h2(i, seed, 2) * 0.5);
-        const top = i === n - 1 ? -tall : hem - hw * 1.05 - 3 * k;
-        const x = L * Math.pow(Math.min(1, -hem / tall), 1.3) + (o.sway || 0) * Math.pow(Math.min(1, -hem / tall), 1.3) + (h2(i, seed, 5) - 0.5) * 9 * k;
-        const m = ms[(h2(i, seed, 9) < 0.28 + f * 0.1 ? 0 : h2(i, seed, 10) < 0.3 ? 2 : 1)];
-        P.part(); crown(P, { tier: 1, x, top, hem, hw, m, z: 40 + i * 6, bias: 0 }, T, seed * 5 + i, sunL());
-      }
+  // ---- the broadleaves (late autumn): the only colour in the Iron wood ----
+  // silver birch: white stems with dark marks, SMALL thinning pale-gold masses
+  birch(k = 1, dk = 0, seed = 5, o = {}) {
+    const T = { ...T4, gaps: 0.32, sky: 0.22, leaf: 2.6, split: 1 }, V = fillVar(seed), SK = skelOf(V, k), L = (o.lean || 0) * k;
+    return sprite(Math.ceil(120 * k + Math.abs(L) * 2), Math.ceil(168 * k), 10, T, (P) => {
+      const bk = mat("#e6e2d4"), mk = mat("#3a3034"), ms = ["#e2c44c", "#d0b048", "#dcc058"].map((c) => leafMat(deep(c, dk * 0.5), { contrast: 1.1 })), un = mat("#b89a3a");
+      const stems = [[-7, 3, -12, 112, -3], [6, 0, 9, 126, 3], [14, 4, 20, 98, 4]];
+      P.body(WOOD);
+      stems.forEach(([x0, y0, x1, h, bend], n) => {
+        const top = SK(x1 * k + L, (y0 - h) * k, n + 1, Math.abs(x1) / 34), mid = SK((x0 + bend) * k + L * 0.4, (y0 - h * 0.5) * k, 0, 0.5);
+        trunk(P, [x0 * k, y0 * k], 2.8 * k, [mid, top], [2.3 * k, 1.1], bk, 40 + y0, seed * 3 + n, 2);
+        for (let t = 0.06; t < 0.85; t += 0.09 + h2(n, t * 100, seed) * 0.08) { const y = y0 * k + (top[1] - y0 * k) * t, x = x0 * k + (top[0] - x0 * k) * t + bend * k * Math.sin(t * Math.PI) * 0.5; P.line(x - 2, y, x + (h2(n, t * 99, 3) > 0.5 ? 1 : 0), y, mk, 41 + y0, { wrap: true }); }
+      });
+      const M = [[-20, -104, 12, 9], [-12, -86, 13, 9], [8, -122, 13, 10], [14, -100, 14, 9.5], [-4, -70, 11, 7], [28, -90, 11, 8], [-26, -76, 9, 6.5]];
+      const MM = dressMasses(M.map(([mx, my, rx, ry], i) => ({ x: mx * k + L * 0.8, y: my * k, rx: rx * k, ry: ry * k, m: ms[i % 3], z: 60 + i * 4, bias: 0, split: 1, noUnder: true })), V, k);
+      P.body(0); clothe(P, MM, T, V, seed, un);
+    });
+  },
+  // rowan: a slim grey trunk, rust-orange masses, berries as 2-3 pixel clusters (never balls)
+  rowan(k = 1, dk = 0, seed = 6, o = {}) {
+    const T = { ...T4, gaps: 0.2, sky: 0.12, leaf: 2.8, split: 1 }, V = fillVar(seed), SK = skelOf(V, k), L = (o.lean || 0) * k, R = rng(seed * 17 + 3);
+    return sprite(Math.ceil(110 * k + Math.abs(L) * 2), Math.ceil(120 * k), 8, T, (P) => {
+      const bk = mat("#6c5c52"), ms = ["#c4622c", "#b0502a", "#d27c36"].map((c) => leafMat(deep(c, dk * 0.4), { contrast: 1.1 })), un = mat("#8a3c26"), brr = mat("#c83a2c", { contrast: 1 });
+      const FK = SK(L * 0.5, -40 * k), BL = SK(-16 * k + L * 0.7, -62 * k, 1, 0.7), BR = SK(16 * k + L * 0.9, -66 * k, 2, 0.8), BT = SK(L * 0.8, -76 * k, 3, 0.3);
+      P.body(WOOD); trunk(P, [0, 0], 4 * k, [SK(-1 * k + L * 0.2, -22 * k), FK], [3.3 * k, 2.8 * k], bk, 40, seed, o.flare ?? 3);
+      for (const t of [BL, BR, BT]) bark(P, [FK, t], [2.2 * k, 1.1], bk, 41, { strokes: false });
+      const M = [[-18, -72, 15, 11], [18, -74, 15, 11], [0, -88, 16, 11], [-4, -62, 13, 8]].map(([x, y, rx, ry], i) => ({ x: x * k + L * 0.85, y: y * k, rx: rx * k, ry: ry * k, m: ms[i % 3], z: 60 + i * 4, bias: 0, split: 1 }));
+      P.body(0); const DM = dressMasses(M, V, k); clothe(P, DM, T, V, seed, un);
+      for (let n = 0; n < 5; n++) { const m = DM[n % DM.length], a = -2.6 + R() * 2.2, x = Math.round(m.x + Math.cos(a) * m.rx * 0.7), y = Math.round(m.y + Math.sin(a) * m.ry * 0.5 + 2); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1]].slice(0, 2 + (n & 1))) P.dot(x + dx, y + dy, brr, 95, { n: [-0.3, -0.4, 0.8], noLine: true }); }
+    });
+  },
+  // oak: a stout trunk and big russet-brown crowns held late (dense, ragged)
+  oak(k = 1, dk = 0, seed = 8, o = {}) {
+    const T = { ...T4, gaps: 0.1, sky: 0.06, leaf: 3, split: 2 }, V = fillVar(seed), SK = skelOf(V, k), L = (o.lean || 0) * k;
+    return sprite(Math.ceil(170 * k + Math.abs(L) * 2), Math.ceil(140 * k), 10, T, (P) => {
+      const bk = mat("#54463a"), ms = ["#8a5c32", "#9c6c38", "#7c4e2c"].map((c) => leafMat(deep(c, dk * 0.4), { contrast: 1.12 })), un = mat("#5a3a22");
+      const FK = SK(L * 0.4, -44 * k);
+      P.body(WOOD); trunk(P, [0, 0], 7 * k, [SK(-1 * k, -24 * k), FK], [6 * k, 5.2 * k], bk, 40, seed, o.flare ?? 0);
+      [[-30, -66], [28, -64], [0, -80]].forEach(([x, y], i) => bark(P, [FK, SK(x * 0.5 * k + L * 0.5, (y + 14) * k, 0, 0.4), SK(x * k + L * 0.8, y * k, i + 1, 0.5)], [4 * k, 2.8 * k, 1.5], bk, 41, { strokes: false, weldRoot: 8 * k }));
+      const M = [[-32, -78, 26, 20], [30, -76, 26, 20], [0, -98, 30, 21], [-2, -66, 22, 13], [-52, -62, 14, 10], [50, -60, 14, 10]].map(([x, y, rx, ry], i) => ({ x: x * k + L * 0.8, y: y * k, rx: rx * k, ry: ry * k, m: ms[i % 3], z: 58 + i * 3, bias: 0 }));
+      P.body(0); clothe(P, dressMasses(M, V, k), T, V, seed, un);
+    });
+  },
+  // aspen: tall, slim, a greenish-white stem and a narrow column of BRIGHT yellow masses (it trembles in the wind loop)
+  aspen(k = 1, dk = 0, seed = 9, o = {}) {
+    const T = { ...T4, gaps: 0.2, sky: 0.16, leaf: 2.6, split: 1 }, V = fillVar(seed), L = (o.lean || 0) * k;
+    return sprite(Math.ceil(90 * k + Math.abs(L) * 2), Math.ceil(168 * k), 8, T, (P) => {
+      const bk = mat("#b4b8a0"), mk = mat("#4a4a40"), ms = ["#f2d646", "#e6c438", "#f8e468"].map((c) => leafMat(c, { contrast: 1.08 })), un = mat("#b89a2c");
+      P.body(WOOD); trunk(P, [0, 0], 3.2 * k, [[L * 0.2, -46 * k], [L * 0.55, -92 * k], [L * 0.9, -128 * k]], [2.6 * k, 2 * k, 1.2], bk, 40, seed, o.flare ?? 1);
+      for (let t = 0.1; t < 0.6; t += 0.11 + h2(seed, t * 100, 3) * 0.06) P.line(-2 + L * 0.6 * t, -128 * k * t, 1 + L * 0.6 * t, -128 * k * t, mk, 41, { wrap: true });
+      const M = [[-4, -64, 12, 12], [6, -84, 12, 13], [-6, -104, 12, 13], [4, -124, 11, 12], [0, -142, 9, 9], [-12, -88, 8, 9], [14, -108, 8, 9]].map(([x, y, rx, ry], i) => ({ x: x * k + L * (0.5 + 0.5 * (-y / 140)), y: y * k, rx: rx * k, ry: ry * k, m: ms[i % 3], z: 60 + i * 3, bias: 0, split: 1, noUnder: true }));
+      P.body(0); clothe(P, dressMasses(M, V, k), T, V, seed, un);
     });
   },
 };
-export const IREACH = { scots: [74, 26], spruce: [54, 22], thorn: [30, 30], larch: [52, 16] };
+export const IREACH = { scots: [74, 26], spruce: [54, 22], thorn: [30, 30], birch: [52, 24], rowan: [40, 22], oak: [44, 34], aspen: [60, 18] };
 
 // ---- ground cover, painted straight onto the canvas in ART px (the caller scales 0.5) ----
 // bracken: rust fronds (short strokes fanned out), lit from the upper left, three tones; wind > 0 combs them right
@@ -338,11 +379,8 @@ export function heather(ctx, px, py, rx, seed, dense = 1) {
     if (r() < 0.4) { ctx.fillStyle = "#b09a4a"; ctx.fillRect(Math.round(cx + (r() - 0.5) * mr), Math.round(cy - mh - 1), 1, 1); }
   }
 }
-// larch needles lying gold on the ground
-export function larchLitter(ctx, px, py, rx, seed) {
+// fallen leaves lying under a broadleaf
+export function leafLitter(ctx, px, py, rx, seed, cols) {
   const r = rng(seed), ry = rx * 0.5;
-  for (let n = 0; n < rx * rx * 0.2; n++) {
-    const a = r() * 6.283, d = Math.pow(r(), 0.7), x = Math.round(px + Math.cos(a) * d * rx), y = Math.round(py + Math.sin(a) * d * ry);
-    ctx.fillStyle = ["#c8962f", "#dcae3c", "#a8742a"][(r() * 3) | 0]; ctx.fillRect(x, y, r() < 0.3 ? 2 : 1, 1);
-  }
+  for (let n = 0; n < rx * rx * 0.2; n++) { const a = r() * 6.283, d = Math.pow(r(), 0.7), x = Math.round(px + Math.cos(a) * d * rx), y = Math.round(py + Math.sin(a) * d * ry); ctx.fillStyle = cols[(r() * cols.length) | 0]; ctx.fillRect(x, y, r() < 0.3 ? 2 : 1, 1); }
 }

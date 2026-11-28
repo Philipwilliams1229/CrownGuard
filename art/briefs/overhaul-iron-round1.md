@@ -18,6 +18,10 @@ Greenwood picks), `art/STYLE-GUIDE.md` (palette, one-pixel tinted line, one sun,
   conifers NEVER change colour ("you made the pines change color and that don't make no sense"): no gold larch;
   autumn colour comes only from NEW broadleaf types (birch, rowan, oak, aspen...). Was: (bare thorn,
   gold larch, rust bracken).
+- OWNER'S REFERENCE (same day, "this is a nice vibe"): `art/briefs/ref/iron-autumn-ref.png`, North Cascades in
+  autumn: gold larches mixed through dark green firs, a carpet of crimson / rust shrubs (huckleberry), pale grey
+  granite boulders in a rocky stream bed. So gold larch IS allowed, but only as its OWN airy, feathery tree,
+  never a dark conifer's silhouette recoloured; dark conifers stay green.
 - Water: Iron's OWN edges (walled stone embankments and quays near camps; rocky gorge banks on the moor) and
   one truly WIDE river somewhere (wider only, never narrower).
 - Bridges: the stone HUMPBACK in three kinds: plain packhorse, fortified with a gate tower, ruined span
