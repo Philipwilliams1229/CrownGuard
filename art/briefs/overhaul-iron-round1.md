@@ -111,3 +111,24 @@ scratchpad `iron-page1/` (index.html + img/); rebuild by converting the same sho
 publish_files (slug + base_version). The owner's picks arrive as comments on it (read_comments).
 After the Fable review (`overhaul-iron-round1-review.md`) every panel had one fix pass; cut options were replaced:
 water B is a granite gorge, places C a stockade, crags B erratics / C a crag line, storm C = A + B's arcs.
+
+## The owner's picks from round 1 (2026-11-28, their words in brackets)
+
+- **Trees:** ONE mixed set: A's yellow larch and the dark pines ("love the yellow from A, and the pines"); B's red
+  rowan ("I like the red ones"), B's brown oak NOT as is ("dont look great. Maybe more orange and they could fit
+  in"); C's yellow aspen and C's tall leaning pines ("look great"). Motion: the strong wind "goes too far"; want
+  DIFFERENT WIND LEVELS FOR DIFFERENT STORM LEVELS. Bug: in strong wind the tall yellow tree's trunk separates
+  from its foliage.
+- **Rivers:** A walled river "looks great", needs care round curves and bridges (the middle bridge on A shows
+  water peeking out at its corners). B gorge "looks great": use BOTH A and B for variety. C wide river liked but
+  its banks need work; it may be REPATHED ("the fork in it feels very unnatural").
+- **Camps:** A's soldiers drilling "cool", A's row of tents not loved. B's camp much better but the tents need
+  work to fit, especially the commander's tent on the right; the wagon "dope", the clothesline liked. C (stockade)
+  "great as a variant".
+- **Beacon:** C (the timber tower in a palisade) is best. **Quarry:** B and C both liked, both need polish
+  (detail on the cranes, an operator, etc.).
+- **Crags and road:** B (erratics) and C (crag line) best, both need polish: the rocks look "weird and two
+  toned"; make them more solid, with fewer visible lines on the faces.
+- **Lightning:** A is best. The PARALYZE: use TODAY's tower shock (the small arcing pieces that bounce round a
+  struck hall, weatherfx.js `hallShocks`), not the round-1 proposals. And the Knight Hall ("the tower for the
+  soldiers") must not be a lightning target.
