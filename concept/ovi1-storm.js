@@ -586,11 +586,11 @@ const feetOf = (e) => [e.x, e.y + e.size * 0.55];
 export const stage = (S) => {
   const { g } = S, foes = g.enemies.filter((e) => e.hp > 0 && !e.flying && e.size);
   const spots = [];
-  for (let d = 0.06 * TOTAL_LEN; d < 0.5 * TOTAL_LEN; d += 5) {
+  for (let d = 0.04 * TOTAL_LEN; d < 0.97 * TOTAL_LEN; d += 5) {
     const [x, y] = posAt(d), a = angleAt(d);
-    if (x < 70 || x > 690 || y < 70 || y > 500 || inRiver(x, y, 12) || underBridge(x, y, 72)) continue;
+    if (x < 60 || x > 655 || y < 60 || y > 500 || [-40, -20, 0, 20, 40].some((o) => inRiver(x + o * 1.2, y + o * 0.4, 14) || inRiver(x + o, y - 30, 14)) || underBridge(x, y, 95)) continue;
     if (Math.abs(Math.sin(angleAt(d - 14) - angleAt(d + 14))) > 0.1 || Math.abs(Math.sin(a)) > 0.22) continue;
-    if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < 46)) continue;
+    if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < 60)) continue;
     const dm = Math.min(...foes.map((e) => Math.hypot(e.x - x, e.y - y)), 999);
     spots.push({ d, x, y, a, dm });
   }
@@ -598,7 +598,8 @@ export const stage = (S) => {
   const used = [], pick = (minApart) => { const s = spots.find((p) => used.every((u) => Math.hypot(u.x - p.x, u.y - p.y) > minApart)); if (s) used.push(s); return s; };
   const pool = [...foes];
   const lay = (spot, offs, n) => pool.splice(0, n).map((e, i) => { const [al, la] = offs[i]; e.x = spot.x + al; e.y = spot.y + la - e.size * 0.55 + 4; return e; });
-  const pu = pick(0), op = pick(130), ha = pick(0);
+  const pu = pick(0), op = pick(120), ha = pick(0);
+  console.log('stage spots', spots.length, pu && [pu.x | 0, pu.y | 0], op && [op.x | 0, op.y | 0]);
   const puddleFoes = pu && lay(pu, [[-26, 6], [2, -5], [27, 5]], 3);
   const openFoes = op && lay(op, [[-22, 3], [6, -6], [30, 5]], 3);
   return { pu, op, puddleFoes, openFoes };

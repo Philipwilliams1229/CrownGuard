@@ -28,7 +28,7 @@
       st(`foes ${S.g.enemies.length} halls ${S.g.towers.map((t) => t.kind + "@" + Math.round(t.x) + "," + Math.round(t.y)).join(" ")}`);
       for (const e of evs) st(`${e.type} strike ${Math.round(e.sx)},${Math.round(e.sy)} targets ${e.targets.map((t) => t.e.type + "@" + Math.round(t.e.x) + "," + Math.round(t.e.y) + " bb" + t.b.w + "x" + t.b.h).join(" ")}${e.px ? " puddle " + Math.round(e.px) + "," + Math.round(e.py) + " rx" + Math.round(e.rx) : ""}`);
       // a view window (board units) round an event, for the crops
-      const view = (e, w, h) => { const x = Math.max(0, Math.min(840 - w, e.sx - w / 2)), y = Math.max(0, Math.min(560 - h, e.sy - h * 0.62)); return [Math.round(x), Math.round(y), w, h]; };
+      const view = (e, w, h, k = 0.62) => { const x = Math.max(0, Math.min(840 - w, e.sx - w / 2)), y = Math.max(0, Math.min(560 - h, e.sy - h * k)); return [Math.round(x), Math.round(y), w, h]; };
       const byType = (t) => evs.find((e) => e.type === t);
       const sub = (type) => ({ ...P, events: P.events.filter((e) => e.type === type) });
       if (job === "probe") {
@@ -39,7 +39,7 @@
       }
       if (job === "stills") {
         const f = Number(q.get("f") || 4), sfx = tag ? "_" + tag : "";
-        const sc = { board: [P, null], puddle: [sub("puddle"), view(byType("puddle"), 230, 154)], open: [sub("open"), view(byType("open"), 230, 154)], hall: [sub("hall"), view(byType("hall"), 230, 154)] };
+        const sc = { board: [P, null], puddle: [sub("puddle"), view(byType("puddle"), 230, 154)], open: [sub("open"), view(byType("open"), 230, 154)], hall: [sub("hall"), view(byType("hall"), 230, 154, 0.38)] };
         const only = (q.get("scenes") || "board,puddle,open,hall").split(",");
         for (const name of only) {
           const [PP, v] = sc[name];
@@ -51,7 +51,7 @@
       }
       if (job === "loops") {
         const F = 24, C = 6, R = F / C, sfx = tag ? "_" + tag : "";
-        const jobs = { open: [sub("open"), view(byType("open"), 240, 160)], puddle: [sub("puddle"), view(byType("puddle"), 240, 160)], hall: [sub("hall"), view(byType("hall"), 240, 160)] };
+        const jobs = { open: [sub("open"), view(byType("open"), 240, 160)], puddle: [sub("puddle"), view(byType("puddle"), 240, 160)], hall: [sub("hall"), view(byType("hall"), 240, 160, 0.38)] };
         for (const name of (q.get("scenes") || "open,puddle,hall").split(",")) {
           const [PP, v] = jobs[name];
           for (const k of OPTS) {

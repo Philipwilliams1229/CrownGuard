@@ -508,7 +508,7 @@ const compose = (S, opt, towers, o = {}) => {
     L.forEach(([x, y, s], i) => { tuftBed(S, x, y + 4, s * 0.45, 5, "heather", 6, 200 + i); tuftBed(S, x, y + 5, s * 0.42, 4, "bracken", 5, 220 + i); tuftBed(S, x, y + 5, s * 0.4, 4, "straw", 6, 260 + i); });
     mids.forEach(([x, y], i) => { tuftBed(S, x, y + 3, 16, 4, i % 2 ? "bracken" : "heather", 4, 300 + i); tuftBed(S, x, y + 4, 14, 3, "straw", 3, 340 + i); });
     S.onGround((c) => { patchRoad(c, S, mask, 5, 4, "fresh"); wearRoad(c, S, mask, 6, 0.8); });
-    roadPuddle(S, 5, -14, 6, 13, 4, 0.1);
+    roadPuddle(S, 5, -14, 6, 17, 5, 0.1);
   } else if (opt === "B") {
     // B, THE CLIFF EDGE: a long gritstone escarpment with a gully and scree, a lower rock wall, the road kerbed in old stone
     const [wx, wy, wl, wh] = sc.wall;
@@ -524,7 +524,7 @@ const compose = (S, opt, towers, o = {}) => {
     tuftBed(S, wx, wy + 5, wl * 0.9, 3, "bracken", 10, 430); tuftBed(S, wx, wy + 4, wl * 0.9, 3, "straw", 10, 460);
     S.onGround((c) => { patchRoad(c, S, mask, 8, 5, "fresh"); wearRoad(c, S, mask, 9, 1.1); });
     verge(S, 140, 14, true);
-    roadPuddle(S, 14, -16, 7, 14, 4, 0.1); roadPuddle(S, 15, 12, -4, 12, 4, 0.55);
+    roadPuddle(S, 14, -16, 7, 18, 5, 0.1); roadPuddle(S, 15, 12, -4, 15, 5, 0.55);
   } else if (opt === "C") {
     // C, THE QUARRIED CRAG: dark slate, the east half cut square, dressed blocks and spoil; the road re-laid in slate flags with a dressed kerb
     L.forEach(([x, y, s], i) => {
@@ -535,7 +535,7 @@ const compose = (S, opt, towers, o = {}) => {
     smalls.forEach(([x, y], i) => S.add(i % 4 === 0 ? dressed(7 + Math.floor(R() * 7), 170 + i) : rockMass(6 + Math.floor(R() * 8), "slate", 180 + i, { skirt: i % 3 === 0, moss: false, pebbles: 1 }), x, y, { shade: 0.6 }));
     L.forEach(([x, y, s], i) => { tuftBed(S, x - s * 0.2, y + 4, s * 0.3, 4, "turf", 5, 500 + i); tuftBed(S, x - s * 0.3, y + 4, s * 0.3, 3, "straw", 4, 520 + i); });
     S.onGround((c) => { relayRoad(c, S, mask, 3); wearRoad(c, S, mask, 4, 0.4); });
-    roadPuddle(S, 5, -14, 6, 13, 4, 0.3);
+    roadPuddle(S, 5, -14, 6, 17, 5, 0.3);
   }
 };
 export const buildScene = (ctx, sc, opt, towers, o = {}) => {

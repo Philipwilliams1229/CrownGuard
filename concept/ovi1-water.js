@@ -257,7 +257,7 @@ function makeSolid(sp) {
     // the gate tower (fortified kind): a block astride the road at one end, the gate a vault through it
     if (sp.tower) {
       const T = sp.tower, tu = u - T.c, tv = v;
-      if (Math.abs(tu) <= T.du / 2 && Math.abs(tv) <= T.dv / 2) {
+      if (Math.abs(tu) <= T.du / 2 + (sp.up ? 0 : 0.4 * Math.max(0, T.h - z)) && Math.abs(tv) <= T.dv / 2 + 0.12 * Math.max(0, T.h - z)) {
         const ga = Math.abs(tv) < T.gw / 2 && z < T.gh - (Math.abs(tv) / (T.gw / 2)) ** 2 * 3.2;   // the gate's arch
         if (z <= 0.5) return 5;                                                                    // the road under it
         if (ga) return 0;
@@ -496,7 +496,7 @@ function planSpans(env, kinds, wideK) {
     for (let a = 0; a < n - 1; a++) piers.push((a - (n - 2) / 2) * (2 * ua + 5));
     const sp = { cx: b.x, cy: b.y, up, U, W: 66, Hc, arches, piers: n > 1 ? piers : null, pierH: 3.4, kind: k, hw, warm: false, top: Hc + 6 };
     if (k === "ruin") { const m = arches[Math.floor(n / 2)]; sp.ruin = { c: m.c, ua: Math.min(m.ua - 3, 15), zt: Hc - 3.2 }; }
-    if (k === "fort") { sp.tower = { c: (up ? -1 : 1) * (U / 2 + 9), du: 17, dv: 54, h: 22, gw: 26, gh: 13 }; sp.top = 22 + 8; }
+    if (k === "fort") { sp.tower = up ? { c: -(U / 2 + 9), du: 17, dv: 54, h: 22, gw: 26, gh: 13 } : { c: U / 2 + 11, du: 22, dv: 44, h: 18, gw: 28, gh: 12 }; sp.top = 22 + 8; }
     out.push(sp);
   });
   return out;
@@ -509,7 +509,7 @@ export async function ironWater(opt, env) {
   for (const n of ["ground", "groundMarks", "owns", "drawDecor", "shadowItem", "shadowExtras", "drawables", "over", "apronGround", "overCastle", "frame"]) OV.register(n, null);
   OV.OVH.flags.hem = true; OV.OVH.flags.butterflies = true; OV.OVH.flags.bridgeCast = false;
   OV.register("key", () => `ovi1${opt}${DAY.id}${id}`);
-  const B = bodies(), wide = opt === "C" ? 2.2 : 1;
+  const B = bodies(), wide = opt === "C" ? 2.2 : 1.25;
   if (wide !== 1) for (const b of B) if (b.type === "river") { for (const sg of b.segs) { sg.hw1 *= wide; sg.hw2 *= wide; } b.hwMax *= wide; const m = (wide - 1) * b.hwMax / wide; b.box = [b.box[0] - m, b.box[1] - m, b.box[2] + m, b.box[3] + m]; }
   // edge plans: one main kind a stretch
   const at = (b) => { const r = probe(b.x, b.y, {}); return { s: r.s, B: r.B }; };

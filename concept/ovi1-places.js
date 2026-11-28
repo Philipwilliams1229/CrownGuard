@@ -36,9 +36,9 @@ const I = {
   ox: mat("#8e3030", { contrast: 1.15 }), oxD: mat("#5c1c24", { contrast: 1.1 }), oxL: mat("#b04a42"),
   can: mat("#d6ccb0", { contrast: 0.9 }), canD: mat("#b4a888", { contrast: 0.9 }), canG: mat("#9fa688", { contrast: 0.9 }), canB: mat("#a08c68", { contrast: 0.9 }), canR: mat("#b88a6a", { contrast: 0.9 }),
   steel: mat("#7c8494", { contrast: 1.1 }), steelD: mat("#4c5262", { contrast: 1.1 }), rust: mat("#8a5a3a", { contrast: 1.1 }), brass: mat("#c09a44", { contrast: 1.1 }),
-  ash: mat("#a8a498", { contrast: 1.2 }), ashD: mat("#7e7a70", { contrast: 1.2 }), ashL: mat("#c4c0b2", { contrast: 1.1 }),
+  ash: mat("#9496a0", { contrast: 1.2 }), ashD: mat("#6a6c78", { contrast: 1.2 }), ashL: mat("#b4b6c0", { contrast: 1.1 }),
   coal: flat("#2a2024"), hot: flat("#e0602a", { emis: true }), slate: mat("#5c606c", { contrast: 1.0 }), slateD: mat("#454952", { contrast: 1.0 }),
-  mud: mat("#5a4632", { contrast: 0.9 }), purple: mat("#8a5a8a"), purpleD: mat("#64426c"), purpleL: flat("#b883b0"), bracken: mat("#a6683a"), water: flat("#3a4a58"),
+  mud: mat("#5a4632", { contrast: 0.9 }), purple: mat("#8a5a8a"), purpleD: mat("#64426c"), purpleL: flat("#b883b0"), bracken: mat("#946238"), water: flat("#3a4a58"),
 };
 const EARTH = ["#6a5a44", "#7a6a50", "#8a7a5c", "#5a4a38"], MUD = ["#4a3a2a", "#5a4632", "#6a5640", "#3a2c20"], FLAG = ["#8c8678", "#a09a8a", "#74705e", "#6a665a"];
 const px1 = (c, x, y, col) => { c.fillStyle = col; c.fillRect(x, y, 1, 1); };
@@ -72,9 +72,9 @@ export const smokeSpr = (ph, h = 44, wind = 1, o = {}) => mm(`smoke|${Math.round
     const p = (n / N + ph) % 1, rad = (2.4 + p * 6) * k, y = oy - p * h, x = ox + wind * p * p * h * 0.55 + Math.sin(p * 6 + n * 2) * 1.4, a = Math.min(1, p * 5) * (1 - p * 0.9) * 1.05;
     for (let j = -Math.ceil(rad); j <= rad; j++) for (let i = -Math.ceil(rad); i <= rad; i++) {
       const d = Math.hypot(i, j * 1.15) / rad; if (d > 1) continue;
-      const q = BAY[((x + i) & 3) + (((y + j) & 3) << 2)] / 16; if (q > a * 1.15) continue;
+      const q = BAY[((x + i) & 3) + (((y + j) & 3) << 2)] / 16; if (q > a * 1.7 + 0.12) continue;
       const lit = (-i * 0.6 - j * 0.8) / rad, s = Math.max(0, Math.min(3, Math.floor((1.1 - lit) * 1.5 + d * 0.9 + (o.dark ?? 0))));
-      const [r, g, b] = GREY[s]; c.fillStyle = `rgb(${r},${g},${b})`; c.fillRect(Math.round(x + i), Math.round(y + j), 1, 1);
+      const [r, g, b] = GREY[Math.min(3, s)]; c.fillStyle = `rgb(${r},${g},${b})`; c.fillRect(Math.round(x + i), Math.round(y + j), 1, 1);
     }
   }
   return { cv, ox, oy };
@@ -338,10 +338,11 @@ export const crane = (o = {}) => mm(`crane|${JSON.stringify(o)}`, () => mkp(2.0,
 }, 3));
 // a quarry's cut face: a vertical wall of dressed courses with drill holes, a lit lip, a return on the east, rubble at the foot
 export const cutFace = (len = 60, hgt = 14, o = {}) => mm(`cut|${len}|${hgt}|${JSON.stringify(o)}`, () => mkp(2.0, len + 24, hgt + 24, (px) => {
-  const R = rng(o.seed ?? 81), st = o.m ?? I.ashD, x0 = -len / 2;
+  const R = rng(o.seed ?? 81), st = o.m ?? V.gran2, x0 = -len / 2;
   px.part().poly([[len / 2, 0], [len / 2 + 7, -3], [len / 2 + 7, -hgt - 4], [len / 2, -hgt]], I.ashD, 1.5, { n: F_EAST });
   px.part().rect(x0, -hgt, len, hgt, st, 2, { n: F_FRONT });
-  coursed(px, x0, -hgt, len, hgt, 5, o.seed ?? 81, 2, { stain: true });
+  coursed(px, x0, -hgt, len, hgt, 6, o.seed ?? 81, 2, { stain: true });
+  for (let k = 0; k < len / 3; k++) px.tone(x0 + R() * len, -R() * hgt, R() > 0.5 ? 1 : -1);
   for (let x = x0 + 5; x < x0 + len - 3; x += 7 + Math.floor(R() * 5)) { const y = -hgt * (0.3 + R() * 0.4); px.dot(x, y, V.hole, 2.5); px.dot(x, y + 1.2, V.hole, 2.5); px.toneLine(x + 1, y - 1, x + 1, y + 2, 1); }
   px.part().poly([[x0, -hgt], [x0 + len, -hgt], [x0 + len + 7, -hgt - 4], [x0 + 6, -hgt - 4]], I.ashL, 2.4, { n: F_TOP });
   tufts(px, x0 + 2, x0 + len + 6, -hgt - 3.5, R, 1, 4, { every: 3.5, front: 0.3 });
@@ -552,7 +553,7 @@ export const OPTIONS = {
     A(S, f) {   // neat benched face, dressed block stacks, a crane, a paved ramp; a squared fort of ashlar, braziers, barrier
       const T = TT(f);
       pit(S, 80, 224, 76, 26, { seed: 3 }); paved(S, 136, 262, 34, 10, 7, 0.06);
-      S.add(cutFace(76, 15, { seed: 3 }), 80, 204); S.add(rockMass(50, "granite", 22, { tall: 1.3 }), 14, 206); S.add(rockMass(44, "granite", 24, { tall: 1.1 }), 154, 204);
+      S.add(cutFace(80, 19, { seed: 3 }), 80, 204); S.add(rockMass(50, "granite", 22, { tall: 1.3 }), 14, 206); S.add(rockMass(44, "granite", 24, { tall: 1.1 }), 154, 204);
       S.add(blocks(6, { seed: 1 }), 52, 250); S.add(blocks(5, { seed: 3 }), 112, 252); S.add(crane({}), 24, 270); S.add(brazierPost(16), 150, 276); flameAt(S, 150, 276 - 15, f, 8, 1, 0.5);
       dirt(S, 330, 250, 130, 26, EARTH, 6, 0.7); S.add(fort({ seed: 3, braziers: true, t: T }), 322, 260); flameAt(S, 322 - 12 * 2.1 / 2, 260 - 12 * 2.1 / 2 - 1, f, 8, 0, 0.5); flameAt(S, 322 + 12 * 2.1 / 2, 260 - 12 * 2.1 / 2 - 1, f, 8, 2, 0.5);
       S.add(barrier({ up: 0.3 }), 236, 276); S.add(standard(T, { h: 30 }), 402, 274);
@@ -560,7 +561,7 @@ export const OPTIONS = {
     B(S, f) {   // working: spoil heaps, carts, rough-cut stone, a lit tent; the drover's inn, muddy yard, hay, lanterns
       const T = TT(f);
       pit(S, 80, 226, 78, 28, { seed: 5 }); mudPatch(S, 96, 262, 70, 14, 4);
-      S.add(cutFace(70, 13, { seed: 5, m: I.ash }), 82, 206); S.add(rockMass(46, "granite", 33), 14, 214);
+      S.add(cutFace(72, 17, { seed: 5 }), 82, 206); S.add(rockMass(46, "granite", 33), 14, 214);
       S.add(spoil(18, { seed: 2 }), 28, 258); S.add(spoil(14, { seed: 5 }), 142, 252); S.add(blocks(7, { seed: 4, tidy: false }), 70, 256); S.add(crane({}), 18, 274);
       S.add(wagon({ seed: 8, bare: true }), 112, 276); S.add(tent(20, 17, { seed: 5, c1: I.canB, patches: 2, lit: true, t: T }), 168, 244);
       mudPatch(S, 330, 256, 100, 28, 8);
@@ -571,7 +572,7 @@ export const OPTIONS = {
     C(S, f) {   // half-abandoned: the pit flooded, the crane down, heather on the spoil; the fort roofless with one lantern; snapped barrier
       const T = TT(f);
       pit(S, 80, 226, 78, 28, { seed: 7, water: true }); heatherGround(S, 150, 256, 150, 30, 5, 0.2);
-      S.add(cutFace(70, 13, { seed: 8, ivy: mat("#4e7a34") }), 82, 206); S.add(rockMass(46, "granite", 43), 14, 214); S.add(rockMass(36, "granite", 45), 156, 212);
+      S.add(cutFace(72, 17, { seed: 8, ivy: mat("#4e7a34") }), 82, 206); S.add(rockMass(46, "granite", 43), 14, 214); S.add(rockMass(36, "granite", 45), 156, 212);
       S.add(spoil(18, { seed: 3, m: I.ash }), 28, 258); S.add(crane({ fallen: true }), 130, 270); S.add(blocks(4, { seed: 7, tidy: false }), 72, 266);
       S.add(heather(9, 5, true), 56, 262); S.add(heather(10, 8), 164, 268); S.add(heather(8, 10, true), 20, 276);
       S.add(fort({ seed: 5, ruin: true, lantern: true, ivy: mat("#4e7a34") }), 320, 262);
