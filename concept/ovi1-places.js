@@ -345,7 +345,7 @@ export const cutFace = (len = 60, hgt = 14, o = {}) => mm(`cut|${len}|${hgt}|${J
   coursed(px, x0, -hgt, len, hgt, 6, o.seed ?? 81, 2, { stain: true });
   for (let k = 0; k < len / 3; k++) px.tone(x0 + R() * len, -R() * hgt, R() > 0.5 ? 1 : -1);
   for (let x = x0 + 5; x < x0 + len - 3; x += 7 + Math.floor(R() * 5)) { const y = -hgt * (0.3 + R() * 0.4); px.dot(x, y, V.hole, 2.5); px.dot(x, y + 1.2, V.hole, 2.5); px.toneLine(x + 1, y - 1, x + 1, y + 2, 1); }
-  px.part().poly([...jag, ...jag.slice().reverse().map(([x, y]) => [x + 6, y - 4])], I.ashL, 2.4, { n: F_TOP });
+  px.part().poly([...jag, ...jag.slice().reverse().map(([x, y]) => [x + 6, y - 4])], I.ash, 2.4, { n: F_TOP });
   tufts(px, x0 + 2, x0 + len + 4, -hgt - 3.5, R, 1, 4, { every: 3.5, front: 0.3 });
   for (let k = 0; k < len / 4; k++) px.part().ellipse(x0 + R() * (len + 6), -0.5 - R() * 1.5, 1.4 + R() * 2.2, 1 + R() * 1.2, R() > 0.5 ? I.ash : I.ashD, 3, { round: 0.85 });
   if (o.ivy) for (let k = 0; k < 10; k++) px.ellipse(x0 + R() * len, -R() * hgt * 0.8, 2 + R() * 3, 1.5 + R() * 2.5, o.ivy, 3.0, { wrap: true });
@@ -544,7 +544,7 @@ export const OPTIONS = {
       const T = TT(f);
       heatherGround(S, 262, 96, 140, 30, 7, 0.22);
       S.add(rockMass(84, "granite", 3, { tall: 1.1 }), 256, 68, { glow: 0 }); S.add(rockMass(50, "granite", 9), 150, 94); S.add(rockMass(44, "granite", 14), 372, 96);
-      S.add(beaconDrum({ seed: 9, h: 21, ruin: true, stone: I.ashD }), 260, 102); flameAt(S, 260, 102 - BT(21), f, 11, 1);
+      S.add(beaconDrum({ seed: 9, h: 21, ruin: true, stone: I.ashD }), 260, 102); flameAt(S, 260, 102 - BT(21), f, 14, 1);
       smokeAt(S, 260, 102 - BT(21) - 4, f, 66, { ph: 0, wind: 1.3, k: 1.2, alpha: 0.55 });
       S.add(woodpile(2), 312, 114); S.add(tent(20, 17, { seed: 3, torn: true, c1: I.canG, moss: true }), 192, 78);
       S.add(heather(10, 4, true), 214, 112); S.add(heather(9, 6), 306, 98); S.add(heather(8, 8, true), 150, 112); S.add(heather(9, 10), 372, 116);
