@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Iron overhaul concept round 1, panel 5 (storm). The painter is concept/ovi1-storm.js; notes in concept/ovi1-storm.md.
+
+    /ovi1-storm.html?job=probe                  one board per idea at the stroke (tmp shots) and the events chosen
+    /ovi1-storm.html?job=stills&sun=noon        .shots/ovi1_storm_<scene>_<today|A|B|C>.png   (scene: board, puddle, hall, open)
+    /ovi1-storm.html?job=loops&opts=A,B,C       .shots/ovi1_anim_storm_<name>_c<c>r<r>_fps12.png + _still.png
+    opts=A,B (default all)  sun=golden  tag=x (suffix for a variant)
+-->
+<html>
+  <head><meta charset="utf-8" /><title>ovi1 storm</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; white-space: pre; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      const M = await import("/concept/ovi1-storm.js");
+      const { RES } = await import("/src/data/constants.js");
+      const q = new URLSearchParams(location.search), job = q.get("job") || "probe", sun = q.get("sun") || "noon", tag = q.get("tag") || "";
+      const OPTS = (q.get("opts") || "A,B,C").split(",");
+      const st = (s) => (document.getElementById("status").textContent += s + "\n");
+      const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+      const save = (name, cv) => fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      const crop = (src, x, y, w, h, z = 1) => { const c = mk(Math.round(w * RES * z), Math.round(h * RES * z)), o = c.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(src, x * RES, y * RES, w * RES, h * RES, 0, 0, c.width, c.height); return c; };
+      const S = M.makeScene({ sun, secs: Number(q.get("secs") || 11) });
+      const ST = M.stage(S);
+      const P = M.prepare(S);
+      const evs = M.pickEvents(S, P, ST);
+      st(`foes ${S.g.enemies.length} halls ${S.g.towers.map((t) => t.kind + "@" + Math.round(t.x) + "," + Math.round(t.y)).join(" ")}`);
+      for (const e of evs) st(`${e.type} strike ${Math.round(e.sx)},${Math.round(e.sy)} targets ${e.targets.map((t) => t.e.type + "@" + Math.round(t.e.x) + "," + Math.round(t.e.y) + " bb" + t.b.w + "x" + t.b.h).join(" ")}${e.px ? " puddle " + Math.round(e.px) + "," + Math.round(e.py) + " rx" + Math.round(e.rx) : ""}`);
+      // a view window (board units) round an event, for the crops
+      const view = (e, w, h) => { const x = Math.max(0, Math.min(840 - w, e.sx - w / 2)), y = Math.max(0, Math.min(560 - h, e.sy - h * 0.62)); return [Math.round(x), Math.round(y), w, h]; };
+      const byType = (t) => evs.find((e) => e.type === t);
+      const sub = (type) => ({ ...P, events: P.events.filter((e) => e.type === type) });
+      if (job === "probe") {
+        const f = Number(q.get("f") || 4);
+        await save(`ovi1_tmp_storm_probe_today`, M.todayFrame(S, P, 120));
+        for (const k of OPTS) await save(`ovi1_tmp_storm_probe_${k}`, M.compose(P, k, f));
+        st("probe saved");
+      }
+      if (job === "stills") {
+        const f = Number(q.get("f") || 4), sfx = tag ? "_" + tag : "";
+        const sc = { board: [P, null], puddle: [sub("puddle"), view(byType("puddle"), 230, 154)], open: [sub("open"), view(byType("open"), 230, 154)], hall: [sub("hall"), view(byType("hall"), 230, 154)] };
+        const only = (q.get("scenes") || "board,puddle,open,hall").split(",");
+        for (const name of only) {
+          const [PP, v] = sc[name];
+          const wrap = (cv) => (v ? crop(cv, v[0], v[1], v[2], v[3], 3) : cv);
+          if (!q.get("notoday")) await save(`ovi1_storm_${name}_today${sfx}`, wrap(M.todayFrame(S, PP, 120)));
+          for (const k of OPTS) await save(`ovi1_storm_${name}_${k}${sfx}`, wrap(M.compose(PP, k, f)));
+          st("saved " + name);
+        }
+      }
+      if (job === "loops") {
+        const F = 24, C = 6, R = F / C, sfx = tag ? "_" + tag : "";
+        const jobs = { open: [sub("open"), view(byType("open"), 240, 160)], puddle: [sub("puddle"), view(byType("puddle"), 240, 160)], hall: [sub("hall"), view(byType("hall"), 240, 160)] };
+        for (const name of (q.get("scenes") || "open,puddle,hall").split(",")) {
+          const [PP, v] = jobs[name];
+          for (const k of OPTS) {
+            const w = v[2] * RES, h = v[3] * RES, sheet = mk(w * C, h * R), o = sheet.getContext("2d");
+            o.imageSmoothingEnabled = false;
+            for (let f = 0; f < F; f++) { const fr = crop(M.compose(PP, k, f, F), v[0], v[1], v[2], v[3], 1); o.drawImage(fr, (f % C) * w, Math.floor(f / C) * h); if (f === 4) await save(`ovi1_anim_storm_${name}_${k}${sfx}_still`, fr); }
+            await save(`ovi1_anim_storm_${name}_${k}${sfx}_c${C}r${R}_fps12`, sheet);
+            st(`saved loop ${name} ${k}`);
+          }
+        }
+      }
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- Iron overhaul concept round 1, panel 1: WATER (painter concept/ovi1-water.js, notes concept/ovi1-water.md).
+  /ovi1-water.html?probe=1
+  /ovi1-water.html?scene=today|A|B|C&sun=afternoon&realm=ironford&x=&y=&w=&h=&save=1&name=<file>
+  Saves .shots/ovi1_water_<name>.png  -->
+<html><head><meta charset="utf-8"><title>ovi1 water</title>
+<style>body{background:#20242c;color:#e8e0c8;font-family:monospace;padding:12px;white-space:pre}canvas{max-width:100%;image-rendering:pixelated;display:block;margin:6px 0}</style></head>
+<body><div id="status">running…</div>
+<script type="module">
+  const q = new URLSearchParams(location.search), st = document.getElementById("status");
+  try {
+    const M = await import("/concept/ovi1-water.js?v=" + Date.now());
+    const r = await M.run(q, document.body);
+    st.textContent = r; document.title = "DONE";
+  } catch (e) { st.textContent = "FAIL " + e.message + "\n" + e.stack; document.title = "FAIL"; console.error(e); }
+</script></body></html>

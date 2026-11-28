@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  Iron overhaul concepts, round 1, panel 3: PLACES (concept/ovi1-places.js, notes concept/ovi1-places.md).
+  The REAL engine and draw() on an Iron board; the board's own decor in the patch (not its trees) is lifted and the
+  option painted over it.
+    /ovi1-places.html?scene=camp|hillsN|hillsS&opt=today|A|B|C&suns=noon,golden&save=1
+    &ovw=1&scenes=hillsN,hillsS     the whole board at 2x (1680 x 1120) with those scenes painted (realm from the first)
+    &loop=1&box=x,y,w,h&cols=6&fps=10&name=<name>   a seamless 24-frame loop of the crop (board units, 2x), saved as a sheet
+  Saves .shots/ovi1_places_<scene>_<opt>[_<sun>].png: a 420 x 280 board patch at 4x (1680 x 1120).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>ovi1 places</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { max-width: 100%; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR } from "/src/data/terrain.js";
+      import { SCENES, paintPlaces, KEEP } from "/concept/ovi1-places.js";
+      const q = new URLSearchParams(location.search);
+      const OVW = q.get("ovw"), LOOP = q.get("loop"), OPT = q.get("opt") || "today";
+      const names = OVW ? (q.get("scenes") || "hillsN,hillsS").split(",") : [q.get("scene") || "camp"];
+      const SC = SCENES[names[0]], SUNS = (q.get("suns") || "noon").split(",");
+      const DT = 1 / 60;
+      setDay(SUNS[0]);
+      selectRealm(SC.realm); selectFaction(SC.faction); setWaveWindow(null); setLevelWeather(null);
+      const inAny = (x, y) => names.some((n) => { const c = SCENES[n].crop; return x > c[0] - 30 && x < c[0] + 450 && y > c[1] - 30 && y < c[1] + 310; });
+      if (OPT !== "today") { const keep = DECOR.filter((d) => d.forest || KEEP.test(d.t) || !inAny(d.x, d.y)); DECOR.length = 0; DECOR.push(...keep); }
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (SC.wave || 6) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, freeplay: true,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      const halls = names.flatMap((n) => SCENES[n].halls);
+      for (const [kd, x, y, lv] of halls) {
+        let spot = null;
+        for (let r = 0; r < 40 && !spot; r += 2) for (let a = 0; a < 6.28 && !spot; a += 0.5) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (buildableAt(g, px, py, kd)) spot = [px, py]; }
+        if (!spot) { console.warn("no spot", kd, x, y); continue; }
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const hold = () => { g.lives = 9999; g.shake = 0; if (g.phase === "build") g.buildUntil = null; };
+      startWave(g); let el = 0; while (el < (SC.at || 10)) { updateGame(g, DT); el += DT; hold(); if (g.phase !== "combat") startWave(g); }
+      g.shake = 0; g.effects = g.effects.filter((e) => e.type !== "dust");
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      const baseAt = (sun) => { setDay(sun); draw(g, cv, { current: null }); draw(g, cv, { current: null }); const b = document.createElement("canvas"); b.width = cv.width; b.height = cv.height; b.getContext("2d").drawImage(cv, 0, 0); return b; };
+      const post = async (name, c) => { if (q.get("save")) await fetch(`/__shot?name=${name}`, { method: "POST", body: c.toDataURL("image/png").slice(22) }); };
+      const saved = [];
+      const paintAll = (ctx, sun, f) => { if (OPT !== "today") for (const n of names) paintPlaces(ctx, SCENES[n], OPT, { mode: sun, frame: f }); };
+      if (LOOP) {
+        const [bx, by, bw, bh] = q.get("box").split(",").map(Number), F = 24, cols = +(q.get("cols") || 6), rows = F / cols, sun = SUNS[0];
+        const base = baseAt(sun), fw = bw * 2, fh = bh * 2;
+        const sheet = document.createElement("canvas"); sheet.width = fw * cols; sheet.height = fh * rows;
+        const s = sheet.getContext("2d"); s.imageSmoothingEnabled = false;
+        const work = document.createElement("canvas"); work.width = cv.width; work.height = cv.height;
+        const w = work.getContext("2d"); w.imageSmoothingEnabled = false;
+        const frames = [];
+        for (let f = 0; f < F; f++) {
+          w.setTransform(1, 0, 0, 1, 0, 0); w.drawImage(base, 0, 0);
+          paintAll(w, sun, f);
+          s.drawImage(work, bx * 2, by * 2, fw, fh, (f % cols) * fw, Math.floor(f / cols) * fh, fw, fh);
+          if (f === 0) { const st = document.createElement("canvas"); st.width = fw; st.height = fh; st.getContext("2d").drawImage(work, bx * 2, by * 2, fw, fh, 0, 0, fw, fh); frames.push(st); }
+        }
+        const nm = q.get("name");
+        await post(`ovi1_anim_places_${nm}_c${cols}r${rows}_fps${q.get("fps") || 10}`, sheet);
+        await post(`ovi1_anim_places_${nm}_still`, frames[0]);
+        document.body.appendChild(sheet); saved.push(nm);
+      } else {
+        for (const sun of SUNS) {
+          const base = baseAt(sun), ctx = cv.getContext("2d");
+          ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(base, 0, 0);
+          paintAll(ctx, sun, 0);
+          let out = cv, nm;
+          if (!OVW) {
+            out = document.createElement("canvas"); out.width = 1680; out.height = 1120;
+            const o = out.getContext("2d"); o.imageSmoothingEnabled = false; const [bx, by] = SC.crop;
+            o.drawImage(cv, bx * 2, by * 2, 840, 560, 0, 0, 1680, 1120);
+            nm = `ovi1_places_${names[0]}_${OPT}${sun !== "noon" ? "_" + sun : ""}`;
+          } else nm = `ovi1_places_ovw_${SC.realm}_${OPT}${sun !== "noon" ? "_" + sun : ""}`;
+          const keep = document.createElement("canvas"); keep.width = out.width; keep.height = out.height; keep.getContext("2d").drawImage(out, 0, 0);
+          document.body.appendChild(keep);
+          await post(nm, keep); saved.push(nm);
+        }
+      }
+      window.__g = g;
+      document.title = "DONE"; document.getElementById("status").textContent = "saved " + saved.join(", ");
+    </script>
+  </body>
+</html>

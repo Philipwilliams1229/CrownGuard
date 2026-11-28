@@ -1,0 +1,136 @@
+<!doctype html>
+<!--
+  Iron overhaul concepts ROUND 1, panel 4: CRAGS (concept/ovi1-crags.js, notes concept/ovi1-crags.md).
+  The REAL engine and draw() on a board; the patch's own crags / heather / walls lifted and the option painted over.
+    /ovi1-crags.html?board=greyhelm|blackcliff&opt=today|A|B|C&sun=<id>&save=1
+    &sheet=1            a close-up sheet of the rock ladder per option (board grass), saves ovi1_crags_sheet_<opt>
+    &loop=heath|road    a playing loop of the option (golden hour): ovi1_anim_crags_<name>_c6r4_fps8.png + _still.png
+    &x=&y=&w=&h=        loop crop in board units (default per loop)
+  Saves .shots/ovi1_crags_<board>_<opt>.png: a 420 x 280 board patch at 4x (1680 x 1120).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>ovi1 crags</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { max-width: 100%; image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { setDay } from "/src/data/sun.js";
+      import { DECOR } from "/src/data/terrain.js";
+      import { SCENES, buildScene, LABELS, rockMass, cliffWall, quarryCrag, dressed } from "/concept/ovi1-crags.js";
+      const q = new URLSearchParams(location.search);
+      const BOARD = q.get("board") || "greyhelm", SC = SCENES[BOARD], OPT = q.get("opt") || "today", SUN = q.get("sun") || SC.sun, LOOP = q.get("loop"), SHEET = q.get("sheet");
+      const DT = 1 / 60, status = (s) => (document.getElementById("status").textContent = s);
+      setDay(SUN);
+      selectRealm(SC.realm);
+      selectFaction(SC.faction);
+      setWaveWindow(null);
+      setLevelWeather(null);
+      const crop = SC.crop, inCrop = (x, y) => x > crop[0] - 30 && x < crop[0] + 450 && y > crop[1] - 30 && y < crop[1] + 310;
+      if (OPT !== "today" || SHEET) {
+        const keep = DECOR.filter((d) => !(/crag|heather|wall|stack|pan/.test(d.t) && inCrop(d.x, d.y)));
+        DECOR.length = 0; DECOR.push(...keep);
+      }
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: 5, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null, freeplay: true, grounds: [],
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (const [kd, lx, ly, lv] of SC.halls) {
+        let spot = null;
+        for (let r = 0; r < 60 && !spot; r += 2) for (let a = 0; a < 6.28 && !spot; a += 0.5) { const px = crop[0] + lx + Math.cos(a) * r, py = crop[1] + ly + Math.sin(a) * r; if (buildableAt(g, px, py, kd)) spot = [px, py]; }
+        if (!spot) { console.warn("no spot", kd); continue; }
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      if (!SHEET && !LOOP) { startWave(g); let el = 0; while (el < 3) { updateGame(g, DT); el += DT; g.lives = 9999; if (g.phase !== "combat") startWave(g); } }
+      g.shake = 0; g.effects = g.effects.filter((e) => e.type !== "dust");
+      const cv = document.createElement("canvas"); cv.width = 1680; cv.height = 1120;
+      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      const base = document.createElement("canvas"); base.width = cv.width; base.height = cv.height; base.getContext("2d").drawImage(cv, 0, 0);
+      const full = document.createElement("canvas"); full.width = cv.width; full.height = cv.height; full.getContext("2d").drawImage(cv, 0, 0);   // the board WITH its halls and foes
+      // the board WITHOUT them: the ground work and rocks are painted on this, then the halls and foes are laid back over it (any pixel that differs from the bare board is theirs)
+      const keepT = g.towers, keepE = g.enemies, keepB = g.bands;
+      g.towers = []; g.enemies = []; g.bands = []; g.projectiles = []; g.effects = [];
+      draw(g, cv, { current: null }); draw(g, cv, { current: null });
+      const bare = document.createElement("canvas"); bare.width = cv.width; bare.height = cv.height; bare.getContext("2d").drawImage(cv, 0, 0);
+      g.towers = keepT; g.enemies = keepE; g.bands = keepB;
+      const ctx = cv.getContext("2d");
+      const layBack = (c) => {   // c holds the painted bare board: put the actors from `full` back on top
+        const W2 = cv.width, H2 = cv.height, a = bare.getContext("2d").getImageData(0, 0, W2, H2).data, f = full.getContext("2d").getImageData(0, 0, W2, H2), fd = f.data, out = c.getImageData(0, 0, W2, H2), od = out.data;
+        for (let i = 0; i < fd.length; i += 4) if (Math.abs(fd[i] - a[i]) + Math.abs(fd[i + 1] - a[i + 1]) + Math.abs(fd[i + 2] - a[i + 2]) > 6) { od[i] = fd[i]; od[i + 1] = fd[i + 1]; od[i + 2] = fd[i + 2]; od[i + 3] = 255; }
+        c.putImageData(out, 0, 0);
+      };
+      const post = (name, c) => fetch(`/__shot?name=${name}`, { method: "POST", body: c.toDataURL("image/png").slice(22) });
+      const tag = (c, x, y, s) => { c.font = "bold 28px monospace"; c.fillStyle = "rgba(20,16,24,0.85)"; c.fillText(s, x + 2, y + 2); c.fillStyle = "#f4ecd8"; c.fillText(s, x, y); };
+      let name;
+      if (SHEET) {
+        // the rock ladder per option, on the board's own grass (a tiled patch): 4 / 8 / 14 / 24 / 42 / 70 / 120 art px and the special pieces
+        const out = document.createElement("canvas"); out.width = 1680; out.height = 1120; const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+        const W = 420, H = 280, sh = document.createElement("canvas"); sh.width = W; sh.height = H; const sc = sh.getContext("2d"); sc.imageSmoothingEnabled = false;
+        for (let j = 0; j * 130 < H; j++) for (let i = 0; i * 150 < W; i++) { sc.save(); sc.translate(i * 150 + (i % 2 ? 150 : 0), j * 130 + (j % 2 ? 130 : 0)); sc.scale(i % 2 ? -1 : 1, j % 2 ? -1 : 1); sc.drawImage(base, 700, 600, 150, 130, 0, 0, 150, 130); sc.restore(); }
+        const place = (spr, x, y) => sc.drawImage(spr.cv, Math.round(x - spr.ox), Math.round(y - spr.oy));
+        const fam = OPT === "A" ? "tor" : OPT === "B" ? "grit" : "slate";
+        let x = 22;
+        for (const s of [5, 9, 15, 26, 44]) { place(rockMass(s, fam, 7 + s, { cap: OPT === "A", heath: s > 20 ? 3 : 0 }), x + s * 0.4, 100); x += s * 0.9 + 14; }
+        place(rockMass(76, fam, 301, { cap: OPT !== "C", heath: 6 }), 190, 170);
+        if (OPT === "A") place(rockMass(124, fam, 302, { cap: true, heath: 8 }), 310, 250);
+        if (OPT === "B") place(cliffWall(250, 26, 9), 250, 260);
+        if (OPT === "C") { place(quarryCrag(110, 41), 300, 250); for (let k = 0; k < 4; k++) place(dressed(8 + k * 2, 60 + k), 40 + k * 22, 230); }
+        o.drawImage(sh, 0, 0, W * 4, H * 4);
+        tag(o, 14, 36, LABELS[OPT] + "  ROCK LADDER 4x");
+        name = `ovi1_crags_sheet_${OPT}`;
+        document.body.appendChild(out);
+        await post(name, out);
+      } else if (!LOOP) {
+        const S = buildScene(ctx, SC, OPT === "today" ? "none" : OPT, g.towers);
+        if (OPT !== "today") { S.render(); S.paintLive(ctx, 0); layBack(ctx); } else { ctx.drawImage(full, 0, 0); }
+        const out = document.createElement("canvas"); out.width = 1680; out.height = 1120; const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+        o.drawImage(cv, crop[0] * 2, crop[1] * 2, 840, 560, 0, 0, 1680, 1120);
+        if (!q.get("notag")) tag(o, 14, 36, `${LABELS[OPT]}  ${BOARD.toUpperCase()}  ${SUN.toUpperCase()}`);
+        name = `ovi1_crags_${BOARD}_${OPT}${SUN !== SC.sun ? "_" + SUN : ""}`;
+        document.body.appendChild(out);
+        if (q.get("save")) await post(name, out);
+        status(`saved ${name}  warnings: ${S.warn.length}\n${S.warn.slice(0, 8).join("\n")}`);
+      } else {
+        // a playing loop: the static scene once, then the live tufts and puddles for each frame of a seamless period
+        const S = buildScene(ctx, SC, OPT, g.towers);
+        S.render(); layBack(ctx);
+        const still = document.createElement("canvas"); still.width = 1680; still.height = 1120; still.getContext("2d").drawImage(cv, 0, 0);
+        const [bx, by, bw, bh] = (q.get("box") || (LOOP === "road" ? "10,70,260,170" : "40,100,260,170")).split(",").map(Number);
+        const FW2 = bw * 2, FH2 = bh * 2, COLS = 6, ROWS = 4, N = COLS * ROWS;
+        const sheet = document.createElement("canvas"); sheet.width = FW2 * COLS; sheet.height = FH2 * ROWS;
+        const sctx = sheet.getContext("2d"), work = document.createElement("canvas"); work.width = 1680; work.height = 1120; const w2 = work.getContext("2d"); w2.imageSmoothingEnabled = false;
+        const frames = [];
+        const ox = (crop[0] + bx) * 2, oy = (crop[1] + by) * 2;
+        for (let f = 0; f < N; f++) {
+          w2.drawImage(still, 0, 0); S.paintLive(w2, f / N);
+          sctx.drawImage(work, ox, oy, FW2, FH2, (f % COLS) * FW2, Math.floor(f / COLS) * FH2, FW2, FH2);
+          frames.push(w2.getImageData(ox, oy, FW2, FH2).data.slice());
+        }
+        const diff = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++; return n; };
+        // loop seam: the F-1 -> 0 step against the 0 -> 1 step; shimmer: pixels equal in 0,2 but different in 1 (alternate-frame flicker)
+        let shimmer = 0; for (let i = 0; i < frames[0].length; i += 4) if (frames[0][i] === frames[2][i] && frames[0][i + 1] === frames[2][i + 1] && frames[0][i] !== frames[1][i]) shimmer++;
+        name = `ovi1_anim_crags_${LOOP}_c${COLS}r${ROWS}_fps8`;
+        await post(name, sheet);
+        const st = document.createElement("canvas"); st.width = FW2; st.height = FH2; st.getContext("2d").drawImage(sheet, 0, 0, FW2, FH2, 0, 0, FW2, FH2);
+        await post(`ovi1_anim_crags_${LOOP}_still`, st);
+        document.body.appendChild(sheet);
+        status(`saved ${name} (${sheet.width}x${sheet.height})  step 0->1: ${diff(frames[0], frames[1])} px   seam ${N - 1}->0: ${diff(frames[N - 1], frames[0])} px   quarter steps: ${diff(frames[0], frames[6])}, ${diff(frames[6], frames[12])}   shimmer ${shimmer}`);
+      }
+      window.__g = g;
+      document.title = "DONE";
+      if (!document.getElementById("status").textContent.startsWith("saved")) status(`saved ${name}`);
+    </script>
+  </body>
+</html>
