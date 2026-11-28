@@ -3147,7 +3147,7 @@ export function updateGame(g, dt) {
           for (let i = 0; i < n; i++) {
             const ang = (i / n) * Math.PI * 2 + t.spinOff;
             g.projectiles.push({
-              id: nextId(), x: t.x, y: t.y - 8, targetId: null,
+              id: nextId(), x: t.x, y: t.y - 8, sx: t.x, sy: t.y - 8, targetId: null,   // (sx / sy: render only, fx.js SPIKE_CLEAR)
               tx: t.x + Math.cos(ang) * st.range, ty: t.y - 8 + Math.sin(ang) * st.range,
               speed: 360, delay: 0, dmg: st.dmg, dtype: st.dtype, pierce: false, splash: 0,
               burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0,

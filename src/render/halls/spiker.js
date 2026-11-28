@@ -100,7 +100,7 @@ export const drawBladewheel = (ctx, t, time) => {
     // shade (not queued) so the back half still passes behind the wheel
     for (const [px, py, i] of pots) if ((py >= wy - 0.8) === front) { const s = 0.9 * swell; stampTorch(ctx, px, py + 0.5, s * 4.16, s * 6.9, time, (i + t.id) % 7, i + t.id); }
     if (anim > 0.4) {
-      const rg = rr + 4 + (1 - anim) * 14;
+      const rg = rr + 10 + (1 - anim) * 14;   // (owner, 2026-11-28: starts clear of the wheel, as the flame ring)
       pxArc(ctx, x, wy, rg, rg * SQ, `rgba(255,200,110,${anim * 0.8})`, front ? { th: 2, a0: 0, a1: Math.PI } : { th: 2, a0: Math.PI, a1: Math.PI * 2 });
     }
   };
@@ -149,7 +149,7 @@ export const drawBladewheel = (ctx, t, time) => {
   }
   // release: sparks off the rim
   if (!fire && anim > 0.5) for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + t.id, d = rr + 4 + (1 - anim) * 16;
+    const a = (i / 6) * Math.PI * 2 + t.id, d = rr + 10 + (1 - anim) * 14;   // (starts clear of the wheel)
     const sx = x + Math.cos(a) * d, sy = wy + Math.sin(a) * d * SQ;
     ctx.fillStyle = `rgba(255,244,210,${anim})`; ctx.fillRect(sx - 0.5, sy - 0.5, 1.2, 1.2);
     ctx.fillRect(sx - Math.cos(a) * 2 - 0.3, sy - Math.sin(a) * SQ * 2 - 0.3, 0.7, 0.7);

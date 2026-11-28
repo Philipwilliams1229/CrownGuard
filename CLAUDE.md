@@ -1497,6 +1497,10 @@ Bring these up with the owner; don't act on them unasked.
   ranges ~9.4 MB); ringflash.js's `firenova` front now `0.5 + 0.5 * easeOut(p * 1.15)`. Six halls firing together 1.30 ->
   0.093 ms a frame once baked. `flameS`, `charS`, `behindHall`, `clipFront` and the old centre burst are unused now.
   Weak: foes outside the ring draw in the wrong order against it (two layers only); foes in the inner half never flash.
+  **The Bladewheel's other effects start out from the wheel too** (owner, 2026-11-28: "same changes for all the
+  animations this tower has"): a spike is hidden until it has flown `SPIKE_CLEAR` 24 from the hub (fx.js; the engine
+  still launches and strikes from the hub, so sims are unchanged; the spike carries render-only `sx` / `sy`), and the
+  release sparks and the Brazier's flash ring start at the rim + 10 (was + 4; halls/spiker.js). Pending the owner's look.
   The three above were pushed (2026-11-24). **Round 20** (owner: "lets work with the other fire effects"; brief
   `art/briefs/fx-round20.md`, four Opus artists, `build-fx-concepts.mjs round20`): `fireball20` (`concept/fx-r20-
   fireball.js`: the Pyromancer fireball, the Comet Sling's stone (today it flies with NO fire on it) and the fire pot,
