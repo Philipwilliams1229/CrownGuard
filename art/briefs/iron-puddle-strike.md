@@ -18,7 +18,8 @@ change, in the Iron round-1 storm concepts first). Fable's plan (advisor, same d
    3750 ms. Puddle count unchanged.
 3. **Risks.** Strokes skip foes with `guard > 0` or `mres > 0`, and most of Iron now has pips: as specified it
    would mostly hurt OUR men. OPEN QUESTION FOR THE OWNER: keep the immunity, or let the paralysis (not the
-   damage) pass pips in water (`poolStunPips`, Fable's pick). Checkpoint keeps `clock` / `wet`: add `pud`
+   damage) pass pips in water (`poolStunPips`, Fable's pick). OWNER (2026-11-28): "Pips block it all": keep the
+   immunity; shielded or magic-resistant foes ignore the puddle strike too. Checkpoint keeps `clock` / `wet`: add `pud`
    (and the retry snapshot). Gate on `def.poolDmg` so non-storm sims stay byte-identical; re-sim
    `--chapter iron --endure` seeds 1-2 and print `pool-strikes`. Compare the puddle look in `rain-lab.html`
    before and after the move (the only drift is `sdt` vs the old capped `g.time` delta).
