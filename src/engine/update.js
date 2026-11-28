@@ -398,6 +398,8 @@ const runGhastHits = (g) => {
   g.ghastHits = keep;
 };
 const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.2, LOG_STALL = 0.25;
+// how far out a siege ram stops a log, x its size (the ram is ~100 x 60 board px)
+const LOG_RAM_REACH = 0.9;
 // the Powder Keg Run's log goes up where it stops, or as it leaves the field
 const logBlast = (g, lg, bx, by) => {
   g.effects.push({ type: "boom", x: bx, y: by, ttl: 420, r: lg.blast });
@@ -3252,8 +3254,23 @@ export function updateGame(g, dt) {
         lg.y += Math.sin(lg.a) * step;
         lg.rolled = (lg.rolled || 0) + step;
         lg.spin += step * 0.09;
+        // a siege ram is a wall across the road: a log that meets it breaks on
+        // it (owner, 2026-11-28). It strikes the ram once with its FULL weight
+        // (the first-body blow, through the plate) and goes no further; the
+        // Powder Keg goes up against it. Bodies in front of the ram are still
+        // crushed first; nothing behind it is touched.
+        let ram = null, ramAlong = Infinity;
         for (const e of g.enemies) {
-          if (e.dead || e.flying || lg.hitIds.includes(e.id)) continue;
+          if (e.dead || !e.roadBlock || e.flying) continue;
+          const dx = e.x - lg.x, dy = e.y - lg.y;
+          const along = dx * Math.cos(lg.a) + dy * Math.sin(lg.a);
+          const across = Math.abs(-dx * Math.sin(lg.a) + dy * Math.cos(lg.a));
+          const reach = (e.size || 34) * LOG_RAM_REACH;
+          if (along < -10 || along > 10 + reach || across > Math.max(lg.w * 0.5, PATH_HALF) + reach) continue;
+          if (along < ramAlong) { ram = e; ramAlong = along; }
+        }
+        for (const e of g.enemies) {
+          if (e.dead || e.flying || e.roadBlock || lg.hitIds.includes(e.id)) continue;
           // distance from the enemy to the log's axle line, across its width.
           // The log reaches the whole road, all three lanes, however narrow it
           // is drawn: it takes its bearing from the centreline, and a foe in
@@ -3262,6 +3279,7 @@ export function updateGame(g, dt) {
           const along = dx * Math.cos(lg.a) + dy * Math.sin(lg.a);
           const across = Math.abs(-dx * Math.sin(lg.a) + dy * Math.cos(lg.a));
           if (Math.abs(along) > 10 || across > Math.max(lg.w * 0.5, PATH_HALF) + (e.size || 14) * 0.5) continue;
+          if (ram && along >= ramAlong) continue;   // behind the ram: the log never gets there
           lg.hitIds.push(e.id);
           // every body it rolls over takes some of its weight: 10% less for
           // the next, never under 40% — the head of a column takes the worst
@@ -3277,6 +3295,12 @@ export function updateGame(g, dt) {
           lg.mom -= lg.drag;
           lg.speed = lg.speed0 * Math.max(0, lg.mom);
           if (lg.mom <= LOG_STALL) { lg.stalled = true; break; }
+        }
+        if (ram && !lg.stalled) {
+          dealDamage(g, ram, lg.dmg, "phys", true, false, lg.src);
+          g.effects.push({ type: "dust", x: lg.x, y: lg.y, ttl: 520, r: 30 });
+          g.shake = Math.max(g.shake, 5);
+          lg.stalled = true;
         }
         if (lg.stalled) {
           // it grinds to a halt in the crowd and breaks apart (the powder keg
